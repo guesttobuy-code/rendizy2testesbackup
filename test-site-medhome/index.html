@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Medhome - Site Isolado</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        iframe {
+            width: 100%;
+            height: 800px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.success {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+        .status.error {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+        .status.loading {
+            background: #fff9c4;
+            color: #f57f17;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Isolado - Site Medhome</h1>
+        <p>Este teste serve o site Medhome extraído do ZIP, sem depender do backend do Rendizy.</p>
+        
+        <div class="controls">
+            <button onclick="loadFromBackend()">1. Carregar HTML do Backend</button>
+            <button onclick="loadFromLocal()">2. Carregar HTML Local (se disponível)</button>
+            <button onclick="testDirectZip()">3. Testar ZIP Direto</button>
+            <div id="status" class="status" style="display: none;"></div>
+        </div>
+
+        <div id="site-container">
+            <iframe id="site-frame" src="about:blank"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const projectId = 'odcgnzfremrqnvtitpcc';
+        const publicAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPFkbP7QC_hhiZwxUZbtnqVqQ';
+        const subdomain = 'medhome';
+
+        function showStatus(message, type = 'loading') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
+        }
+
+        async function loadFromBackend() {
+            showStatus('Carregando HTML do backend...', 'loading');
+            try {
+                const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/client-sites/serve/${subdomain}.rendizy.app`;
+                console.log('🔍 Buscando HTML de:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${publicAnonKey}`,
+                    }
+                });
+
+                console.log('📡 Status:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
+                }
+
+                const htmlContent = await response.text();
+                console.log('✅ HTML recebido:', htmlContent.length, 'caracteres');
+                console.log('📄 Primeiros 500 caracteres:', htmlContent.substring(0, 500));
+
+                // Criar blob URL para o HTML
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const blobUrl = URL.createObjectURL(blob);
+                
+                document.getElementById('site-frame').src = blobUrl;
+                showStatus(`✅ HTML carregado com sucesso! (${htmlContent.length} caracteres)`, 'success');
+                
+                // Log de assets referenciados
+                const assetMatches = htmlContent.match(/src=["']([^"']+\.(js|css|png|jpg|svg))["']/gi);
+                if (assetMatches) {
+                    console.log('📦 Assets referenciados no HTML:', assetMatches);
+                }
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                showStatus(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadFromLocal() {
+            showStatus('Tentando carregar HTML local...', 'loading');
+            // Esta função pode ser usada para testar com um HTML salvo localmente
+            showStatus('⚠️ HTML local não disponível. Use "Carregar HTML do Backend"', 'error');
+        }
+
+        async function testDirectZip() {
+            showStatus('Testando acesso direto ao ZIP...', 'loading');
+            try {
+                // Primeiro, buscar informações do site
+                const siteUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/client-sites/by-subdomain/${subdomain}`;
+                const siteResponse = await fetch(siteUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${publicAnonKey}`,
+                    }
+                });
+
+                if (!siteResponse.ok) {
+                    throw new Error(`Erro ao buscar site: ${siteResponse.status}`);
+                }
+
+                const siteData = await siteResponse.json();
+                console.log('📦 Dados do site:', siteData);
+
+                if (!siteData.data || !siteData.data.archivePath) {
+                    throw new Error('Site não tem archivePath');
+                }
+
+                showStatus(`✅ ZIP encontrado: ${siteData.data.archivePath}`, 'success');
+                
+                // Agora tentar servir o HTML diretamente
+                await loadFromBackend();
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                showStatus(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-carregar ao abrir a página
+        window.addEventListener('load', () => {
+            console.log('🚀 Página de teste carregada');
+            // loadFromBackend();
+        });
+    </script>
+</body>
+</html>
+

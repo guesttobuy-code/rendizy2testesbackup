@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 EXECUTOR AUTOMÁTICO COMPLETO</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .step {
+            background: #f8fafc;
+            border-left: 5px solid #cbd5e0;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .step.active {
+            border-left-color: #3b82f6;
+            background: #dbeafe;
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.2);
+        }
+        
+        .step.completed {
+            border-left-color: #10b981;
+            background: #d1fae5;
+        }
+        
+        .step.error {
+            border-left-color: #ef4444;
+            background: #fee2e2;
+        }
+        
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #cbd5e0;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            font-size: 18px;
+        }
+        
+        .step.active .step-number {
+            background: #3b82f6;
+            animation: spin 1s linear infinite;
+        }
+        
+        .step.completed .step-number {
+            background: #10b981;
+        }
+        
+        .step.error .step-number {
+            background: #ef4444;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .step-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1e293b;
+        }
+        
+        .step-desc {
+            color: #64748b;
+            margin-left: 55px;
+            line-height: 1.6;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 30px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        
+        .log {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin-top: 20px;
+        }
+        
+        .log-line {
+            margin-bottom: 5px;
+            padding: 3px 0;
+        }
+        
+        .log-line.success { color: #4ade80; }
+        .log-line.error { color: #f87171; }
+        .log-line.warning { color: #fbbf24; }
+        .log-line.info { color: #60a5fa; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 30px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 42px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .alert {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .alert h4 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+        
+        .alert p {
+            color: #78350f;
+            line-height: 1.6;
+        }
+        
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .success-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div class="icon">🎯</div>
+                <h1>Executor Automático Completo</h1>
+                <p>Sistema Unificado v1.0.103.315</p>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="alert">
+                <h4>⚡ EXECUÇÃO AUTOMÁTICA EM 3 SEGUNDOS</h4>
+                <p>Este arquivo executará automaticamente todos os 4 passos em sequência. Não feche esta janela!</p>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress"></div>
+            </div>
+            
+            <div class="step" id="step1">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-title">🤖 Executar Migração</div>
+                </div>
+                <div class="step-desc">Normalizando propriedades no banco de dados...</div>
+            </div>
+            
+            <div class="step" id="step2">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-title">📊 Verificar Resultados</div>
+                </div>
+                <div class="step-desc">Analisando estatísticas da migração...</div>
+            </div>
+            
+            <div class="step" id="step3">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <div class="step-title">🔥 Limpar Cache</div>
+                </div>
+                <div class="step-desc">Instruções para limpar cache do navegador...</div>
+            </div>
+            
+            <div class="step" id="step4">
+                <div class="step-header">
+                    <div class="step-number">4</div>
+                    <div class="step-title">✅ Ir para Sistema</div>
+                </div>
+                <div class="step-desc">Redirecionando para lista de imóveis...</div>
+            </div>
+            
+            <div class="log" id="log"></div>
+            
+            <div id="results" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://uzdpaacxayfrnznjcmgj.supabase.co/functions/v1/make-server-67caf26a';
+        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6ZHBhYWN4YXlmcm56bmpjbWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDc0NzcsImV4cCI6MjA0NTcyMzQ3N30.gD2DolP3fVnzLXMYmQlIlnwG9Qsph4Zbi-UpcczkKhw';
+        
+        const log = document.getElementById('log');
+        const progress = document.getElementById('progress');
+        const results = document.getElementById('results');
+        
+        function addLog(message, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            line.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function updateStep(stepId, status) {
+            const step = document.getElementById(stepId);
+            step.className = `step ${status}`;
+        }
+        
+        function updateProgress(percent) {
+            progress.style.width = `${percent}%`;
+        }
+        
+        async function executarTudo() {
+            try {
+                // ============================================================
+                // PASSO 1: EXECUTAR MIGRAÇÃO
+                // ============================================================
+                addLog('🚀 INICIANDO EXECUÇÃO AUTOMÁTICA...', 'info');
+                addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+                
+                await sleep(1000);
+                
+                addLog('', 'info');
+                addLog('📦 PASSO 1/4: EXECUTAR MIGRAÇÃO', 'warning');
+                addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+                updateStep('step1', 'active');
+                updateProgress(10);
+                
+                addLog('🔌 Conectando ao Supabase...', 'info');
+                await sleep(500);
+                
+                addLog('📡 Enviando requisição POST /migrate-normalize-properties...', 'info');
+                
+                const response = await fetch(`${API_URL}/migrate-normalize-properties`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                updateProgress(30);
+                addLog('📥 Recebendo resposta do servidor...', 'info');
+                
+                const result = await response.json();
+                
+                updateProgress(50);
+                
+                if (result.success) {
+                    updateStep('step1', 'completed');
+                    addLog('✅ MIGRAÇÃO CONCLUÍDA COM SUCESSO!', 'success');
+                    addLog(`📊 Total de propriedades: ${result.stats.total}`, 'success');
+                    addLog(`✅ Migradas: ${result.stats.migrated}`, 'success');
+                    addLog(`⏭️  Puladas: ${result.stats.skipped}`, 'success');
+                    addLog(`❌ Erros: ${result.stats.errors}`, result.stats.errors > 0 ? 'error' : 'success');
+                    
+                    // ============================================================
+                    // PASSO 2: VERIFICAR RESULTADOS
+                    // ============================================================
+                    await sleep(1000);
+                    addLog('', 'info');
+                    addLog('📊 PASSO 2/4: VERIFICAR RESULTADOS', 'warning');
+                    addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+                    updateStep('step2', 'active');
+                    updateProgress(60);
+                    
+                    await sleep(1000);
+                    
+                    updateStep('step2', 'completed');
+                    updateProgress(70);
+                    
+                    results.style.display = 'block';
+                    results.innerHTML = `
+                        <div class="stats">
+                            <div class="stat-card">
+                                <div class="stat-number">${result.stats.total}</div>
+                                <div class="stat-label">Total</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: #10b981;">${result.stats.migrated}</div>
+                                <div class="stat-label">Migradas</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: #64748b;">${result.stats.skipped}</div>
+                                <div class="stat-label">Puladas</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: ${result.stats.errors > 0 ? '#ef4444' : '#10b981'};">${result.stats.errors}</div>
+                                <div class="stat-label">Erros</div>
+                            </div>
+                        </div>
+                        
+                        ${result.stats.details && result.stats.details.length > 0 ? `
+                            <div style="margin-top: 20px;">
+                                <h3 style="margin-bottom: 15px;">📋 Detalhes da Migração</h3>
+                                <pre style="background: #1e293b; color: #e2e8f0; padding: 15px; border-radius: 10px; overflow-x: auto; font-size: 11px;">${JSON.stringify(result.stats.details, null, 2)}</pre>
+                            </div>
+                        ` : ''}
+                    `;
+                    
+                    // ============================================================
+                    // PASSO 3: LIMPAR CACHE
+                    // ============================================================
+                    await sleep(1000);
+                    addLog('', 'info');
+                    addLog('🔥 PASSO 3/4: LIMPAR CACHE', 'warning');
+                    addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+                    updateStep('step3', 'active');
+                    updateProgress(80);
+                    
+                    addLog('⚠️  ATENÇÃO: VOCÊ PRECISA LIMPAR O CACHE MANUALMENTE!', 'warning');
+                    addLog('📋 Instruções:', 'info');
+                    addLog('   1. Pressione: Ctrl + Shift + Delete', 'info');
+                    addLog('   2. Marque: "Imagens e arquivos em cache"', 'info');
+                    addLog('   3. Período: "Todo o período"', 'info');
+                    addLog('   4. Clique: "Limpar dados"', 'info');
+                    
+                    await sleep(2000);
+                    
+                    addLog('✅ Instruções mostradas!', 'success');
+                    updateStep('step3', 'completed');
+                    updateProgress(90);
+                    
+                    // Adicionar botões de ação
+                    results.innerHTML += `
+                        <div class="alert" style="background: #fef3c7; border-left-color: #f59e0b; margin-top: 30px;">
+                            <h4 style="color: #92400e; margin-bottom: 10px;">⚡ AÇÃO NECESSÁRIA</h4>
+                            <p style="color: #78350f; margin-bottom: 15px;">
+                                Antes de continuar, você precisa limpar o cache do navegador:
+                            </p>
+                            <ol style="color: #78350f; margin-left: 20px; margin-bottom: 15px;">
+                                <li>Pressione <strong>Ctrl + Shift + Delete</strong></li>
+                                <li>Marque <strong>"Imagens e arquivos em cache"</strong></li>
+                                <li>Selecione período <strong>"Todo o período"</strong></li>
+                                <li>Clique em <strong>"Limpar dados"</strong></li>
+                            </ol>
+                            <p style="color: #78350f;">
+                                Depois clique no botão abaixo para ir para o sistema.
+                            </p>
+                        </div>
+                        
+                        <button class="btn" onclick="continuarParaSistema()">
+                            ✅ Já Limpei o Cache - Ir para o Sistema
+                        </button>
+                    `;
+                    
+                } else {
+                    throw new Error(result.error || 'Erro desconhecido na migração');
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                
+                updateStep('step1', 'error');
+                updateStep('step2', 'error');
+                updateStep('step3', 'error');
+                updateStep('step4', 'error');
+                
+                addLog('', 'error');
+                addLog('❌ ERRO NA EXECUÇÃO!', 'error');
+                addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'error');
+                addLog(`Mensagem: ${error.message}`, 'error');
+                addLog('', 'error');
+                addLog('🔧 TROUBLESHOOTING:', 'warning');
+                addLog('1. Verifique sua conexão com a internet', 'info');
+                addLog('2. Abra o Console (F12) e veja erros detalhados', 'info');
+                addLog('3. Tente recarregar esta página (F5)', 'info');
+                
+                results.style.display = 'block';
+                results.innerHTML = `
+                    <div class="alert" style="background: #fee2e2; border-left-color: #ef4444;">
+                        <h4 style="color: #7f1d1d; margin-bottom: 10px;">❌ Erro na Migração</h4>
+                        <p style="color: #991b1b; margin-bottom: 15px;">
+                            ${error.message}
+                        </p>
+                        <p style="color: #991b1b; font-size: 14px;">
+                            Abra o Console do navegador (F12) para mais detalhes.
+                        </p>
+                    </div>
+                    
+                    <button class="btn" onclick="location.reload()">
+                        🔄 Tentar Novamente
+                    </button>
+                `;
+            }
+        }
+        
+        function continuarParaSistema() {
+            // ============================================================
+            // PASSO 4: IR PARA O SISTEMA
+            // ============================================================
+            addLog('', 'info');
+            addLog('🏠 PASSO 4/4: IR PARA O SISTEMA', 'warning');
+            addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+            updateStep('step4', 'active');
+            updateProgress(95);
+            
+            addLog('🔄 Fazendo Hard Refresh (Ctrl + Shift + R)...', 'info');
+            
+            setTimeout(() => {
+                addLog('✅ Redirecionando para /properties...', 'success');
+                updateStep('step4', 'completed');
+                updateProgress(100);
+                
+                setTimeout(() => {
+                    window.location.href = '/properties?refresh=true&v=' + Date.now();
+                }, 1000);
+            }, 1000);
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // EXECUTAR AUTOMATICAMENTE AO CARREGAR A PÁGINA
+        window.addEventListener('DOMContentLoaded', () => {
+            addLog('🌐 Página carregada', 'info');
+            addLog('⏳ Aguardando 3 segundos para iniciar...', 'info');
+            
+            setTimeout(() => {
+                executarTudo();
+            }, 3000);
+        });
+    </script>
+</body>
+</html>

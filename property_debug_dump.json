@@ -1,0 +1,336 @@
+{
+  "success": true,
+  "data": {
+    "id": "1e4b95b4-cfff-474f-9402-234659ac5179",
+    "name": "Test Internal Name FIXED",
+    "code": "DRAFT-MIT1O29Z",
+    "type": "house",
+    "status": "active",
+    "propertyType": "individual",
+    "address": {
+      "street": "",
+      "number": "",
+      "neighborhood": "",
+      "city": "Rio de Janeiro",
+      "state": "RJ",
+      "zipCode": "",
+      "country": "BR"
+    },
+    "maxGuests": 0,
+    "bedrooms": 0,
+    "beds": 0,
+    "bathrooms": 0,
+    "pricing": {
+      "basePrice": 0,
+      "currency": "BRL",
+      "weeklyDiscount": 0,
+      "biweeklyDiscount": 0,
+      "monthlyDiscount": 0
+    },
+    "restrictions": {
+      "minNights": 1,
+      "maxNights": 365,
+      "advanceBooking": 0,
+      "preparationTime": 0
+    },
+    "amenities": [],
+    "tags": [],
+    "photos": [],
+    "locationAmenities": [],
+    "listingAmenities": [],
+    "platforms": {
+      "direct": true
+    },
+    "wizardData": {
+      "id": "1e4b95b4-cfff-474f-9402-234659ac5179",
+      "contentType": {
+        "modalidades": [],
+        "internalName": "",
+        "propertyType": "individual",
+        "registrationNumber": ""
+      },
+      "contentRooms": {
+        "rooms": [
+          {
+            "id": "room-1764955206963",
+            "beds": {},
+            "type": "",
+            "photos": [
+              {
+                "id": "photo-1764955217102-r9w6pl",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955217102-r9w6pl.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIxNzEwMi1yOXc2cGwuanBnIiwiaWF0IjoxNzY0OTU1MjE3LCJleHAiOjE3OTY0OTEyMTd9.hvAG8VpaP0igdvZ04nejjTtDjvXtYfBwb2hACLGldns",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955217102-r9w6pl.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 0
+              },
+              {
+                "id": "photo-1764955218311-d7niyb",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955218311-d7niyb.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIxODMxMS1kN25peWIuanBnIiwiaWF0IjoxNzY0OTU1MjE4LCJleHAiOjE3OTY0OTEyMTh9.nSJZa3y1vcn5bDChU7lL0L60yijm1syOj3Dz-RN8gTo",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955218311-d7niyb.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 1
+              },
+              {
+                "id": "photo-1764955219651-24y82",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955219651-24y82.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIxOTY1MS0yNHk4Mi5qcGciLCJpYXQiOjE3NjQ5NTUyMjAsImV4cCI6MTc5NjQ5MTIyMH0.xBfOusEH6AdfLMuSofBjotZE5cvfQp3llAXEparqWCo",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955219651-24y82.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 2
+              },
+              {
+                "id": "photo-1764955220682-dgnwis",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955220682-dgnwis.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIyMDY4Mi1kZ253aXMuanBnIiwiaWF0IjoxNzY0OTU1MjIxLCJleHAiOjE3OTY0OTEyMjF9.taX65ir3m3ZBT9BOuxjZhyB5TbobIIvH9wtxdXOHTrc",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955220682-dgnwis.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 3
+              },
+              {
+                "id": "photo-1764955222547-0rivkh",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955222547-0rivkh.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIyMjU0Ny0wcml2a2guanBnIiwiaWF0IjoxNzY0OTU1MjIyLCJleHAiOjE3OTY0OTEyMjJ9.EQ5yly7fZG_mmtbpP2i7Tpo5hrjNj2vGBAuwL5fWxY0",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955222547-0rivkh.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 4
+              },
+              {
+                "id": "photo-1764955223650-cr4sms",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955223650-cr4sms.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIyMzY1MC1jcjRzbXMuanBnIiwiaWF0IjoxNzY0OTU1MjI0LCJleHAiOjE3OTY0OTEyMjR9.9xPx2GnsQ-hBLL9ZWiUhLv6qt-fe6GoH0_LLuY83D9g",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955223650-cr4sms.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 5
+              },
+              {
+                "id": "photo-1764955224941-vfhnu",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955224941-vfhnu.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIyNDk0MS12ZmhudS5qcGciLCJpYXQiOjE3NjQ5NTUyMjUsImV4cCI6MTc5NjQ5MTIyNX0.-3454J1xlw8hWADKx2Wo-Bq0ou_SyQnjlDd3DQ1PqKY",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955224941-vfhnu.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 6
+              },
+              {
+                "id": "photo-1764955225969-bm83ll",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955225969-bm83ll.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIyNTk2OS1ibTgzbGwuanBnIiwiaWF0IjoxNzY0OTU1MjI2LCJleHAiOjE3OTY0OTEyMjZ9.1b1PljnTyJl6UkGHCOjXxtNnn5Ex0Pa8PQyqC6PawZY",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955225969-bm83ll.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 7
+              },
+              {
+                "id": "photo-1764955227317-un2wxc",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955227317-un2wxc.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIyNzMxNy11bjJ3eGMuanBnIiwiaWF0IjoxNzY0OTU1MjI3LCJleHAiOjE3OTY0OTEyMjd9.hg-FVxWIbSHAG_WjTKWizJ14bID8XhO8QNX2z71smBQ",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955227317-un2wxc.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 8
+              },
+              {
+                "id": "photo-1764955228576-6ig3vb",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955228576-6ig3vb.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIyODU3Ni02aWczdmIuanBnIiwiaWF0IjoxNzY0OTU1MjI5LCJleHAiOjE3OTY0OTEyMjl9.D4uRfv8tR1wG9ihC1Hz9AJtJzZBAdPX9rKLT4ROE5xA",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955228576-6ig3vb.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 9
+              },
+              {
+                "id": "photo-1764955229953-mvb6r",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955229953-mvb6r.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIyOTk1My1tdmI2ci5qcGciLCJpYXQiOjE3NjQ5NTUyMzAsImV4cCI6MTc5NjQ5MTIzMH0.Xli1q2v9S7pYN91f3E0CCeZ7ewzYCSmf542840mU790",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955229953-mvb6r.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 10
+              },
+              {
+                "id": "photo-1764955231152-y6v1zb",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955231152-y6v1zb.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIzMTE1Mi15NnYxemIuanBnIiwiaWF0IjoxNzY0OTU1MjM3LCJleHAiOjE3OTY0OTEyMzd9.kWJbO6bTylliDo-osftkcy2rxvg81qusLX97R7O_nR0",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955231152-y6v1zb.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 11
+              },
+              {
+                "id": "photo-1764955238856-vq5mzb",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955238856-vq5mzb.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTIzODg1Ni12cTVtemIuanBnIiwiaWF0IjoxNzY0OTU1MjM5LCJleHAiOjE3OTY0OTEyMzl9.HUajbNfXtrOPU6Gy8htDJVfh908DnJnjlyU3KeHll2A",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955238856-vq5mzb.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 12
+              },
+              {
+                "id": "photo-1764955240777-a16t6",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955240777-a16t6.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI0MDc3Ny1hMTZ0Ni5qcGciLCJpYXQiOjE3NjQ5NTUyNDEsImV4cCI6MTc5NjQ5MTI0MX0.-yXxJDOZDgAtqJEzSLP4MyhysPvjxXJOYLixo5Ft2e4",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955240777-a16t6.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 13
+              },
+              {
+                "id": "photo-1764955242272-3sf5pl",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955242272-3sf5pl.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI0MjI3Mi0zc2Y1cGwuanBnIiwiaWF0IjoxNzY0OTU1MjQyLCJleHAiOjE3OTY0OTEyNDJ9.gtGNOYCsCb0uLrLCi7HUgWyw1dxps0GlDozg1_A0oc0",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955242272-3sf5pl.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 14
+              },
+              {
+                "id": "photo-1764955243277-dcps5h",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955243277-dcps5h.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI0MzI3Ny1kY3BzNWguanBnIiwiaWF0IjoxNzY0OTU1MjQzLCJleHAiOjE3OTY0OTEyNDN9.LefipCDdWew4W_NyBRf6-pXYnDd1jt-THnzHgLZRLC8",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955243277-dcps5h.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 15
+              },
+              {
+                "id": "photo-1764955244898-6zms3f",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955244898-6zms3f.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI0NDg5OC02em1zM2YuanBnIiwiaWF0IjoxNzY0OTU1MjQ1LCJleHAiOjE3OTY0OTEyNDV9.nZO0asDG5Ym9LG08PQgH1e_ffzW3w0Crah7_ReX2Q3w",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955244898-6zms3f.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 16
+              },
+              {
+                "id": "photo-1764955246208-u10kwa",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955246208-u10kwa.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI0NjIwOC11MTBrd2EuanBnIiwiaWF0IjoxNzY0OTU1MjQ2LCJleHAiOjE3OTY0OTEyNDZ9.rWvfu4CJrpGqdFUVx9MgtTcat_XXo8o2MX5fD7rYPHM",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955246208-u10kwa.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 17
+              },
+              {
+                "id": "photo-1764955247446-xm85fs",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955247446-xm85fs.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI0NzQ0Ni14bTg1ZnMuanBnIiwiaWF0IjoxNzY0OTU1MjQ3LCJleHAiOjE3OTY0OTEyNDd9.hQYsVmYn0iM3iF0gTXIVuHTcrRsCVEs2RbrC4iQCkj4",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955247446-xm85fs.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 18
+              },
+              {
+                "id": "photo-1764955248660-ap4epo",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955248660-ap4epo.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI0ODY2MC1hcDRlcG8uanBnIiwiaWF0IjoxNzY0OTU1MjQ4LCJleHAiOjE3OTY0OTEyNDh9.UFD8dybe_YQ8m8w34S1URtS7ukLLcXCZzT9am4ebIRs",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955248660-ap4epo.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 19
+              },
+              {
+                "id": "photo-1764955249620-9feje",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955249620-9feje.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI0OTYyMC05ZmVqZS5qcGciLCJpYXQiOjE3NjQ5NTUyNTAsImV4cCI6MTc5NjQ5MTI1MH0.Mj6kLB2b2oZJXGnthr4go_U5N_-ZkQKZGlyjitDA-18",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955249620-9feje.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 20
+              },
+              {
+                "id": "photo-1764955251004-b302p",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955251004-b302p.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI1MTAwNC1iMzAycC5qcGciLCJpYXQiOjE3NjQ5NTUyNTEsImV4cCI6MTc5NjQ5MTI1MX0.fznD7AL44LhL3MzhIy7JB-KLEfq8j0fRS4_xGzJlJTY",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955251004-b302p.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 21
+              },
+              {
+                "id": "photo-1764955252185-y2av1",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955252185-y2av1.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI1MjE4NS15MmF2MS5qcGciLCJpYXQiOjE3NjQ5NTUyNTIsImV4cCI6MTc5NjQ5MTI1Mn0.nQ000aq_7nmHLxZOm-0Cqa9MJKD0_EjfGdiuPvBk3eE",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955252185-y2av1.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 22
+              },
+              {
+                "id": "photo-1764955253212-dnsq2t",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955253212-dnsq2t.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI1MzIxMi1kbnNxMnQuanBnIiwiaWF0IjoxNzY0OTU1MjUzLCJleHAiOjE3OTY0OTEyNTN9.2R_5yjrkB3eqD-cYT3-1uRuMe_ipoR8dovdigII_XKY",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955253212-dnsq2t.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 23
+              },
+              {
+                "id": "photo-1764955254537-27n2rp",
+                "url": "https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/sign/make-67caf26a-property-photos/1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955254537-27n2rp.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NDk4YmZiNi0yNmZkLTRmNTktYTMyMi1jZTQzMzhiNDg1YzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYWtlLTY3Y2FmMjZhLXByb3BlcnR5LXBob3Rvcy8xZTRiOTViNC1jZmZmLTQ3NGYtOTQwMi0yMzQ2NTlhYzUxNzkvZXh0ZXJuYWwvMTc2NDk1NTI1NDUzNy0yN24ycnAuanBnIiwiaWF0IjoxNzY0OTU1MjU1LCJleHAiOjE3OTY0OTEyNTV9.icxhPrIfMuLmZlybUSEfOX2b9hN4nK4UbFF2InA-tkU",
+                "path": "1e4b95b4-cfff-474f-9402-234659ac5179/external/1764955254537-27n2rp.jpg",
+                "tags": [
+                  "Área de estar"
+                ],
+                "order": 24
+              }
+            ],
+            "isShared": false,
+            "typeName": ""
+          }
+        ]
+      },
+      "settingsRules": {},
+      "contentLocation": {
+        "mode": "new",
+        "photos": [],
+        "address": {
+          "city": "Rio de Janeiro",
+          "state": "RJ",
+          "number": "",
+          "street": "",
+          "country": "BR",
+          "zipCode": "",
+          "stateCode": "",
+          "complement": "",
+          "neighborhood": ""
+        },
+        "hasWiFi": false,
+        "hasParking": false,
+        "has24hReception": false,
+        "hasCableInternet": false,
+        "locationAmenities": [],
+        "showBuildingNumber": "global",
+        "hasExpressCheckInOut": false
+      },
+      "contentAmenities": {
+        "propertyAmenities": [],
+        "inheritLocationAmenities": true
+      },
+      "financialContract": {},
+      "contentDescription": {
+        "fixedFields": {},
+        "autoTranslate": false,
+        "customFieldsValues": {}
+      },
+      "financialDerivedPricing": {},
+      "financialSeasonalPricing": {},
+      "financialIndividualPricing": {},
+      "financialResidentialPricing": {}
+    },
+    "completionPercentage": 0,
+    "completedSteps": [],
+    "createdAt": "2025-12-05T15:53:33.615729+00:00",
+    "updatedAt": "2025-12-05T20:06:53.318+00:00",
+    "ownerId": "e78c7bb9-7823-44b8-9aee-95c9b073e7b7",
+    "isActive": true
+  },
+  "timestamp": "2025-12-05T20:52:02.737Z"
+}

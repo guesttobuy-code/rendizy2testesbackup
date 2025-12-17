@@ -1,0 +1,44 @@
+===========================================
+   INSTRUCOES RAPIDAS - UPLOAD NO GITHUB
+===========================================
+
+METODO MAIS SIMPLE - Upload do ZIP completo
+--------------------------------------------
+
+1. Login no GitHub (se ainda nao estiver):
+   - Acesse: https://github.com/login
+   - Faca login com sua conta
+
+2. Upload do ZIP:
+   - A pagina de upload ja foi aberta automaticamente
+   - OU acesse: https://github.com/suacasarendemais-png/Rendizy2producao/upload
+   
+3. Arraste o arquivo ZIP para a pagina:
+   - Local: C:\Users\rafae\Downloads\Rendizy2producao-main_2025-11-19_15-49-14.zip
+   - OU clique em "choose your files" e selecione o ZIP
+   
+4. Digite mensagem de commit:
+   "feat: Atualizacao WhatsApp Integration - Corrige organizationId e status em tempo real"
+   
+5. Clique em "Commit changes"
+
+PRONTO! ✅ Nao precisa de token nem nada complicado!
+
+
+===========================================
+   ALTERNATIVA: Usar Git via Terminal
+===========================================
+
+Se preferir usar Git (precisa de token):
+
+1. Criar token no GitHub:
+   - https://github.com/settings/tokens
+   - "Generate new token (classic)"
+   - Permissao: repo (full control)
+   - Copie o token
+
+2. Execute no PowerShell:
+   .\push-github-completo.ps1
+   
+   (Quando pedir senha, use o TOKEN, nao sua senha!)
+

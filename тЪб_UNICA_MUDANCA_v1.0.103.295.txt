@@ -1,0 +1,29 @@
+⚡ ÚNICA MUDANÇA - v1.0.103.295
+===============================
+
+❌ LABEL ERRADO:
+----------------
+"Tipo de anúncio"
+
+✅ LABEL CORRETO:
+-----------------
+"Tipo de"
+
+📊 TODOS OS OUTROS LABELS:
+--------------------------
+✅ "Tipo de propriedade (endereço)" → JÁ ESTAVA CORRETO
+✅ "Subtipo" → JÁ ESTAVA CORRETO
+✅ "Modalidades" → JÁ ESTAVA CORRETO
+
+🎯 RESULTADO:
+-------------
+100% alinhado com documentação oficial!
+
+🧪 TESTE:
+---------
+Ctrl + Shift + R
+/properties
+"Cadastrar Nova Propriedade"
+Verificar: "Tipo de" ✅
+
+PRONTO! 🚀

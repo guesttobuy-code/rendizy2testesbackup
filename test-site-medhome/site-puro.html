@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medhome - Site Puro (Isolado)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .header {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+        }
+        .status.loading {
+            background: #ffa500;
+            color: #000;
+        }
+        .status.success {
+            background: #4caf50;
+            color: white;
+        }
+        .status.error {
+            background: #f44336;
+            color: white;
+        }
+        #site-frame {
+            width: 100%;
+            height: calc(100vh - 200px);
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: white;
+        }
+        .info {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏠 Medhome - Site Puro (100% Isolado)</h1>
+            <p>Este site é servido diretamente do ZIP, sem nenhuma conexão com o frontend do Rendizy</p>
+            <div id="status" class="status loading">Carregando site...</div>
+        </div>
+        
+        <iframe id="site-frame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+        
+        <div class="info">
+            <strong>ℹ️ Informações:</strong><br>
+            - HTML extraído diretamente do ZIP no Supabase Storage<br>
+            - Assets (JS/CSS) servidos diretamente do ZIP<br>
+            - Nenhuma dependência do frontend Rendizy<br>
+            - Nenhuma conexão com o backend do Rendizy (exceto para servir os arquivos estáticos)
+        </div>
+    </div>
+
+    <script>
+        const projectId = 'odcgnzfremrqnvtitpcc';
+        const publicAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPFkbP7QC_hhiZwxUZbtnqVqQ';
+        const subdomain = 'medhome';
+
+        const statusEl = document.getElementById('status');
+        const frameEl = document.getElementById('site-frame');
+
+        function setStatus(message, type = 'loading') {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        async function loadSite() {
+            try {
+                setStatus('📥 Buscando HTML do site...', 'loading');
+                
+                // Buscar HTML diretamente da rota /serve/*
+                const serveUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/client-sites/serve/${subdomain}.rendizy.app`;
+                
+                console.log('🔍 Buscando HTML de:', serveUrl);
+                
+                const response = await fetch(serveUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${publicAnonKey}`,
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+
+                const htmlContent = await response.text();
+                console.log('✅ HTML recebido:', htmlContent.length, 'caracteres');
+                console.log('📄 Primeiros 500 caracteres:', htmlContent.substring(0, 500));
+
+                setStatus('✅ HTML carregado! Renderizando site...', 'success');
+
+                // Criar blob URL para o HTML e carregar no iframe
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const blobUrl = URL.createObjectURL(blob);
+                
+                frameEl.src = blobUrl;
+                
+                // Aguardar iframe carregar
+                frameEl.onload = () => {
+                    setStatus('✅ Site carregado e renderizado com sucesso!', 'success');
+                    console.log('✅ Site renderizado no iframe');
+                };
+
+                frameEl.onerror = (error) => {
+                    setStatus('❌ Erro ao renderizar site no iframe', 'error');
+                    console.error('❌ Erro no iframe:', error);
+                };
+
+            } catch (error) {
+                console.error('❌ Erro ao carregar site:', error);
+                setStatus(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Carregar site automaticamente
+        window.addEventListener('load', () => {
+            console.log('🚀 Iniciando carregamento do site isolado...');
+            loadSite();
+        });
+    </script>
+</body>
+</html>
+

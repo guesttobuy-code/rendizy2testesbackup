@@ -1,0 +1,71 @@
+﻿{
+    "_id":  "6911f168f874c6f3dfbff43e",
+    "id":  "QK01J",
+    "creationDate":  "2025-11-10",
+    "checkInDate":  "2026-10-29",
+    "checkInTime":  "14:00",
+    "checkOutDate":  "2026-11-02",
+    "checkOutTime":  "12:00",
+    "_idlisting":  "684588d637afedcfad050fdf",
+    "_idclient":  "6911f167f874c6f3dfbff3f1",
+    "type":  "booked",
+    "price":  {
+                  "currency":  "BRL",
+                  "_f_expected":  3540.05,
+                  "_f_total":  3859.85,
+                  "hostingDetails":  {
+                                         "fees":  [
+                                                      {
+                                                          "name":  "Taxa de Limpeza *",
+                                                          "_f_val":  249
+                                                      },
+                                                      {
+                                                          "name":  "Taxa para impulsionamento de mídias sóciais",
+                                                          "_f_val":  70.8
+                                                      },
+                                                      {
+                                                          "name":  "Additional Guests Fee",
+                                                          "_f_val":  720
+                                                      }
+                                                  ],
+                                         "discounts":  [
+
+                                                       ],
+                                         "_f_nightPrice":  2820.05,
+                                         "_f_total":  3859.85
+                                     },
+                  "extrasDetails":  {
+                                        "fees":  [
+
+                                                 ],
+                                        "extraServices":  [
+
+                                                          ],
+                                        "discounts":  [
+
+                                                      ],
+                                        "_f_total":  0
+                                    }
+              },
+    "stats":  {
+                  "_f_totalPaid":  3859.85
+              },
+    "guests":  5,
+    "guestsDetails":  {
+                          "adults":  5,
+                          "children":  0,
+                          "infants":  0
+                      },
+    "partner":  {
+                    "_id":  "5d1b5cbec62b271c78796479",
+                    "name":  "API booking.com",
+                    "commission":  {
+                                       "type":  "fixed",
+                                       "_mcval":  {
+                                                      "BRL":  492.58
+                                                  }
+                                   }
+                },
+    "partnerCode":  "5736246582",
+    "reservationUrl":  "https://bvm.stays.net/i/account-overview/6911f167f874c6f3dfbff3f1?reserve=QK01J"
+}

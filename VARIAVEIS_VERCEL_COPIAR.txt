@@ -1,0 +1,39 @@
+═══════════════════════════════════════════════════════════
+   VARIÁVEIS DE AMBIENTE PARA VERCEL
+   Copie e cole diretamente
+═══════════════════════════════════════════════════════════
+
+VARIÁVEL 1 (OBRIGATÓRIA):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:   VITE_SUPABASE_URL
+Value: https://gjphsheavnkdtmsrxmtl.supabase.co
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VARIÁVEL 2 (OBRIGATÓRIA):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:   VITE_SUPABASE_ANON_KEY
+Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqcGhzaGVhdm5rZHRtc3J4bXRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyODE1NzMsImV4cCI6MjA3OTg1NzU3M30.GH8_htMszSrylCd6rMXNXioZUKNE303T6QeTBrevAbs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VARIÁVEL 3 (OPCIONAL - Backend/Edge Functions):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:   VITE_SUPABASE_SERVICE_ROLE_KEY
+Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqcGhzaGVhdm5rZHRtc3J4bXRsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDI4MTU3MywiZXhwIjoyMDc5ODU3NTczfQ.nhcQUX2WpUnz3ho_PhL3qc_flhd1BgAD01n_W0P2FTo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VARIÁVEL 4 (OPCIONAL - Gemini AI):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:   GEMINI_API_KEY
+Value: PLACEHOLDER_API_KEY
+(Substitua pela sua chave real se tiver)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MÍNIMO NECESSÁRIO:
+✅ VITE_SUPABASE_URL
+✅ VITE_SUPABASE_ANON_KEY
+
+═══════════════════════════════════════════════════════════

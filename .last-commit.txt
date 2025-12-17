@@ -1,0 +1,1 @@
+e13b679 chore(import): add minimal Properties V3 files to staging for review

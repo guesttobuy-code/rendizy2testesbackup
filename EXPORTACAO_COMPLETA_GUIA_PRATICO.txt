@@ -1,0 +1,579 @@
+===========================================
+RENDIZY - GUIA PRÁTICO DE EXPORTAÇÃO
+COPIAR ARQUIVOS DO PROJETO ATUAL
+===========================================
+
+🎯 MÉTODO MAIS RÁPIDO E EFICIENTE
+
+Em vez de copiar código TXT, você vai ARRASTAR
+os arquivos diretamente do projeto atual para
+o novo projeto Figma Make.
+
+⏱️ TEMPO: 30-45 minutos
+✅ GARANTIA: 100% funcional
+
+===========================================
+PREPARAÇÃO
+===========================================
+
+1. Abra DOIS navegadores ou abas:
+   
+   ABA 1: Projeto ATUAL (este aqui)
+   ABA 2: Projeto NOVO (Figma Make vazio)
+
+2. Organize as abas lado a lado
+
+3. Prepare para copiar arquivos
+
+===========================================
+MÉTODO DE CÓPIA
+===========================================
+
+No Figma Make você NÃO pode arrastar arquivos,
+mas pode COPIAR E COLAR código.
+
+PROCESSO:
+1. ABA 1: Abra o arquivo
+2. CTRL+A (selecionar tudo)
+3. CTRL+C (copiar)
+4. ABA 2: Criar arquivo com mesmo nome
+5. CTRL+V (colar)
+6. Salvar
+
+===========================================
+FASE 1: CONFIGURAÇÃO BASE
+===========================================
+
+📁 Na raiz do NOVO projeto, crie:
+
+✅ BUILD_VERSION.txt
+   └─ Cole: v1.0.103.249
+
+✅ CACHE_BUSTER.ts
+   └─ Copie de: /CACHE_BUSTER.ts
+
+✅ index.html
+   └─ Copie de: /index.html
+
+✅ package.json
+   └─ Copie de: /package.json
+
+✅ tsconfig.json
+   └─ Copie de: /tsconfig.json
+
+✅ vite.config.ts
+   └─ Copie de: /vite.config.ts
+
+✅ netlify.toml
+   └─ Copie de: /netlify.toml
+
+✅ vercel.json
+   └─ Copie de: /vercel.json
+
+📁 Crie pasta: src/
+✅ src/main.tsx
+   └─ Copie de: /src/main.tsx
+
+📁 Crie pasta: styles/
+✅ styles/globals.css
+   └─ Copie de: /styles/globals.css
+
+⏸️ PARE E TESTE:
+- Pressione CTRL+SHIFT+R
+- Aguarde npm install (1-2 min)
+- Deve compilar sem erros
+
+===========================================
+FASE 2: COMPONENTS/UI (SHADCN)
+===========================================
+
+📁 Crie pasta: components/ui/
+
+Copie TODOS os 48 arquivos de /components/ui/:
+
+✅ accordion.tsx
+✅ alert-dialog.tsx
+✅ alert.tsx
+✅ aspect-ratio.tsx
+✅ avatar.tsx
+✅ badge.tsx
+✅ breadcrumb.tsx
+✅ button.tsx
+✅ calendar.tsx
+✅ card.tsx
+✅ carousel.tsx
+✅ chart.tsx
+✅ checkbox.tsx
+✅ collapsible.tsx
+✅ command.tsx
+✅ context-menu.tsx
+✅ dialog.tsx
+✅ drawer.tsx
+✅ dropdown-menu.tsx
+✅ form.tsx
+✅ hover-card.tsx
+✅ input-otp.tsx
+✅ input.tsx
+✅ label.tsx
+✅ menubar.tsx
+✅ navigation-menu.tsx
+✅ pagination.tsx
+✅ popover.tsx
+✅ progress.tsx
+✅ radio-group.tsx
+✅ resizable.tsx
+✅ scroll-area.tsx
+✅ select.tsx
+✅ separator.tsx
+✅ sheet.tsx
+✅ sidebar.tsx
+✅ skeleton.tsx
+✅ slider.tsx
+✅ sonner.tsx
+✅ switch.tsx
+✅ table.tsx
+✅ tabs.tsx
+✅ textarea.tsx
+✅ toggle-group.tsx
+✅ toggle.tsx
+✅ tooltip.tsx
+✅ use-mobile.ts
+✅ utils.ts
+
+💡 DICA: Copie na ordem alfabética
+
+===========================================
+FASE 3: UTILS
+===========================================
+
+📁 Crie pasta: utils/
+
+Copie estes arquivos principais:
+
+✅ utils/mockBackend.ts ⭐ ESSENCIAL
+✅ utils/api.ts ⭐ ESSENCIAL
+✅ utils/offlineMode.ts
+✅ utils/offlineConfig.ts
+✅ utils/autoRecovery.ts
+✅ utils/calendarManager.ts
+✅ utils/chatApi.ts
+✅ utils/codeGenerator.ts
+✅ utils/conflictDetection.ts
+✅ utils/evolutionApi.ts
+✅ utils/fetchWithRetry.ts
+✅ utils/guestsApi.ts
+✅ utils/imageCompression.ts
+✅ utils/offlineOrganizations.ts
+✅ utils/roomsApi.ts
+✅ utils/wahaApi.ts
+✅ utils/whatsappChatApi.ts
+✅ utils/amenities-categories.ts
+✅ utils/amenities-data.ts
+
+📁 Crie: utils/whatsapp/
+✅ utils/whatsapp/types.ts
+✅ utils/whatsapp/factory.ts
+✅ utils/whatsapp/index.ts
+
+📁 Crie: utils/whatsapp/evolution/
+✅ utils/whatsapp/evolution/api.ts
+✅ utils/whatsapp/evolution/config.ts
+
+📁 Crie: utils/whatsapp/waha/
+✅ utils/whatsapp/waha/api.ts
+✅ utils/whatsapp/waha/config.ts
+
+📁 Crie: utils/bookingcom/
+✅ utils/bookingcom/api.ts
+
+📁 Crie: utils/services/
+✅ utils/services/evolutionService.ts
+✅ utils/services/evolutionContactsService.ts
+
+📁 Crie: utils/supabase/
+✅ utils/supabase/info.tsx
+
+⏸️ PARE E TESTE:
+- Sistema ainda deve compilar
+- Sem erros de import
+
+===========================================
+FASE 4: TYPES, HOOKS, CONTEXTS
+===========================================
+
+📁 Crie pasta: types/
+✅ types/financeiro.ts
+✅ types/tenancy.ts
+
+📁 Crie pasta: hooks/
+✅ hooks/useCalendarManager.ts
+✅ hooks/useAutoSave.ts
+✅ hooks/useApiCache.ts
+✅ hooks/useDebounce.ts
+
+📁 Crie pasta: contexts/
+✅ contexts/AuthContext.tsx
+✅ contexts/ThemeContext.tsx
+✅ contexts/LanguageContext.tsx
+
+📁 Crie pasta: pages/
+✅ pages/PropertyWizardPage.tsx
+
+===========================================
+FASE 5: COMPONENTS PRINCIPAIS
+===========================================
+
+📁 Na pasta components/, copie estes arquivos:
+
+⭐ ESSENCIAIS (copie primeiro):
+✅ components/MainSidebar.tsx
+✅ components/DashboardInicial.tsx
+✅ components/CalendarGrid.tsx
+✅ components/PropertiesManagement.tsx
+✅ components/ReservationsManagement.tsx
+✅ components/LoadingProgress.tsx
+✅ components/VersionBadge.tsx
+✅ components/BuildLogger.tsx
+
+🔧 MODAIS E WIZARDS:
+✅ components/CreateReservationWizard.tsx
+✅ components/EditReservationWizard.tsx
+✅ components/PropertyEditWizard.tsx
+✅ components/ReservationDetailsModal.tsx
+✅ components/ReservationPreviewModal.tsx
+✅ components/PriceEditModal.tsx
+✅ components/MinNightsEditModal.tsx
+✅ components/BlockModal.tsx
+✅ components/BlockDetailsModal.tsx
+✅ components/QuotationModal.tsx
+✅ components/CancelReservationModal.tsx
+✅ components/QuickActionsModal.tsx
+✅ components/PropertyViewModal.tsx
+✅ components/PropertyDeleteModal.tsx
+✅ components/PropertyPhotosModal.tsx
+✅ components/TagsManagementModal.tsx
+✅ components/PriceTiersModal.tsx
+✅ components/SeasonalityModal.tsx
+✅ components/TemplateManagerModal.tsx
+
+📊 GESTÃO:
+✅ components/ClientsAndGuestsManagement.tsx
+✅ components/ProprietariosManagement.tsx
+✅ components/DocumentosListasClientes.tsx
+✅ components/GuestsManager.tsx
+✅ components/LocationsManager.tsx
+✅ components/LocationsAndListings.tsx
+✅ components/RoomsManager.tsx
+✅ components/SettingsManager.tsx
+✅ components/SettingsPanel.tsx
+✅ components/GlobalSettingsManager.tsx
+✅ components/TenantManagement.tsx
+✅ components/UserManagement.tsx
+✅ components/PermissionsManager.tsx
+✅ components/PropertyTypesManager.tsx
+
+🔌 INTEGRAÇÕES:
+✅ components/BookingComIntegration.tsx
+✅ components/StaysNetIntegration.tsx
+✅ components/WhatsAppIntegration.tsx
+✅ components/ChatInboxWithEvolution.tsx
+✅ components/ChatInbox.tsx
+✅ components/ICalManager.tsx
+✅ components/IntegrationsManager.tsx
+
+📅 CALENDÁRIO:
+✅ components/CalendarHeader.tsx
+✅ components/CalendarStats.tsx
+✅ components/CalendarManagerBadge.tsx
+✅ components/PropertySidebar.tsx
+✅ components/ListView.tsx
+✅ components/TimelineView.tsx
+
+🎨 VISUALIZAÇÃO:
+✅ components/ReservationCard.tsx
+✅ components/ConflictAlert.tsx
+✅ components/ConflictsDetectionDashboard.tsx
+✅ components/DashboardAnalytics.tsx
+
+⚙️ CONFIGURAÇÕES:
+✅ components/LocationsListingsSettings.tsx
+✅ components/LocationAmenitiesSettings.tsx
+✅ components/PropertyTypesSettings.tsx
+✅ components/PropertyTypesTab.tsx
+✅ components/AmenitiesSelector.tsx
+✅ components/PhotoManager.tsx
+✅ components/FontSelector.tsx
+✅ components/LanguageSwitcher.tsx
+
+🔄 FILTROS E SIDEBARS:
+✅ components/PropertiesFilterSidebar.tsx
+✅ components/ChatFilterSidebar.tsx
+✅ components/DateRangePicker.tsx
+
+📝 FORMULÁRIOS:
+✅ components/AccommodationRulesForm.tsx
+✅ components/PricingSettingsForm.tsx
+
+🛠️ ADMIN E DEBUG:
+✅ components/AdminMaster.tsx
+✅ components/AdminMasterFunctional.tsx
+✅ components/DatabaseInitializer.tsx
+✅ components/BackendTester.tsx
+✅ components/BackendHealthBanner.tsx
+✅ components/BackendStatusIndicator.tsx
+✅ components/LoadingDebugger.tsx
+✅ components/DebugBannerToggle.tsx
+
+🎯 BULK OPERATIONS:
+✅ components/BulkPricingManager.tsx
+✅ components/BulkMinNightsModal.tsx
+✅ components/BulkPriceConditionModal.tsx
+✅ components/BulkRestrictionsModal.tsx
+
+💬 WHATSAPP:
+✅ components/WhatsAppFloatingButton.tsx
+✅ components/WhatsAppCredentialsTester.tsx
+✅ components/WhatsAppChatsImporter.tsx
+✅ components/WhatsAppProviderSelector.tsx
+✅ components/EvolutionContactsList.tsx
+✅ components/ChatTagsModal.tsx
+✅ components/AutoFixWhatsAppApiKey.tsx
+
+🏢 MULTI-TENANT:
+✅ components/CreateOrganizationModal.tsx
+✅ components/CreateUserModal.tsx
+✅ components/CreatePropertyTypeModal.tsx
+✅ components/CreateIndividualPropertyModal.tsx
+
+📊 ANÁLISES:
+✅ components/StaysNetReservationAnalyzer.tsx
+✅ components/TestPropertiesCard.tsx
+
+🚨 BANNERS E ALERTAS:
+✅ components/ApiErrorBanner.tsx
+✅ components/DataResetAlert.tsx
+✅ components/DeployBackendBanner.tsx
+✅ components/EmergencyAdminBanner.tsx
+✅ components/SmartBackendBanner.tsx
+✅ components/EnvironmentBadge.tsx
+
+🔧 OUTROS:
+✅ components/AppRouter.tsx
+✅ components/AutoSaveIndicator.tsx
+✅ components/EmergencyHomeButton.tsx
+✅ components/EmergencyRouter.tsx
+✅ components/ExportModal.tsx
+✅ components/IconsPreview.tsx
+✅ components/ModulePlaceholder.tsx
+✅ components/NotFoundPage.tsx
+✅ components/PhotoManagerTest.tsx
+✅ components/ClientSiteWrapper.tsx
+✅ components/ClientSitesManager.tsx
+✅ components/AdvancedSearchDropdown.tsx
+
+📁 Crie: components/figma/
+✅ components/figma/ImageWithFallback.tsx
+
+===========================================
+FASE 6: WIZARD STEPS
+===========================================
+
+📁 Crie pasta: components/wizard-steps/
+
+Copie os 12 steps:
+
+✅ ContentAmenitiesStep.tsx
+✅ ContentDescriptionStep.tsx
+✅ ContentLocationAmenitiesStep.tsx
+✅ ContentLocationStep.tsx
+✅ ContentPhotosStep.tsx
+✅ ContentRoomsStep.tsx
+✅ ContentTypeStep.tsx
+✅ FinancialContractStep.tsx
+✅ FinancialDerivedPricingStep.tsx
+✅ FinancialIndividualPricingStep.tsx
+✅ FinancialResidentialPricingStep.tsx
+✅ FinancialSeasonalPricingStep.tsx
+✅ SettingsRulesStep.tsx
+
+===========================================
+FASE 7: MÓDULOS (FINANCEIRO, BI, CRM)
+===========================================
+
+📁 Crie: components/financeiro/
+
+✅ components/financeiro/FinanceiroModule.tsx
+✅ components/financeiro/FinanceiroDashboard.tsx
+✅ components/financeiro/FinanceiroSidebar.tsx
+
+📁 Crie: components/financeiro/components/
+✅ KpiCard.tsx
+✅ Money.tsx
+✅ CurrencyBadge.tsx
+✅ DataTable.tsx
+✅ PeriodPicker.tsx
+✅ SplitEditor.tsx
+
+📁 Crie: components/financeiro/pages/
+✅ LancamentosPage.tsx
+✅ ContasReceberPage.tsx
+✅ ContasPagarPage.tsx
+✅ DREPage.tsx
+✅ FluxoCaixaPage.tsx
+
+📁 Crie: components/bi/
+✅ BIModule.tsx
+✅ BIDashboard.tsx
+✅ BISidebar.tsx
+
+📁 Crie: components/crm/
+✅ CRMTasksModule.tsx
+✅ CRMTasksDashboard.tsx
+✅ CRMTasksSidebar.tsx
+
+⏸️ PARE E TESTE:
+- Sistema deve compilar
+- Todos os imports devem resolver
+
+===========================================
+FASE 8: APP.TSX COMPLETO
+===========================================
+
+✅ App.tsx
+   └─ Copie de: /App.tsx
+   └─ SUBSTITUA o App minimalista
+
+⏸️ TESTE FINAL:
+- Pressione CTRL+SHIFT+R
+- Dashboard deve aparecer completo
+- Navegação deve funcionar
+- Todos os módulos devem abrir
+
+===========================================
+FASE 9: SUPABASE (BACKEND)
+===========================================
+
+📁 Crie: supabase/functions/server/
+
+✅ index.tsx ⭐ SERVIDOR PRINCIPAL
+✅ kv_store.tsx ⭐ KV STORAGE
+✅ types.ts
+✅ utils.ts
+
+📝 ROUTES (24 arquivos):
+✅ routes-amenities.ts
+✅ routes-blocks.ts
+✅ routes-bookingcom.ts
+✅ routes-bulk-pricing.ts
+✅ routes-calendar.ts
+✅ routes-chat.ts
+✅ routes-client-sites.ts
+✅ routes-clients.ts
+✅ routes-guests.ts
+✅ routes-ical.ts
+✅ routes-listings.ts
+✅ routes-location-amenities.ts
+✅ routes-locations.ts
+✅ routes-organizations.ts
+✅ routes-owners.ts
+✅ routes-photos.ts
+✅ routes-pricing-settings.ts
+✅ routes-properties.ts
+✅ routes-property-types.ts
+✅ routes-property-wizard.ts
+✅ routes-quotations.ts
+✅ routes-reservations.ts
+✅ routes-rooms.ts
+✅ routes-rules.ts
+✅ routes-seasonal-pricing.ts
+✅ routes-settings.ts
+✅ routes-staysnet.ts
+✅ routes-users.ts
+✅ routes-whatsapp-evolution.ts
+
+📊 SEEDS (5 arquivos):
+✅ seed-data.ts
+✅ seed-data-new.ts
+✅ seed-data-test.ts
+✅ seed-complete-test.ts
+✅ seed-chat-data.ts
+
+===========================================
+CHECKLIST FINAL
+===========================================
+
+Antes de declarar sucesso, verifique:
+
+✅ Todos os arquivos foram copiados
+✅ Estrutura de pastas está correta
+✅ npm install completou (package.json)
+✅ Sistema compila sem erros TypeScript
+✅ Sistema carrega sem tela branca
+✅ Console não tem erros vermelhos
+✅ Dashboard aparece com dados
+✅ Sidebar funciona
+✅ Navegação entre módulos funciona
+✅ Calendário abre
+✅ Módulo Finanças abre (16 submenus)
+✅ Modais abrem e fecham
+✅ Toast notifications funcionam
+
+===========================================
+TEMPO POR FASE
+===========================================
+
+FASE 1 (Config): 10 min
+FASE 2 (UI 48 arquivos): 20 min
+FASE 3 (Utils 30 arquivos): 15 min
+FASE 4 (Types/Hooks): 5 min
+FASE 5 (Components 100 arquivos): 40 min
+FASE 6 (Wizard 13 arquivos): 10 min
+FASE 7 (Módulos 14 arquivos): 10 min
+FASE 8 (App.tsx): 5 min
+FASE 9 (Backend 33 arquivos): 20 min
+
+TOTAL: ~2h 15min
+
+===========================================
+DICAS IMPORTANTES
+===========================================
+
+💡 Copie arquivos na ORDEM listada
+💡 Teste após cada FASE (não ao final)
+💡 Se der erro, volte e confira imports
+💡 Use CTRL+F para buscar arquivos
+💡 Mantenha estrutura de pastas EXATA
+💡 Não pule arquivos (todos são importantes)
+
+===========================================
+SE DER ERRO
+===========================================
+
+1. Verifique console (F12)
+2. Procure por "Module not found"
+3. Verifique se criou a pasta correta
+4. Verifique se nome do arquivo está exato
+5. Verifique se copiou código completo
+6. Pressione CTRL+SHIFT+R (hard reload)
+
+===========================================
+SUPORTE
+===========================================
+
+Se travar em alguma fase, me avise:
+- Qual fase travou
+- Qual erro aparece
+- Screenshot do console
+
+Vou te ajudar imediatamente!
+
+===========================================
+BOA SORTE! 🚀
+===========================================
+
+Você está prestes a ter o sistema COMPLETO
+funcionando em ~2 horas.
+
+Siga o guia passo a passo e vai dar certo!
+
+Comece pela FASE 1 agora! 💪

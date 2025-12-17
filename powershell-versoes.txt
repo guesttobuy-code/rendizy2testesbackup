@@ -1,0 +1,40 @@
+﻿
+2025-11-30 21:30:32 | === VERIFICAÃ‡ÃƒO DE VERSÃ•ES DO POWERSHELL ===
+2025-11-30 21:30:32 | 
+2025-11-30 21:30:32 | 1. POWERSHELL ATUAL (Windows PowerShell):
+2025-11-30 21:30:32 |    VersÃ£o: 5.1.26100.7019
+2025-11-30 21:30:32 |    EdiÃ§Ã£o: Desktop
+2025-11-30 21:30:32 |    Caminho: C:\Windows\System32\WindowsPowerShell\v1.0
+2025-11-30 21:30:32 | 
+2025-11-30 21:30:32 | 2. VERIFICANDO POWERSHELL 7:
+2025-11-30 21:30:32 |    âœ… PowerShell 7 encontrado!
+2025-11-30 21:30:32 |    Caminho: C:\Program Files\PowerShell\7\pwsh.exe
+2025-11-30 21:30:33 |    VersÃ£o: 7.5.4
+2025-11-30 21:30:33 |    âš ï¸ PowerShell 7 NÃƒO estÃ¡ no PATH
+2025-11-30 21:30:33 | 
+2025-11-30 21:30:33 | 3. VERIFICANDO INSTALAÃ‡Ã•ES VIA WINGET:
+2025-11-30 21:30:35 |    Output: 
+   - 
+   \ 
+   | 
+                                                                                                                        
+Nome             ID                   Vers├úo  Origem
+-----------------------------------------------------
+PowerShell 7-x64 Microsoft.PowerShell 7.5.4.0 winget
+
+2025-11-30 21:30:35 | 
+2025-11-30 21:30:35 | 4. VERIFICANDO REGISTROS NO WINDOWS:
+2025-11-30 21:30:35 |    PowerShell Engine: 
+2025-11-30 21:30:35 |    Caminho: C:\Windows\System32\WindowsPowerShell\v1.0
+2025-11-30 21:30:35 | 
+2025-11-30 21:30:35 | 5. âš ï¸ IMPORTANTE SOBRE POWERSHELL 5.1:
+2025-11-30 21:30:35 |    O PowerShell 5.1 (Windows PowerShell) vem INTEGRADO ao Windows
+2025-11-30 21:30:35 |    NÃƒO Ã© recomendado desinstalÃ¡-lo (pode quebrar o sistema)
+2025-11-30 21:30:35 |    SOLUÃ‡ÃƒO: Configure o Cursor para usar PowerShell 7 como padrÃ£o
+2025-11-30 21:30:35 | 
+2025-11-30 21:30:35 | 6. VERIFICANDO CONFIGURAÃ‡ÃƒO DO CURSOR:
+2025-11-30 21:30:35 |    âœ… Arquivo de configuraÃ§Ãµes encontrado: C:\Users\rafae\AppData\Roaming\Cursor\User\settings.json
+2025-11-30 21:30:35 |    Terminal padrÃ£o configurado: PowerShell 7
+2025-11-30 21:30:35 | 
+2025-11-30 21:30:35 | === VERIFICAÃ‡ÃƒO CONCLUÃDA ===
+2025-11-30 21:30:35 | Arquivo salvo em: C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL\powershell-versoes.txt

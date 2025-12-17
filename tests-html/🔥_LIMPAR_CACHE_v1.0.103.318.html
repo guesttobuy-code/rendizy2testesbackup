@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 FIX: QR Code WhatsApp Evolution API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            max-width: 1000px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .error-fixed {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .error-fixed h3 {
+            color: #065f46;
+            margin-bottom: 10px;
+        }
+        
+        .error-code {
+            background: #1e293b;
+            color: #ef4444;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 10px 0;
+        }
+        
+        .solution {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .solution h3 {
+            color: #1e40af;
+            margin-bottom: 15px;
+        }
+        
+        .solution ul {
+            margin-left: 20px;
+        }
+        
+        .solution li {
+            color: #1e3a8a;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        
+        .steps {
+            margin: 30px 0;
+        }
+        
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+            border-left: 4px solid #10b981;
+        }
+        
+        .step-number {
+            background: #10b981;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-content h4 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #1e293b;
+        }
+        
+        .step-content p {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .shortcut {
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+        }
+        
+        .feature {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .feature-item {
+            background: #f0fdf4;
+            border: 2px solid #10b981;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .feature-item .emoji {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+        
+        .feature-item h4 {
+            color: #065f46;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .feature-item p {
+            color: #047857;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🔧</div>
+            <h1>QR Code WhatsApp Corrigido</h1>
+            <p>v1.0.103.318 - Sistema robusto com 3 tentativas</p>
+        </div>
+        
+        <div class="content">
+            <div class="error-fixed">
+                <h3>✅ Erro Corrigido</h3>
+                <p><strong>O seguinte erro foi resolvido:</strong></p>
+                <div class="error-code">❌ Error: QR Code not found in Evolution API response<br>❌ No QR Code found in response: { count: 0 }</div>
+            </div>
+            
+            <div class="solution">
+                <h3>🚀 Solução Implementada</h3>
+                <p><strong>Sistema robusto com múltiplas camadas de proteção:</strong></p>
+                <ul>
+                    <li>✅ <strong>Verificação de status</strong> antes de gerar QR code</li>
+                    <li>✅ <strong>Logout automático</strong> se instância já conectada</li>
+                    <li>✅ <strong>3 tentativas diferentes</strong> para obter QR code</li>
+                    <li>✅ <strong>5 formatos suportados</strong> de resposta da API</li>
+                    <li>✅ <strong>Mensagens de erro claras</strong> e específicas</li>
+                    <li>✅ <strong>Logs detalhados</strong> para debugging</li>
+                </ul>
+            </div>
+
+            <h3 style="margin: 30px 0 20px 0; color: #1e293b;">🔄 Como Funciona Agora</h3>
+            
+            <div class="feature">
+                <div class="feature-item">
+                    <div class="emoji">1️⃣</div>
+                    <h4>Verificar Status</h4>
+                    <p>Checa se já está conectado</p>
+                </div>
+                <div class="feature-item">
+                    <div class="emoji">2️⃣</div>
+                    <h4>Logout se Necessário</h4>
+                    <p>Desconecta automaticamente</p>
+                </div>
+                <div class="feature-item">
+                    <div class="emoji">3️⃣</div>
+                    <h4>Tentativa 1</h4>
+                    <p>/instance/connect</p>
+                </div>
+                <div class="feature-item">
+                    <div class="emoji">4️⃣</div>
+                    <h4>Tentativa 2</h4>
+                    <p>Restart + Status</p>
+                </div>
+                <div class="feature-item">
+                    <div class="emoji">5️⃣</div>
+                    <h4>Tentativa 3</h4>
+                    <p>/manager endpoint</p>
+                </div>
+                <div class="feature-item">
+                    <div class="emoji">✅</div>
+                    <h4>QR Code OK</h4>
+                    <p>Pronto para escanear</p>
+                </div>
+            </div>
+            
+            <h3 style="margin: 30px 0 20px 0; color: #1e293b;">📋 Passos para Testar</h3>
+            
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Limpar Cache do Navegador</h4>
+                        <p>Obrigatório para carregar o código atualizado</p>
+                        <div class="shortcut">Ctrl + Shift + Delete</div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Hard Refresh</h4>
+                        <p>Recarregue a página sem usar cache</p>
+                        <div class="shortcut">Ctrl + Shift + R</div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Acessar Módulo Chat</h4>
+                        <p>Vá até: Configurações → Chat → Conectar WhatsApp</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Inserir Credenciais Evolution API</h4>
+                        <p>URL, API Key e Nome da Instância</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h4>Clicar em "Conectar"</h4>
+                        <p>O sistema agora vai tentar 3 métodos diferentes</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">6</div>
+                    <div class="step-content">
+                        <h4>Escanear QR Code</h4>
+                        <p>Abra WhatsApp → Aparelhos Conectados → Escanear</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 10px; margin: 20px 0;">
+                <p style="color: #78350f; font-size: 14px;">
+                    <strong>💡 DICA:</strong> Se a tentativa 1 retornar "count: 0", o sistema automaticamente tentará 
+                    as alternativas 2 e 3. Você não precisa fazer nada, apenas aguardar alguns segundos.
+                </p>
+            </div>
+            
+            <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; border-radius: 10px; margin: 20px 0;">
+                <p style="color: #1e40af; font-size: 14px; margin-bottom: 10px;">
+                    <strong>🔍 O QUE VOCÊ VAI VER NO CONSOLE:</strong>
+                </p>
+                <div style="background: #1e293b; color: #10b981; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px;">
+                    📡 Checking current connection status...<br>
+                    ✅ Connection status: { "instance": { "state": "close" } }<br>
+                    📡 [Attempt 1] Requesting QR Code via /instance/connect...<br>
+                    ✅ [Attempt 1] QR Code response received<br>
+                    📊 QR Code extraction:<br>
+                    &nbsp;&nbsp;&nbsp;Final QR Code: data:image/png;base64,iVBOR...<br>
+                    ✅ QR Code gerado com sucesso!
+                </div>
+            </div>
+            
+            <button class="btn" onclick="performHardRefresh()">
+                ✅ Fazer Hard Refresh e Testar Agora
+            </button>
+            
+            <div style="margin-top: 30px; padding: 20px; background: #f0f9ff; border-radius: 10px; text-align: center;">
+                <p style="color: #0c4a6e; font-size: 14px; margin-bottom: 10px;">
+                    <strong>📚 Documentação Completa</strong>
+                </p>
+                <p style="color: #075985; font-size: 13px;">
+                    Changelog: <code>/docs/changelogs/CHANGELOG_V1.0.103.318.md</code>
+                    <br>
+                    Código fonte: <code>/supabase/functions/server/routes-chat.ts</code>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function performHardRefresh() {
+            console.log('🔄 Executando Hard Refresh...');
+            console.log('📦 Versão: v1.0.103.318');
+            console.log('🔧 Fix: QR Code WhatsApp Evolution API');
+            
+            // Force reload sem cache
+            window.location.reload(true);
+        }
+    </script>
+</body>
+</html>

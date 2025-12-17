@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✅ Checklist - Teste Step 01 e Progresso</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 800px;
+      width: 100%;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 2px;
+    }
+
+    .checklist {
+      list-style: none;
+      padding: 0;
+    }
+
+    .checklist-item {
+      background: #f8f9fa;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .checklist-item:hover {
+      background: #f1f3f5;
+      border-color: #667eea;
+      transform: translateX(5px);
+    }
+
+    .checklist-item.checked {
+      background: #d4edda;
+      border-color: #28a745;
+    }
+
+    .checkbox {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #667eea;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: white;
+      transition: all 0.3s ease;
+    }
+
+    .checklist-item.checked .checkbox {
+      background: #28a745;
+      border-color: #28a745;
+    }
+
+    .checkbox::after {
+      content: '✓';
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .checklist-item.checked .checkbox::after {
+      opacity: 1;
+    }
+
+    .checklist-text {
+      flex: 1;
+      font-size: 15px;
+      color: #495057;
+    }
+
+    .checklist-item.checked .checklist-text {
+      color: #155724;
+    }
+
+    .progress-section {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      padding: 20px;
+      color: white;
+      margin-top: 30px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .progress-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .progress-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: white;
+      border-radius: 6px;
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+
+    .alert {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .alert-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .alert-text {
+      flex: 1;
+      color: #856404;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .expected {
+      background: #e7f3ff;
+      border-left: 4px solid #0066cc;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin-top: 10px;
+      font-size: 14px;
+      color: #004080;
+    }
+
+    .expected strong {
+      color: #0066cc;
+    }
+
+    .footer {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      text-align: center;
+      border-top: 2px solid #e9ecef;
+    }
+
+    .footer p {
+      font-size: 14px;
+      color: #6c757d;
+    }
+
+    .btn-reset {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+      margin-top: 15px;
+    }
+
+    .btn-reset:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-reset:active {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Checklist - Teste Step 01 e Progresso</h1>
+      <p>RENDIZY v1.0.103.305 - Verificação de Salvamento e Barra de Progresso</p>
+    </div>
+
+    <div class="content">
+      <div class="alert">
+        <div class="alert-icon">⚠️</div>
+        <div class="alert-text">
+          <strong>IMPORTANTE:</strong> Este teste verifica se o salvamento do Step 01 persiste no Supabase e se a barra de progresso calcula corretamente. Marque cada item conforme completa.
+        </div>
+      </div>
+
+      <!-- PARTE 1: SALVAMENTO -->
+      <div class="section">
+        <div class="section-title">Parte 1: Teste de Salvamento Persistente</div>
+        
+        <ul class="checklist">
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>1.</strong> Abrir o sistema no dashboard
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>2.</strong> Entrar em "Imóveis" no menu lateral
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>3.</strong> Clicar em "Criar Novo Imóvel"
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>4.</strong> Preencher Step 01: Tipo="Apartamento", Acomodação="Studio", Modalidade="Aluguel Temporada"
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>5.</strong> Clicar em "Salvar e Avançar"
+            </div>
+          </li>
+        </ul>
+
+        <div class="expected">
+          <strong>✅ Esperado após Step 5:</strong><br>
+          • Toast: "Step 1 salvo com sucesso!"<br>
+          • Wizard avança para Step 02<br>
+          • Barra de progresso: "1 de 14 passos (7%)"
+        </div>
+
+        <ul class="checklist" style="margin-top: 15px;">
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>6.</strong> Fechar o wizard (clicar no X)
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>7.</strong> Recarregar a página (F5 ou Ctrl+R)
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>8.</strong> Entrar em "Imóveis" novamente
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>9.</strong> Encontrar o imóvel criado (PRP + 4 caracteres)
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>10.</strong> Clicar em "Editar" no imóvel
+            </div>
+          </li>
+        </ul>
+
+        <div class="expected">
+          <strong>✅ MOMENTO DA VERDADE - Esperado:</strong><br>
+          • Step 01 AINDA preenchido com os mesmos dados<br>
+          • Barra de progresso mostra "1 de 14 passos (7%)"<br>
+          • Step 01 marcado como completo (ícone check)
+        </div>
+      </div>
+
+      <!-- PARTE 2: BARRA DE PROGRESSO -->
+      <div class="section">
+        <div class="section-title">Parte 2: Teste da Barra de Progresso</div>
+        
+        <ul class="checklist">
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>11.</strong> Avançar para Step 02 (Localização)
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>12.</strong> Preencher: País="Brasil", Estado="SP", Cidade="São Paulo", CEP, Bairro, Rua, Número
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>13.</strong> Clicar em "Salvar e Avançar"
+            </div>
+          </li>
+        </ul>
+
+        <div class="expected">
+          <strong>✅ Esperado após Step 13:</strong><br>
+          • Toast: "Step 2 salvo com sucesso!"<br>
+          • Barra de progresso SUBIU para "2 de 14 passos (14%)"
+        </div>
+
+        <ul class="checklist" style="margin-top: 15px;">
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>14.</strong> Avançar para Step 03 (Cômodos)
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>15.</strong> Adicionar 1 quarto (Tipo="Quarto", Nome="Quarto 1")
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>16.</strong> Clicar em "Salvar e Avançar"
+            </div>
+          </li>
+        </ul>
+
+        <div class="expected">
+          <strong>✅ Esperado após Step 16:</strong><br>
+          • Toast: "Step 3 salvo com sucesso!"<br>
+          • Barra de progresso SUBIU para "3 de 14 passos (21%)"
+        </div>
+      </div>
+
+      <!-- VERIFICAÇÃO FINAL -->
+      <div class="section">
+        <div class="section-title">Verificação Final</div>
+        
+        <ul class="checklist">
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>17.</strong> Recarregar página novamente (F5)
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>18.</strong> Reabrir wizard do mesmo imóvel
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>19.</strong> Confirmar: Step 01, 02 e 03 AINDA preenchidos
+            </div>
+          </li>
+
+          <li class="checklist-item" onclick="toggleCheck(this)">
+            <div class="checkbox"></div>
+            <div class="checklist-text">
+              <strong>20.</strong> Confirmar: Barra de progresso mostra "3 de 14 passos (21%)"
+            </div>
+          </li>
+        </ul>
+
+        <div class="expected">
+          <strong>✅ TESTE PASSOU SE:</strong><br>
+          • Todos os dados persistiram após recarregar<br>
+          • Barra de progresso calculou corretamente (7%, 14%, 21%)<br>
+          • Nenhum dado foi perdido<br>
+          • Sistema usou APENAS Supabase (sem mock)
+        </div>
+      </div>
+
+      <!-- PROGRESSO -->
+      <div class="progress-section">
+        <div class="progress-header">
+          <div class="progress-title">Progresso do Teste</div>
+          <div class="progress-value"><span id="progress-text">0%</span></div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p style="margin-top: 15px; font-size: 14px; opacity: 0.9;">
+          <span id="checked-count">0</span> de 20 itens concluídos
+        </p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p><strong>RENDIZY v1.0.103.305</strong> - Sistema 100% Supabase (Mock Desabilitado)</p>
+      <button class="btn-reset" onclick="resetChecklist()">🔄 Resetar Checklist</button>
+      <p style="margin-top: 15px; font-size: 13px;">
+        Tempo estimado: 10 minutos<br>
+        Data: 04/11/2025
+      </p>
+    </div>
+  </div>
+
+  <script>
+    function toggleCheck(item) {
+      item.classList.toggle('checked');
+      updateProgress();
+      saveState();
+    }
+
+    function updateProgress() {
+      const total = document.querySelectorAll('.checklist-item').length;
+      const checked = document.querySelectorAll('.checklist-item.checked').length;
+      const percentage = Math.round((checked / total) * 100);
+      
+      document.getElementById('progress-text').textContent = percentage + '%';
+      document.getElementById('progress-fill').style.width = percentage + '%';
+      document.getElementById('checked-count').textContent = checked;
+    }
+
+    function resetChecklist() {
+      if (confirm('Tem certeza que deseja resetar o checklist?')) {
+        document.querySelectorAll('.checklist-item').forEach(item => {
+          item.classList.remove('checked');
+        });
+        updateProgress();
+        saveState();
+      }
+    }
+
+    function saveState() {
+      const state = [];
+      document.querySelectorAll('.checklist-item').forEach((item, index) => {
+        state.push(item.classList.contains('checked'));
+      });
+      localStorage.setItem('rendizy_test_checklist', JSON.stringify(state));
+    }
+
+    function loadState() {
+      const saved = localStorage.getItem('rendizy_test_checklist');
+      if (saved) {
+        const state = JSON.parse(saved);
+        document.querySelectorAll('.checklist-item').forEach((item, index) => {
+          if (state[index]) {
+            item.classList.add('checked');
+          }
+        });
+        updateProgress();
+      }
+    }
+
+    // Carregar estado salvo ao abrir a página
+    window.addEventListener('DOMContentLoaded', loadState);
+  </script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 SEGURANÇA: Credenciais Evolution API Corrigidas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            max-width: 900px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .success h3 {
+            color: #065f46;
+            margin-bottom: 10px;
+        }
+        
+        .success p {
+            color: #047857;
+            line-height: 1.6;
+        }
+        
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .warning h3 {
+            color: #78350f;
+            margin-bottom: 10px;
+        }
+        
+        .warning p {
+            color: #92400e;
+            line-height: 1.6;
+        }
+        
+        .steps {
+            margin: 30px 0;
+        }
+        
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+            border-left: 4px solid #10b981;
+        }
+        
+        .step-number {
+            background: #10b981;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-content h4 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #1e293b;
+        }
+        
+        .step-content p {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .shortcut {
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+        }
+        
+        .changes {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .changes h3 {
+            color: #1e40af;
+            margin-bottom: 15px;
+        }
+        
+        .changes ul {
+            margin-left: 20px;
+        }
+        
+        .changes li {
+            color: #1e3a8a;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        
+        .code {
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🔐</div>
+            <h1>Segurança Evolution API Corrigida</h1>
+            <p>v1.0.103.317 - Credenciais removidas do código</p>
+        </div>
+        
+        <div class="content">
+            <div class="success">
+                <h3>✅ Correções Aplicadas</h3>
+                <p>
+                    <strong>3 problemas de segurança foram corrigidos:</strong>
+                </p>
+                <ul style="margin: 10px 0 0 20px; color: #047857;">
+                    <li>Credenciais hardcoded REMOVIDAS do código-fonte</li>
+                    <li>Headers Evolution API corrigidos (apikey + instanceToken)</li>
+                    <li>Base URL normalizada (remove barras duplicadas)</li>
+                </ul>
+            </div>
+            
+            <div class="warning">
+                <h3>⚠️ AÇÃO OBRIGATÓRIA</h3>
+                <p>
+                    <strong>Você DEVE rotacionar as credenciais Evolution API AGORA!</strong>
+                    <br>
+                    As credenciais antigas estavam expostas no código e devem ser revogadas.
+                    <br><br>
+                    <strong>Leia o guia completo:</strong> <code>🔐_ROTACIONAR_CREDENCIAIS_EVOLUTION_AGORA_v1.0.103.317.md</code>
+                </p>
+            </div>
+            
+            <div class="changes">
+                <h3>📝 O Que Foi Alterado</h3>
+                
+                <p><strong>Arquivo:</strong> <code>/supabase/functions/server/routes-whatsapp-evolution.ts</code></p>
+                
+                <p style="margin-top: 15px;"><strong>ANTES (Inseguro):</strong></p>
+                <div class="code">const EVOLUTION_GLOBAL_API_KEY = Deno.env.get('KEY') || '4de7861e...';<br>
+const EVOLUTION_INSTANCE_TOKEN = Deno.env.get('TOKEN') || '0FF3641E...';</div>
+                
+                <p style="margin-top: 15px;"><strong>DEPOIS (Seguro):</strong></p>
+                <div class="code">const EVOLUTION_GLOBAL_API_KEY = Deno.env.get('KEY');<br><br>
+if (!EVOLUTION_GLOBAL_API_KEY) {<br>
+&nbsp;&nbsp;throw new Error('EVOLUTION_GLOBAL_API_KEY não configurada!');<br>
+}</div>
+                
+                <ul style="margin-top: 20px;">
+                    <li>✅ Nenhum fallback com valores hardcoded</li>
+                    <li>✅ Validação obrigatória no início do arquivo</li>
+                    <li>✅ Erro claro se não configurado</li>
+                </ul>
+            </div>
+            
+            <h3 style="margin: 30px 0 20px 0; color: #1e293b;">🔄 Passos para Completar</h3>
+            
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Rotacionar Credenciais Evolution API</h4>
+                        <p>Acesse o painel e gere novas credenciais. Revogue as antigas.</p>
+                        <p style="margin-top: 5px;"><strong>Guia completo:</strong> 🔐_ROTACIONAR_CREDENCIAIS_EVOLUTION_AGORA_v1.0.103.317.md</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Configurar Variáveis de Ambiente</h4>
+                        <p>Adicione as novas credenciais nas env vars do Supabase/Vercel</p>
+                        <div class="code" style="margin-top: 10px; font-size: 12px;">EVOLUTION_GLOBAL_API_KEY=<nova_key><br>EVOLUTION_INSTANCE_TOKEN=<novo_token></div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Limpar Cache do Navegador</h4>
+                        <p>Obrigatório para carregar o código atualizado</p>
+                        <div class="shortcut">Ctrl + Shift + Delete</div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Hard Refresh</h4>
+                        <p>Recarregue a página sem usar cache</p>
+                        <div class="shortcut">Ctrl + Shift + R</div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h4>Testar Conexão</h4>
+                        <p>Verifique se o chat Evolution está funcionando</p>
+                        <p style="margin-top: 5px;">Status esperado: <strong style="color: #059669;">Conectado</strong></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; border-radius: 10px; margin: 20px 0;">
+                <p style="color: #7f1d1d; font-size: 14px;">
+                    ⚠️ <strong>IMPORTANTE:</strong> Até que você rotacione as credenciais e configure as env vars,
+                    o sistema Evolution API NÃO vai funcionar. Isso é intencional para forçar segurança.
+                </p>
+            </div>
+            
+            <button class="btn" onclick="performHardRefresh()">
+                ✅ Já Rotacionei - Fazer Hard Refresh Agora
+            </button>
+            
+            <div style="margin-top: 30px; padding: 20px; background: #f0f9ff; border-radius: 10px; text-align: center;">
+                <p style="color: #0c4a6e; font-size: 14px; margin-bottom: 10px;">
+                    <strong>📚 Documentação Completa</strong>
+                </p>
+                <p style="color: #075985; font-size: 13px;">
+                    Leia: <code>🔐_ROTACIONAR_CREDENCIAIS_EVOLUTION_AGORA_v1.0.103.317.md</code>
+                    <br>
+                    Feedback ChatGPT: <code>🚨_SUMARIO_EXECUTIVO_FEEDBACK_CHATGPT_v1.0.103.316.md</code>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function performHardRefresh() {
+            console.log('🔄 Executando Hard Refresh...');
+            // Force reload sem cache
+            window.location.reload(true);
+        }
+        
+        // Avisar ao sair
+        window.addEventListener('beforeunload', function (e) {
+            if (!localStorage.getItem('credentials_rotated')) {
+                e.preventDefault();
+                e.returnValue = 'Lembre-se de rotacionar as credenciais Evolution API!';
+            }
+        });
+    </script>
+</body>
+</html>

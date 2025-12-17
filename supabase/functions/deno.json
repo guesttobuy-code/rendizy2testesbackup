@@ -1,0 +1,10 @@
+{
+  "imports": {
+    "openai": "./rendizy-server/third_party/openai-stub.ts",
+    "https://esm.sh/openai@6.9.1": "./rendizy-server/third_party/openai-stub.ts",
+    "https://esm.sh/openai@6.9.1/internal/types.d.mts": "./rendizy-server/third_party/undici-types/index.d.ts",
+    "https://esm.sh/openai@6.9.1/node_modules/undici-types/index.d.ts": "./rendizy-server/third_party/undici-types/index.d.ts",
+    "https://esm.sh/node_modules/undici-types/index.d.ts": "./rendizy-server/third_party/undici-types/index.d.ts",
+    "undici-types": "./rendizy-server/third_party/undici-types/index.d.ts"
+  }
+}

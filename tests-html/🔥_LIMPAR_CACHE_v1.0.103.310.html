@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 Limpar Cache - RENDIZY v1.0.103.310</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .version {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .alert {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .alert h2 {
+            color: #92400e;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+        
+        .alert p {
+            color: #78350f;
+            line-height: 1.6;
+        }
+        
+        .steps {
+            background: #f3f4f6;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        
+        .steps h2 {
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .step {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: start;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .step-number {
+            background: #3b82f6;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+        
+        .step-content h3 {
+            color: #1f2937;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+        
+        .step-content p {
+            color: #6b7280;
+            line-height: 1.5;
+        }
+        
+        .keyboard {
+            background: #1f2937;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            display: inline-block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        
+        .success-box h3 {
+            color: #065f46;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .success-box ul {
+            color: #047857;
+            line-height: 2;
+            padding-left: 20px;
+        }
+        
+        .footer {
+            background: #f9fafb;
+            padding: 20px 40px;
+            text-align: center;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="pulse">🔥 LIMPAR CACHE</h1>
+            <div class="version">v1.0.103.310</div>
+            <p style="margin-top: 15px;">Erro forceLoad Corrigido</p>
+        </div>
+        
+        <div class="content">
+            <div class="alert">
+                <h2>⚠️ Importante!</h2>
+                <p>
+                    Para que as correções sejam aplicadas corretamente, você DEVE limpar 
+                    o cache do navegador. Caso contrário, o sistema continuará usando 
+                    a versão antiga do código.
+                </p>
+            </div>
+            
+            <div class="steps">
+                <h2>🚀 Passos para Limpar o Cache</h2>
+                
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Abra o DevTools</h3>
+                        <p>Pressione F12 ou clique com botão direito → Inspecionar</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Force o Reload Completo</h3>
+                        <p>Pressione as teclas simultaneamente:</p>
+                        <div class="keyboard">Ctrl + Shift + R</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">
+                            Mac: Cmd + Shift + R
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Limpar Cache Manual (Opcional)</h3>
+                        <p>
+                            Se o erro persistir, limpe manualmente:<br>
+                            Chrome: Configurações → Privacidade → Limpar dados de navegação<br>
+                            Firefox: Configurações → Privacidade → Limpar dados
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="success-box">
+                <h3>✅ Após limpar o cache, você deve ver:</h3>
+                <ul>
+                    <li>✅ Sistema carrega sem erros</li>
+                    <li>✅ LoadingProgress simplificado</li>
+                    <li>✅ Sem erros de "forceLoad" no console</li>
+                    <li>✅ Todas as rotas funcionando normalmente</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <strong>RENDIZY v1.0.103.310</strong><br>
+            Sistema de Gestão de Imóveis de Temporada
+        </div>
+    </div>
+    
+    <script>
+        // Log visual no console
+        console.clear();
+        console.log('%c🔥 RENDIZY v1.0.103.310 ', 'background: #dc2626; color: white; font-size: 24px; padding: 10px; font-weight: bold;');
+        console.log('%c✅ Erro forceLoad CORRIGIDO ', 'background: #10b981; color: white; font-size: 16px; padding: 8px; margin-top: 10px;');
+        console.log('');
+        console.log('%cPara aplicar as correções:', 'font-size: 14px; font-weight: bold;');
+        console.log('%c1. Pressione: Ctrl + Shift + R', 'font-size: 12px; color: #3b82f6;');
+        console.log('%c2. Ou limpe o cache manualmente', 'font-size: 12px; color: #3b82f6;');
+        console.log('');
+        console.log('%cDepois verifique:', 'font-size: 14px; font-weight: bold;');
+        console.log('%c✅ Sem erros de forceLoad', 'font-size: 12px; color: #10b981;');
+        console.log('%c✅ LoadingProgress funcionando', 'font-size: 12px; color: #10b981;');
+        console.log('%c✅ Todas as rotas operacionais', 'font-size: 12px; color: #10b981;');
+    </script>
+</body>
+</html>

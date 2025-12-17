@@ -1,0 +1,260 @@
+// ============================================================================
+// 🔒 CADEADO DE CONTRATO - AUTH ROUTES (Sistema de Autenticação)
+// ============================================================================
+// ⚠️ CONTRATO ESTABELECIDO - NÃO MODIFICAR SEM ATUALIZAR CONTRATO
+// 
+// ESTA FUNCIONALIDADE ESTÁ FUNCIONANDO EM PRODUÇÃO
+// 
+// CONTRATO DA API (O QUE A CÁPSULA ESPERA):
+// 
+// INPUT (Request):
+// - POST /rendizy-server/auth/login
+//   Body: { username: string, password: string }
+//   Headers: { apikey: string }
+// 
+// - GET /rendizy-server/auth/me
+//   Headers: { Authorization: "Bearer <token>", apikey: string }
+// 
+// - POST /rendizy-server/auth/logout
+//   Headers: { Authorization: "Bearer <token>", apikey: string }
+// 
+// - POST /rendizy-server/auth/refresh
+//   Body: { refresh_token: string }
+//   Headers: { apikey: string }
+// 
+// OUTPUT (Response):
+// - Success: { success: true, data: { token: string, user: User, organization?: Organization } }
+// - Error: { success: false, error: string }
+// 
+// DEPENDÊNCIAS FRONTEND (QUEM USA ESTE CONTRATO):
+// - AuthContext.tsx → authServiceLogin(), authServiceLogout(), getCurrentUser()
+// - ProtectedRoute.tsx → Verifica token via AuthContext
+// - MainSidebar.tsx → Usa AuthContext para exibir user/organization
+// 
+// ENTRELACEAMENTOS DOCUMENTADOS (OK - Sistemas se comunicam):
+// - ✅ Todas as cápsulas → Dependem de AuthContext para autenticação
+// - ✅ ProtectedRoute → Usa AuthContext para proteger rotas
+// - ✅ MainSidebar → Usa AuthContext para exibir informações do usuário
+// 
+// ⚠️ SE MODIFICAR CONTRATO:
+// 1. ✅ Criar versão v2 da rota (manter v1 funcionando)
+// 2. ✅ Atualizar frontend gradualmente
+// 3. ✅ Só remover v1 quando TODOS migrarem
+// 4. ✅ Executar: npm run test:auth-contract
+// 
+// VALIDAÇÃO DO CONTRATO:
+// - Executar: npm run test:auth
+// - Verificar: scripts/check-auth-contract.js
+// 
+// ⚠️ NUNCA REMOVER ROTAS SEM CRIAR VERSÃO ALTERNATIVA
+// ============================================================================
+
+import { Hono } from 'npm:hono';
+import { createHash } from 'node:crypto';
+// ✅ ARQUITETURA SQL: Importar Supabase Client
+import { createClient } from 'jsr:@supabase/supabase-js@2.49.8';
+// ✅ Usar getSessionFromToken que já funciona em outras rotas
+import { getSessionFromToken } from './utils-session.ts';
+import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from './utils-env.ts';
+
+// Helper: Obter cliente Supabase
+// ✅ DESABILITADO JWT VALIDATION - Usar SERVICE_ROLE_KEY que bypassa JWT
+function getSupabaseClient() {
+  const supabaseUrl = SUPABASE_URL;
+  const serviceRoleKey = SUPABASE_SERVICE_ROLE_KEY;
+  
+  // ✅ SOLUÇÃO: SERVICE_ROLE_KEY bypassa completamente validação JWT
+  // Não precisa de configurações especiais - SERVICE_ROLE_KEY já ignora JWT
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
+const app = new Hono();
+
+// Tipos
+interface SuperAdmin {
+  id: string;
+  username: string;
+  passwordHash: string;
+  name: string;
+  email: string;
+  type: 'superadmin';
+  status: 'active' | 'suspended';
+  createdAt: string;
+  lastLogin?: string;
+}
+
+interface UsuarioImobiliaria {
+  id: string;
+  imobiliariaId: string;
+  username: string;
+  passwordHash: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'manager' | 'staff' | 'readonly';
+  type: 'imobiliaria';
+  status: 'active' | 'invited' | 'suspended';
+  createdAt: string;
+  lastLogin?: string;
+  permissions?: string[];
+}
+
+interface Session {
+  id: string;
+  userId: string;
+  username: string;
+  type: 'superadmin' | 'imobiliaria';
+  imobiliariaId?: string;
+  createdAt: string;
+  expiresAt: string;
+  lastActivity: string;
+}
+
+// Helper: Gerar hash de senha
+function hashPassword(password: string): string {
+  return createHash('sha256').update(password).digest('hex');
+}
+
+// Helper: Verificar senha
+function verifyPassword(password: string, hash: string): boolean {
+  return hashPassword(password) === hash;
+}
+
+// Helper: Gerar ID de sessão
+// ✅ Usa randomUUID para evitar colisões previsíveis e seguir boas práticas de geração de IDs
+function generateSessionId(): string {
+  return `session_${crypto.randomUUID()}`;
+}
+
+// Helper: Gerar token de sessão
+// ❗ Importante: tokens precisam ser longos, imprevisíveis e resilientes a reuso em múltiplas abas
+//  - 64 bytes randômicos → 128 caracteres hexadecimais (~10^154 combinações)
+//  - Usa crypto.getRandomValues (disponível no runtime do Supabase Edge)
+//  - Resolve problema de token curto (31 caracteres) identificado no relatório de login
+function generateToken(bytes = 64): string {
+  const randomBytes = new Uint8Array(bytes);
+  crypto.getRandomValues(randomBytes);
+  return Array.from(randomBytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// ❌ REMOVIDO: initializeSuperAdmin() - SuperAdmins agora são criados na migration SQL
+// Ver: supabase/migrations/20241120_create_users_table.sql
+
+// POST /auth/login - Login
+app.post('/login', async (c) => {
+  try {
+    console.log('🔐 ============================================');
+    console.log('🔐 POST /auth/login - Tentativa de login');
+    console.log('🔐 URL:', c.req.url);
+    console.log('🔐 Path:', c.req.path);
+    console.log('🔐 Method:', c.req.method);
+    console.log('🔐 ============================================');
+    
+    let body;
+    try {
+      body = await c.req.json();
+      console.log('🔐 Body recebido:', { username: body.username, hasPassword: !!body.password });
+    } catch (e) {
+      console.error('❌ Erro ao parsear JSON:', e);
+      return c.json({
+        success: false,
+        error: 'Erro ao processar requisição'
+      }, 400);
+    }
+    
+    const { username, password } = body;
+
+    if (!username || !password) {
+      return c.json({
+        success: false,
+        error: 'Usuário e senha são obrigatórios'
+      }, 400);
+    }
+
+    console.log('👤 Login attempt:', { username });
+    // MODO LOCAL: sem PostgREST/DB, retorna usuário admin fake
+    if (Deno.env.get('LOCAL_MODE') === 'true') {
+      const token = generateToken(32);
+      return c.json({
+        success: true,
+        data: {
+          token,
+          refresh_token: generateToken(32),
+          user: {
+            id: 'local-admin',
+            username: 'admin',
+            type: 'superadmin',
+            organization: null
+          }
+        }
+      });
+    }
+
+
+    // ✅ ARQUITETURA SQL: Buscar usuário da tabela SQL ao invés de KV Store
+    const supabase = getSupabaseClient();
+    
+    // Verificar se tabela users existe (debug)
+    const { data: allUsers, error: checkError } = await supabase
+      .from('users')
+      .select('id, username, type')
+      .limit(5);
+    
+    if (checkError) {
+      console.error('❌ ERRO CRÍTICO: Tabela users não existe ou erro de acesso:', checkError);
+      return c.json({
+        success: false,
+        error: `Erro ao acessar tabela users: ${checkError.message}`,
+        details: checkError.code || 'UNKNOWN_ERROR'
+      }, 500);
+    }
+    
+    console.log('✅ Tabela users acessível. Usuários encontrados:', allUsers?.length || 0);
+    
+    // Buscar usuário na tabela SQL
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .maybeSingle();
+    
+    if (userError) {
+      console.error('❌ Erro ao buscar usuário:', userError);
+      return c.json({
+        success: false,
+        error: `Erro ao buscar usuário: ${userError.message}`,
+        details: userError.code || 'QUERY_ERROR'
+      }, 500);
+    }
+    
+    // Se não encontrou usuário, retornar erro
+    if (!user) {
+      console.log('❌ Usuário não encontrado:', username);
+      console.log('📋 Usuários disponíveis na tabela:', allUsers?.map(u => u.username) || []);
+      return c.json({
+        success: false,
+        error: 'Usuário ou senha incorretos'
+      }, 401);
+    }
+    
+    console.log('✅ Usuário encontrado na tabela SQL:', { id: user.id, username: user.username, type: user.type });
+    
+    // 1. Verificar se é SuperAdmin ou usuário de organização
+    if (user.type === 'superadmin' || user.type === 'imobiliaria' || user.type === 'staff') {
+      // ✅ ARQUITETURA SQL: Verificar senha usando hash do banco
+      const computedHash = hashPassword(password);
+      console.log('🔍 Verificando senha:', { 
+        username, 
+        passwordProvided: password ? 'SIM' : 'NÃO',
+        passwordLength: password?.length,
+        passwordHashLength: user.password_hash?.length,
+        passwordHashPrefix: user.password_hash?.substring(0, 20),
+        computedHash: computedHash,
+        storedHash: user.password_hash,
+        hashesMatch: computedHash === user.password_hash
+      });
+      
+      const passwordValid = verifyPassword(password, user.password_hash);
+      console.log('🔍 Resultado da verificação de senha:', passwordValid);
+      

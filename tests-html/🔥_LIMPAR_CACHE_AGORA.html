@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 LIMPAR CACHE AGORA - v1.0.103.298</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+            font-size: 36px;
+            text-align: center;
+        }
+        
+        .alert {
+            background: #fff3cd;
+            border-left: 4px solid #ff6b6b;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .alert h2 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .alert p {
+            color: #856404;
+            line-height: 1.6;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #ff6b6b;
+            padding: 24px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .step h3 {
+            color: #ff6b6b;
+            margin-bottom: 16px;
+            font-size: 22px;
+        }
+        
+        .keyboard {
+            display: inline-block;
+            background: #2c3e50;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .plus {
+            display: inline-block;
+            margin: 0 8px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        
+        .checklist {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 16px 0;
+        }
+        
+        .checklist-item {
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            min-width: 24px;
+            border: 2px solid #ff6b6b;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        
+        .success-box {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border: 3px solid #10b981;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .success-box h2 {
+            color: #065f46;
+            font-size: 28px;
+            margin-bottom: 16px;
+        }
+        
+        .success-box p {
+            color: #047857;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        
+        .button {
+            display: inline-block;
+            background: #ff6b6b;
+            color: white;
+            padding: 16px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            margin: 10px 5px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+        }
+        
+        .button:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 107, 0.5);
+        }
+        
+        .code {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 16px 0;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        
+        .highlight {
+            background: #fef3c7;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .warning {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .warning h3 {
+            color: #991b1b;
+            margin-bottom: 12px;
+        }
+        
+        .warning p {
+            color: #991b1b;
+            line-height: 1.6;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .comparison-box {
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .comparison-box.wrong {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+        }
+        
+        .comparison-box.correct {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+        }
+        
+        .comparison-box h4 {
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+        
+        .comparison-box .label {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 8px 0;
+            font-weight: 600;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="pulse">🔥 LIMPAR CACHE AGORA!</h1>
+        
+        <div class="alert">
+            <h2>⚠️ PROBLEMA IDENTIFICADO: CACHE DO NAVEGADOR</h2>
+            <p><strong>O código está 100% correto</strong>, mas o navegador está mostrando uma <strong>versão antiga em cache</strong>. Siga as instruções abaixo para limpar o cache e ver a versão correta!</p>
+        </div>
+        
+        <div class="comparison">
+            <div class="comparison-box wrong">
+                <h4>❌ O QUE VOCÊ ESTÁ VENDO</h4>
+                <div class="label">Tipo do local</div>
+                <div class="label">Tipo de ❌</div>
+                <p style="margin-top: 12px; color: #991b1b; font-weight: 600;">VERSÃO EM CACHE (ANTIGA)</p>
+            </div>
+            
+            <div class="comparison-box correct">
+                <h4>✅ O QUE VOCÊ DEVERIA VER</h4>
+                <div class="label">Tipo do local</div>
+                <div class="label">Tipo de acomodação ✅</div>
+                <p style="margin-top: 12px; color: #065f46; font-weight: 600;">VERSÃO NOVA (CORRETA)</p>
+            </div>
+        </div>
+        
+        <div class="warning">
+            <h3>🚨 IMPORTANTE: VOCÊ PRECISA LIMPAR O CACHE!</h3>
+            <p>O navegador armazena arquivos JavaScript antigos para carregar mais rápido. Mas isso significa que você está vendo código antigo mesmo após eu ter corrigido!</p>
+        </div>
+        
+        <div class="step">
+            <h3>📋 MÉTODO 1: HARD REFRESH (MAIS RÁPIDO)</h3>
+            
+            <div style="margin: 20px 0;">
+                <p style="margin-bottom: 12px;"><strong>Windows / Linux:</strong></p>
+                <div style="text-align: center;">
+                    <span class="keyboard">Ctrl</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">Shift</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">R</span>
+                </div>
+                <p style="text-align: center; margin-top: 8px; color: #6b7280;">ou</p>
+                <div style="text-align: center;">
+                    <span class="keyboard">Ctrl</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">F5</span>
+                </div>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <p style="margin-bottom: 12px;"><strong>Mac:</strong></p>
+                <div style="text-align: center;">
+                    <span class="keyboard">Cmd</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">Shift</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">R</span>
+                </div>
+                <p style="text-align: center; margin-top: 8px; color: #6b7280;">ou</p>
+                <div style="text-align: center;">
+                    <span class="keyboard">Cmd</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">Option</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">R</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step">
+            <h3>🗑️ MÉTODO 2: LIMPAR CACHE COMPLETO (MAIS GARANTIDO)</h3>
+            
+            <div class="checklist">
+                <div class="checklist-item">
+                    <div class="checkbox">1</div>
+                    <div>
+                        <strong>Abra o DevTools:</strong>
+                        <div style="margin-top: 8px;">
+                            <span class="keyboard">F12</span>
+                            <span style="margin: 0 8px;">ou</span>
+                            <span class="keyboard">Ctrl</span>
+                            <span class="plus">+</span>
+                            <span class="keyboard">Shift</span>
+                            <span class="plus">+</span>
+                            <span class="keyboard">I</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="checklist-item">
+                    <div class="checkbox">2</div>
+                    <div>
+                        <strong>Vá na aba "Application"</strong> (ou "Aplicativo" em português)
+                    </div>
+                </div>
+                
+                <div class="checklist-item">
+                    <div class="checkbox">3</div>
+                    <div>
+                        <strong>Clique em "Clear storage"</strong> (ou "Limpar armazenamento")
+                    </div>
+                </div>
+                
+                <div class="checklist-item">
+                    <div class="checkbox">4</div>
+                    <div>
+                        <strong>Marque TODAS as opções:</strong>
+                        <ul style="margin-top: 8px; margin-left: 20px;">
+                            <li>✅ Cookies and site data</li>
+                            <li>✅ Cache storage</li>
+                            <li>✅ Application cache</li>
+                            <li>✅ Local and session storage</li>
+                            <li>✅ IndexedDB</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="checklist-item">
+                    <div class="checkbox">5</div>
+                    <div>
+                        <strong>Clique em "Clear site data"</strong> e aguarde
+                    </div>
+                </div>
+                
+                <div class="checklist-item">
+                    <div class="checkbox">6</div>
+                    <div>
+                        <strong>Feche e reabra o navegador</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step">
+            <h3>🕵️ MÉTODO 3: ABA ANÔNIMA (100% GARANTIDO)</h3>
+            
+            <p style="margin-bottom: 16px;">A aba anônima NUNCA usa cache. Use para confirmar:</p>
+            
+            <div style="margin: 20px 0;">
+                <p style="margin-bottom: 12px;"><strong>Windows / Linux:</strong></p>
+                <div style="text-align: center;">
+                    <span class="keyboard">Ctrl</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">Shift</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">N</span>
+                    <span style="margin: 0 12px;">(Chrome)</span>
+                </div>
+                <div style="text-align: center; margin-top: 8px;">
+                    <span class="keyboard">Ctrl</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">Shift</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">P</span>
+                    <span style="margin: 0 12px;">(Firefox)</span>
+                </div>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <p style="margin-bottom: 12px;"><strong>Mac:</strong></p>
+                <div style="text-align: center;">
+                    <span class="keyboard">Cmd</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">Shift</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">N</span>
+                    <span style="margin: 0 12px;">(Chrome)</span>
+                </div>
+                <div style="text-align: center; margin-top: 8px;">
+                    <span class="keyboard">Cmd</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">Shift</span>
+                    <span class="plus">+</span>
+                    <span class="keyboard">P</span>
+                    <span style="margin: 0 12px;">(Firefox)</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="step">
+            <h3>🔍 COMO CONFIRMAR QUE FUNCIONOU:</h3>
+            
+            <ol style="line-height: 1.8; margin-left: 20px;">
+                <li>Abra o Console (F12)</li>
+                <li>Procure por esta mensagem:</li>
+            </ol>
+            
+            <div class="code">🔥 [ContentTypeStep] *** BUILD v1.0.103.298 - CACHE BUSTER ATIVADO ***
+✅ [ContentTypeStep] Label Campo 1: "Tipo do local"
+✅ [ContentTypeStep] Label Campo 2: "Tipo de acomodação"</div>
+            
+            <p style="margin-top: 16px;"><strong>Se você ver essas mensagens</strong> = código novo está rodando! ✅</p>
+        </div>
+        
+        <div class="success-box">
+            <h2>✅ APÓS LIMPAR O CACHE</h2>
+            <p>Você DEVE ver o segundo campo como:<br>
+            <strong style="font-size: 24px; color: #065f46;">"Tipo de acomodação"</strong><br>
+            COMPLETO!</p>
+        </div>
+        
+        <div style="text-align: center; margin: 40px 0;">
+            <a href="javascript:location.reload(true);" class="button">
+                🔄 RECARREGAR PÁGINA AGORA
+            </a>
+        </div>
+        
+        <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e2e8f0; text-align: center; color: #6b7280;">
+            <p><strong>RENDIZY</strong> - Sistema de Gestão de Imóveis</p>
+            <p style="margin-top: 8px; font-size: 14px;">v1.0.103.298 - Cache Killer Final 🔥</p>
+        </div>
+    </div>
+    
+    <script>
+        // Adiciona data-timestamp ao body para forçar o navegador a ver que a página mudou
+        document.body.setAttribute('data-build', 'v1.0.103.298');
+        document.body.setAttribute('data-timestamp', Date.now());
+        
+        console.log('🔥 BUILD v1.0.103.298 - CACHE BUSTER ATIVADO');
+        console.log('✅ Se você está vendo esta mensagem, esta é a página NOVA!');
+        console.log('📋 Agora limpe o cache e acesse o sistema novamente.');
+    </script>
+</body>
+</html>

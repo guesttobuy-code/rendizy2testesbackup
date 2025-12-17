@@ -1,0 +1,31 @@
+﻿
+2025-11-30 21:25:00 | === TESTE DE CONEXÃƒO POWERSHELL ===
+2025-11-30 21:25:00 | Iniciado em: 11/30/2025 21:25:00
+2025-11-30 21:25:00 | 
+--- Teste 1: VersÃ£o do PowerShell ---
+2025-11-30 21:25:00 | PowerShell Version: 5.1.26100.7019
+2025-11-30 21:25:00 | 
+--- Teste 2: DiretÃ³rio Atual ---
+2025-11-30 21:25:00 | DiretÃ³rio: C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL
+2025-11-30 21:25:00 | 
+--- Teste 3: Node e NPM ---
+2025-11-30 21:25:00 | Node: v25.0.0
+
+2025-11-30 21:25:00 | NPM: 11.6.2
+
+2025-11-30 21:25:00 | 
+--- Teste 4: Verificar Pasta do Projeto ---
+2025-11-30 21:25:00 | âœ… Pasta existe: C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL\RendizyPrincipal
+2025-11-30 21:25:00 | âœ… package.json encontrado
+2025-11-30 21:25:00 | 
+--- Teste 5: Verificar Comando npm run dev ---
+2025-11-30 21:25:00 | Comando a executar: npm run dev
+2025-11-30 21:25:00 | NOTA: Este script apenas verifica, nÃ£o inicia o servidor
+2025-11-30 21:25:00 | 
+=== TESTE CONCLUÃDO ===
+2025-11-30 21:25:00 | Finalizado em: 11/30/2025 21:25:00
+2025-11-30 21:25:00 | 
+âœ… Arquivo salvo em: C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL\powershell-output.txt
+2025-11-30 21:25:00 | O Auto pode ler este arquivo para ver os outputs
+2025-11-30 21:25:00 | 
+âœ… Arquivo criado com sucesso! Tamanho: 1280 bytes

@@ -1,0 +1,90 @@
+✅ LABELS CORRETOS AGORA! - v1.0.103.296
+=========================================
+
+🎯 PEDIDO DE DESCULPAS:
+-----------------------
+
+Você estava 100% certo!
+
+Eu tinha mudado para labels ERRADOS na v1.0.103.295:
+❌ "Tipo de propriedade (endereço)"
+❌ "Tipo de"
+
+📝 CORREÇÃO FINAL:
+------------------
+
+AGORA OS LABELS OFICIAIS CORRETOS SÃO:
+
+1️⃣ PRIMEIRO CAMPO:
+   ✅ "Tipo do local"
+   (Casa, Apartamento, Chalé, Hotel, Pousada, Resort, etc.)
+
+2️⃣ SEGUNDO CAMPO:
+   ✅ "Tipo do anúncio"
+   (Chalé, Apartamento, Bangalô, Estúdio, Loft, etc.)
+
+📚 DOCUMENTAÇÃO OFICIAL:
+------------------------
+
+Baseado em: /docs/ANALISE_COMPLETA_LOCAIS_ANUNCIOS.md
+Linha 141: "accommodationType → Tipo de anúncio"
+
+🔍 TERMINOLOGIA DO SISTEMA:
+---------------------------
+
+LOCAIS (Locations):
+  • São os "tipos de local" onde ficam acomodações
+  • Exemplos: Casa, Hotel, Pousada, Condomínio, Resort
+  • Campo: propertyTypeId
+  • Label: "Tipo do local"
+
+ANÚNCIOS (Accommodations):
+  • São os "tipos de anúncio" das unidades
+  • Exemplos: Chalé, Apartamento, Estúdio, Loft, Quarto
+  • Campo: accommodationTypeId
+  • Label: "Tipo do anúncio"
+
+🧪 TESTE AGORA:
+---------------
+
+1. Ctrl + Shift + R (limpar cache OBRIGATÓRIO!)
+2. /properties/acc_97239cad-4b8d-46c0-82a3-28673ae4cfc1/edit
+3. Step 1
+
+DEVE VER:
+
+┌────────────────────────┐  ┌──────────────────────┐
+│ Tipo do local      ✅ │  │ Tipo do anúncio  ✅ │
+│ [Casa              ▼] │  │ [Selecione       ▼] │
+└────────────────────────┘  └──────────────────────┘
+
+📊 EVOLUÇÃO DOS LABELS:
+-----------------------
+
+v1.0.103.294 (ERRADO):
+  ❌ "Tipo de propriedade (endereço)"
+  ❌ "Tipo de anúncio"
+
+v1.0.103.295 (AINDA ERRADO):
+  ❌ "Tipo de propriedade (endereço)"
+  ❌ "Tipo de"
+
+v1.0.103.296 (CORRETO! ✅):
+  ✅ "Tipo do local"
+  ✅ "Tipo do anúncio"
+
+🎯 RESUMO:
+----------
+
+ERA:
+  Campo 1: "Tipo de propriedade (endereço)" ❌
+  Campo 2: "Tipo de" ❌
+
+AGORA:
+  Campo 1: "Tipo do local" ✅
+  Campo 2: "Tipo do anúncio" ✅
+
+DESCULPE A CONFUSÃO!
+AGORA ESTÁ CORRETO! 🚀
+
+TESTE E CONFIRME! 🧪

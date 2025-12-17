@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 Limpar Cache - v1.0.103.314</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .version {
+            color: #666;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+        
+        .feature {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: left;
+        }
+        
+        .feature strong {
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 20px 50px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            margin-top: 30px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .success {
+            display: none;
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 30px;
+            font-size: 1.1rem;
+        }
+        
+        .success.show {
+            display: block;
+            animation: slideIn 0.5s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .url-box {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Limpar Cache</h1>
+        <p class="version">RENDIZY v1.0.103.314</p>
+        
+        <div class="feature">
+            <strong>🔍 NOVA FEATURE:</strong><br>
+            Sistema de Diagnóstico de Imóvel integrado!<br>
+            Consulta dados do Supabase em tempo real.
+        </div>
+        
+        <div class="feature">
+            <strong>📍 Como acessar:</strong><br>
+            <div class="url-box">/properties/{ID_DO_IMOVEL}/diagnostico</div>
+            <strong>Exemplo:</strong><br>
+            <div class="url-box">/properties/acc_97239cad-4b8d-46c0-82a3-28673ae4cfc1/diagnostico</div>
+        </div>
+        
+        <button class="btn" onclick="clearCache()">
+            🔥 Limpar Cache Agora
+        </button>
+        
+        <div class="success" id="success">
+            ✅ <strong>Cache limpo com sucesso!</strong><br><br>
+            🎯 Próximo passo:<br>
+            Pressione <strong>Ctrl + Shift + R</strong> (Windows/Linux)<br>
+            ou <strong>Cmd + Shift + R</strong> (Mac)<br>
+            para recarregar completamente.<br><br>
+            📍 Depois acesse:<br>
+            <div class="url-box" style="background: white; color: #667eea; border: 2px solid #667eea; margin-top: 10px;">
+                /properties/acc_97239cad-4b8d-46c0-82a3-28673ae4cfc1/diagnostico
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function clearCache() {
+            // Limpar localStorage
+            localStorage.clear();
+            console.log('✅ localStorage limpo');
+            
+            // Limpar sessionStorage
+            sessionStorage.clear();
+            console.log('✅ sessionStorage limpo');
+            
+            // Limpar cookies
+            document.cookie.split(";").forEach(function(c) { 
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            });
+            console.log('✅ Cookies limpos');
+            
+            // Mostrar mensagem de sucesso
+            document.getElementById('success').classList.add('show');
+            
+            console.log('🎉 Cache completamente limpo!');
+            console.log('🔍 Nova feature: Sistema de Diagnóstico de Imóvel');
+            console.log('📍 Acesse: /properties/{ID_DO_IMOVEL}/diagnostico');
+        }
+    </script>
+</body>
+</html>

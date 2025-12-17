@@ -1,0 +1,30 @@
+
+2025-11-30 21:32:36 | === TESTE DE TERMINAL DO CURSOR ===
+2025-11-30 21:32:36 | Execute este script DENTRO do terminal do Cursor
+2025-11-30 21:32:36 | Iniciado em: 11/30/2025 21:32:36
+2025-11-30 21:32:36 | 
+2025-11-30 21:32:36 | 1. VERIFICANDO POWERSHELL ATUAL:
+2025-11-30 21:32:36 |    Versão: 7.5.4
+2025-11-30 21:32:36 |    Edição: Core
+2025-11-30 21:32:36 |    Caminho: C:\Program Files\PowerShell\7
+2025-11-30 21:32:36 |    Executável: C:\Program Files\PowerShell\7\powershell.exe
+2025-11-30 21:32:36 | 
+2025-11-30 21:32:36 |    ✅ É POWERSHELL 7!
+2025-11-30 21:32:36 |    Versão: 7.5.4
+2025-11-30 21:32:36 | 
+2025-11-30 21:32:36 | 3. VARIÁVEIS DE AMBIENTE:
+2025-11-30 21:32:36 |    TERM_PROGRAM: vscode
+2025-11-30 21:32:36 |    TERM: 
+2025-11-30 21:32:36 |    SHELL: 
+2025-11-30 21:32:36 | 
+2025-11-30 21:32:36 | 4. TESTANDO COMANDOS:
+2025-11-30 21:32:36 |    Node: v25.0.0
+
+2025-11-30 21:32:37 |    NPM: 11.6.2
+
+2025-11-30 21:32:37 | 
+2025-11-30 21:32:37 | === TESTE CONCLUÍDO ===
+2025-11-30 21:32:37 | Finalizado em: 11/30/2025 21:32:37
+2025-11-30 21:32:37 | 
+2025-11-30 21:32:37 | ✅ Se você está vendo PowerShell 7 (versão 7.x), está funcionando!
+2025-11-30 21:32:37 | ⚠️ Se você está vendo PowerShell 5.1, reinicie o Cursor

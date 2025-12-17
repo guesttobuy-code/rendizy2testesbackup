@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 COMECE AQUI - Migração v1.0.103.315</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header p {
+            color: #64748b;
+            font-size: 18px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card.primary {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+        }
+        
+        .card.primary .card-icon {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .card.primary .btn {
+            background: white;
+            color: #1e3a8a;
+        }
+        
+        .card-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #10b981;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .card-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .card h2 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: inherit;
+        }
+        
+        .card p {
+            color: inherit;
+            opacity: 0.8;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: transform 0.2s;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .timeline {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .timeline h3 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #1e3a8a;
+        }
+        
+        .timeline-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .timeline-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .timeline-number {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            margin-right: 20px;
+            flex-shrink: 0;
+        }
+        
+        .timeline-content {
+            flex: 1;
+        }
+        
+        .timeline-content h4 {
+            font-size: 18px;
+            margin-bottom: 5px;
+            color: #1e293b;
+        }
+        
+        .timeline-content p {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .alert {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        
+        .alert h4 {
+            color: #92400e;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .alert p {
+            color: #78350f;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 80px; margin-bottom: 20px;">🎯</div>
+            <h1>COMECE AQUI</h1>
+            <p>Sistema Unificado de Normalização v1.0.103.315</p>
+        </div>
+        
+        <div class="grid">
+            <div class="card primary" onclick="window.open('🤖_EXECUTAR_MIGRACAO_AUTOMATICA_v1.0.103.315.html', '_blank')">
+                <div class="card-badge">PASSO 1</div>
+                <div class="card-icon">🤖</div>
+                <h2>Executar Migração</h2>
+                <p>Execute a migração automática que normaliza todos os imóveis cadastrados. Leva apenas 30 segundos!</p>
+                <button class="btn">🚀 Executar Agora</button>
+            </div>
+            
+            <div class="card" onclick="window.open('🔥_LIMPAR_CACHE_v1.0.103.315.html', '_blank')">
+                <div class="card-badge">PASSO 2</div>
+                <div class="card-icon">🔥</div>
+                <h2>Limpar Cache</h2>
+                <p>Limpe o cache do navegador para garantir que você veja a versão atualizada do sistema.</p>
+                <button class="btn">Limpar Cache</button>
+            </div>
+            
+            <div class="card" onclick="window.location.href='/properties'">
+                <div class="card-badge">PASSO 3</div>
+                <div class="card-icon">✅</div>
+                <h2>Verificar Resultado</h2>
+                <p>Acesse a lista de imóveis e confirme que os cards mostram nome, fotos e amenidades.</p>
+                <button class="btn">Ver Imóveis</button>
+            </div>
+        </div>
+        
+        <div class="timeline">
+            <h3>📋 Passo a Passo Detalhado</h3>
+            
+            <div class="timeline-item">
+                <div class="timeline-number">1</div>
+                <div class="timeline-content">
+                    <h4>🤖 Executar Migração Automática</h4>
+                    <p>Clique no card "Executar Migração" acima. Uma nova janela abrirá e executará a normalização automaticamente. Aguarde 10-30 segundos até ver a mensagem de sucesso.</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-number">2</div>
+                <div class="timeline-content">
+                    <h4>📊 Ver Estatísticas</h4>
+                    <p>Após a migração, você verá quantas propriedades foram migradas, quantas foram puladas (já estavam corretas) e se houve erros.</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-number">3</div>
+                <div class="timeline-content">
+                    <h4>🔥 Limpar Cache</h4>
+                    <p>Clique no card "Limpar Cache" ou use Ctrl + Shift + Delete. Selecione "Imagens e arquivos em cache" e "Todo o período", depois clique em "Limpar dados".</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-number">4</div>
+                <div class="timeline-content">
+                    <h4>🔄 Hard Refresh</h4>
+                    <p>Pressione Ctrl + Shift + R para recarregar a página sem usar cache. Isso garante que você veja a versão mais recente.</p>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-number">5</div>
+                <div class="timeline-content">
+                    <h4>✅ Verificar Resultado</h4>
+                    <p>Acesse /properties e confirme que os cards de imóveis agora mostram: nome do imóvel, foto de capa, e contador de amenidades.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="alert">
+            <h4>⚠️ Importante</h4>
+            <p><strong>NÃO pule nenhum passo!</strong> A migração adiciona campos normalizados ao banco de dados, mas o navegador pode estar usando versões antigas dos arquivos JavaScript. Limpar o cache é ESSENCIAL para ver as mudanças.</p>
+        </div>
+        
+        <div style="margin-top: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+            <div class="card" onclick="window.open('📋_RESUMO_EXECUTIVO_v1.0.103.315.md', '_blank')">
+                <div class="card-icon" style="font-size: 48px;">📋</div>
+                <h2 style="font-size: 18px;">Resumo Executivo</h2>
+                <p style="font-size: 14px;">Documentação completa da implementação</p>
+            </div>
+            
+            <div class="card" onclick="window.open('✅_SISTEMA_UNIFICADO_IMPLEMENTADO_v1.0.103.315.md', '_blank')">
+                <div class="card-icon" style="font-size: 48px;">✅</div>
+                <h2 style="font-size: 18px;">Documentação Técnica</h2>
+                <p style="font-size: 14px;">Detalhes da arquitetura e implementação</p>
+            </div>
+            
+            <div class="card" onclick="window.open('⚡_ACAO_IMEDIATA_MIGRACAO_v1.0.103.315.md', '_blank')">
+                <div class="card-icon" style="font-size: 48px;">⚡</div>
+                <h2 style="font-size: 18px;">Guia de Ação Imediata</h2>
+                <p style="font-size: 14px;">Instruções rápidas e troubleshooting</p>
+            </div>
+            
+            <div class="card" onclick="window.open('docs/changelogs/CHANGELOG_V1.0.103.315.md', '_blank')">
+                <div class="card-icon" style="font-size: 48px;">📝</div>
+                <h2 style="font-size: 18px;">CHANGELOG</h2>
+                <p style="font-size: 14px;">Registro completo de mudanças</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

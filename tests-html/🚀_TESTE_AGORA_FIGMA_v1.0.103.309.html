@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Automatizado: Criar Imóvel @figma@</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1000px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .step h3 {
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .step p {
+            color: #666;
+            line-height: 1.6;
+            margin-left: 40px;
+        }
+        
+        .step code {
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #d63384;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .feature-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .feature-card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .feature-card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .feature-card li {
+            padding: 5px 0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .feature-card li::before {
+            content: "✅";
+        }
+        
+        .alert {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .alert h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .alert p {
+            color: #856404;
+            margin: 5px 0;
+        }
+        
+        .success-box {
+            background: #d1e7dd;
+            border: 2px solid #0f5132;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .success-box h2 {
+            color: #0f5132;
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+        
+        .success-box p {
+            color: #0f5132;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        
+        .data-table {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .data-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .data-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .data-table td:first-child {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .emoji {
+            font-size: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="emoji">🧪</span> Teste Automatizado: Criar Imóvel "@figma@"</h1>
+            <p>Validação completa do wizard com dados fictícios</p>
+            <p style="font-size: 0.9rem; margin-top: 10px;">Versão: v1.0.103.309 | Data: 2025-11-05</p>
+        </div>
+        
+        <div class="content">
+            <!-- Passos -->
+            <div class="step">
+                <h3><span class="step-number">1</span> Acesse o Admin Master</h3>
+                <p>No menu lateral, clique no ícone <code>Crown</code> (coroa) para acessar o Admin Master</p>
+            </div>
+            
+            <div class="step">
+                <h3><span class="step-number">2</span> Vá para a aba Sistema</h3>
+                <p>Na parte superior do Admin Master, clique na aba <code>Sistema</code></p>
+            </div>
+            
+            <div class="step">
+                <h3><span class="step-number">3</span> Encontre o card de teste</h3>
+                <p>Procure pelo card: <code>🧪 Teste Automatizado: Criar Imóvel "@figma@"</code></p>
+            </div>
+            
+            <div class="step">
+                <h3><span class="step-number">4</span> Execute o teste</h3>
+                <p>Clique no botão <code>Iniciar Teste Completo</code> e aguarde 10-15 segundos</p>
+            </div>
+            
+            <div class="step">
+                <h3><span class="step-number">5</span> Acompanhe os logs</h3>
+                <p>Veja os logs em tempo real mostrando cada etapa do teste</p>
+            </div>
+            
+            <div class="step">
+                <h3><span class="step-number">6</span> Valide o resultado</h3>
+                <p>Vá até <code>Gestão de Propriedades</code> e procure pelo imóvel <code>@figma@</code></p>
+            </div>
+            
+            <!-- Features -->
+            <h2 style="margin: 40px 0 20px 0; color: #333;">✨ O que este teste faz:</h2>
+            
+            <div class="features">
+                <div class="feature-card">
+                    <h4>📝 Dados Completos</h4>
+                    <ul>
+                        <li>Título: "@figma@"</li>
+                        <li>Todos numéricos: 10</li>
+                        <li>14 steps preenchidos</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📸 Upload de Foto</h4>
+                    <ul>
+                        <li>1 foto do Unsplash</li>
+                        <li>6 tags adicionadas</li>
+                        <li>Compressão automática</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>💾 Salvamento</h4>
+                    <ul>
+                        <li>Salva no Supabase</li>
+                        <li>Vincula foto ao imóvel</li>
+                        <li>Ativa o imóvel</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>🔍 Validação</h4>
+                    <ul>
+                        <li>Testa 5 rotas backend</li>
+                        <li>Valida 14 steps wizard</li>
+                        <li>Detecta falhas</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Dados do Imóvel -->
+            <h2 style="margin: 40px 0 20px 0; color: #333;">📊 Dados do Imóvel Criado:</h2>
+            
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Campo</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Nome</td>
+                            <td>@figma@</td>
+                        </tr>
+                        <tr>
+                            <td>Endereço</td>
+                            <td>Rua Figma Test, 10</td>
+                        </tr>
+                        <tr>
+                            <td>Quartos</td>
+                            <td>10</td>
+                        </tr>
+                        <tr>
+                            <td>Camas</td>
+                            <td>10</td>
+                        </tr>
+                        <tr>
+                            <td>Banheiros</td>
+                            <td>10</td>
+                        </tr>
+                        <tr>
+                            <td>Hóspedes</td>
+                            <td>10</td>
+                        </tr>
+                        <tr>
+                            <td>Área</td>
+                            <td>10m²</td>
+                        </tr>
+                        <tr>
+                            <td>Preço Base</td>
+                            <td>R$ 10</td>
+                        </tr>
+                        <tr>
+                            <td>Taxa Limpeza</td>
+                            <td>R$ 10</td>
+                        </tr>
+                        <tr>
+                            <td>Min Noites</td>
+                            <td>10</td>
+                        </tr>
+                        <tr>
+                            <td>Max Noites</td>
+                            <td>10</td>
+                        </tr>
+                        <tr>
+                            <td>Comissão</td>
+                            <td>10%</td>
+                        </tr>
+                        <tr>
+                            <td>Fotos</td>
+                            <td>1 (com 6 tags)</td>
+                        </tr>
+                        <tr>
+                            <td>Status</td>
+                            <td>Ativo</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Alert -->
+            <div class="alert">
+                <h3>⚠️ Atenção:</h3>
+                <p><strong>Este teste cria dados reais no banco de dados!</strong></p>
+                <p>O imóvel "@figma@" será visível na lista de propriedades.</p>
+                <p>Você pode deletá-lo depois se desejar.</p>
+            </div>
+            
+            <!-- Success Box -->
+            <div class="success-box">
+                <h2>🎯 Objetivo do Teste</h2>
+                <p>
+                    Validar que <strong>TODOS os 14 steps do wizard</strong> estão funcionando corretamente,
+                    que o <strong>upload de fotos funciona</strong>, que a <strong>compressão de imagens funciona</strong>,
+                    e que o <strong>salvamento no Supabase está operacional</strong>.
+                </p>
+                <p style="margin-top: 15px;">
+                    Se o teste passar 100%, o sistema está <strong>pronto para uso em produção</strong>! 🚀
+                </p>
+            </div>
+            
+            <!-- Exemplo de Logs -->
+            <h2 style="margin: 40px 0 20px 0; color: #333;">📝 Exemplo de Logs de Sucesso:</h2>
+            
+            <div style="background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.9rem; line-height: 1.6;">
+                <div style="color: #4ec9b0;">✅ Step 1: Tipo encontrado: Casa Completa</div>
+                <div style="color: #4ec9b0;">✅ Step 2: Dados do imóvel preparados</div>
+                <div style="color: #4ec9b0;">✅ Step 3: Foto enviada com 6 tags</div>
+                <div style="color: #4ec9b0;">✅ Step 4: Imóvel criado com ID: ABC123</div>
+                <div style="color: #4ec9b0;">✅ Step 5: Foto vinculada ao imóvel</div>
+                <div style="color: #9cdcfe; margin-top: 10px;">✅ Concluído: ✅ Imóvel "@figma@" criado com sucesso!</div>
+            </div>
+            
+            <!-- Footer -->
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #dee2e6; text-align: center; color: #666;">
+                <p>📚 <strong>Documentação Completa:</strong> /🧪_TESTE_FIGMA_PROPERTY_v1.0.103.309.md</p>
+                <p>📋 <strong>Changelog:</strong> /docs/changelogs/CHANGELOG_V1.0.103.309.md</p>
+                <p style="margin-top: 15px; font-size: 0.9rem;">
+                    Criado com ❤️ para validação completa do RENDIZY
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

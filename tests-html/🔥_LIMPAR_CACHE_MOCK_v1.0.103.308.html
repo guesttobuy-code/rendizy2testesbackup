@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 Limpar Cache - v1.0.103.308</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .emoji {
+            font-size: 64px;
+            text-align: center;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .version {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .alert {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .alert-title {
+            font-weight: bold;
+            color: #92400e;
+            margin-bottom: 5px;
+        }
+        
+        .alert-text {
+            color: #78350f;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 32px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .button:active {
+            transform: translateY(0);
+        }
+        
+        .button-secondary {
+            background: #6b7280;
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+        }
+        
+        .button-secondary:hover {
+            box-shadow: 0 6px 20px rgba(107, 114, 128, 0.6);
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+            color: #065f46;
+        }
+        
+        .status.info {
+            background: #dbeafe;
+            border: 2px solid #3b82f6;
+            color: #1e3a8a;
+        }
+        
+        .checklist {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .checklist-item {
+            padding: 10px 0;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .checklist-item:last-child {
+            border-bottom: none;
+        }
+        
+        .checklist-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .code {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        
+        .steps {
+            counter-reset: step-counter;
+            list-style: none;
+            margin: 20px 0;
+        }
+        
+        .steps li {
+            counter-increment: step-counter;
+            padding: 15px 15px 15px 50px;
+            position: relative;
+            margin-bottom: 10px;
+            background: #f3f4f6;
+            border-radius: 8px;
+        }
+        
+        .steps li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 15px;
+            top: 15px;
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="emoji">🔥</div>
+        <h1>Limpar Cache - Mock Eliminado</h1>
+        <div class="version">Versão v1.0.103.308</div>
+        
+        <div class="alert">
+            <div class="alert-title">⚠️ ATENÇÃO: Limpeza Crítica</div>
+            <div class="alert-text">
+                Esta limpeza remove dados de mock antigos e força o sistema a usar apenas Supabase.
+                <strong>Clique no botão abaixo para iniciar.</strong>
+            </div>
+        </div>
+        
+        <button class="button" onclick="limparCacheCompleto()">
+            🧹 Limpar Cache Completo
+        </button>
+        
+        <button class="button button-secondary" onclick="verificarStatus()">
+            🔍 Verificar Status Atual
+        </button>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="checklist">
+            <h3 style="margin-bottom: 15px; color: #374151;">✅ O que será limpo:</h3>
+            <div class="checklist-item">
+                <span class="checklist-icon">❌</span>
+                <span>rendizy_mock_data</span>
+            </div>
+            <div class="checklist-item">
+                <span class="checklist-icon">❌</span>
+                <span>rendizy_mock_enabled</span>
+            </div>
+            <div class="checklist-item">
+                <span class="checklist-icon">❌</span>
+                <span>rendizy_data_version</span>
+            </div>
+            <div class="checklist-item">
+                <span class="checklist-icon">✅</span>
+                <span style="color: #10b981;">Configurações de UI preservadas</span>
+            </div>
+        </div>
+        
+        <h3 style="margin: 30px 0 15px; color: #374151;">📋 Após limpar:</h3>
+        <ol class="steps">
+            <li>Aguarde a página recarregar automaticamente</li>
+            <li>Faça login novamente se necessário</li>
+            <li>Verifique console (F12) - deve mostrar "Carregando do Supabase"</li>
+            <li>Dashboard deve mostrar dados reais ou "Nenhuma propriedade"</li>
+        </ol>
+        
+        <div class="code" id="console-output" style="display: none;">
+            Console Output:<br>
+            <span id="console-text"></span>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const consoleOutput = document.getElementById('console-output');
+            const consoleText = document.getElementById('console-text');
+            consoleOutput.style.display = 'block';
+            consoleText.innerHTML += message + '<br>';
+            console.log(message);
+        }
+
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+        }
+
+        function limparCacheCompleto() {
+            log('🔄 Iniciando limpeza completa...');
+            
+            // Lista de chaves específicas para remover
+            const keysToRemove = [
+                'rendizy_mock_data',
+                'rendizy_mock_enabled',
+                'rendizy_data_version'
+            ];
+            
+            let removedCount = 0;
+            
+            keysToRemove.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    log(`✅ Removido: ${key}`, 'success');
+                    removedCount++;
+                } else {
+                    log(`ℹ️ Já limpo: ${key}`, 'info');
+                }
+            });
+            
+            // Limpar sessionStorage também
+            sessionStorage.clear();
+            log('✅ SessionStorage limpo', 'success');
+            
+            if (removedCount > 0) {
+                showStatus(`✅ ${removedCount} item(ns) removido(s). Recarregando página...`, 'success');
+                log(`✅ Total removido: ${removedCount} item(ns)`);
+            } else {
+                showStatus('✅ Cache já estava limpo!', 'success');
+                log('✅ Nenhum item antigo encontrado');
+            }
+            
+            // Forçar reload sem cache após 2 segundos
+            setTimeout(() => {
+                log('🔄 Recarregando página...');
+                // Hard reload (ignora cache)
+                window.location.reload(true);
+            }, 2000);
+        }
+
+        function verificarStatus() {
+            log('🔍 Verificando status atual...');
+            
+            const mockData = localStorage.getItem('rendizy_mock_data');
+            const mockEnabled = localStorage.getItem('rendizy_mock_enabled');
+            const dataVersion = localStorage.getItem('rendizy_data_version');
+            
+            let allClean = true;
+            let message = '📊 Status Atual:\n\n';
+            
+            if (mockData) {
+                message += '❌ rendizy_mock_data: PRESENTE (precisa limpar)\n';
+                allClean = false;
+                log('❌ Mock data encontrado');
+            } else {
+                message += '✅ rendizy_mock_data: LIMPO\n';
+                log('✅ Mock data limpo');
+            }
+            
+            if (mockEnabled) {
+                message += '❌ rendizy_mock_enabled: PRESENTE (precisa limpar)\n';
+                allClean = false;
+                log('❌ Mock enabled encontrado');
+            } else {
+                message += '✅ rendizy_mock_enabled: LIMPO\n';
+                log('✅ Mock enabled limpo');
+            }
+            
+            if (dataVersion) {
+                message += '❌ rendizy_data_version: PRESENTE (precisa limpar)\n';
+                allClean = false;
+                log('❌ Data version encontrado');
+            } else {
+                message += '✅ rendizy_data_version: LIMPO\n';
+                log('✅ Data version limpo');
+            }
+            
+            if (allClean) {
+                message += '\n✅ SISTEMA LIMPO! Pronto para usar.';
+                showStatus(message, 'success');
+                log('✅ Sistema totalmente limpo!');
+            } else {
+                message += '\n⚠️ LIMPEZA NECESSÁRIA! Clique no botão acima.';
+                showStatus(message, 'info');
+                log('⚠️ Limpeza necessária');
+            }
+        }
+
+        // Verificar status automaticamente ao carregar
+        window.onload = () => {
+            log('🚀 Página carregada - v1.0.103.308');
+            setTimeout(verificarStatus, 500);
+        };
+    </script>
+</body>
+</html>

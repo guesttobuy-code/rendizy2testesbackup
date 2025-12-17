@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Diagnóstico Imóvel acc_97239cad</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2rem;
+            display: none;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .results.active {
+            display: block;
+        }
+        
+        .section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section h3 {
+            color: #764ba2;
+            font-size: 1.2rem;
+            margin: 20px 0 10px 0;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            color: #333;
+            font-size: 1.1rem;
+            word-break: break-all;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-yes {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-no {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-empty {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .photo-item {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .photo-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        
+        .photo-info {
+            padding: 10px;
+            font-size: 0.85rem;
+        }
+        
+        .amenities-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .amenity-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .json-view {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-top: 15px;
+        }
+        
+        .alert {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 5px solid #dc3545;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 5px solid #28a745;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 5px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Diagnóstico de Imóvel</h1>
+            <p>ID: acc_97239cad-4b8d-46c0-82a3-28673ae4cfc1</p>
+        </div>
+        
+        <div class="content">
+            <button class="btn" onclick="diagnosticar()">
+                🔍 Consultar Dados no Supabase
+            </button>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Consultando banco de dados...</p>
+            </div>
+            
+            <div class="results" id="results">
+                <!-- Resultados serão inseridos aqui -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PROPERTY_ID = 'acc_97239cad-4b8d-46c0-82a3-28673ae4cfc1';
+        const API_URL = window.location.origin.includes('localhost') 
+            ? 'http://localhost:8888/functions/v1/make-server-67caf26a'
+            : 'https://dtvkydhztiprmnnvyytt.supabase.co/functions/v1/make-server-67caf26a';
+
+        async function diagnosticar() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            
+            loading.classList.add('active');
+            results.classList.remove('active');
+            results.innerHTML = '';
+            
+            try {
+                console.log('🔍 Consultando imóvel:', PROPERTY_ID);
+                console.log('🌐 API URL:', `${API_URL}/properties/${PROPERTY_ID}`);
+                
+                const response = await fetch(`${API_URL}/properties/${PROPERTY_ID}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('📡 Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Dados recebidos:', data);
+                
+                if (!data.success || !data.data) {
+                    throw new Error('Imóvel não encontrado no banco de dados');
+                }
+                
+                const property = data.data;
+                renderResults(property);
+                
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                results.innerHTML = `
+                    <div class="alert alert-error">
+                        <span style="font-size: 2rem;">❌</span>
+                        <div>
+                            <strong>Erro ao consultar dados:</strong><br>
+                            ${error.message}
+                        </div>
+                    </div>
+                `;
+                results.classList.add('active');
+            } finally {
+                loading.classList.remove('active');
+            }
+        }
+        
+        function renderResults(property) {
+            const results = document.getElementById('results');
+            
+            // Verificar dados importantes
+            const hasName = !!property.name;
+            const hasPhotos = property.photos && Array.isArray(property.photos) && property.photos.length > 0;
+            const hasCoverPhoto = !!property.coverPhoto;
+            const hasLocationAmenities = property.locationAmenities && property.locationAmenities.length > 0;
+            const hasListingAmenities = property.listingAmenities && property.listingAmenities.length > 0;
+            const hasAmenities = property.amenities && property.amenities.length > 0;
+            const hasContentPhotos = property.contentPhotos && property.contentPhotos.photos && property.contentPhotos.photos.length > 0;
+            
+            let html = '';
+            
+            // Status Geral
+            html += `
+                <div class="section">
+                    <h2>📊 Status Geral</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Nome</div>
+                            <div class="info-value">
+                                <span class="status-badge ${hasName ? 'status-yes' : 'status-no'}">
+                                    ${hasName ? '✅ TEM' : '❌ NÃO TEM'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Fotos (photos)</div>
+                            <div class="info-value">
+                                <span class="status-badge ${hasPhotos ? 'status-yes' : 'status-no'}">
+                                    ${hasPhotos ? `✅ ${property.photos.length} foto(s)` : '❌ VAZIO'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Foto de Capa</div>
+                            <div class="info-value">
+                                <span class="status-badge ${hasCoverPhoto ? 'status-yes' : 'status-no'}">
+                                    ${hasCoverPhoto ? '✅ TEM' : '❌ NÃO TEM'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Amenities Local</div>
+                            <div class="info-value">
+                                <span class="status-badge ${hasLocationAmenities ? 'status-yes' : 'status-no'}">
+                                    ${hasLocationAmenities ? `✅ ${property.locationAmenities.length} item(ns)` : '❌ VAZIO'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Amenities Anúncio</div>
+                            <div class="info-value">
+                                <span class="status-badge ${hasListingAmenities ? 'status-yes' : 'status-no'}">
+                                    ${hasListingAmenities ? `✅ ${property.listingAmenities.length} item(ns)` : '❌ VAZIO'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">ContentPhotos (aninhado)</div>
+                            <div class="info-value">
+                                <span class="status-badge ${hasContentPhotos ? 'status-warning' : 'status-no'}">
+                                    ${hasContentPhotos ? `⚠️ ${property.contentPhotos.photos.length} foto(s)` : '❌ NÃO TEM'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Dados Básicos
+            html += `
+                <div class="section">
+                    <h2>📋 Dados Básicos</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">ID</div>
+                            <div class="info-value" style="font-size: 0.9rem;">${property.id}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Nome</div>
+                            <div class="info-value">${property.name || '<span style="color: red;">❌ VAZIO</span>'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Código</div>
+                            <div class="info-value">${property.code || '<span style="color: red;">❌ VAZIO</span>'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Tipo</div>
+                            <div class="info-value">${property.type || '<span style="color: red;">❌ VAZIO</span>'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Status</div>
+                            <div class="info-value">${property.status || 'N/A'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Criado em</div>
+                            <div class="info-value" style="font-size: 0.85rem;">${property.createdAt || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Fotos
+            if (hasPhotos) {
+                html += `
+                    <div class="section">
+                        <h2>📸 Fotos (photos)</h2>
+                        <div class="photo-grid">
+            `;
+                
+                property.photos.forEach((photo, index) => {
+                    const photoUrl = typeof photo === 'string' ? photo : photo.url;
+                    const isCover = typeof photo === 'object' && photo.isCover;
+                    const category = typeof photo === 'object' && photo.category;
+                    
+                    html += `
+                        <div class="photo-item">
+                            <img src="${photoUrl}" alt="Foto ${index + 1}" 
+                                 onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27150%27%3E%3Crect fill=%27%23ddd%27 width=%27200%27 height=%27150%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 fill=%27%23999%27%3EErro%3C/text%3E%3C/svg%3E'">
+                            <div class="photo-info">
+                                <strong>#${index + 1}</strong>
+                                ${isCover ? '<span class="status-badge status-yes" style="margin-left: 5px;">⭐ CAPA</span>' : ''}
+                                ${category ? `<br><small>Categoria: ${category}</small>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // ContentPhotos (aninhado)
+            if (hasContentPhotos) {
+                html += `
+                    <div class="section">
+                        <h2>⚠️ ContentPhotos (estrutura aninhada)</h2>
+                        <div class="alert alert-warning">
+                            <span style="font-size: 2rem;">⚠️</span>
+                            <div>
+                                <strong>ATENÇÃO:</strong> Este campo contém fotos na estrutura aninhada do wizard.<br>
+                                Deveria ter sido extraído para o campo <code>photos</code> no nível raiz.
+                            </div>
+                        </div>
+                        <div class="photo-grid">
+            `;
+                
+                property.contentPhotos.photos.forEach((photo, index) => {
+                    html += `
+                        <div class="photo-item">
+                            <img src="${photo.url}" alt="Foto ${index + 1}" 
+                                 onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27150%27%3E%3Crect fill=%27%23ddd%27 width=%27200%27 height=%27150%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 fill=%27%23999%27%3EBlob%3C/text%3E%3C/svg%3E'">
+                            <div class="photo-info">
+                                <strong>#${index + 1}</strong> ${photo.isCover ? '<span class="status-badge status-yes" style="margin-left: 5px;">⭐ CAPA</span>' : ''}
+                                <br><small>Categoria: ${photo.category || 'N/A'}</small>
+                                <br><small style="color: #dc3545;">⚠️ URL blob:// (não persiste)</small>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Amenities do Local
+            if (hasLocationAmenities) {
+                html += `
+                    <div class="section">
+                        <h2>🏢 Amenities do Local (locationAmenities)</h2>
+                        <div class="amenities-list">
+            `;
+                
+                property.locationAmenities.forEach(amenity => {
+                    html += `<div class="amenity-badge">✅ ${amenity}</div>`;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="section">
+                        <h2>🏢 Amenities do Local (locationAmenities)</h2>
+                        <div class="alert alert-warning">
+                            <span style="font-size: 2rem;">⚠️</span>
+                            <div>
+                                <strong>VAZIO:</strong> Nenhuma amenidade do local foi salva.<br>
+                                Verifique se o Step 3 (Amenidades do Local) foi preenchido no wizard.
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Amenities do Anúncio
+            if (hasListingAmenities) {
+                html += `
+                    <div class="section">
+                        <h2>🏠 Amenities do Anúncio (listingAmenities)</h2>
+                        <div class="amenities-list">
+            `;
+                
+                property.listingAmenities.forEach(amenity => {
+                    html += `<div class="amenity-badge">✅ ${amenity}</div>`;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="section">
+                        <h2>🏠 Amenities do Anúncio (listingAmenities)</h2>
+                        <div class="alert alert-warning">
+                            <span style="font-size: 2rem;">⚠️</span>
+                            <div>
+                                <strong>VAZIO:</strong> Nenhuma amenidade do anúncio foi salva.<br>
+                                Verifique se o Step 4 (Amenidades) foi preenchido no wizard.
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // JSON Completo
+            html += `
+                <div class="section">
+                    <h2>💻 JSON Completo do Imóvel</h2>
+                    <div class="json-view">${JSON.stringify(property, null, 2)}</div>
+                </div>
+            `;
+            
+            // Resumo Final
+            const totalIssues = [
+                !hasName,
+                !hasPhotos,
+                !hasCoverPhoto,
+                !hasLocationAmenities,
+                !hasListingAmenities,
+                hasContentPhotos // ContentPhotos aninhado é um problema
+            ].filter(Boolean).length;
+            
+            if (totalIssues === 0) {
+                html = `
+                    <div class="alert alert-success">
+                        <span style="font-size: 2rem;">✅</span>
+                        <div>
+                            <strong>SUCESSO!</strong><br>
+                            Todos os dados estão salvos corretamente no Supabase.
+                        </div>
+                    </div>
+                ` + html;
+            } else {
+                html = `
+                    <div class="alert alert-warning">
+                        <span style="font-size: 2rem;">⚠️</span>
+                        <div>
+                            <strong>PROBLEMAS ENCONTRADOS:</strong><br>
+                            ${totalIssues} campo(s) com dados ausentes ou incorretos.<br>
+                            Verifique os detalhes abaixo.
+                        </div>
+                    </div>
+                ` + html;
+            }
+            
+            results.innerHTML = html;
+            results.classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Variáveis de Ambiente para Netlify
+# Copie e cole no Dashboard do Netlify: Site configuration → Environment variables
+
+# ========================================
+# INSTRUÇÕES:
+# 1. Acesse: https://app.netlify.com
+# 2. Selecione seu projeto
+# 3. Vá em: Site configuration → Environment variables
+# 4. Adicione cada variável abaixo (uma por uma)
+# 5. Após adicionar, faça um novo deploy!
+# ========================================
+
+# SUPABASE_SERVICE_ROLE_KEY
+# Key: SUPABASE_SERVICE_ROLE_KEY
+# Value: [COLOQUE O VALOR AQUI]
+# Scope: Production
+
+# VITE_ENVIRONMENT
+# Key: VITE_ENVIRONMENT
+# Value: [COLOQUE O VALOR AQUI]
+# Scope: Production
+
+# VITE_USE_MOCK_DATA
+# Key: VITE_USE_MOCK_DATA
+# Value: [COLOQUE O VALOR AQUI]
+# Scope: Production

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 TESTE AGORA - Criar Imóvel @figma@ - v1.0.103.311</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin: 5px;
+        }
+        
+        .section {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .step {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .step:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 35px;
+            height: 35px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 35px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        
+        .step-content {
+            display: inline-block;
+            vertical-align: middle;
+            width: calc(100% - 50px);
+        }
+        
+        .step-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+        }
+        
+        .step-desc {
+            color: #718096;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+        
+        .url-box {
+            background: #2d3748;
+            color: #48bb78;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2em;
+            text-align: center;
+            margin: 20px 0;
+            border: 2px solid #48bb78;
+        }
+        
+        .alert {
+            background: #fff5f5;
+            border-left: 5px solid #f56565;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #f0fff4;
+            border-left-color: #48bb78;
+        }
+        
+        .alert h3 {
+            color: #f56565;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .alert-success h3 {
+            color: #48bb78;
+        }
+        
+        .feature-list {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-list li::before {
+            content: "✅ ";
+            margin-right: 10px;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+            margin: 10px 5px;
+            text-align: center;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(72, 187, 120, 0.4);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .actions {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e2e8f0;
+        }
+        
+        .code-block {
+            background: #1a202c;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .step-content {
+                width: 100%;
+                margin-top: 10px;
+            }
+            
+            .step-number {
+                display: block;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Teste Automatizado</h1>
+            <div>
+                <span class="badge">v1.0.103.311</span>
+                <span class="badge">ROTA ADICIONADA</span>
+                <span class="badge">PRONTO PARA TESTE</span>
+            </div>
+        </div>
+        
+        <div class="alert alert-success">
+            <h3>✅ Rota de Teste Criada com Sucesso!</h3>
+            <p>O componente <code>FigmaTestPropertyCreator.tsx</code> agora está acessível via rota dedicada. Você pode criar o imóvel de teste "@figma@" a qualquer momento!</p>
+        </div>
+        
+        <div class="section">
+            <h2>🎯 Como Acessar</h2>
+            <div class="url-box">
+                /test/figma-property
+            </div>
+            <p style="text-align: center; color: #718096; margin-top: 10px;">
+                Cole essa URL na barra de endereço do seu navegador
+            </p>
+        </div>
+        
+        <div class="section">
+            <h2>📋 Passo a Passo</h2>
+            
+            <div class="step">
+                <span class="step-number">1</span>
+                <div class="step-content">
+                    <div class="step-title">Limpar Cache do Navegador</div>
+                    <div class="step-desc">
+                        Pressione <strong>Ctrl + Shift + R</strong> (Windows/Linux) ou <strong>Cmd + Shift + R</strong> (Mac) para garantir que está usando a versão mais recente.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">2</span>
+                <div class="step-content">
+                    <div class="step-title">Acessar a Rota de Teste</div>
+                    <div class="step-desc">
+                        Navegue para <code>/test/figma-property</code>. Você verá uma interface com título "🧪 Teste Automatizado" e um cartão com o botão de teste.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">3</span>
+                <div class="step-content">
+                    <div class="step-title">Iniciar o Teste Automático</div>
+                    <div class="step-desc">
+                        Clique no botão <strong>"Iniciar Teste Completo"</strong>. O sistema executará automaticamente 5 etapas:
+                        <ul style="margin-top: 10px; margin-left: 20px;">
+                            <li>Buscar tipos de acomodação</li>
+                            <li>Criar dados do imóvel "@figma@"</li>
+                            <li>Upload de foto do Unsplash</li>
+                            <li>Salvar no Supabase</li>
+                            <li>Vincular foto ao imóvel</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">4</span>
+                <div class="step-content">
+                    <div class="step-title">Acompanhar o Progresso</div>
+                    <div class="step-desc">
+                        Observe a barra de progresso (0-100%) e os logs em tempo real. Cada etapa mostrará ícones de status (✅ sucesso, ❌ erro, 🔄 executando).
+                    </div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">5</span>
+                <div class="step-content">
+                    <div class="step-title">Verificar Resultado</div>
+                    <div class="step-desc">
+                        Ao concluir, você verá um toast de sucesso com o ID do imóvel criado. Navegue para "Imóveis" no menu lateral para visualizar o imóvel "@figma@" completo.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🎁 O que Será Criado</h2>
+            <div class="feature-list">
+                <ul style="list-style: none;">
+                    <li>Imóvel com nome <strong>"@figma@"</strong></li>
+                    <li>TODOS os campos numéricos preenchidos com <strong>10</strong></li>
+                    <li><strong>1 foto</strong> do Unsplash (casa moderna na praia)</li>
+                    <li><strong>6 tags</strong> na foto: @figma@, teste, automatizado, rendizy, beach, modern</li>
+                    <li>Dados salvos no <strong>Supabase</strong> (backend real)</li>
+                    <li>Todos os <strong>12 steps do wizard</strong> preenchidos</li>
+                    <li>Status: <strong>active</strong></li>
+                    <li>Tipo: <strong>Casa (entire_place)</strong></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>✅ Validações Esperadas</h2>
+            <div class="code-block">
+DADOS NUMÉRICOS = 10:
+- bedrooms: 10
+- beds: 10
+- bathrooms: 10
+- guests: 10
+- area: 10
+- basePrice: 10
+- weekendPrice: 10
+- minNights: 10
+- maxNights: 10
+- commissionRate: 10
+- cleaningFee: 10
+- extraGuestFee: 10
+- monthlyDiscount: 10
+            </div>
+        </div>
+        
+        <div class="alert">
+            <h3>⚠️ Importante</h3>
+            <p>Esta é uma <strong>ferramenta de desenvolvimento</strong>. Os imóveis criados são para teste e podem ser identificados facilmente pelo nome "@figma@". Considere adicionar uma função de limpeza para remover todos os imóveis de teste quando necessário.</p>
+        </div>
+        
+        <div class="actions">
+            <a href="#" class="btn btn-primary" onclick="alert('Cole a URL /test/figma-property na barra de endereço do seu navegador')">
+                🧪 Ir para Teste Agora
+            </a>
+            <a href="#" class="btn" onclick="alert('Pressione Ctrl+Shift+R (Windows/Linux) ou Cmd+Shift+R (Mac)')">
+                🔄 Como Limpar Cache
+            </a>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 30px; border-top: 2px solid #e2e8f0; color: #718096;">
+            <p><strong>RENDIZY</strong> v1.0.103.311</p>
+            <p style="font-size: 0.9em; margin-top: 5px;">Build: 2025-11-05T20:00:00.000Z</p>
+        </div>
+    </div>
+</body>
+</html>

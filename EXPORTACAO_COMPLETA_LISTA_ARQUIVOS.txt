@@ -1,0 +1,470 @@
+===========================================
+RENDIZY - LISTA COMPLETA DE ARQUIVOS
+TODOS OS 250+ ARQUIVOS DO PROJETO
+===========================================
+
+📋 Use esta lista como checklist
+✅ Marque cada arquivo conforme copiar
+
+===========================================
+CONFIGURAÇÃO BASE (8 arquivos)
+===========================================
+
+📁 Raiz /
+├── ✅ BUILD_VERSION.txt
+├── ✅ CACHE_BUSTER.ts
+├── ✅ index.html
+├── ✅ package.json
+├── ✅ tsconfig.json
+├── ✅ vite.config.ts
+├── ✅ netlify.toml
+└── ✅ vercel.json
+
+📁 src/
+└── ✅ main.tsx
+
+📁 styles/
+└── ✅ globals.css
+
+===========================================
+COMPONENTS/UI - SHADCN (48 arquivos)
+===========================================
+
+📁 components/ui/
+├── ✅ accordion.tsx
+├── ✅ alert-dialog.tsx
+├── ✅ alert.tsx
+├── ✅ aspect-ratio.tsx
+├── ✅ avatar.tsx
+├── ✅ badge.tsx
+├── ✅ breadcrumb.tsx
+├── ✅ button.tsx
+├── ✅ calendar.tsx
+├── ✅ card.tsx
+├── ✅ carousel.tsx
+├── ✅ chart.tsx
+├── ✅ checkbox.tsx
+├── ✅ collapsible.tsx
+├── ✅ command.tsx
+├── ✅ context-menu.tsx
+├── ✅ dialog.tsx
+├── ✅ drawer.tsx
+├── ✅ dropdown-menu.tsx
+├── ✅ form.tsx
+├── ✅ hover-card.tsx
+├── ✅ input-otp.tsx
+├── ✅ input.tsx
+├── ✅ label.tsx
+├── ✅ menubar.tsx
+├── ✅ navigation-menu.tsx
+├── ✅ pagination.tsx
+├── ✅ popover.tsx
+├── ✅ progress.tsx
+├── ✅ radio-group.tsx
+├── ✅ resizable.tsx
+├── ✅ scroll-area.tsx
+├── ✅ select.tsx
+├── ✅ separator.tsx
+├── ✅ sheet.tsx
+├── ✅ sidebar.tsx
+├── ✅ skeleton.tsx
+├── ✅ slider.tsx
+├── ✅ sonner.tsx
+├── ✅ switch.tsx
+├── ✅ table.tsx
+├── ✅ tabs.tsx
+├── ✅ textarea.tsx
+├── ✅ toggle-group.tsx
+├── ✅ toggle.tsx
+├── ✅ tooltip.tsx
+├── ✅ use-mobile.ts
+└── ✅ utils.ts
+
+===========================================
+TYPES (2 arquivos)
+===========================================
+
+📁 types/
+├── ✅ financeiro.ts
+└── ✅ tenancy.ts
+
+===========================================
+HOOKS (4 arquivos)
+===========================================
+
+📁 hooks/
+├── ✅ useApiCache.ts
+├── ✅ useAutoSave.ts
+├── ✅ useCalendarManager.ts
+└── ✅ useDebounce.ts
+
+===========================================
+CONTEXTS (3 arquivos)
+===========================================
+
+📁 contexts/
+├── ✅ AuthContext.tsx
+├── ✅ LanguageContext.tsx
+└── ✅ ThemeContext.tsx
+
+===========================================
+PAGES (1 arquivo)
+===========================================
+
+📁 pages/
+└── ✅ PropertyWizardPage.tsx
+
+===========================================
+UTILS (35 arquivos)
+===========================================
+
+📁 utils/
+├── ✅ amenities-categories.ts
+├── ✅ amenities-data.ts
+├── ✅ api.ts
+├── ✅ autoRecovery.ts
+├── ✅ calendarManager.ts
+├── ✅ chatApi.ts
+├── ✅ codeGenerator.ts
+├── ✅ conflictDetection.ts
+├── ✅ evolutionApi.ts
+├── ✅ fetchWithRetry.ts
+├── ✅ guestsApi.ts
+├── ✅ imageCompression.ts
+├── ✅ mockBackend.ts
+├── ✅ offlineConfig.ts
+├── ✅ offlineMode.ts
+├── ✅ offlineOrganizations.ts
+├── ✅ roomsApi.ts
+├── ✅ wahaApi.ts
+└── ✅ whatsappChatApi.ts
+
+📁 utils/bookingcom/
+└── ✅ api.ts
+
+📁 utils/services/
+├── ✅ evolutionContactsService.ts
+└── ✅ evolutionService.ts
+
+📁 utils/supabase/
+└── ✅ info.tsx
+
+📁 utils/whatsapp/
+├── ✅ factory.ts
+├── ✅ index.ts
+└── ✅ types.ts
+
+📁 utils/whatsapp/evolution/
+├── ✅ api.ts
+└── ✅ config.ts
+
+📁 utils/whatsapp/waha/
+├── ✅ api.ts
+└── ✅ config.ts
+
+===========================================
+COMPONENTS - PRINCIPAIS (110 arquivos)
+===========================================
+
+📁 components/
+├── ✅ AccommodationRulesForm.tsx
+├── ✅ AdminMaster.tsx
+├── ✅ AdminMasterFunctional.tsx
+├── ✅ AdvancedSearchDropdown.tsx
+├── ✅ AmenitiesSelector.tsx
+├── ✅ ApiErrorBanner.tsx
+├── ✅ AppRouter.tsx
+├── ✅ AutoFixWhatsAppApiKey.tsx
+├── ✅ AutoSaveIndicator.tsx
+├── ✅ BackendHealthBanner.tsx
+├── ✅ BackendStatusIndicator.tsx
+├── ✅ BackendTester.tsx
+├── ✅ BlockDetailsModal.tsx
+├── ✅ BlockModal.tsx
+├── ✅ BookingComIntegration.tsx
+├── ✅ BuildLogger.tsx
+├── ✅ BulkMinNightsModal.tsx
+├── ✅ BulkPriceConditionModal.tsx
+├── ✅ BulkPricingManager.tsx
+├── ✅ BulkRestrictionsModal.tsx
+├── ✅ CalendarGrid.tsx
+├── ✅ CalendarHeader.tsx
+├── ✅ CalendarManagerBadge.tsx
+├── ✅ CalendarStats.tsx
+├── ✅ CancelReservationModal.tsx
+├── ✅ ChatFilterSidebar.tsx
+├── ✅ ChatInbox.tsx
+├── ✅ ChatInboxWithEvolution.tsx
+├── ✅ ChatTagsModal.tsx
+├── ✅ ClientSiteWrapper.tsx
+├── ✅ ClientSitesManager.tsx
+├── ✅ ClientsAndGuestsManagement.tsx
+├── ✅ ConflictAlert.tsx
+├── ✅ ConflictsDetectionDashboard.tsx
+├── ✅ CreateIndividualPropertyModal.tsx
+├── ✅ CreateOrganizationModal.tsx
+├── ✅ CreatePropertyTypeModal.tsx
+├── ✅ CreateReservationWizard.tsx
+├── ✅ CreateUserModal.tsx
+├── ✅ DashboardAnalytics.tsx
+├── ✅ DashboardInicial.tsx
+├── ✅ DataResetAlert.tsx
+├── ✅ DatabaseInitializer.tsx
+├── ✅ DateRangePicker.tsx
+├── ✅ DebugBannerToggle.tsx
+├── ✅ DeployBackendBanner.tsx
+├── ✅ DocumentosListasClientes.tsx
+├── ✅ EditReservationWizard.tsx
+├── ✅ EmergencyAdminBanner.tsx
+├── ✅ EmergencyHomeButton.tsx
+├── ✅ EmergencyRouter.tsx
+├── ✅ EnvironmentBadge.tsx
+├── ✅ EvolutionContactsList.tsx
+├── ✅ ExportModal.tsx
+├── ✅ FontSelector.tsx
+├── ✅ GlobalSettingsManager.tsx
+├── ✅ GuestsManager.tsx
+├── ✅ ICalManager.tsx
+├── ✅ IconsPreview.tsx
+├── ✅ IntegrationsManager.tsx
+├── ✅ LanguageSwitcher.tsx
+├── ✅ ListView.tsx
+├── ✅ LoadingDebugger.tsx
+├── ✅ LoadingProgress.tsx
+├── ✅ LocationAmenitiesSettings.tsx
+├── ✅ LocationsAndListings.tsx
+├── ✅ LocationsListingsSettings.tsx
+├── ✅ LocationsManager.tsx
+├── ✅ MainSidebar.tsx
+├── ✅ MinNightsEditModal.tsx
+├── ✅ ModulePlaceholder.tsx
+├── ✅ NotFoundPage.tsx
+├── ✅ PermissionsManager.tsx
+├── ✅ PhotoManager.tsx
+├── ✅ PhotoManagerTest.tsx
+├── ✅ PriceEditModal.tsx
+├── ✅ PriceTiersModal.tsx
+├── ✅ PricingSettingsForm.tsx
+├── ✅ PropertiesFilterSidebar.tsx
+├── ✅ PropertiesManagement.tsx
+├── ✅ PropertyDeleteModal.tsx
+├── ✅ PropertyEditWizard.tsx
+├── ✅ PropertyPhotosModal.tsx
+├── ✅ PropertySidebar.tsx
+├── ✅ PropertyTypesManager.tsx
+├── ✅ PropertyTypesSettings.tsx
+├── ✅ PropertyTypesTab.tsx
+├── ✅ PropertyViewModal.tsx
+├── ✅ ProprietariosManagement.tsx
+├── ✅ QuickActionsModal.tsx
+├── ✅ QuotationModal.tsx
+├── ✅ ReservationCard.tsx
+├── ✅ ReservationDetailsModal.tsx
+├── ✅ ReservationPreviewModal.tsx
+├── ✅ ReservationsManagement.tsx
+├── ✅ RoomsManager.tsx
+├── ✅ SeasonalityModal.tsx
+├── ✅ SettingsManager.tsx
+├── ✅ SettingsPanel.tsx
+├── ✅ SmartBackendBanner.tsx
+├── ✅ StaysNetIntegration.tsx
+├── ✅ StaysNetReservationAnalyzer.tsx
+├── ✅ TagsManagementModal.tsx
+├── ✅ TemplateManagerModal.tsx
+├── ✅ TenantManagement.tsx
+├── ✅ TestPropertiesCard.tsx
+├── ✅ TimelineView.tsx
+├── ✅ UserManagement.tsx
+├── ✅ VersionBadge.tsx
+├── ✅ WhatsAppChatsImporter.tsx
+├── ✅ WhatsAppCredentialsTester.tsx
+├── ✅ WhatsAppFloatingButton.tsx
+├── ✅ WhatsAppIntegration.tsx
+└── ✅ WhatsAppProviderSelector.tsx
+
+===========================================
+COMPONENTS - FIGMA (1 arquivo)
+===========================================
+
+📁 components/figma/
+└── ✅ ImageWithFallback.tsx
+
+===========================================
+COMPONENTS - WIZARD STEPS (13 arquivos)
+===========================================
+
+📁 components/wizard-steps/
+├── ✅ ContentAmenitiesStep.tsx
+├── ✅ ContentDescriptionStep.tsx
+├── ✅ ContentLocationAmenitiesStep.tsx
+├── ✅ ContentLocationStep.tsx
+├── ✅ ContentPhotosStep.tsx
+├── ✅ ContentRoomsStep.tsx
+├── ✅ ContentTypeStep.tsx
+├── ✅ FinancialContractStep.tsx
+├── ✅ FinancialDerivedPricingStep.tsx
+├── ✅ FinancialIndividualPricingStep.tsx
+├── ✅ FinancialResidentialPricingStep.tsx
+├── ✅ FinancialSeasonalPricingStep.tsx
+└── ✅ SettingsRulesStep.tsx
+
+===========================================
+COMPONENTS - FINANCEIRO (14 arquivos)
+===========================================
+
+📁 components/financeiro/
+├── ✅ FinanceiroDashboard.tsx
+├── ✅ FinanceiroModule.tsx
+└── ✅ FinanceiroSidebar.tsx
+
+📁 components/financeiro/components/
+├── ✅ CurrencyBadge.tsx
+├── ✅ DataTable.tsx
+├── ✅ KpiCard.tsx
+├── ✅ Money.tsx
+├── ✅ PeriodPicker.tsx
+└── ✅ SplitEditor.tsx
+
+📁 components/financeiro/pages/
+├── ✅ ContasPagarPage.tsx
+├── ✅ ContasReceberPage.tsx
+├── ✅ DREPage.tsx
+├── ✅ FluxoCaixaPage.tsx
+└── ✅ LancamentosPage.tsx
+
+===========================================
+COMPONENTS - BI (3 arquivos)
+===========================================
+
+📁 components/bi/
+├── ✅ BIDashboard.tsx
+├── ✅ BIModule.tsx
+└── ✅ BISidebar.tsx
+
+===========================================
+COMPONENTS - CRM (3 arquivos)
+===========================================
+
+📁 components/crm/
+├── ✅ CRMTasksDashboard.tsx
+├── ✅ CRMTasksModule.tsx
+└── ✅ CRMTasksSidebar.tsx
+
+===========================================
+APP PRINCIPAL (1 arquivo)
+===========================================
+
+📁 Raiz /
+└── ✅ App.tsx
+
+===========================================
+SUPABASE - SERVER (38 arquivos)
+===========================================
+
+📁 supabase/functions/server/
+├── ✅ index.tsx
+├── ✅ kv_store.tsx
+├── ✅ types.ts
+└── ✅ utils.ts
+
+📝 ROUTES (24 arquivos):
+├── ✅ routes-amenities.ts
+├── ✅ routes-blocks.ts
+├── ✅ routes-bookingcom.ts
+├── ✅ routes-bulk-pricing.ts
+├── ✅ routes-calendar.ts
+├── ✅ routes-chat.ts
+├── ✅ routes-client-sites.ts
+├── ✅ routes-clients.ts
+├── ✅ routes-guests.ts
+├── ✅ routes-ical.ts
+├── ✅ routes-listings.ts
+├── ✅ routes-location-amenities.ts
+├── ✅ routes-locations.ts
+├── ✅ routes-organizations.ts
+├── ✅ routes-owners.ts
+├── ✅ routes-photos.ts
+├── ✅ routes-pricing-settings.ts
+├── ✅ routes-properties.ts
+├── ✅ routes-property-types.ts
+├── ✅ routes-property-wizard.ts
+├── ✅ routes-quotations.ts
+├── ✅ routes-reservations.ts
+├── ✅ routes-rooms.ts
+├── ✅ routes-rules.ts
+├── ✅ routes-seasonal-pricing.ts
+├── ✅ routes-settings.ts
+├── ✅ routes-staysnet.ts
+├── ✅ routes-users.ts
+└── ✅ routes-whatsapp-evolution.ts
+
+📊 SEEDS (5 arquivos):
+├── ✅ seed-chat-data.ts
+├── ✅ seed-complete-test.ts
+├── ✅ seed-data-new.ts
+├── ✅ seed-data-test.ts
+└── ✅ seed-data.ts
+
+===========================================
+TEMPLATES (4 arquivos)
+===========================================
+
+📁 templates/
+├── ✅ README_TEMPLATES.md
+├── ✅ site-classico.tsx
+├── ✅ site-luxo.tsx
+└── ✅ site-moderno.tsx
+
+===========================================
+RESUMO ESTATÍSTICO
+===========================================
+
+📊 TOTAL DE ARQUIVOS: 250+
+
+Por categoria:
+├─ Config Base: 10
+├─ UI Components: 48
+├─ Types: 2
+├─ Hooks: 4
+├─ Contexts: 3
+├─ Pages: 1
+├─ Utils: 35
+├─ Components Principais: 110
+├─ Figma: 1
+├─ Wizard Steps: 13
+├─ Financeiro: 14
+├─ BI: 3
+├─ CRM: 3
+├─ App: 1
+├─ Supabase Server: 38
+└─ Templates: 4
+
+TOTAL: 290 arquivos
+
+===========================================
+COMO USAR ESTA LISTA
+===========================================
+
+1. Imprima ou mantenha aberta em outra aba
+2. Vá marcando ✅ conforme copiar
+3. Use CTRL+F para encontrar arquivos
+4. Copie na ordem listada
+5. Não pule nenhum arquivo
+
+===========================================
+VERIFICAÇÃO FINAL
+===========================================
+
+Quando terminar, conte quantos ✅ você marcou.
+
+Deve ter: 290 arquivos ✅
+
+Se tiver menos, procure qual faltou usando
+CTRL+F nesta lista.
+
+===========================================
+
+BOA SORTE NA CÓPIA! 🚀
+
+Lembre-se: ORDEM IMPORTA!
+Siga as FASES do GUIA PRÁTICO.

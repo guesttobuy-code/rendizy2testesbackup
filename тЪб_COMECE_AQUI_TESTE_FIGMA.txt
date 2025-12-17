@@ -1,0 +1,85 @@
+================================================================================
+🧪 CRIAR IMÓVEL DE TESTE "@figma@" - INSTRUÇÕES RÁPIDAS
+================================================================================
+
+Versão: v1.0.103.311
+Status: ✅ PRONTO PARA USO
+Data: 05/11/2025 20:00
+
+================================================================================
+⚡ 3 PASSOS SIMPLES
+================================================================================
+
+1️⃣  LIMPAR CACHE
+   Ctrl + Shift + R  (Windows/Linux)
+   Cmd + Shift + R   (Mac)
+
+2️⃣  ACESSAR ROTA
+   /test/figma-property
+
+3️⃣  CLICAR BOTÃO
+   "Iniciar Teste Completo"
+
+================================================================================
+🎯 O QUE ACONTECE
+================================================================================
+
+✅ Step 1: Busca tipos de acomodação (5%)
+✅ Step 2: Cria dados do imóvel "@figma@" (20%)
+✅ Step 3: Upload foto do Unsplash (40%)
+✅ Step 4: Salva no Supabase (60-80%)
+✅ Step 5: Vincula foto ao imóvel (100%)
+
+Tempo total: ~5-10 segundos
+
+================================================================================
+🎁 RESULTADO
+================================================================================
+
+Imóvel criado com:
+  📝 Nome: @figma@
+  🔢 TODOS os valores numéricos = 10
+  📸 1 foto com 6 tags
+  💾 Salvo no Supabase
+  ✅ Status: active
+
+================================================================================
+🔍 VERIFICAR
+================================================================================
+
+Após criar, vá para:
+  🏠 /properties
+  🔍 Buscar: "@figma@"
+  ✅ Confirmar dados
+
+================================================================================
+📊 VALORES ESPERADOS
+================================================================================
+
+bedrooms: 10          basePrice: 10         minNights: 10
+beds: 10              weekendPrice: 10      maxNights: 10
+bathrooms: 10         cleaningFee: 10       commissionRate: 10
+guests: 10            extraGuestFee: 10     monthlyDiscount: 10
+area: 10
+
+================================================================================
+⚠️ IMPORTANTE
+================================================================================
+
+⚠️ Esta é uma ferramenta de DESENVOLVIMENTO
+⚠️ Os imóveis criados são para TESTE
+⚠️ Identificáveis pelo nome "@figma@"
+
+================================================================================
+🚀 COMECE AGORA!
+================================================================================
+
+1. Ctrl + Shift + R
+2. Acesse: /test/figma-property
+3. Clique: "Iniciar Teste Completo"
+4. Aguarde: ~10 segundos
+5. Verifique: /properties
+
+================================================================================
+✅ PRONTO PARA USAR - v1.0.103.311
+================================================================================

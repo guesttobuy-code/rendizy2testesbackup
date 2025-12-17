@@ -1,0 +1,233 @@
+===========================================
+RENDIZY - EXPORTAÇÃO PARTE 4/5
+APP.TSX MÍNIMO (FUNCIONA 100%)
+===========================================
+
+📄 App.tsx (VERSÃO MINIMALISTA)
+-------------------------------------------
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import BUILD_INFO from './CACHE_BUSTER';
+import { enableMockMode } from './utils/mockBackend';
+import { setOfflineMode } from './utils/offlineMode';
+import { toast, Toaster } from 'sonner';
+
+// Dados mock simples
+const mockProperties = [
+  {
+    id: '1',
+    name: 'Copacabana 201',
+    code: 'COP201',
+    color: '#3B82F6',
+  },
+  {
+    id: '2',
+    name: 'Ipanema Premium',
+    code: 'IPA001',
+    color: '#10B981',
+  },
+];
+
+const mockReservations = [
+  {
+    id: 'r1',
+    propertyId: '1',
+    guestName: 'João Silva',
+    checkIn: new Date(2025, 10, 10),
+    checkOut: new Date(2025, 10, 13),
+    status: 'confirmed',
+    platform: 'airbnb',
+    price: 1200.00,
+    nights: 3
+  },
+];
+
+function App() {
+  const [properties, setProperties] = useState(mockProperties);
+  const [reservations, setReservations] = useState(mockReservations);
+  const [activeModule, setActiveModule] = useState('dashboard');
+
+  useEffect(() => {
+    console.log('🟢 APP MONTOU COM SUCESSO!');
+    console.log('📊 Build:', BUILD_INFO.version);
+    console.log('📁 Properties:', properties.length);
+    console.log('📅 Reservations:', reservations.length);
+    
+    // Ativa modo mock
+    enableMockMode();
+    setOfflineMode(true);
+    
+    toast.success('Sistema carregado!', { duration: 2000 });
+  }, []);
+
+  return (
+    <BrowserRouter>
+      <Toaster position="top-right" />
+      
+      <div className="flex h-screen bg-gray-50">
+        {/* SIDEBAR */}
+        <div className="w-64 bg-white border-r p-4">
+          <h1 className="text-xl font-bold mb-6">RENDIZY</h1>
+          <p className="text-sm text-gray-500 mb-4">{BUILD_INFO.version}</p>
+          
+          <nav className="space-y-2">
+            <button
+              onClick={() => setActiveModule('dashboard')}
+              className={`w-full text-left px-4 py-2 rounded ${
+                activeModule === 'dashboard' 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              📊 Dashboard
+            </button>
+            
+            <button
+              onClick={() => setActiveModule('properties')}
+              className={`w-full text-left px-4 py-2 rounded ${
+                activeModule === 'properties' 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              🏠 Imóveis
+            </button>
+            
+            <button
+              onClick={() => setActiveModule('reservations')}
+              className={`w-full text-left px-4 py-2 rounded ${
+                activeModule === 'reservations' 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              📅 Reservas
+            </button>
+          </nav>
+        </div>
+
+        {/* CONTEÚDO PRINCIPAL */}
+        <div className="flex-1 overflow-auto">
+          <Routes>
+            <Route path="/" element={
+              <div className="p-8">
+                {activeModule === 'dashboard' && (
+                  <div>
+                    <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-white p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-semibold mb-2">Imóveis</h3>
+                        <p className="text-3xl font-bold text-blue-600">
+                          {properties.length}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-semibold mb-2">Reservas</h3>
+                        <p className="text-3xl font-bold text-green-600">
+                          {reservations.length}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-semibold mb-2">Taxa de Ocupação</h3>
+                        <p className="text-3xl font-bold text-purple-600">
+                          75%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeModule === 'properties' && (
+                  <div>
+                    <h2 className="text-2xl font-bold mb-6">Imóveis</h2>
+                    <div className="space-y-4">
+                      {properties.map(p => (
+                        <div 
+                          key={p.id} 
+                          className="bg-white p-6 rounded-lg shadow flex items-center gap-4"
+                        >
+                          <div 
+                            className="w-12 h-12 rounded" 
+                            style={{ backgroundColor: p.color }}
+                          />
+                          <div>
+                            <h3 className="font-bold">{p.name}</h3>
+                            <p className="text-sm text-gray-500">{p.code}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {activeModule === 'reservations' && (
+                  <div>
+                    <h2 className="text-2xl font-bold mb-6">Reservas</h2>
+                    <div className="space-y-4">
+                      {reservations.map(r => {
+                        const property = properties.find(p => p.id === r.propertyId);
+                        return (
+                          <div 
+                            key={r.id} 
+                            className="bg-white p-6 rounded-lg shadow"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h3 className="font-bold">{r.guestName}</h3>
+                                <p className="text-sm text-gray-500">
+                                  {property?.name} • {r.nights} noites
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {r.checkIn.toLocaleDateString('pt-BR')} até{' '}
+                                  {r.checkOut.toLocaleDateString('pt-BR')}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-lg">
+                                  R$ {r.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </p>
+                                <span className={`text-xs px-2 py-1 rounded ${
+                                  r.status === 'confirmed' 
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {r.status === 'confirmed' ? 'Confirmada' : 'Pendente'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            } />
+            
+            <Route path="*" element={
+              <div className="p-8">
+                <h2 className="text-2xl font-bold mb-4">Página não encontrada</h2>
+                <button
+                  onClick={() => window.location.href = '/'}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Voltar ao Dashboard
+                </button>
+              </div>
+            } />
+          </Routes>
+        </div>
+      </div>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+-------------------------------------------
+
+===========================================
+FIM DA PARTE 4/5
+Continue com: EXPORTACAO_5_INSTRUCOES.txt
+===========================================

@@ -1,0 +1,47 @@
+Histórico do chat — 2025-12-12
+
+Meta: Mover persistência do Step 1 para Supabase (server-side) e implementar MVP "ANUNCIO ULTIMATE" com gravação campo-a-campo, idempotência e audit log. Além disso, integrar a tela Step 01 na interface e resolver problemas do servidor de desenvolvimento.
+
+Resumo (compacto, em PT-BR):
+
+- Backend:
+  - Criação das migrations: `20251212_create_anuncios_ultimate.sql` (tabelas `anuncios_ultimate`, `anuncios_field_changes`) e `20251212_rpc_save_anuncio_field.sql` (RPC `save_anuncio_field` com idempotência e atomicidade).
+  - RPC atualizado para qualificar colunas (`a.id`, `a.data`) para evitar ambiguidade. Migração aplicada com sucesso.
+  - Edge Function `supabase/functions/anuncio-ultimate/index.ts` criada/ajustada para usar PostgREST (`/rest/v1/rpc/...`) em vez do client bundling; deploy realizado e segredo `SERVICE_ROLE_KEY` configurado.
+  - Testes manuais mostraram que função agora salva linha em `anuncios_ultimate` e cria entradas em `anuncios_field_changes`.
+
+- Frontend:
+  - Arquivos adicionados: `src/lib/anuncioFieldSaver.ts`, `src/components/Step01Form.tsx`, `src/components/Step01Form.css`.
+  - `Step01Form` implementa debounce por campo, chave de idempotência e retries/backoff.
+  - `src/App.tsx` foi alterado para importar `Step01Form` e montá-lo na rota raiz (`/`) para testes locais.
+
+- Debug / Correções aplicadas:
+  - Corrigido path do PostgREST RPC (`/rest/v1/rpc/save_anuncio_field`) — antes usava `/rpc/...` e retornava erro "requested path is invalid".
+  - Corrigida ambiguidade PL/pgSQL ("column reference 'id' is ambiguous").
+
+- Problemas abertos (dev env):
+  - Usuário relatou que `localhost:3000` fica girando sem fim e que `localhost:5173` mostra tela preta/erro de conexão recusada.
+  - Prováveis causas: dev server não iniciado, porta bloqueada por firewall/antivírus, script de start errado, ou conflito entre múltiplos servidores.
+
+- Ações recomendadas para resolver dev server:
+  1) No terminal PowerShell, no root do projeto, rodar:
+```
+cd "c:/Users/rafae/OneDrive/Desktop/Rendizyoficial-main arquivos mais atualizado do github 09 12 2025/Rendizyoficial-main"
+npm install
+npm run dev
+```
+  2) Se o projeto usar Create React App e `npm start` para porta 3000, rodar `npm start` e enviar logs se houver erro.
+  3) Se `ERR_CONNECTION_REFUSED` persistir em 5173, verificar processos com `Get-Process -Id (Get-NetTCPConnection -LocalPort 5173).OwningProcess` ou reiniciar a máquina para liberar portas.
+  4) Verificar `package.json` para confirmar scripts e portar o servidor correto.
+
+- Onde está salvo este arquivo:
+  `c:/Users/rafae/OneDrive/Desktop/Rendizyoficial-main arquivos mais atualizado do github 09 12 2025/Rendizyoficial-main/downloads/chat_history_20251212.txt`
+
+Próximos passos que posso executar aqui (escolha):
+- Eu edito `src/components/MainSidebar.tsx` e adiciono um item "Anuncio Ultimate" que navega para `/anuncio-ultimate`, e atualizo `App.tsx` para montar `Step01Form` em `/anuncio-ultimate` em vez da raiz.
+- Eu tento iniciar o dev server localmente (não posso executar comandos fora do ambiente do usuário, mas posso fornecer comandos e ajudar a interpretar logs que você cole aqui).
+
+Se quiser que eu faça a alteração do sidebar agora, confirme e eu aplico o patch que adiciona o link e ajusta a rota para `/anuncio-ultimate`.
+
+---
+Arquivo gerado automaticamente pelo assistente em: 2025-12-12

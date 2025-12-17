@@ -1,0 +1,86 @@
+🚨 ERRO CORRIGIDO - TESTE AGORA!
+=================================
+
+❌ ERRO QUE VOCÊ VIU:
+--------------------
+💾 [Wizard] Salvando E avançando...
+❌ Erro ao salvar e avançar: ReferenceError: setIsSaving is not defined
+
+✅ CORREÇÃO APLICADA:
+---------------------
+Criado estado interno "isSavingInternal" no componente!
+
+Antes (ERRADO):
+  setIsSaving(true)   ❌ Não existia!
+
+Agora (CORRETO):
+  setIsSavingInternal(true)  ✅ Funciona!
+
+🧪 TESTE IMEDIATO:
+------------------
+
+1. Abra: https://suacasaavenda.com.br/properties
+
+2. Clique: "Cadastrar Nova Propriedade"
+
+3. NO STEP 1:
+   ✅ Selecione "Casa"
+   ✅ Selecione tipo de acomodação
+   ✅ Selecione subtipo (Casa Inteira)
+   ✅ Marque modalidade (Aluguel de Temporada)
+
+4. CLIQUE "SALVAR E AVANÇAR":
+   ✅ Botão deve mudar para "Salvando... ⏳"
+   ✅ Após ~1-2s, deve avançar para Step 2
+   ✅ SEM ERROS no console!
+
+📊 LOGS CORRETOS NO CONSOLE:
+----------------------------
+
+ANTES (com erro):
+💾 [Wizard] Salvando E avançando...
+❌ Erro ao salvar e avançar: ReferenceError: setIsSaving is not defined
+
+AGORA (funcionando):
+💾 [Wizard] Salvando E avançando...
+✏️ [PROPERTY ACTIONS] Editando imóvel...
+✅ [PROPERTY ACTIONS] Imóvel editado com sucesso!
+✅ Step 1 salvo com sucesso!
+
+✅ SUCESSO SE:
+--------------
+1. Botão muda para "Salvando..."
+2. Após salvar, avança para Step 2
+3. Nenhum erro no console
+4. Dados do Step 1 aparecem salvos
+
+❌ AINDA COM PROBLEMA SE:
+-------------------------
+1. Mesmo erro "setIsSaving is not defined"
+   → Cole os logs completos do console
+
+2. Não avança para Step 2
+   → Cole os logs do console
+
+3. Erro diferente
+   → Cole o novo erro
+
+🎯 MUDANÇA TÉCNICA:
+-------------------
+
+Arquivo: /components/PropertyEditWizard.tsx
+
+ADICIONADO na linha 318:
+  const [isSavingInternal, setIsSavingInternal] = useState<boolean>(false);
+
+MUDADO nas funções:
+  handleSaveAndNext() - usa setIsSavingInternal
+  handleFinish()      - usa setIsSavingInternal
+  
+MUDADO nos botões:
+  disabled={isSaving || isSavingInternal}
+  {(isSaving || isSavingInternal) ? ... }
+
+🚀 AGORA FUNCIONA!
+
+TESTE E ME AVISE O RESULTADO! 🎉

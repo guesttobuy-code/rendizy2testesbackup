@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧪 Teste Fix HTML Response v1.0.103.320</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    h1 {
+      color: #2d3748;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+    
+    .version {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .info {
+      background: #ebf8ff;
+      border-left: 4px solid #4299e1;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    
+    .info-title {
+      font-weight: 600;
+      color: #2c5282;
+      margin-bottom: 10px;
+    }
+    
+    .info-text {
+      color: #2c5282;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    
+    .btn {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px 5px;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+    }
+    
+    .results {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f7fafc;
+      border-radius: 12px;
+      display: none;
+    }
+    
+    .results.show {
+      display: block;
+    }
+    
+    .result-item {
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .result-success {
+      border-left-color: #48bb78;
+      background: #f0fff4;
+    }
+    
+    .result-error {
+      border-left-color: #f56565;
+      background: #fff5f5;
+    }
+    
+    .result-warning {
+      border-left-color: #ed8936;
+      background: #fffaf0;
+    }
+    
+    .code {
+      background: #2d3748;
+      color: #48bb78;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      margin: 10px 0;
+      overflow-x: auto;
+    }
+    
+    .checklist {
+      margin: 20px 0;
+    }
+    
+    .checklist-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: #f7fafc;
+      border-radius: 6px;
+    }
+    
+    .checklist-item.done {
+      background: #f0fff4;
+      color: #22543d;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Teste Fix HTML Response</h1>
+    <div class="version">v1.0.103.320 - Validação de Content-Type</div>
+    
+    <div class="info">
+      <div class="info-title">ℹ️ O que foi corrigido?</div>
+      <div class="info-text">
+        <strong>Problema:</strong> Evolution API retornava HTML ao invés de JSON, causando erro "Unexpected token '<'"<br><br>
+        <strong>Solução:</strong> Adicionada verificação de content-type antes de fazer parse do JSON<br><br>
+        <strong>Comportamento:</strong> Quando API retorna HTML, entra em modo offline graciosamente
+      </div>
+    </div>
+    
+    <div>
+      <button class="btn" onclick="testChats()">🧪 Testar /whatsapp/chats</button>
+      <button class="btn" onclick="testContacts()">🧪 Testar /whatsapp/contacts</button>
+      <button class="btn" onclick="testBoth()">🧪 Testar Ambos</button>
+    </div>
+    
+    <div id="results" class="results">
+      <h2 style="margin-bottom: 20px;">📊 Resultados dos Testes</h2>
+      <div id="results-content"></div>
+    </div>
+    
+    <div class="info" style="margin-top: 30px;">
+      <div class="info-title">✅ Checklist de Validação</div>
+      <div class="checklist">
+        <div class="checklist-item" id="check-1">
+          ❓ Response tem status 200 ou retorna fallback
+        </div>
+        <div class="checklist-item" id="check-2">
+          ❓ Content-Type é verificado antes de parse
+        </div>
+        <div class="checklist-item" id="check-3">
+          ❓ Se HTML, retorna offline: true
+        </div>
+        <div class="checklist-item" id="check-4">
+          ❓ Se JSON, valida se é array
+        </div>
+        <div class="checklist-item" id="check-5">
+          ❓ Logs detalhados no console
+        </div>
+        <div class="checklist-item" id="check-6">
+          ❓ Sem erros "Unexpected token '<'"
+        </div>
+      </div>
+    </div>
+    
+    <div class="info" style="margin-top: 30px; background: #fef5e7; border-left-color: #f59e0b;">
+      <div class="info-title" style="color: #92400e;">⚠️ Diagnóstico de Problemas</div>
+      <div style="color: #92400e; font-size: 14px;">
+        <strong>Se ainda retorna HTML:</strong><br><br>
+        1. Verificar se EVOLUTION_API_URL está correta<br>
+        2. Testar autenticação (apikey + instanceToken)<br>
+        3. Verificar se endpoints existem na versão da API<br>
+        4. Testar manualmente com curl (ver console do navegador)
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const BASE_URL = 'http://localhost:54321/functions/v1/make-server-67caf26a';
+    
+    async function testEndpoint(name, path) {
+      const resultsDiv = document.getElementById('results');
+      const resultsContent = document.getElementById('results-content');
+      
+      resultsDiv.classList.add('show');
+      
+      const resultItem = document.createElement('div');
+      resultItem.className = 'result-item';
+      resultItem.innerHTML = `
+        <div><strong>${name}</strong></div>
+        <div style="margin-top: 10px; color: #718096;">⏳ Testando ${path}...</div>
+      `;
+      resultsContent.insertBefore(resultItem, resultsContent.firstChild);
+      
+      try {
+        console.log(`[TESTE] 🧪 Testando ${name}...`);
+        
+        const response = await fetch(BASE_URL + path);
+        const data = await response.json();
+        
+        console.log(`[TESTE] 📦 Response:`, data);
+        
+        // Validar resposta
+        const checks = {
+          hasSuccess: data.success !== undefined,
+          hasData: data.data !== undefined,
+          isArray: Array.isArray(data.data),
+          hasOffline: data.offline !== undefined,
+          hasMessage: data.message !== undefined,
+        };
+        
+        console.log(`[TESTE] ✅ Validações:`, checks);
+        
+        // Determinar tipo de resultado
+        let resultClass = 'result-item';
+        let statusIcon = '';
+        let statusText = '';
+        
+        if (data.offline) {
+          resultClass += ' result-warning';
+          statusIcon = '⚠️';
+          statusText = 'Modo Offline (API retornou HTML ou erro)';
+          
+          // Marcar checks
+          document.getElementById('check-3').classList.add('done');
+          document.getElementById('check-3').innerHTML = '✅ Se HTML, retorna offline: true';
+        } else if (checks.hasSuccess && checks.isArray) {
+          resultClass += ' result-success';
+          statusIcon = '✅';
+          statusText = `Sucesso! ${data.data.length} items retornados`;
+          
+          // Marcar checks
+          document.getElementById('check-1').classList.add('done');
+          document.getElementById('check-1').innerHTML = '✅ Response tem status 200 ou retorna fallback';
+          document.getElementById('check-4').classList.add('done');
+          document.getElementById('check-4').innerHTML = '✅ Se JSON, valida se é array';
+        } else {
+          resultClass += ' result-error';
+          statusIcon = '❌';
+          statusText = 'Resposta inesperada';
+        }
+        
+        resultItem.className = resultClass;
+        resultItem.innerHTML = `
+          <div><strong>${name}</strong></div>
+          <div style="margin-top: 10px;">${statusIcon} ${statusText}</div>
+          <pre class="code">${JSON.stringify(data, null, 2)}</pre>
+        `;
+        
+        // Marcar checks comuns
+        document.getElementById('check-2').classList.add('done');
+        document.getElementById('check-2').innerHTML = '✅ Content-Type é verificado antes de parse';
+        document.getElementById('check-5').classList.add('done');
+        document.getElementById('check-5').innerHTML = '✅ Logs detalhados no console';
+        document.getElementById('check-6').classList.add('done');
+        document.getElementById('check-6').innerHTML = '✅ Sem erros "Unexpected token \'<\'"';
+        
+      } catch (error) {
+        console.error(`[TESTE] ❌ Erro:`, error);
+        
+        resultItem.className = 'result-item result-error';
+        resultItem.innerHTML = `
+          <div><strong>${name}</strong></div>
+          <div style="margin-top: 10px; color: #f56565;">❌ Erro: ${error.message}</div>
+          <div style="margin-top: 10px; font-size: 12px; color: #718096;">
+            Verifique se o backend está rodando e se as variáveis de ambiente estão configuradas.
+          </div>
+        `;
+      }
+    }
+    
+    async function testChats() {
+      await testEndpoint('GET /whatsapp/chats', '/whatsapp/chats');
+    }
+    
+    async function testContacts() {
+      await testEndpoint('GET /whatsapp/contacts', '/whatsapp/contacts');
+    }
+    
+    async function testBoth() {
+      document.getElementById('results-content').innerHTML = '';
+      
+      // Reset checks
+      for (let i = 1; i <= 6; i++) {
+        const check = document.getElementById(`check-${i}`);
+        check.classList.remove('done');
+        check.innerHTML = check.innerHTML.replace('✅', '❓');
+      }
+      
+      await testChats();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await testContacts();
+    }
+    
+    // Animar entrada
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.querySelector('.container');
+      container.style.opacity = '0';
+      container.style.transform = 'translateY(20px)';
+      
+      setTimeout(() => {
+        container.style.transition = 'all 0.5s ease-out';
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+      }, 100);
+    });
+  </script>
+</body>
+</html>

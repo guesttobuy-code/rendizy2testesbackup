@@ -1,0 +1,37 @@
+﻿
+2025-11-30 21:31:10 | === TESTE DE CONEXÃƒO POWERSHELL 7 ===
+2025-11-30 21:31:10 | Iniciado em: 11/30/2025 21:31:10
+2025-11-30 21:31:10 | 
+2025-11-30 21:31:10 | 1. VERIFICANDO POWERSHELL ATUAL:
+2025-11-30 21:31:10 |    VersÃ£o: 5.1.26100.7019
+2025-11-30 21:31:10 |    EdiÃ§Ã£o: Desktop
+2025-11-30 21:31:10 |    Caminho: C:\Windows\System32\WindowsPowerShell\v1.0
+2025-11-30 21:31:10 | 
+2025-11-30 21:31:10 | 2. TENTANDO EXECUTAR POWERSHELL 7:
+2025-11-30 21:31:10 |    âœ… PowerShell 7 encontrado: C:\Program Files\PowerShell\7\pwsh.exe
+2025-11-30 21:31:11 |    VersÃ£o PowerShell 7: 7.5.4
+2025-11-30 21:31:11 |    EdiÃ§Ã£o: Core
+2025-11-30 21:31:11 | 
+2025-11-30 21:31:11 | 3. TESTANDO COMANDOS BÃSICOS:
+2025-11-30 21:31:11 |    DiretÃ³rio atual: C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL
+2025-11-30 21:31:11 |    UsuÃ¡rio: rafae
+2025-11-30 21:31:11 |    Computador: MILFONT
+2025-11-30 21:31:11 | 
+2025-11-30 21:31:11 | 4. TESTANDO NODE E NPM:
+2025-11-30 21:31:11 |    Node: v25.0.0
+
+2025-11-30 21:31:12 |    NPM: 11.6.2
+
+2025-11-30 21:31:12 | 
+2025-11-30 21:31:12 | 5. TESTANDO GIT:
+2025-11-30 21:31:12 |    Git: git version 2.51.2.windows.1
+
+2025-11-30 21:31:12 | 
+2025-11-30 21:31:12 | 6. TESTE DE LEITURA:
+2025-11-30 21:31:12 |    Se o Auto conseguir ler este arquivo, a conexÃ£o estÃ¡ funcionando!
+2025-11-30 21:31:12 |    Arquivo: C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL\teste-conexao-pwsh7.txt
+2025-11-30 21:31:12 | 
+2025-11-30 21:31:12 | === TESTE CONCLUÃDO ===
+2025-11-30 21:31:12 | Finalizado em: 11/30/2025 21:31:12
+2025-11-30 21:31:12 | 
+2025-11-30 21:31:12 | âœ… Se o Auto conseguir ler este arquivo, a conexÃ£o estÃ¡ OK!

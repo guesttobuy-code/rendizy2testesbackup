@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 Migração Automática - Sistema Unificado</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: spin 2s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .status {
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .status.loading {
+            background: #edf2f7;
+            color: #2d3748;
+        }
+        
+        .status.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 3px solid #48bb78;
+        }
+        
+        .status.error {
+            background: #fff5f5;
+            color: #742a2a;
+            border: 3px solid #f56565;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #718096;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .log {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        
+        .log-line {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+        
+        .log-line.success {
+            border-left-color: #48bb78;
+        }
+        
+        .log-line.error {
+            border-left-color: #f56565;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn.secondary {
+            background: #48bb78;
+        }
+        
+        .timeline {
+            margin-top: 20px;
+        }
+        
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 10px;
+            border-left: 4px solid #cbd5e0;
+        }
+        
+        .timeline-item.active {
+            border-left-color: #667eea;
+            background: #edf2f7;
+        }
+        
+        .timeline-item.done {
+            border-left-color: #48bb78;
+        }
+        
+        .timeline-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+        
+        pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-size: 11px;
+            margin-top: 15px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon" id="icon">🤖</div>
+            <h1>Migração Automática</h1>
+            <p>Sistema Unificado v1.0.103.315</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress"></div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div id="status" class="status loading">
+                <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+                    ⏳ Executando migração automática...
+                </div>
+                <div style="font-size: 14px; opacity: 0.7;">
+                    Aguarde enquanto normalizamos suas propriedades
+                </div>
+            </div>
+            
+            <div class="timeline" id="timeline">
+                <div class="timeline-item" id="step1">
+                    <div class="timeline-icon">⏳</div>
+                    <div>
+                        <strong>Conectando ao servidor...</strong>
+                    </div>
+                </div>
+                <div class="timeline-item" id="step2">
+                    <div class="timeline-icon">⏳</div>
+                    <div>
+                        <strong>Buscando propriedades...</strong>
+                    </div>
+                </div>
+                <div class="timeline-item" id="step3">
+                    <div class="timeline-icon">⏳</div>
+                    <div>
+                        <strong>Normalizando dados...</strong>
+                    </div>
+                </div>
+                <div class="timeline-item" id="step4">
+                    <div class="timeline-icon">⏳</div>
+                    <div>
+                        <strong>Salvando no banco...</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="log" id="log"></div>
+            
+            <div id="results" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://uzdpaacxayfrnznjcmgj.supabase.co/functions/v1/make-server-67caf26a';
+        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6ZHBhYWN4YXlmcm56bmpjbWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDc0NzcsImV4cCI6MjA0NTcyMzQ3N30.gD2DolP3fVnzLXMYmQlIlnwG9Qsph4Zbi-UpcczkKhw';
+        
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        const progress = document.getElementById('progress');
+        const icon = document.getElementById('icon');
+        
+        function addLog(message, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function updateStep(stepId, icon, state) {
+            const step = document.getElementById(stepId);
+            const iconEl = step.querySelector('.timeline-icon');
+            iconEl.textContent = icon;
+            
+            if (state === 'active') {
+                step.classList.add('active');
+            } else if (state === 'done') {
+                step.classList.remove('active');
+                step.classList.add('done');
+            }
+        }
+        
+        async function executeMigration() {
+            try {
+                addLog('🚀 Iniciando migração automática...');
+                progress.style.width = '10%';
+                updateStep('step1', '🔄', 'active');
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                addLog('📡 Conectando ao servidor Supabase...');
+                progress.style.width = '25%';
+                updateStep('step1', '✅', 'done');
+                updateStep('step2', '🔄', 'active');
+                
+                addLog('📊 Executando POST /migrate-normalize-properties...');
+                
+                const response = await fetch(`${API_URL}/migrate-normalize-properties`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                progress.style.width = '50%';
+                updateStep('step2', '✅', 'done');
+                updateStep('step3', '🔄', 'active');
+                
+                addLog('📦 Processando resposta do servidor...');
+                
+                const result = await response.json();
+                
+                progress.style.width = '75%';
+                updateStep('step3', '✅', 'done');
+                updateStep('step4', '🔄', 'active');
+                
+                addLog('💾 Validando resultados...');
+                
+                if (result.success) {
+                    progress.style.width = '100%';
+                    updateStep('step4', '✅', 'done');
+                    
+                    addLog('✅ MIGRAÇÃO CONCLUÍDA COM SUCESSO!', 'success');
+                    addLog(`📊 Total de propriedades: ${result.stats.total}`, 'success');
+                    addLog(`✅ Migradas: ${result.stats.migrated}`, 'success');
+                    addLog(`⏭️  Puladas: ${result.stats.skipped}`, 'success');
+                    addLog(`❌ Erros: ${result.stats.errors}`, result.stats.errors > 0 ? 'error' : 'success');
+                    
+                    // Parar animação
+                    icon.style.animation = 'none';
+                    icon.textContent = '🎉';
+                    
+                    // Mostrar resultados
+                    status.className = 'status success';
+                    status.innerHTML = `
+                        <div style="font-size: 48px; margin-bottom: 15px;">🎉</div>
+                        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">
+                            Migração Concluída!
+                        </div>
+                        <div style="font-size: 16px; opacity: 0.8;">
+                            ${result.message}
+                        </div>
+                    `;
+                    
+                    results.style.display = 'block';
+                    results.innerHTML = `
+                        <div class="stats">
+                            <div class="stat-card">
+                                <div class="stat-number">${result.stats.total}</div>
+                                <div class="stat-label">Total</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: #48bb78;">${result.stats.migrated}</div>
+                                <div class="stat-label">Migradas</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: #718096;">${result.stats.skipped}</div>
+                                <div class="stat-label">Puladas</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: ${result.stats.errors > 0 ? '#f56565' : '#48bb78'};">${result.stats.errors}</div>
+                                <div class="stat-label">Erros</div>
+                            </div>
+                        </div>
+                        
+                        ${result.stats.details && result.stats.details.length > 0 ? `
+                            <div style="margin-top: 30px;">
+                                <h3 style="margin-bottom: 15px; color: #2d3748;">📋 Detalhes da Migração</h3>
+                                <pre>${JSON.stringify(result.stats.details, null, 2)}</pre>
+                            </div>
+                        ` : ''}
+                        
+                        <button class="btn secondary" onclick="window.location.href='/properties'">
+                            ✅ Ir para Lista de Imóveis
+                        </button>
+                        
+                        <button class="btn" onclick="window.open('/🔥_LIMPAR_CACHE_v1.0.103.315.html', '_blank')">
+                            🔥 Limpar Cache do Navegador
+                        </button>
+                    `;
+                    
+                    // Som de sucesso (se disponível)
+                    try {
+                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSBEKT6Hh8bllHAU7k9nywn8pBSh+zPDajj0IFmS56eWWUQwNVqvn77BdGAc+ltryxHUrBSuBzvLZiTcIGWi77eefTRAMUKfj8LZjHAY4kdfyzHksBSR3x/DdkEAKFF606emoVRQKRp/g8r5sIQUxh9Hz04IzBh5uwO/jmUgRCk+h4fG5ZRwFO5PZ8sJ/KQUofsrw2ow7CBdmvermllEMDVar5++wXRgHPpba8sR1KwUrgc7y2Yk3CBlou+3nn00QDFCN4/C2YxwGOJHX8sx5LAUkd8fw3ZBABR==');
+                        audio.play();
+                    } catch (e) {
+                        // Ignorar se não conseguir tocar som
+                    }
+                    
+                } else {
+                    throw new Error(result.error || 'Erro desconhecido');
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro na migração:', error);
+                
+                addLog(`❌ ERRO: ${error.message}`, 'error');
+                
+                icon.style.animation = 'none';
+                icon.textContent = '❌';
+                progress.style.width = '100%';
+                
+                status.className = 'status error';
+                status.innerHTML = `
+                    <div style="font-size: 48px; margin-bottom: 15px;">❌</div>
+                    <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">
+                        Erro na Migração
+                    </div>
+                    <div style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">
+                        ${error.message}
+                    </div>
+                    <div style="font-size: 12px; opacity: 0.6;">
+                        Verifique o console do navegador (F12) para mais detalhes
+                    </div>
+                `;
+                
+                results.style.display = 'block';
+                results.innerHTML = `
+                    <button class="btn" onclick="location.reload()">
+                        🔄 Tentar Novamente
+                    </button>
+                `;
+                
+                updateStep('step1', '❌', 'done');
+                updateStep('step2', '❌', 'done');
+                updateStep('step3', '❌', 'done');
+                updateStep('step4', '❌', 'done');
+            }
+        }
+        
+        // Executar migração automaticamente ao carregar a página
+        window.addEventListener('DOMContentLoaded', () => {
+            addLog('🌐 Página carregada');
+            addLog('🎯 Preparando para executar migração...');
+            
+            // Aguardar 1 segundo para dar tempo de ler
+            setTimeout(() => {
+                executeMigration();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

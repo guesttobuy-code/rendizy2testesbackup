@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 LIMPAR CACHE - FIX Carregamento Infinito</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            max-width: 700px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .problem {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .problem h3 {
+            color: #7f1d1d;
+            margin-bottom: 10px;
+        }
+        
+        .problem p {
+            color: #991b1b;
+            line-height: 1.6;
+        }
+        
+        .fix {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .fix h3 {
+            color: #065f46;
+            margin-bottom: 10px;
+        }
+        
+        .fix p {
+            color: #047857;
+            line-height: 1.6;
+        }
+        
+        .steps {
+            margin: 30px 0;
+        }
+        
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .step-number {
+            background: #3b82f6;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-content h4 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #1e293b;
+        }
+        
+        .step-content p {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .shortcut {
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+        }
+        
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .warning p {
+            color: #78350f;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🔥</div>
+            <h1>FIX: Carregamento Infinito</h1>
+            <p>v1.0.103.316 - Toaster duplicado corrigido</p>
+        </div>
+        
+        <div class="content">
+            <div class="problem">
+                <h3>❌ Problema Identificado</h3>
+                <p>
+                    O sistema estava com <strong>import duplicado do Toaster</strong> no App.tsx (linhas 81 e 89).
+                    Isso causava conflito no React e gerava carregamento infinito.
+                </p>
+            </div>
+            
+            <div class="fix">
+                <h3>✅ Correção Aplicada</h3>
+                <p>
+                    Import duplicado foi removido. Agora há apenas <strong>um import do Toaster</strong> e <strong>um import do toast</strong>.
+                    Sistema voltará a funcionar normalmente após limpar o cache.
+                </p>
+            </div>
+            
+            <h3 style="margin: 30px 0 20px 0; color: #1e293b;">📋 Passos Obrigatórios</h3>
+            
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Abrir Ferramentas do Desenvolvedor</h4>
+                        <p>Pressione F12 ou clique com botão direito → Inspecionar</p>
+                        <div class="shortcut">F12</div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Limpar Cache e Dados</h4>
+                        <p>Pressione a combinação de teclas abaixo</p>
+                        <div class="shortcut">Ctrl + Shift + Delete</div>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Selecionar Opções</h4>
+                        <p>Marque:</p>
+                        <ul style="margin: 10px 0 10px 20px; color: #64748b;">
+                            <li>✅ Cached images and files</li>
+                            <li>✅ Cookies and other site data</li>
+                        </ul>
+                        <p>Período: <strong>All time</strong> (Todo o período)</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Confirmar Limpeza</h4>
+                        <p>Clique em "Clear data" ou "Limpar dados"</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h4>Hard Refresh</h4>
+                        <p>Recarregue a página sem usar cache</p>
+                        <div class="shortcut">Ctrl + Shift + R</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="warning">
+                <p>
+                    ⚠️ <strong>IMPORTANTE:</strong> Se você pular a limpeza de cache, o navegador continuará usando
+                    o código antigo (com Toaster duplicado) e o carregamento infinito vai continuar!
+                </p>
+            </div>
+            
+            <button class="btn" onclick="performHardRefresh()">
+                ✅ Já Limpei - Fazer Hard Refresh Agora
+            </button>
+            
+            <div style="margin-top: 20px; padding: 20px; background: #f0f9ff; border-radius: 10px; text-align: center;">
+                <p style="color: #0c4a6e; font-size: 14px; margin-bottom: 10px;">
+                    <strong>O que foi corrigido?</strong>
+                </p>
+                <p style="color: #075985; font-size: 13px; line-height: 1.6;">
+                    Linha 81: <code style="background: #e0f2fe; padding: 2px 6px; border-radius: 3px;">import { Toaster } from './components/ui/sonner'</code><br>
+                    Linha 88: <code style="background: #e0f2fe; padding: 2px 6px; border-radius: 3px;">import { toast } from 'sonner'</code><br>
+                    <br>
+                    ❌ REMOVIDO: Linha 89 (Toaster duplicado)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function performHardRefresh() {
+            console.log('🔄 Executando Hard Refresh...');
+            window.location.reload(true);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+🧪 TESTE: SALVAR E AVANÇAR - v1.0.103.292
+==========================================
+
+⚡ TESTE RÁPIDO - 2 MINUTOS
+---------------------------
+
+1. Abra: https://suacasaavenda.com.br/properties
+
+2. Clique em "Cadastrar Nova Propriedade"
+
+3. NO STEP 1:
+   ✅ Selecione "Casa" no campo "Tipo de propriedade"
+   ✅ VERIFIQUE: Página NÃO deve recarregar
+   ✅ VERIFIQUE: NÃO deve voltar para /properties
+   ✅ Selecione tipo de acomodação
+   ✅ VERIFIQUE: Continua na mesma tela
+
+4. CLICAR "SALVAR E AVANÇAR":
+   ✅ Clique no botão "Salvar e Avançar" (inferior direito)
+   ✅ VERIFIQUE: Botão muda para "Salvando... ⏳"
+   ✅ VERIFIQUE: Após ~1s, avança para Step 2
+   ✅ VERIFIQUE: Ainda está no wizard (não voltou para /properties)
+
+5. NO STEP 2:
+   ✅ Preencha alguns campos
+   ✅ Clique "Salvar e Avançar" novamente
+   ✅ VERIFIQUE: Avança para Step 3
+
+✅ SUCESSO SE:
+--------------
+- Ao selecionar "Casa" → NÃO redireciona
+- Pode preencher múltiplos campos
+- Só salva ao clicar "Salvar e Avançar"
+- Após salvar, avança para próximo step
+- Consegue navegar entre steps sem perder dados
+
+❌ PROBLEMA SE:
+--------------
+- Selecionar "Casa" → redireciona imediatamente
+- Botão "Salvar e Avançar" não aparece
+- Ao salvar, volta para /properties
+- Dados se perdem ao mudar de step
+
+📊 LOGS NO CONSOLE (F12)
+------------------------
+
+ESPERADO ao selecionar "Casa":
+✅ "🔄 [ContentTypeStep] Campo alterado: propertyTypeId"
+✅ "📦 [ContentTypeStep] Novos dados: {...}"
+❌ NÃO deve aparecer: "✅ [PropertyWizardPage] Sucesso! Navegando para /properties"
+
+ESPERADO ao clicar "Salvar e Avançar":
+✅ "💾 [Wizard] Salvando E avançando..."
+✅ "💾 [PropertyWizardPage] handleSave chamado"
+✅ "📡 [PropertyWizardPage] Resposta da API: {...}"
+❌ NÃO deve redirecionar! Deve avançar para próximo step
+
+🚀 FAÇA O TESTE E ME AVISE O RESULTADO!

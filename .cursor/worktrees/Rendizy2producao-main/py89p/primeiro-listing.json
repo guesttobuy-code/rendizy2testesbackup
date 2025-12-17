@@ -1,0 +1,87 @@
+﻿{
+    "_id":  "63dd7e20333d8b60be510f9c",
+    "id":  "PY02H",
+    "_idpropertyType":  "5ae04e1022261d03ab814d61",
+    "_t_propertyTypeMeta":  {
+                                "_mstitle":  {
+                                                 "pt_BR":  "Apartamento",
+                                                 "en_US":  "Apartment",
+                                                 "es_ES":  "Departamento",
+                                                 "de_DE":  "Ferienwohnung",
+                                                 "ru_RU":  "",
+                                                 "sv_SE":  "",
+                                                 "it_IT":  "",
+                                                 "fr_FR":  "",
+                                                 "pt_PT":  "Apartamento",
+                                                 "el_GR":  ""
+                                             }
+                            },
+    "_idtype":  "5ab8f8a2f6b2dc2e97f97050",
+    "_t_typeMeta":  {
+                        "_mstitle":  {
+                                         "pt_BR":  "Apartamento",
+                                         "en_US":  "Apartment",
+                                         "de_DE":  "Ferienwohnung",
+                                         "es_ES":  "Departamento",
+                                         "ru_RU":  "",
+                                         "sv_SE":  "",
+                                         "it_IT":  "",
+                                         "fr_FR":  "",
+                                         "pt_PT":  "Apartamento",
+                                         "el_GR":  ""
+                                     }
+                    },
+    "subtype":  "entire_home",
+    "internalName":  "Celso AP 1 sem escada",
+    "_mstitle":  {
+                     "pt_BR":  "Apartamento(1) inteiro com sala reversivel",
+                     "en_US":  "Entire apartment (1) with reversible living room"
+                 },
+    "_msdesc":  {
+                    "pt_BR":  "\u003cp\u003eA casa fica muito bem localizada, mt próxima ao centro e Av Amaral Peixoto mas também está próxima do Shopping novo e unimed. Local fresco e arejado. Bancada para home office e internet 500MB.\u003cbr\u003eEstacionamento para seu carro na frente da casa.\u003cbr\u003eO apt é de 1 Qrt mas a sala pode ser utilizada como um segundo qrt pois tem sofá cama e porta.\u003cbr\u003eNão é permitido fumar dentro da casa mas tem um corredor logo ao lado.\u003cbr\u003eA pé :\u003cbr\u003eBares e restaurantes da colina.\u003cbr\u003eClub comercial\u003cbr\u003eRoyale supermercado\u003cbr\u003eAv Amaral Peixoto\u003cbr\u003e\u003c/p\u003e\u003cbr\u003e\u003cp\u003eO apartamento é terreo e muito na mesma avenida do Hospital da Unimed e do shopping Park Sul. Vizinhança tranquila e amigável, bairro bom.\u003c/p\u003e\u003cbr\u003eO apartamento é exclusivo e inteiramente para os hóspede, podem utilizar todas os cómodos e utensílios.\u003cbr\u003e\u003cp\u003eSempre que precisarem\u003c/p\u003e\u003cbr\u003eBem central mas tranquilo e familiar\u003cbr\u003e\u003cp\u003ePossível se locomover como quiser para toda a cidade, ônibus na porta, uber com facilidade e bem posicionado para toda a cidade.\u003c/p\u003e",
+                    "en_US":  "Very close to the center and Av Amaral Peixoto but is also close to Shopping Novo and Unimed. Cool and airy place. Workbench for home office and 500MB internet. Parking for your car in front of the house. The apt is 1 bedroom but the living room can be used as a second bedroom as it has a sofa bed and door. Smoking is not allowed inside the house but there is a hallway right next to it. On foot: Bars and restaurants on the hill. commercial club Royale supermarketAv Amaral Peixoto"
+                },
+    "status":  "active",
+    "_i_maxGuests":  4,
+    "_i_rooms":  1,
+    "_i_beds":  2,
+    "_f_bathrooms":  1,
+    "address":  {
+                    "countryCode":  "BR",
+                    "state":  "Rio de Janeiro",
+                    "stateCode":  "RJ",
+                    "city":  "Volta Redonda",
+                    "region":  "São Geraldo",
+                    "street":  "Capitão Benedito Lopes Bragança",
+                    "streetNumber":  "313",
+                    "additional":  "AP1",
+                    "zip":  "27253-510"
+                },
+    "latLng":  {
+                   "_f_lat":  -22.5144376,
+                   "_f_lng":  -44.0850892
+               },
+    "deff_curr":  "BRL",
+    "_f_square":  65,
+    "_idmainImage":  "63dd83d5d4c4bd1f897c1b49",
+    "_t_mainImageMeta":  {
+                             "url":  "https://bvm.stays.net/image/63dd83d5d4c4bd1f897c1b49"
+                         },
+    "instantBooking":  true,
+    "groupIds":  [
+                     "669e2ee3b36651a454a70713",
+                     "64f7a3e2dc5129f52d813a37",
+                     "6446f64e2bda1f6af91669fa"
+                 ],
+    "otaChannels":  [
+                        {
+                            "name":  "Airbnb"
+                        },
+                        {
+                            "name":  "Bookingcom"
+                        },
+                        {
+                            "name":  "Website"
+                        }
+                    ]
+}

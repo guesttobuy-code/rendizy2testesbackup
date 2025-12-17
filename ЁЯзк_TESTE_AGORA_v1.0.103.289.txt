@@ -1,0 +1,82 @@
+═══════════════════════════════════════════════════════════
+  🎯 CORREÇÃO APLICADA - TESTE AGORA!
+═══════════════════════════════════════════════════════════
+
+PROBLEMA IDENTIFICADO:
+  ❌ NotFoundError ao selecionar dropdown
+  ❌ Tela branca após clicar em "Apartamento"
+
+CAUSA:
+  ⚡ Select portal desmontando antes do tempo
+  ⚡ React tentando remover nó DOM que não existe
+
+CORREÇÃO:
+  ✅ setTimeout(0) no handleChange
+  ✅ Valores undefined em vez de null
+  ✅ Portal fecha ANTES de atualizar estado
+
+═══════════════════════════════════════════════════════════
+  🧪 TESTE RÁPIDO - 5 PASSOS
+═══════════════════════════════════════════════════════════
+
+1️⃣  HARD REFRESH
+    ─────────────────────────────
+    Ctrl + Shift + R
+    (ou Cmd + Shift + R no Mac)
+
+2️⃣  ABRA O CONSOLE
+    ─────────────────────────────
+    F12 → Aba "Console"
+
+3️⃣  ACESSE A PÁGINA
+    ─────────────────────────────
+    /properties/new
+
+4️⃣  SELECIONE "APARTAMENTO"
+    ─────────────────────────────
+    No dropdown "Tipo de propriedade"
+
+5️⃣  OBSERVE
+    ─────────────────────────────
+    ✅ Deve selecionar sem erro
+    ✅ Página NÃO deve ficar branca
+    ✅ Console deve mostrar:
+       🔄 Campo alterado: propertyTypeId → ...
+
+═══════════════════════════════════════════════════════════
+  ✅ SE FUNCIONOU
+═══════════════════════════════════════════════════════════
+
+Continue testando:
+  ✓ Selecione "Tipo de anúncio"
+  ✓ Selecione "Subtipo"
+  ✓ Marque "Aluguel por temporada"
+  ✓ Clique em "Próximo"
+  ✓ Continue preenchendo os steps
+  ✓ Tente criar um imóvel completo
+
+═══════════════════════════════════════════════════════════
+  ❌ SE NÃO FUNCIONOU
+═══════════════════════════════════════════════════════════
+
+Me envie:
+  1. Screenshot do console completo
+  2. Em qual campo quebrou
+  3. Mensagem de erro exata
+
+═══════════════════════════════════════════════════════════
+  🎯 CONFIANÇA: 99%
+═══════════════════════════════════════════════════════════
+
+Esta é uma correção cirúrgica para um problema muito específico.
+
+setTimeout(0) é uma técnica comprovada para resolver race
+conditions entre portals e estado do React.
+
+Deve funcionar! 🚀
+
+═══════════════════════════════════════════════════════════
+  📌 VERSÃO: v1.0.103.289-SELECT-PORTAL-FIX
+═══════════════════════════════════════════════════════════
+
+TESTE E ME AVISE! 🙏

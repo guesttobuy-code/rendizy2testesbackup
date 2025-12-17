@@ -1,0 +1,36 @@
+=== TESTE DE CAPTURA DE OUTPUTS ===
+Data: 11/30/2025 21:39:32
+
+1. Teste comando simples:
+
+domingo, 30 de novembro de 2025 21:39:32
+
+
+2. Teste git status:
+On branch master
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+  (commit or discard the untracked or modified content in submodules)
+	modified:   deploy-log.txt
+	modified:   login-que-funcionou-20251124-172504 BACKUP (modified content)
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	deploy-github-via-comandos.ps1
+	executar-comando.ps1
+	powershell-outputs.txt
+	testar-captura-outputs.ps1
+	teste-captura.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+
+3. Teste PowerShell version:
+
+Major  Minor  Patch  PreReleaseLabel BuildLabel
+-----  -----  -----  --------------- ----------
+7      5      4                      
+
+
+=== TESTE CONCLUIDO ===

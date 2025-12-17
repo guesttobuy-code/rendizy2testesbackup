@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.ns", "deno.unstable"],
+    "strict": true,
+    "types": []
+  },
+  "imports": {
+    "openai": "./third_party/openai-stub.ts",
+    "https://esm.sh/openai@6.9.1": "./third_party/openai-stub.ts",
+    "https://esm.sh/openai@6.9.1/internal/types.d.mts": "./third_party/undici-types/index.d.ts",
+    "https://esm.sh/openai@6.9.1/node_modules/undici-types/index.d.ts": "./third_party/undici-types/index.d.ts",
+    "https://esm.sh/node_modules/undici-types/index.d.ts": "./third_party/undici-types/index.d.ts",
+    "undici-types": "./third_party/undici-types/index.d.ts"
+  }
+}

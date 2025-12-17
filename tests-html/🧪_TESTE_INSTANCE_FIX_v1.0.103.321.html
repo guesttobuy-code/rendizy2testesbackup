@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧪 Teste Instance Fix v1.0.103.321</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    h1 {
+      color: #2d3748;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+    
+    .version {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .info {
+      background: #ebf8ff;
+      border-left: 4px solid #4299e1;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    
+    .btn {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px 5px;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .results {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f7fafc;
+      border-radius: 12px;
+      display: none;
+    }
+    
+    .results.show {
+      display: block;
+    }
+    
+    .log {
+      background: #2d3748;
+      color: #48bb78;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      margin: 10px 0;
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .log-line {
+      margin: 5px 0;
+    }
+    
+    .success {
+      color: #48bb78;
+    }
+    
+    .error {
+      color: #f56565;
+    }
+    
+    .warning {
+      color: #ed8936;
+    }
+    
+    .info-line {
+      color: #4299e1;
+    }
+    
+    .qr-container {
+      text-align: center;
+      margin: 20px 0;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      border: 2px solid #e2e8f0;
+      display: none;
+    }
+    
+    .qr-container.show {
+      display: block;
+    }
+    
+    .qr-code {
+      max-width: 300px;
+      margin: 20px auto;
+    }
+    
+    .steps {
+      margin: 20px 0;
+    }
+    
+    .step {
+      padding: 10px;
+      margin: 5px 0;
+      background: #f7fafc;
+      border-radius: 6px;
+      border-left: 4px solid #e2e8f0;
+    }
+    
+    .step.active {
+      border-left-color: #4299e1;
+      background: #ebf8ff;
+    }
+    
+    .step.done {
+      border-left-color: #48bb78;
+      background: #f0fff4;
+    }
+    
+    .step.failed {
+      border-left-color: #f56565;
+      background: #fff5f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Teste Instance Fix</h1>
+    <div class="version">v1.0.103.321 - Criação Automática de Instância</div>
+    
+    <div class="info">
+      <strong>🎯 O que foi corrigido:</strong><br><br>
+      ✅ Verifica se instância existe ANTES de conectar<br>
+      ✅ Cria instância automaticamente se não existir<br>
+      ✅ Aguarda 5s para provisionamento<br>
+      ✅ 5 tentativas com delays exponenciais (3s, 5s, 7s, 10s, 15s)<br>
+      ✅ Verifica content-type antes de fazer parse<br>
+      ✅ Identifica erros temporários vs permanentes<br>
+      ✅ Logs ultra-detalhados
+    </div>
+    
+    <div class="steps">
+      <div class="step" id="step-1">
+        ⏳ Etapa 1: Verificar se instância existe
+      </div>
+      <div class="step" id="step-2">
+        ⏳ Etapa 2: Criar instância (se necessário)
+      </div>
+      <div class="step" id="step-3">
+        ⏳ Etapa 3: Aguardar provisionamento (5s)
+      </div>
+      <div class="step" id="step-4">
+        ⏳ Etapa 4: Obter QR Code (até 5 tentativas)
+      </div>
+      <div class="step" id="step-5">
+        ⏳ Etapa 5: Exibir QR Code
+      </div>
+    </div>
+    
+    <div>
+      <button class="btn" id="testBtn" onclick="testQRCode()">
+        🧪 Testar Geração de QR Code
+      </button>
+      <button class="btn" onclick="clearLogs()" style="background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);">
+        🗑️ Limpar Logs
+      </button>
+    </div>
+    
+    <div id="results" class="results">
+      <h3>📊 Logs do Teste:</h3>
+      <div id="logs" class="log"></div>
+    </div>
+    
+    <div id="qrContainer" class="qr-container">
+      <h3 style="color: #2d3748; margin-bottom: 15px;">✅ QR Code Gerado com Sucesso!</h3>
+      <img id="qrCode" class="qr-code" alt="QR Code">
+      <p style="color: #718096; font-size: 14px; margin-top: 10px;">
+        Escaneie o QR Code com seu WhatsApp
+      </p>
+    </div>
+  </div>
+  
+  <script>
+    const BASE_URL = 'http://localhost:54321/functions/v1/make-server-67caf26a';
+    let logLines = [];
+    
+    function addLog(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type === 'success' ? 'success' : 
+                       type === 'error' ? 'error' :
+                       type === 'warning' ? 'warning' : 'info-line';
+      
+      logLines.push(`<div class="log-line ${className}">[${timestamp}] ${message}</div>`);
+      
+      const logsDiv = document.getElementById('logs');
+      logsDiv.innerHTML = logLines.join('');
+      logsDiv.scrollTop = logsDiv.scrollHeight;
+    }
+    
+    function updateStep(stepNum, status) {
+      const step = document.getElementById(`step-${stepNum}`);
+      const icons = {
+        active: '⏳',
+        done: '✅',
+        failed: '❌'
+      };
+      
+      step.className = `step ${status}`;
+      
+      const text = step.textContent;
+      const newText = text.replace(/^[⏳✅❌]\s*/, `${icons[status]} `);
+      step.textContent = newText;
+    }
+    
+    async function testQRCode() {
+      const btn = document.getElementById('testBtn');
+      const resultsDiv = document.getElementById('results');
+      const qrContainer = document.getElementById('qrContainer');
+      
+      // Reset
+      logLines = [];
+      resultsDiv.classList.add('show');
+      qrContainer.classList.remove('show');
+      btn.disabled = true;
+      
+      // Reset steps
+      for (let i = 1; i <= 5; i++) {
+        updateStep(i, 'active');
+      }
+      
+      addLog('🚀 Iniciando teste de geração de QR Code...', 'info');
+      addLog(`📡 URL: ${BASE_URL}/whatsapp/qr-code`, 'info');
+      
+      try {
+        updateStep(1, 'active');
+        addLog('🔍 Etapa 1: Verificando se instância existe...', 'info');
+        
+        updateStep(2, 'active');
+        addLog('⏳ Etapa 2: Verificando/criando instância...', 'info');
+        
+        updateStep(3, 'active');
+        addLog('⏳ Etapa 3: Aguardando provisionamento...', 'warning');
+        
+        updateStep(4, 'active');
+        addLog('🔄 Etapa 4: Solicitando QR Code (pode levar até 40s)...', 'warning');
+        addLog('💡 Aguarde... O sistema fará até 5 tentativas com delays exponenciais', 'info');
+        
+        const startTime = Date.now();
+        
+        const response = await fetch(`${BASE_URL}/whatsapp/qr-code`);
+        const data = await response.json();
+        
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        
+        if (response.ok && data.success) {
+          updateStep(1, 'done');
+          updateStep(2, 'done');
+          updateStep(3, 'done');
+          updateStep(4, 'done');
+          updateStep(5, 'active');
+          
+          addLog(`✅ QR Code gerado com sucesso em ${duration}s!`, 'success');
+          addLog(`📊 Tentativa: ${data.data.attempt || 1}`, 'info');
+          addLog(`⏰ Expira em: ${new Date(data.data.expiresAt).toLocaleTimeString()}`, 'info');
+          
+          // Exibir QR Code
+          const qrCodeImg = document.getElementById('qrCode');
+          qrCodeImg.src = data.data.qrCode;
+          qrContainer.classList.add('show');
+          
+          updateStep(5, 'done');
+          addLog('🎉 Teste concluído com sucesso!', 'success');
+          
+        } else {
+          updateStep(4, 'failed');
+          addLog(`❌ Erro: ${data.error || 'Erro desconhecido'}`, 'error');
+          
+          if (data.details) {
+            addLog(`📝 Detalhes: ${data.details}`, 'error');
+          }
+          
+          addLog('', 'error');
+          addLog('💡 Possíveis causas:', 'warning');
+          addLog('  1. Evolution API offline ou inacessível', 'warning');
+          addLog('  2. Credenciais incorretas (apikey ou instanceToken)', 'warning');
+          addLog('  3. URL da API incorreta', 'warning');
+          addLog('  4. Instância com problema na Evolution API', 'warning');
+          addLog('', 'warning');
+          addLog('🔧 Soluções:', 'info');
+          addLog('  1. Verificar variáveis de ambiente', 'info');
+          addLog('  2. Testar URL da API manualmente', 'info');
+          addLog('  3. Verificar logs do backend (F12)', 'info');
+        }
+        
+      } catch (error) {
+        updateStep(4, 'failed');
+        addLog(`❌ Erro fatal: ${error.message}`, 'error');
+        addLog('🔧 Verifique se o backend está rodando', 'warning');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    
+    function clearLogs() {
+      logLines = [];
+      document.getElementById('logs').innerHTML = '';
+      document.getElementById('qrContainer').classList.remove('show');
+      
+      // Reset steps
+      for (let i = 1; i <= 5; i++) {
+        const step = document.getElementById(`step-${i}`);
+        step.className = 'step';
+        const text = step.textContent;
+        step.textContent = text.replace(/^[⏳✅❌]\s*/, '⏳ ');
+      }
+    }
+    
+    // Animar entrada
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.querySelector('.container');
+      container.style.opacity = '0';
+      container.style.transform = 'translateY(20px)';
+      
+      setTimeout(() => {
+        container.style.transition = 'all 0.5s ease-out';
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+      }, 100);
+    });
+  </script>
+</body>
+</html>

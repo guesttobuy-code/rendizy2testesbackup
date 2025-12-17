@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Explorador de Banco de Dados - RENDIZY</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 36px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .entity-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 5px solid #3b82f6;
+        }
+        
+        .entity-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .entity-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .entity-icon {
+            font-size: 36px;
+            margin-right: 15px;
+        }
+        
+        .entity-info h3 {
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+        
+        .entity-prefix {
+            font-family: 'Courier New', monospace;
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 5px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .entity-count {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .modal-header h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            color: #1e3a8a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        
+        .close-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .info-box {
+            background: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .info-box h4 {
+            color: #1e40af;
+            margin-bottom: 10px;
+        }
+        
+        .info-box p {
+            color: #1e293b;
+            line-height: 1.6;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .tag {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin: 5px 5px 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 60px; margin-bottom: 15px;">🔍</div>
+            <h1>Explorador de Banco de Dados</h1>
+            <p style="color: #64748b; font-size: 18px;">RENDIZY - Sistema KV Store</p>
+        </div>
+        
+        <input type="text" class="search-box" id="searchBox" placeholder="🔍 Buscar entidade...">
+        
+        <div class="grid" id="entitiesGrid">
+            <!-- Organizações -->
+            <div class="entity-card" onclick="showEntity('organizations')">
+                <div class="entity-header">
+                    <div class="entity-icon">🏢</div>
+                    <div class="entity-info">
+                        <h3>Organizações</h3>
+                        <span class="entity-prefix">org_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Multi-Tenant Base</div>
+            </div>
+            
+            <!-- Usuários -->
+            <div class="entity-card" onclick="showEntity('users')">
+                <div class="entity-header">
+                    <div class="entity-icon">👥</div>
+                    <div class="entity-info">
+                        <h3>Usuários</h3>
+                        <span class="entity-prefix">user_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Sistema de Permissões</div>
+            </div>
+            
+            <!-- Imóveis -->
+            <div class="entity-card" onclick="showEntity('properties')">
+                <div class="entity-header">
+                    <div class="entity-icon">🏠</div>
+                    <div class="entity-info">
+                        <h3>Imóveis</h3>
+                        <span class="entity-prefix">acc_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Core do Sistema</div>
+            </div>
+            
+            <!-- Reservas -->
+            <div class="entity-card" onclick="showEntity('reservations')">
+                <div class="entity-header">
+                    <div class="entity-icon">📅</div>
+                    <div class="entity-info">
+                        <h3>Reservas</h3>
+                        <span class="entity-prefix">res_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Gestão de Ocupação</div>
+            </div>
+            
+            <!-- Bloqueios -->
+            <div class="entity-card" onclick="showEntity('blocks')">
+                <div class="entity-header">
+                    <div class="entity-icon">🚫</div>
+                    <div class="entity-info">
+                        <h3>Bloqueios</h3>
+                        <span class="entity-prefix">block_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Manutenção/Owner</div>
+            </div>
+            
+            <!-- Tipos de Imóveis -->
+            <div class="entity-card" onclick="showEntity('property-types')">
+                <div class="entity-header">
+                    <div class="entity-icon">🏷️</div>
+                    <div class="entity-info">
+                        <h3>Tipos de Imóveis</h3>
+                        <span class="entity-prefix">type_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Classificação</div>
+            </div>
+            
+            <!-- Amenidades Localização -->
+            <div class="entity-card" onclick="showEntity('location-amenities')">
+                <div class="entity-header">
+                    <div class="entity-icon">📍</div>
+                    <div class="entity-info">
+                        <h3>Amenidades Localização</h3>
+                        <span class="entity-prefix">location_amenity_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Pontos de Interesse</div>
+            </div>
+            
+            <!-- Amenidades Imóvel -->
+            <div class="entity-card" onclick="showEntity('listing-amenities')">
+                <div class="entity-header">
+                    <div class="entity-icon">✨</div>
+                    <div class="entity-info">
+                        <h3>Amenidades Imóvel</h3>
+                        <span class="entity-prefix">listing_amenity_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Comodidades</div>
+            </div>
+            
+            <!-- Hóspedes -->
+            <div class="entity-card" onclick="showEntity('guests')">
+                <div class="entity-header">
+                    <div class="entity-icon">🧳</div>
+                    <div class="entity-info">
+                        <h3>Hóspedes</h3>
+                        <span class="entity-prefix">guest_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Banco de Clientes</div>
+            </div>
+            
+            <!-- Proprietários -->
+            <div class="entity-card" onclick="showEntity('owners')">
+                <div class="entity-header">
+                    <div class="entity-icon">👔</div>
+                    <div class="entity-info">
+                        <h3>Proprietários</h3>
+                        <span class="entity-prefix">owner_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Gestão de Comissões</div>
+            </div>
+            
+            <!-- WhatsApp Chats -->
+            <div class="entity-card" onclick="showEntity('chats')">
+                <div class="entity-header">
+                    <div class="entity-icon">💬</div>
+                    <div class="entity-info">
+                        <h3>Conversas WhatsApp</h3>
+                        <span class="entity-prefix">chat_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Evolution API</div>
+            </div>
+            
+            <!-- WhatsApp Messages -->
+            <div class="entity-card" onclick="showEntity('messages')">
+                <div class="entity-header">
+                    <div class="entity-icon">✉️</div>
+                    <div class="entity-info">
+                        <h3>Mensagens WhatsApp</h3>
+                        <span class="entity-prefix">msg_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Histórico Completo</div>
+            </div>
+            
+            <!-- Templates -->
+            <div class="entity-card" onclick="showEntity('templates')">
+                <div class="entity-header">
+                    <div class="entity-icon">📝</div>
+                    <div class="entity-info">
+                        <h3>Templates WhatsApp</h3>
+                        <span class="entity-prefix">template_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Respostas Rápidas</div>
+            </div>
+            
+            <!-- Configurações -->
+            <div class="entity-card" onclick="showEntity('settings')">
+                <div class="entity-header">
+                    <div class="entity-icon">⚙️</div>
+                    <div class="entity-info">
+                        <h3>Configurações</h3>
+                        <span class="entity-prefix">setting_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Globais</div>
+            </div>
+            
+            <!-- Preços Sazonais -->
+            <div class="entity-card" onclick="showEntity('seasonal')">
+                <div class="entity-header">
+                    <div class="entity-icon">🌤️</div>
+                    <div class="entity-info">
+                        <h3>Preços Sazonais</h3>
+                        <span class="entity-prefix">seasonal_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Alta/Baixa Temporada</div>
+            </div>
+            
+            <!-- Integrações -->
+            <div class="entity-card" onclick="showEntity('integrations')">
+                <div class="entity-header">
+                    <div class="entity-icon">🔌</div>
+                    <div class="entity-info">
+                        <h3>Integrações</h3>
+                        <span class="entity-prefix">integration_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Booking/Airbnb</div>
+            </div>
+            
+            <!-- Sites -->
+            <div class="entity-card" onclick="showEntity('sites')">
+                <div class="entity-header">
+                    <div class="entity-icon">🌐</div>
+                    <div class="entity-info">
+                        <h3>Sites de Clientes</h3>
+                        <span class="entity-prefix">site_</span>
+                    </div>
+                </div>
+                <div class="entity-count">Landing Pages</div>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">17</div>
+                <div class="stat-label">Entidades</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">1</div>
+                <div class="stat-label">Tabela</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">∞</div>
+                <div class="stat-label">Escalável</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">JSONB</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="position: relative;">
+                <button class="close-btn" onclick="closeModal()">×</button>
+                <div style="font-size: 48px; margin-bottom: 10px;" id="modalIcon"></div>
+                <h2 id="modalTitle"></h2>
+                <p id="modalPrefix"></p>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        const entities = {
+            organizations: {
+                icon: '🏢',
+                title: 'Organizações',
+                prefix: 'org_',
+                description: 'Base do sistema multi-tenant. Cada organização representa uma imobiliária ou empresa.',
+                fields: [
+                    { name: 'id', type: 'string', desc: 'ID único da organização' },
+                    { name: 'name', type: 'string', desc: 'Nome da empresa' },
+                    { name: 'subdomain', type: 'string', desc: 'Subdomínio (ex: paraiso)' },
+                    { name: 'cnpj', type: 'string', desc: 'CNPJ da empresa' },
+                    { name: 'settings', type: 'object', desc: 'Configurações personalizadas' }
+                ],
+                example: {
+                    id: 'org_123e4567-e89b-12d3-a456-426614174000',
+                    name: 'Imobiliária Paraíso Ltda',
+                    subdomain: 'paraiso',
+                    cnpj: '12.345.678/0001-90',
+                    settings: {
+                        theme: 'light',
+                        language: 'pt-BR'
+                    }
+                }
+            },
+            properties: {
+                icon: '🏠',
+                title: 'Imóveis (Properties)',
+                prefix: 'acc_',
+                description: 'Core do sistema. Armazena todos os dados dos imóveis com estrutura unificada (wizard + normalizado).',
+                fields: [
+                    { name: 'id', type: 'string', desc: 'UUID do imóvel' },
+                    { name: 'shortId', type: 'string', desc: 'ID curto (6 chars)' },
+                    { name: 'name', type: 'string', desc: 'Nome do imóvel (normalizado)' },
+                    { name: 'photos', type: 'array', desc: 'URLs das fotos (normalizado)' },
+                    { name: 'coverPhoto', type: 'string', desc: 'Foto de capa (normalizado)' },
+                    { name: 'locationAmenities', type: 'array', desc: 'Amenidades localização (normalizado)' },
+                    { name: 'listingAmenities', type: 'array', desc: 'Amenidades imóvel (normalizado)' },
+                    { name: 'contentType', type: 'object', desc: 'Dados wizard - Tipo' },
+                    { name: 'contentPhotos', type: 'object', desc: 'Dados wizard - Fotos' },
+                    { name: 'financialIndividualPricing', type: 'object', desc: 'Preços' },
+                    { name: 'settingsRules', type: 'object', desc: 'Regras da casa' }
+                ],
+                example: {
+                    id: 'acc_97239cad-4b8d-46c0-82a3-28673ae4cfc1',
+                    shortId: 'H3K9P2',
+                    name: 'Casa da Praia',
+                    photos: ['url1', 'url2', 'url3'],
+                    coverPhoto: 'url1',
+                    locationAmenities: ['beach_nearby', 'restaurant_nearby'],
+                    listingAmenities: ['wifi', 'pool'],
+                    contentType: {
+                        internalName: 'Casa da Praia',
+                        propertyTypeId: 'type_beach_house'
+                    }
+                }
+            },
+            reservations: {
+                icon: '📅',
+                title: 'Reservas',
+                prefix: 'res_',
+                description: 'Gestão de ocupação. Armazena check-in, check-out, hóspede e valores.',
+                fields: [
+                    { name: 'id', type: 'string', desc: 'UUID da reserva' },
+                    { name: 'shortId', type: 'string', desc: 'ID curto (6 chars)' },
+                    { name: 'propertyId', type: 'string', desc: 'ID do imóvel' },
+                    { name: 'checkIn', type: 'date', desc: 'Data de entrada' },
+                    { name: 'checkOut', type: 'date', desc: 'Data de saída' },
+                    { name: 'guestName', type: 'string', desc: 'Nome do hóspede' },
+                    { name: 'totalAmount', type: 'number', desc: 'Valor total' },
+                    { name: 'status', type: 'string', desc: 'confirmed/cancelled/pending' }
+                ],
+                example: {
+                    id: 'res_456e4567',
+                    shortId: 'R5K9P2',
+                    propertyId: 'acc_97239cad',
+                    checkIn: '2025-12-20',
+                    checkOut: '2025-12-27',
+                    guestName: 'Maria Santos',
+                    totalAmount: 4200,
+                    status: 'confirmed'
+                }
+            },
+            chats: {
+                icon: '💬',
+                title: 'Conversas WhatsApp',
+                prefix: 'chat_',
+                description: 'Integração com Evolution API. Gerencia conversas e status de atendimento.',
+                fields: [
+                    { name: 'id', type: 'string', desc: 'Número do contato' },
+                    { name: 'contactName', type: 'string', desc: 'Nome do contato' },
+                    { name: 'unreadCount', type: 'number', desc: 'Mensagens não lidas' },
+                    { name: 'lastMessage', type: 'string', desc: 'Última mensagem' },
+                    { name: 'tags', type: 'array', desc: 'Tags de classificação' },
+                    { name: 'assignedTo', type: 'string', desc: 'Usuário responsável' }
+                ],
+                example: {
+                    id: 'chat_5511999887766',
+                    contactName: 'Carlos Mendes',
+                    unreadCount: 3,
+                    lastMessage: 'Tem vaga para Ano Novo?',
+                    tags: ['lead', 'high_priority'],
+                    assignedTo: 'user_789e4567'
+                }
+            }
+        };
+        
+        // Search functionality
+        document.getElementById('searchBox').addEventListener('input', function(e) {
+            const search = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.entity-card');
+            
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                if (text.includes(search)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+        
+        function showEntity(type) {
+            const entity = entities[type];
+            if (!entity) return;
+            
+            document.getElementById('modalIcon').textContent = entity.icon;
+            document.getElementById('modalTitle').textContent = entity.title;
+            document.getElementById('modalPrefix').textContent = `Prefixo: ${entity.prefix}`;
+            
+            let html = `
+                <div class="info-box">
+                    <h4>📖 Descrição</h4>
+                    <p>${entity.description}</p>
+                </div>
+                
+                <h3 style="margin: 20px 0 15px 0;">📊 Campos</h3>
+                ${entity.fields.map(field => `
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;">
+                        <strong style="color: #3b82f6;">${field.name}</strong>
+                        <span class="tag">${field.type}</span>
+                        <p style="color: #64748b; margin-top: 5px; font-size: 14px;">${field.desc}</p>
+                    </div>
+                `).join('')}
+                
+                <h3 style="margin: 20px 0 15px 0;">💻 Exemplo JSON</h3>
+                <pre>${JSON.stringify(entity.example, null, 2)}</pre>
+                
+                <button class="btn" onclick="closeModal()">Fechar</button>
+            `;
+            
+            document.getElementById('modalBody').innerHTML = html;
+            document.getElementById('modal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+        
+        // Close on outside click
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 RENDIZY - Sistema de Monitoramento WhatsApp</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            border-radius: 30px;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 15px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.95;
+        }
+        
+        .content {
+            padding: 50px;
+        }
+        
+        .intro {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .intro h2 {
+            font-size: 32px;
+            color: #1e293b;
+            margin-bottom: 15px;
+        }
+        
+        .intro p {
+            font-size: 18px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .card {
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            border-radius: 20px;
+            padding: 35px;
+            text-align: center;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border-color: #25D366;
+        }
+        
+        .card .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .card h3 {
+            font-size: 24px;
+            color: #1e293b;
+            margin-bottom: 15px;
+        }
+        
+        .card p {
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: white;
+            padding: 15px 35px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(37, 211, 102, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .status-bar {
+            background: #f9fafb;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 40px 0;
+        }
+        
+        .status-bar h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        
+        .status-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .status-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .status-item .emoji {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .status-item .label {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .status-item .value {
+            color: #1e293b;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .footer {
+            background: #f9fafb;
+            padding: 30px;
+            text-align: center;
+            border-top: 2px solid #e5e7eb;
+        }
+        
+        .footer p {
+            color: #64748b;
+            margin-bottom: 15px;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 5px;
+        }
+        
+        .badge-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        .badge-info {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Sistema de Monitoramento WhatsApp</h1>
+            <p>Ferramentas completas para monitorar integração Evolution API</p>
+            <p style="margin-top: 10px; font-size: 14px; opacity: 0.8;">
+                v1.0.103.318 • 05/11/2025
+            </p>
+        </div>
+        
+        <div class="content">
+            <div class="intro">
+                <h2>✅ Tudo Pronto Para Usar!</h2>
+                <p>
+                    Sistema completo de monitoramento criado com sucesso.<br>
+                    Escolha uma ferramenta abaixo para começar a validar sua integração WhatsApp.
+                </p>
+            </div>
+            
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <h3>📊 Componentes Criados</h3>
+                <div class="status-items">
+                    <div class="status-item">
+                        <div class="emoji">⚛️</div>
+                        <div class="label">Monitor React</div>
+                        <div class="value">✅ Criado</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="emoji">🔍</div>
+                        <div class="label">Diagnóstico HTML</div>
+                        <div class="value">✅ Criado</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="emoji">🧪</div>
+                        <div class="label">Script de Testes</div>
+                        <div class="value">✅ Criado</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="emoji">📖</div>
+                        <div class="label">Documentação</div>
+                        <div class="value">✅ Completa</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Cards -->
+            <div class="cards">
+                <!-- Card 1: Testes -->
+                <div class="card" onclick="openTests()">
+                    <div class="icon">🧪</div>
+                    <h3>Testes Automatizados</h3>
+                    <p>
+                        Execute 5 testes automatizados para validar que tudo está salvando corretamente no Supabase.
+                    </p>
+                    <span class="badge">Recomendado</span>
+                    <span class="badge-info">Início Rápido</span>
+                    <br><br>
+                    <button class="btn" onclick="openTests(); event.stopPropagation();">
+                        ▶️ Abrir Testes
+                    </button>
+                </div>
+                
+                <!-- Card 2: Diagnóstico -->
+                <div class="card" onclick="openDiagnostic()">
+                    <div class="icon">🔍</div>
+                    <h3>Diagnóstico Completo</h3>
+                    <p>
+                        Visualize todos os dados salvos: configuração, contatos, conversas, mensagens e logs.
+                    </p>
+                    <span class="badge-warning">Detalhado</span>
+                    <br><br>
+                    <button class="btn btn-secondary" onclick="openDiagnostic(); event.stopPropagation();">
+                        🔍 Abrir Diagnóstico
+                    </button>
+                </div>
+                
+                <!-- Card 3: Guia -->
+                <div class="card" onclick="openGuide()">
+                    <div class="icon">📖</div>
+                    <h3>Guia Completo</h3>
+                    <p>
+                        Documentação detalhada com passo a passo, troubleshooting e melhores práticas.
+                    </p>
+                    <span class="badge-info">Documentação</span>
+                    <br><br>
+                    <button class="btn btn-secondary" onclick="openGuide(); event.stopPropagation();">
+                        📖 Ler Guia
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Instruções -->
+            <div class="status-bar" style="margin-top: 50px;">
+                <h3>🎯 O Que Fazer Agora</h3>
+                <div style="text-align: left; line-height: 2;">
+                    <p><strong>1. Execute os Testes</strong></p>
+                    <p style="margin-left: 20px; color: #64748b;">
+                        → Clique em "🧪 Abrir Testes"<br>
+                        → Clique em "▶️ Executar Todos os Testes"<br>
+                        → Aguarde relatório (deve passar todos ✅)
+                    </p>
+                    <br>
+                    <p><strong>2. Verifique o Diagnóstico</strong></p>
+                    <p style="margin-left: 20px; color: #64748b;">
+                        → Clique em "🔍 Abrir Diagnóstico"<br>
+                        → Veja o que foi salvo no Supabase<br>
+                        → Contadores devem estar > 0
+                    </p>
+                    <br>
+                    <p><strong>3. Configure Evolution API (se ainda não fez)</strong></p>
+                    <p style="margin-left: 20px; color: #64748b;">
+                        → Entre no sistema → Integrações → WhatsApp<br>
+                        → Preencha: api_url, instance_name, api_key, instance_token<br>
+                        → Teste conexão<br>
+                        → Gere QR Code e escaneie<br>
+                        → Sincronize contatos
+                    </p>
+                    <br>
+                    <p><strong>4. Monitore em Tempo Real</strong></p>
+                    <p style="margin-left: 20px; color: #64748b;">
+                        → Adicione componente WhatsAppIntegrationMonitor ao sistema<br>
+                        → Ative "Auto-Refresh ON"<br>
+                        → Envie mensagem de teste via WhatsApp<br>
+                        → Veja aparecer no monitor (5-10 segundos)
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Links Rápidos -->
+            <div style="margin-top: 40px; text-align: center;">
+                <h3 style="margin-bottom: 20px; color: #1e293b;">🔗 Links Rápidos</h3>
+                <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn" onclick="openTests()">🧪 Testes</button>
+                    <button class="btn" onclick="openDiagnostic()">🔍 Diagnóstico</button>
+                    <button class="btn" onclick="openGuide()">📖 Guia</button>
+                    <button class="btn btn-secondary" onclick="openStartHere()">🎯 Comece Aqui</button>
+                    <button class="btn btn-secondary" onclick="openCredentials()">🔐 Rotacionar Credenciais</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>
+                <strong>Sistema de Monitoramento WhatsApp Evolution API</strong>
+            </p>
+            <p>
+                v1.0.103.318 • RENDIZY • 05/11/2025
+            </p>
+            <p style="margin-top: 15px; font-size: 14px;">
+                ✅ Monitor React • ✅ Diagnóstico HTML • ✅ Testes Automatizados • ✅ Documentação Completa
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function openTests() {
+            window.open('🧪_TESTE_SINCRONIZACAO_WHATSAPP_v1.0.103.318.html', '_blank');
+        }
+        
+        function openDiagnostic() {
+            window.open('🔍_DIAGNOSTICO_INTEGRACAO_WHATSAPP_v1.0.103.318.html', '_blank');
+        }
+        
+        function openGuide() {
+            // Como é .md, pode ser que o navegador peça para baixar
+            // Melhor abrir em editor de texto
+            alert('📖 Abra o arquivo no seu editor de código:\n\n📖_GUIA_MONITORAMENTO_WHATSAPP_v1.0.103.318.md');
+        }
+        
+        function openStartHere() {
+            alert('🎯 Abra o arquivo no seu editor de código:\n\n🎯_COMECE_AQUI_MONITORAMENTO_v1.0.103.318.md');
+        }
+        
+        function openCredentials() {
+            alert('🔐 Abra o arquivo no seu editor de código:\n\n🔐_ROTACIONAR_CREDENCIAIS_EVOLUTION_AGORA_v1.0.103.317.md\n\n⚠️ IMPORTANTE: Rotacione suas credenciais após expor no código!');
+        }
+        
+        // Auto-detectar e mostrar status
+        window.addEventListener('load', () => {
+            console.log('🚀 Sistema de Monitoramento WhatsApp v1.0.103.318');
+            console.log('✅ Componentes carregados');
+            console.log('');
+            console.log('📋 Arquivos criados:');
+            console.log('  1. WhatsAppIntegrationMonitor.tsx (componente React)');
+            console.log('  2. 🔍_DIAGNOSTICO_INTEGRACAO_WHATSAPP_v1.0.103.318.html');
+            console.log('  3. 🧪_TESTE_SINCRONIZACAO_WHATSAPP_v1.0.103.318.html');
+            console.log('  4. 📖_GUIA_MONITORAMENTO_WHATSAPP_v1.0.103.318.md');
+            console.log('  5. 🎯_COMECE_AQUI_MONITORAMENTO_v1.0.103.318.md');
+            console.log('');
+            console.log('🎯 COMECE POR: Clicar em "🧪 Abrir Testes"');
+        });
+    </script>
+</body>
+</html>
