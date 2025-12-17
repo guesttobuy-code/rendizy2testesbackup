@@ -8,7 +8,7 @@
  * - Evita corridas de storage
  */
 
-import { createClient } from '@jsr/supabase__supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from './info.tsx';
 
 let supabaseClient: ReturnType<typeof createClient> | null = null;
