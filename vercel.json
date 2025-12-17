@@ -1,8 +1,8 @@
 {
-  "buildCommand": "cd RendizyPrincipal && npm install && npm run build",
-  "outputDirectory": "RendizyPrincipal/dist",
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "cd RendizyPrincipal && npm install",
+  "installCommand": "npm install",
   "rewrites": [
     {
       "source": "/(.*)",
