@@ -241,10 +241,17 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
     }
     
     // 1. Extrair token do header Authorization
+    console.log('🔍 [getOrganizationIdOrThrow] Headers recebidos:', {
+      'X-Auth-Token': c.req.header('X-Auth-Token')?.substring(0, 20) + '...',
+      'Authorization': c.req.header('Authorization')?.substring(0, 30) + '...',
+      'Cookie': c.req.header('Cookie') ? 'presente' : 'ausente'
+    });
+    
     const token = extractTokenFromContext(c);
     
     if (!token) {
       console.error('❌ [getOrganizationIdOrThrow] Token ausente no header Authorization');
+      console.error('❌ Headers disponíveis:', Object.keys(c.req.raw.headers));
       // Fallback: tentar usar UUID fixo se não houver token
       console.warn('⚠️ [getOrganizationIdOrThrow] Usando UUID fixo como fallback (sem token)');
       return '00000000-0000-0000-0000-000000000001';

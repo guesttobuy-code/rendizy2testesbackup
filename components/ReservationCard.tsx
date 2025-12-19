@@ -199,9 +199,9 @@ export function ReservationCard({
               <div>
                 <strong>Noites:</strong> {reservation.nights}
               </div>
-              {reservation.status !== 'maintenance' && (
+              {reservation.status !== 'maintenance' && reservation.price != null && (
                 <div>
-                  <strong>Valor:</strong> R$ {reservation.price.toFixed(2)}
+                  <strong>Valor:</strong> R$ {Number(reservation.price).toFixed(2)}
                 </div>
               )}
               <div className="flex items-center gap-1">

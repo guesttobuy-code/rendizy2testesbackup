@@ -473,7 +473,7 @@ function App() {
     });
   };
 
-  const handleQuickAction = (action: 'reservation' | 'quote' | 'predictive' | 'maintenance' | 'tiers' | 'seasonality') => {
+  const handleQuickAction = (action: 'reservation' | 'quote' | 'predictive' | 'maintenance' | 'block' | 'tiers' | 'seasonality') => {
     const { propertyId, startDate, endDate } = quickActionsModal;
     setQuickActionsModal({ open: false });
 
@@ -493,7 +493,7 @@ function App() {
           startDate,
           endDate
         });
-      } else if (action === 'predictive' || action === 'maintenance' || action === 'block') {
+      } else if (action === 'block' || action === 'predictive' || action === 'maintenance') {
         // Todos os tipos de bloqueio usam o mesmo modal unificado
         setBlockModal({
           open: true,
@@ -1540,6 +1540,21 @@ function App() {
               startDate={createReservationWizard.startDate}
               endDate={createReservationWizard.endDate}
               onComplete={handleReservationComplete}
+            />
+
+            {/* BlockModal - Criar Bloqueio */}
+            <BlockModal
+              isOpen={blockModal.open}
+              onClose={() => setBlockModal({ open: false })}
+              propertyId={blockModal.propertyId || ''}
+              propertyName={properties.find(p => p.id === blockModal.propertyId)?.name || 'Propriedade'}
+              startDate={blockModal.startDate || new Date()}
+              endDate={blockModal.endDate || new Date()}
+              onSave={() => {
+                setBlockModal({ open: false });
+                // Recarregar dados do calendário
+                window.location.reload();
+              }}
             />
           </LanguageProvider>
         </ThemeProvider>

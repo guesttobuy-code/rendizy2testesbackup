@@ -125,14 +125,32 @@ export function useCalendarData({ propertyIds, dateRange, enabled = true }: UseC
     queryFn: async () => {
       if (propertyIds.length === 0) return { days: [], blocks: [] };
       
-      console.log(`🔄 [useCalendarData] Buscando dados para ${propertyIds.length} propriedades`);
+      console.log(`🔄 [useCalendarData] Buscando bloqueios para ${propertyIds.length} propriedades`);
       
-      // Por enquanto retorna array vazio - em produção, buscar bloqueios do backend
-      const blocks: any[] = [];
-      
-      console.log(`✅ [useCalendarData] ${blocks.length} bloqueios carregados`);
-      
-      return { blocks };
+      try {
+        // Buscar bloqueios do backend para todas as propriedades selecionadas
+        const blocksPromises = propertyIds.map(propertyId => 
+          calendarApi.getBlocks({
+            propertyId,
+            startDate: dateRange.from.toISOString().split('T')[0],
+            endDate: dateRange.to.toISOString().split('T')[0]
+          })
+        );
+        
+        const blocksResults = await Promise.all(blocksPromises);
+        
+        // Combinar todos os bloqueios em um único array
+        const allBlocks = blocksResults
+          .filter(result => result.success && result.data)
+          .flatMap(result => result.data || []);
+        
+        console.log(`✅ [useCalendarData] ${allBlocks.length} bloqueios carregados`);
+        
+        return { blocks: allBlocks };
+      } catch (error) {
+        console.error('❌ [useCalendarData] Erro ao buscar bloqueios:', error);
+        return { blocks: [] };
+      }
     },
     staleTime: 3 * 60 * 1000,
     gcTime: 5 * 60 * 1000,

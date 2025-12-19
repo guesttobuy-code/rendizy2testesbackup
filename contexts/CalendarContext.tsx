@@ -78,8 +78,8 @@ const initialState: CalendarState = {
   currentView: 'calendar',
   currentMonth: new Date(),
   dateRange: {
-    from: new Date(2025, 9, 24),
-    to: new Date(2025, 10, 11)
+    from: new Date(),
+    to: new Date(new Date().setDate(new Date().getDate() + 30))
   },
   selectedReservationTypes: ['pending', 'confirmed', 'checked_in', 'checked_out'],
   

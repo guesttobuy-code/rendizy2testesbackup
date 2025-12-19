@@ -57,6 +57,7 @@ import { PropertyTypesManager } from './PropertyTypesManager';
 import { LocationsListingsSettings } from './LocationsListingsSettings';
 import { LocationAmenitiesSettings } from './LocationAmenitiesSettings';
 import { IntegrationsManager } from './IntegrationsManager';
+import { DataReconciliationManager } from './DataReconciliationManager';
 import { isOfflineMode } from '../utils/offlineConfig';
 
 // ============================================================================
@@ -648,52 +649,68 @@ export function SettingsManager({
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Organizadas em dois níveis */}
       <Tabs defaultValue="properties" className="w-full">
-        <TabsList className="w-full justify-start bg-muted border-b border-border rounded-none h-auto p-0">
-          <TabsTrigger
-            value="properties"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
-          >
-            <Home className="h-4 w-4 mr-2" />
-            Propriedades
-          </TabsTrigger>
-          <TabsTrigger
-            value="chat"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Chat
-          </TabsTrigger>
-          <TabsTrigger
-            value="property-types"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
-          >
-            <Building2 className="h-4 w-4 mr-2" />
-            Tipos de Imóveis
-          </TabsTrigger>
-          <TabsTrigger
-            value="locations-listings"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
-          >
-            <Home className="h-4 w-4 mr-2" />
-            Locais e Anúncios
-          </TabsTrigger>
-          <TabsTrigger
-            value="location-amenities"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
-          >
-            <Building2 className="h-4 w-4 mr-2" />
-            Amenidades de Locais
-          </TabsTrigger>
-          <TabsTrigger
-            value="integrations"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
-          >
-            <Zap className="h-4 w-4 mr-2" />
-            Integrações
-          </TabsTrigger>
-        </TabsList>
+        {/* Primeiro Nível - Configurações Principais */}
+        <div className="border-b border-border bg-muted">
+          <TabsList className="w-full justify-start bg-transparent rounded-none h-auto p-0">
+            <TabsTrigger
+              value="properties"
+              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Propriedades
+            </TabsTrigger>
+            <TabsTrigger
+              value="chat"
+              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Chat
+            </TabsTrigger>
+            <TabsTrigger
+              value="property-types"
+              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
+            >
+              <Building2 className="h-4 w-4 mr-2" />
+              Tipos de Imóveis
+            </TabsTrigger>
+            <TabsTrigger
+              value="locations-listings"
+              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Locais e Anúncios
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Segundo Nível - Configurações Avançadas */}
+        <div className="border-b border-border bg-muted/50">
+          <TabsList className="w-full justify-start bg-transparent rounded-none h-auto p-0">
+            <TabsTrigger
+              value="location-amenities"
+              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-6 py-2.5 text-sm"
+            >
+              <Building2 className="h-4 w-4 mr-2" />
+              Amenidades de Locais
+            </TabsTrigger>
+            <TabsTrigger
+              value="integrations"
+              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-6 py-2.5 text-sm"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Integrações
+            </TabsTrigger>
+            <TabsTrigger
+              value="data-reconciliation"
+              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-6 py-2.5 text-sm"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Conciliação de Dados
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Properties Settings Tab */}
         <TabsContent value="properties" className="mt-6 space-y-6">
@@ -780,6 +797,11 @@ export function SettingsManager({
         {/* Integrations Tab */}
         <TabsContent value="integrations" className="mt-6">
           <IntegrationsManager />
+        </TabsContent>
+
+        {/* Data Reconciliation Tab */}
+        <TabsContent value="data-reconciliation" className="mt-6">
+          <DataReconciliationManager />
         </TabsContent>
       </Tabs>
     </div>

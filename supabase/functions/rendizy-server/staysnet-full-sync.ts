@@ -357,8 +357,11 @@ export async function fullSyncStaysNet(
     console.log(`[StaysNet Full Sync] ✅ Fase 2 concluída: ${stats.properties.created} criadas, ${stats.properties.updated} atualizadas, ${stats.properties.failed} falharam`);
     
     // ============================================================================
-    // FASE 3: IMPORTAR RESERVAS
+    // FASE 3: IMPORTAR RESERVAS [DESABILITADA TEMPORARIAMENTE]
     // ============================================================================
+    // ⚠️ DESABILITADO: Importação automática de reservas está causando timeout
+    // e erros de tipo de dados. Vamos focar apenas em propriedades por enquanto.
+    /*
     console.log('[StaysNet Full Sync] 📥 Fase 3: Importando reservas...');
     const reservationsStartDate = startDate || '2025-01-01';
     const reservationsEndDate = endDate || '2026-12-31';
@@ -667,6 +670,8 @@ export async function fullSyncStaysNet(
     }
     
     console.log(`[StaysNet Full Sync] ✅ Fase 3 concluída: ${stats.reservations.created} criadas, ${stats.reservations.updated} atualizadas, ${stats.reservations.failed} falharam`);
+    */
+    console.log('[StaysNet Full Sync] ⚠️ Fase 3 (reservas) DESABILITADA - focando apenas em propriedades');
     console.log('[StaysNet Full Sync] 🎉 Importação completa finalizada!');
     
     return {

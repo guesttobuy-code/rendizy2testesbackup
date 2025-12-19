@@ -1,0 +1,152 @@
+// Exemplos de valores dos campos da API Stays.net
+// Para adicionar no DataReconciliationManager.tsx
+
+// RESERVATIONS
+example: 'res_12345abc67890'  // id
+example: 'RES2025001234'  // code
+example: 'STAYS-BKG-20251218-001'  // reservation_code
+example: 'AIRBNB-HM123456'  // external_id
+example: 'confirmed'  // status
+example: 'reserved'  // reservation_status
+
+// Datas
+example: '2025-12-20'  // arrival
+example: '2025-12-20'  // checkin
+example: '2025-12-20'  // check_in
+example: '2025-12-25'  // departure
+example: '2025-12-25'  // checkout
+example: '2025-12-25'  // check_out
+example: '2025-12-15T14:30:00Z'  // created_at
+example: '2025-12-15'  // booking_date
+example: '2025-12-16T10:15:00Z'  // modified_at
+example: '2025-12-16T16:45:00Z'  // cancelled_at
+
+// Propriedade/Unidade
+example: 'prop_98765xyz12345'  // property_id
+example: 'unit_54321abc98765'  // unit_id
+example: 'Apartamento Vista Mar Copacabana'  // property_name
+example: 'Unidade 302 - Torre A'  // unit_name
+example: 'listing_11223344'  // listing_id
+
+// Hóspede/Cliente
+example: 'client_789xyz456abc'  // client_id
+example: 'guest_456def789ghi'  // guest_id
+example: 'Carlos Eduardo Silva'  // guest_name
+example: 'Ana Paula Santos'  // customer_name
+example: 'Carlos'  // first_name
+example: 'Silva'  // last_name
+example: 'carlos.silva@email.com'  // guest_email
+example: 'contato@email.com.br'  // email
+example: '+55 21 98765-4321'  // guest_phone
+example: '+55 11 99876-5432'  // phone
+example: '123.456.789-00'  // guest_document
+example: 'ABC123456'  // document_number
+example: 'RG'  // document_type
+example: 'BR'  // country
+example: 'Brazilian'  // nationality
+
+// Valores/Preços
+example: '2450.00'  // total
+example: '2450.00'  // total_amount
+example: '2450.00'  // price
+example: '2100.00'  // accommodation_total
+example: '2100.00'  // accommodation_fare
+example: '150.00'  // cleaning_fee
+example: '200.00'  // service_fee
+example: '320.50'  // tax
+example: '320.50'  // taxes
+example: '82.00'  // vat
+example: '245.00'  // commission
+example: '245.00'  // commission_amount
+example: '10'  // commission_percentage
+example: '100.00'  // discount
+example: 'BRL'  // currency
+example: '1500.00'  // paid_amount
+example: '950.00'  // balance
+example: '500.00'  // deposit
+
+// Ocupação
+example: '5'  // nights
+example: '2'  // adults
+example: '2'  // number_of_adults
+example: '1'  // children
+example: '1'  // number_of_children
+example: '0'  // infants
+example: '1'  // pets
+example: '3'  // guests
+example: '3'  // total_guests
+
+// Canal/Origem
+example: 'website'  // source
+example: 'airbnb'  // channel
+example: 'Airbnb'  // platform
+example: 'Airbnb Brasil'  // channel_name
+example: '15'  // channel_commission
+
+// Notas e Observações
+example: 'Hóspede VIP - Atenção especial'  // notes
+example: 'Check-in após 18h OK'  // internal_notes
+example: 'Preciso de berço para bebê'  // special_requests
+example: 'Chegada prevista às 16h'  // guest_notes
+example: 'Cliente já se hospedou 3x'  // comments
+
+// Pagamento
+example: 'paid'  // payment_status
+example: 'credit_card'  // payment_method
+example: '2025-12-15'  // payment_date
+example: 'online'  // payment_type
+
+// Check-in/Check-out Info
+example: '14:00'  // checkin_time
+example: '11:00'  // checkout_time
+example: '2025-12-20T15:30:00Z'  // actual_checkin
+example: '2025-12-25T10:45:00Z'  // actual_checkout
+
+// Extras/Adicionais
+example: '[{"name":"Café da manhã","price":50}]'  // extras
+example: '[{"name":"Late checkout","price":100}]'  // addons
+example: '["wifi","ar-condicionado","tv"]'  // amenities_used
+
+// Cancelamento
+example: 'flexible'  // cancellation_policy
+example: 'Mudança de planos'  // cancellation_reason
+example: 'guest'  // cancelled_by
+example: '1850.00'  // refund_amount
+
+// Metadados
+example: '{"origin":"mobile_app","version":"2.1"}'  // metadata
+example: '{"custom_field_1":"valor1"}'  // custom_fields
+example: '["vip","frequent"]'  // tags
+example: 'REF-EXT-2025-001'  // reference
+example: 'https://stays.net/confirm/abc123'  // confirmation_url
+
+// PROPERTIES
+example: 'prop_apt001'  // property.id
+example: 'Apartamento Leblon 2 Quartos'  // property.name
+example: 'APT-LEB-001'  // property.code
+example: 'apartment'  // property.type
+example: '2'  // property.bedrooms
+example: '2'  // property.bathrooms
+example: '4'  // property.max_guests
+example: '{"street":"Rua Dias Ferreira","number":"100"}'  // property.address
+example: 'Rio de Janeiro'  // property.city
+example: 'RJ'  // property.state
+example: 'Brasil'  // property.country
+example: '22430-050'  // property.zipcode
+example: '-22.9850'  // property.latitude
+example: '-43.2189'  // property.longitude
+example: '["wifi","ar-condicionado","piscina"]'  // property.amenities
+example: 'Apartamento moderno com vista para o mar...'  // property.description
+example: '["foto1.jpg","foto2.jpg"]'  // property.photos
+
+// GUESTS/CLIENTS
+example: 'cli_001abc'  // client.id
+example: 'João'  // client.first_name
+example: 'Pedro'  // client.last_name
+example: 'joao.pedro@email.com'  // client.email
+example: '+55 21 91234-5678'  // client.phone
+example: '987.654.321-00'  // client.document
+example: '{"street":"Av. Atlântica","number":"2000"}'  // client.address
+example: 'São Paulo'  // client.city
+example: 'Brasil'  // client.country
+example: '1985-03-15'  // client.birthdate

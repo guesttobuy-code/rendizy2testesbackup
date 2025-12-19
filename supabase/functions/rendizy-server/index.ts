@@ -104,8 +104,8 @@ app.use("*", async (c, next) => {
   const path = c.req.path;
   const method = c.req.method;
 
-  // ✅ DEBUG: Capturar TODAS as requisições (especialmente /organizations)
-  if (path.includes("/organizations") || path.includes("/auth/me")) {
+  // ✅ DEBUG: Capturar TODAS as requisições (especialmente /organizations, /auth/me, /staysnet)
+  if (path.includes("/organizations") || path.includes("/auth/me") || path.includes("/staysnet")) {
     console.log("🚨 [DEBUG GLOBAL] Requisição capturada para:", path);
     console.log("🚨 [DEBUG GLOBAL] URL completa:", c.req.url);
     console.log("🚨 [DEBUG GLOBAL] Method:", method);
@@ -1447,6 +1447,15 @@ app.post(
 // STAYS.NET PMS INTEGRATION ROUTES (v1.0.103.17)
 // ============================================================================
 
+// ⚠️ CRÍTICO: ROTAS SEM MIDDLEWARE - NÃO ADICIONAR tenancyMiddleware
+// 
+// Motivo: Estas rotas usam X-Auth-Token (custom token), não JWT
+// - tenancyMiddleware valida Authorization: Bearer (JWT do Supabase)
+// - X-Auth-Token é validado internamente via getOrganizationIdOrThrow()
+// - Adicionar middleware causa erro 401 "Invalid JWT"
+// 
+// Histórico: 19/12/2024 - Middleware adicionado e removido 3x causou 401
+// Solução: Manter rotas sem middleware, validação interna funciona
 app.get(
   "/rendizy-server/make-server-67caf26a/settings/staysnet",
   staysnetRoutes.getStaysNetConfig
@@ -1455,6 +1464,8 @@ app.post(
   "/rendizy-server/make-server-67caf26a/settings/staysnet",
   staysnetRoutes.saveStaysNetConfig
 );
+
+// ⚠️ ROTAS SEM MIDDLEWARE - Validação interna
 app.post(
   "/rendizy-server/make-server-67caf26a/staysnet/test",
   staysnetRoutes.testStaysNetConnection

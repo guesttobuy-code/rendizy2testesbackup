@@ -27,7 +27,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Separator } from './ui/separator';
-import StaysNetIntegration from './StaysNetIntegration';
+import StaysNetIntegration from './StaysNetIntegration'; // Nova arquitetura refatorada
 import { BookingComIntegration } from './BookingComIntegration';
 import WhatsAppIntegration from './WhatsAppIntegration';
 import { AirbnbIntegration } from './AirbnbIntegration';

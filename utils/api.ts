@@ -925,6 +925,30 @@ export const calendarApi = {
     });
   },
 
+  // Buscar bloqueios
+  getBlocks: async (params?: {
+    propertyId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<ApiResponse<any[]>> => {
+    const searchParams = new URLSearchParams();
+    
+    if (params?.propertyId) {
+      searchParams.set('property_id', params.propertyId);
+    }
+    if (params?.startDate) {
+      searchParams.set('start_date', params.startDate);
+    }
+    if (params?.endDate) {
+      searchParams.set('end_date', params.endDate);
+    }
+    
+    const query = searchParams.toString();
+    const url = query ? `/calendar/blocks?${query}` : '/calendar/blocks';
+    
+    return apiRequest<any[]>(url);
+  },
+
   // Deletar bloqueio
   deleteBlock: async (id: string): Promise<ApiResponse<null>> => {
     return apiRequest<null>(`/calendar/blocks/${id}`, {

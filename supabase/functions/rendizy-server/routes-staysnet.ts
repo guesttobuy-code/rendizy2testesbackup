@@ -751,16 +751,23 @@ export async function testStaysNetConnection(c: Context) {
 export async function testStaysNetEndpoint(c: Context) {
   try {
     const body: TestEndpointRequest = await c.req.json();
-    const { apiKey, apiSecret, baseUrl, endpoint, method, body: requestBody } = body;
+    const { apiKey, apiSecret, baseUrl, endpoint, method, body: requestBody, params } = body as any;
 
     if (!apiKey || !baseUrl || !endpoint) {
       return c.json(errorResponse('API Key, Base URL, and endpoint are required'), 400);
     }
 
-    logInfo(`Testing Stays.net endpoint: ${method} ${endpoint}`);
+    // Build URL with query params if provided
+    let finalEndpoint = endpoint;
+    if (params && Object.keys(params).length > 0) {
+      const queryString = new URLSearchParams(params).toString();
+      finalEndpoint = `${endpoint}?${queryString}`;
+    }
+
+    logInfo(`Testing Stays.net endpoint: ${method || 'GET'} ${finalEndpoint}`);
 
     const client = new StaysNetClient(apiKey, baseUrl, apiSecret);
-    const result = await client.request(endpoint, method, requestBody);
+    const result = await client.request(finalEndpoint, method || 'GET', requestBody);
 
     if (result.success) {
       return c.json(successResponse(result.data));
