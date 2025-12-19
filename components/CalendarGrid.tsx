@@ -12,6 +12,7 @@ interface CalendarProps {
   properties: Property[];
   reservations: Reservation[];
   blocks?: any[];
+  dateRange?: { from: Date; to: Date };
   onPriceEdit: (propertyId: string, startDate: Date, endDate: Date) => void;
   onMinNightsEdit: (propertyId: string, startDate: Date, endDate: Date) => void;
   onEmptyClick: (propertyId: string, startDate: Date, endDate: Date) => void;
@@ -20,7 +21,25 @@ interface CalendarProps {
 }
 
 // Generate calendar days
-const getDaysInMonth = (date: Date) => {
+// Suporta dateRange para gerar 60+ dias através de múltiplos meses
+const getDaysInMonth = (date: Date, dateRange?: { from: Date; to: Date }) => {
+  // Se dateRange fornecido, gerar todos os dias do range
+  if (dateRange) {
+    const days: Date[] = [];
+    const currentDate = new Date(dateRange.from);
+    currentDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(dateRange.to);
+    endDate.setHours(0, 0, 0, 0);
+    
+    while (currentDate <= endDate) {
+      days.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return days;
+  }
+  
+  // Fallback: gerar apenas o mês atual (comportamento original)
   const year = date.getFullYear();
   const month = date.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -144,13 +163,15 @@ export function Calendar({
   properties, 
   reservations,
   blocks = [],
+  dateRange,
   onPriceEdit,
   onMinNightsEdit,
   onEmptyClick,
   onReservationClick,
   onBlockClick
 }: CalendarProps) {
-  const days = getDaysInMonth(currentMonth);
+  // Usar dateRange se fornecido, senão usar currentMonth
+  const days = dateRange ? getDaysInMonth(currentMonth, dateRange) : getDaysInMonth(currentMonth);
   const [priceSelectionStart, setPriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
   const [priceSelectionEnd, setPriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);

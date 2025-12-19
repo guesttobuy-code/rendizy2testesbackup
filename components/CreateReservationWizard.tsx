@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { DateRangePicker } from './DateRangePicker';
 import { Calendar, ChevronLeft, ChevronRight, Search, Plus, Star, Loader2, Users, CalendarDays } from 'lucide-react';
 import { Property } from '../App';
-import { guestsApi, reservationsApi, propertiesApi } from '../utils/api';
+import { guestsApi, reservationsApi, propertiesApi, calendarApi } from '../utils/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -291,6 +291,81 @@ export function CreateReservationWizard({
     }
   };
 
+  /**
+   * ✅ NOVA FUNÇÃO: Validar disponibilidade das datas
+   * Verifica se há reservas ou bloqueios conflitantes
+   */
+  const checkAvailability = async (
+    propId: string, 
+    checkIn: Date, 
+    checkOut: Date
+  ): Promise<{ available: boolean; conflicts: string[] }> => {
+    try {
+      console.log('🔍 Verificando disponibilidade...');
+      console.log('  Property:', propId);
+      console.log('  Check-in:', checkIn.toISOString().split('T')[0]);
+      console.log('  Check-out:', checkOut.toISOString().split('T')[0]);
+      
+      const conflicts: string[] = [];
+      
+      // Verificar reservas existentes
+      const reservationsResponse = await reservationsApi.list();
+      if (reservationsResponse.success && reservationsResponse.data) {
+        const existingReservations = reservationsResponse.data.filter((r: any) => {
+          if (r.propertyId !== propId) return false;
+          if (r.status === 'cancelled') return false; // Ignorar canceladas
+          
+          const rCheckIn = new Date(r.checkIn);
+          const rCheckOut = new Date(r.checkOut);
+          rCheckIn.setHours(0, 0, 0, 0);
+          rCheckOut.setHours(0, 0, 0, 0);
+          
+          const newCheckIn = new Date(checkIn);
+          const newCheckOut = new Date(checkOut);
+          newCheckIn.setHours(0, 0, 0, 0);
+          newCheckOut.setHours(0, 0, 0, 0);
+          
+          // Lógica hoteleira: Check-out não ocupa o dia
+          // Conflito se: nova reserva começa antes da existente terminar E termina depois da existente começar
+          const hasConflict = newCheckIn < rCheckOut && newCheckOut > rCheckIn;
+          
+          if (hasConflict) {
+            conflicts.push(`Reserva existente: ${rCheckIn.toLocaleDateString('pt-BR')} - ${rCheckOut.toLocaleDateString('pt-BR')}`);
+          }
+          
+          return hasConflict;
+        });
+        
+        console.log(`  Reservas conflitantes: ${existingReservations.length}`);
+      }
+      
+      // Verificar bloqueios
+      const blocksResponse = await calendarApi.getBlocks({
+        propertyId: propId,
+        startDate: checkIn.toISOString().split('T')[0],
+        endDate: checkOut.toISOString().split('T')[0]
+      });
+      
+      if (blocksResponse.success && blocksResponse.data && blocksResponse.data.length > 0) {
+        blocksResponse.data.forEach((block: any) => {
+          const blockStart = new Date(block.startDate);
+          const blockEnd = new Date(block.endDate);
+          conflicts.push(`Bloqueio: ${blockStart.toLocaleDateString('pt-BR')} - ${blockEnd.toLocaleDateString('pt-BR')} (${block.type || 'simples'})`);
+        });
+        console.log(`  Bloqueios encontrados: ${blocksResponse.data.length}`);
+      }
+      
+      const available = conflicts.length === 0;
+      console.log(available ? '✅ Datas disponíveis' : '❌ Datas indisponíveis');
+      
+      return { available, conflicts };
+    } catch (error) {
+      console.error('❌ Erro ao verificar disponibilidade:', error);
+      // Em caso de erro, permitir criação (fail open)
+      return { available: true, conflicts: [] };
+    }
+  };
+
   // Use new dates if they were set, otherwise use original dates
   const effectiveStartDate = newStartDate || startDate;
   const effectiveEndDate = newEndDate || endDate;
@@ -337,6 +412,29 @@ export function CreateReservationWizard({
 
     setCreating(true);
     try {
+      // ✅ VALIDAR DISPONIBILIDADE ANTES DE CRIAR
+      console.log('🔍 Validando disponibilidade das datas...');
+      const availability = await checkAvailability(property.id, effectiveStartDate, effectiveEndDate);
+      
+      if (!availability.available) {
+        console.warn('⚠️ Datas indisponíveis:', availability.conflicts);
+        toast.error(
+          <div>
+            <div className="font-semibold mb-2">❌ Datas não disponíveis</div>
+            <div className="text-sm space-y-1">
+              {availability.conflicts.map((conflict, idx) => (
+                <div key={idx}>• {conflict}</div>
+              ))}
+            </div>
+          </div>,
+          { duration: 8000 }
+        );
+        setCreating(false);
+        return;
+      }
+      
+      console.log('✅ Datas disponíveis - prosseguindo com criação');
+      
       const reservationData = {
         propertyId: property.id,
         guestId: selectedGuest.id,

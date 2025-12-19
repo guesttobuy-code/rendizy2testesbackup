@@ -119,6 +119,7 @@ export function CalendarModule({
                   reservations={reservations}
                   blocks={blocks}
                   currentMonth={currentMonth}
+                  dateRange={dateRange}
                   onPriceEdit={(propertyId, startDate, endDate) => console.log('Price edit', propertyId, startDate, endDate)}
                   onMinNightsEdit={(propertyId, startDate, endDate) => console.log('Min nights edit', propertyId, startDate, endDate)}
                   onEmptyClick={handleEmptyClick}
