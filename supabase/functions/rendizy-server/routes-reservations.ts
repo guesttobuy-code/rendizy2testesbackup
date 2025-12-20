@@ -477,13 +477,17 @@ export async function createReservation(c: Context) {
     // Verificar disponibilidade
     const nights = calculateNights(body.checkIn, body.checkOut);
     
-    // ✅ MIGRAÇÃO: Verificar conflitos no SQL
+    // ✅ FIX CRÍTICO: Verificar conflitos com lógica hoteleira correta
+    // Check-in ocupa o dia, check-out NÃO ocupa
+    // Nova reserva: body.checkIn → body.checkOut
+    // Conflito se: check_in < body.checkOut AND check_out > body.checkIn
     let conflictQuery = client
       .from('reservations')
-      .select('id')
+      .select('id, check_in, check_out, status')
       .eq('property_id', body.propertyId)
       .in('status', ['pending', 'confirmed', 'checked_in'])
-      .or(`check_in.lt.${body.checkOut},check_out.gt.${body.checkIn}`);
+      .lt('check_in', body.checkOut)  // Reserva começa antes do nosso checkout
+      .gt('check_out', body.checkIn); // Reserva termina depois do nosso checkin
     
     // ✅ FILTRO MULTI-TENANT
     if (tenant.type === 'imobiliaria') {
@@ -499,21 +503,39 @@ export async function createReservation(c: Context) {
       return c.json(errorResponse('Erro ao verificar disponibilidade', { details: conflictError.message }), 500);
     }
     
-    // Verificar se há conflitos reais de datas
+    // ✅ FIX: Verificar conflitos reais (com lógica hoteleira)
     if (conflicts && conflicts.length > 0) {
-      // Verificar overlap real (SQL pode retornar falsos positivos com OR)
-      const hasConflict = conflicts.some((conflict: any) => {
-        // Buscar detalhes da reserva conflitante para verificar datas
-        // Por enquanto, assumir que se SQL retornou, há conflito
-        return true;
+      console.log(`⚠️ [createReservation] ${conflicts.length} possíveis conflitos encontrados`);
+      console.log('🔍 [createReservation] Nova reserva:', body.checkIn, '→', body.checkOut);
+      
+      const hasRealConflict = conflicts.some((conflict: any) => {
+        console.log('   Conflito:', conflict.check_in, '→', conflict.check_out, '(', conflict.status, ')');
+        
+        // Lógica hoteleira: check-in ocupa, check-out NÃO
+        // Exemplo: Reserva A (24→26) e Reserva B (26→28) = SEM conflito
+        const conflictCheckIn = new Date(conflict.check_in);
+        const conflictCheckOut = new Date(conflict.check_out);
+        const newCheckIn = new Date(body.checkIn);
+        const newCheckOut = new Date(body.checkOut);
+        
+        const overlaps = newCheckIn < conflictCheckOut && newCheckOut > conflictCheckIn;
+        
+        if (overlaps) {
+          console.log('   ❌ CONFLITO REAL detectado!');
+        }
+        
+        return overlaps;
       });
       
-      if (hasConflict) {
+      if (hasRealConflict) {
+        console.log('❌ [createReservation] Reserva bloqueada por conflito');
         return c.json(
           errorResponse('Property is not available for these dates'),
           400
         );
       }
+      
+      console.log('✅ [createReservation] Sem conflitos reais - prosseguindo');
     }
 
     // Calcular preço

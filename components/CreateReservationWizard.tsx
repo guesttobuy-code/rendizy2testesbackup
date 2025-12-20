@@ -339,18 +339,21 @@ export function CreateReservationWizard({
         console.log(`  Reservas conflitantes: ${existingReservations.length}`);
       }
       
-      // Verificar bloqueios
-      const blocksResponse = await calendarApi.getBlocks({
-        propertyId: propId,
-        startDate: checkIn.toISOString().split('T')[0],
-        endDate: checkOut.toISOString().split('T')[0]
-      });
+      // ✅ FIX: Verificar bloqueios - getBlocks espera array de IDs
+      const blocksResponse = await calendarApi.getBlocks([propId]);
       
       if (blocksResponse.success && blocksResponse.data && blocksResponse.data.length > 0) {
+        // Verificar se algum bloqueio sobrepõe com as datas
         blocksResponse.data.forEach((block: any) => {
           const blockStart = new Date(block.startDate);
           const blockEnd = new Date(block.endDate);
-          conflicts.push(`Bloqueio: ${blockStart.toLocaleDateString('pt-BR')} - ${blockEnd.toLocaleDateString('pt-BR')} (${block.type || 'simples'})`);
+          
+          // Lógica hoteleira: check-in ocupa, check-out não ocupa
+          const hasOverlap = checkIn < blockEnd && checkOut > blockStart;
+          
+          if (hasOverlap) {
+            conflicts.push(`Bloqueio: ${blockStart.toLocaleDateString('pt-BR')} - ${blockEnd.toLocaleDateString('pt-BR')} (${block.type || 'simples'})`);
+          }
         });
         console.log(`  Bloqueios encontrados: ${blocksResponse.data.length}`);
       }
