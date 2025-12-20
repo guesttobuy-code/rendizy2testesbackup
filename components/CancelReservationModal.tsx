@@ -15,7 +15,8 @@ import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
 import { AlertCircle, XCircle } from 'lucide-react';
-import { Reservation } from '../App';
+// ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
+import type { Reservation } from '../types/reservation';
 import { toast } from 'sonner';
 
 interface CancelReservationModalProps {

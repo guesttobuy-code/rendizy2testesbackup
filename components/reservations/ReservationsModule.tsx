@@ -130,3 +130,5 @@ export function ReservationsModule({
     </div>
   );
 }
+
+export default ReservationsModule;

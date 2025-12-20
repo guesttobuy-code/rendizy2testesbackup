@@ -135,46 +135,8 @@ export interface Property {
   isActive: boolean;
 }
 
-export interface Reservation {
-  id: string;
-  propertyId: string;
-  guestId: string;
-  checkIn: string;
-  checkOut: string;
-  nights: number;
-  guests: {
-    adults: number;
-    children: number;
-    infants: number;
-    pets: number;
-    total: number;
-  };
-  pricing: {
-    pricePerNight: number;
-    baseTotal: number;
-    cleaningFee: number;
-    serviceFee: number;
-    taxes: number;
-    discount: number;
-    total: number;
-    currency: string;
-    appliedTier?: string;
-  };
-  status: string;
-  platform: string;
-  externalId?: string;
-  payment: {
-    status: string;
-    method?: string;
-    transactionId?: string;
-  };
-  notes?: string;
-  internalComments?: string;
-  specialRequests?: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-}
+// ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado ao invés de interface duplicada
+export type { Reservation } from '../types/reservation';
 
 export interface Guest {
   id: string;

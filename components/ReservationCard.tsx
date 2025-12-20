@@ -1,5 +1,6 @@
 import React from 'react';
-import { Reservation } from '../App';
+// ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
+import type { Reservation } from '../types/reservation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 interface ReservationCardProps {

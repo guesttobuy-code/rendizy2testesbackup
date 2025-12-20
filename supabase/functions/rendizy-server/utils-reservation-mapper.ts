@@ -100,12 +100,23 @@ export function reservationToSql(reservation: Reservation, organizationId: strin
 
 /**
  * Converte resultado SQL (tabela reservations) para Reservation (TypeScript)
+ * ✅ CORREÇÃO v1.0.103.401: Extrair guestName do JOIN com tabela guests
  */
 export function sqlToReservation(row: any): Reservation {
+  // ✅ Extrair guest name do JOIN (se disponível)
+  const guestData = row.guests;
+  const guestName = guestData?.full_name 
+    || (guestData?.first_name && guestData?.last_name 
+        ? `${guestData.first_name} ${guestData.last_name}` 
+        : undefined)
+    || guestData?.email 
+    || 'Hóspede';
+  
   return {
     id: row.id,
     propertyId: row.property_id,
     guestId: row.guest_id,
+    guestName: guestName,  // ✅ Agora incluído do JOIN
     
     // Datas
     checkIn: row.check_in,
@@ -177,19 +188,15 @@ export function sqlToReservation(row: any): Reservation {
 
 /**
  * Campos selecionados na query SQL (para performance)
+ * ✅ CORREÇÃO v1.0.103.401: Adicionar JOIN com tabela guests
  */
 export const RESERVATION_SELECT_FIELDS = `
-  id, organization_id, property_id, guest_id,
-  check_in, check_out, nights,
-  guests_adults, guests_children, guests_infants, guests_pets, guests_total,
-  pricing_price_per_night, pricing_base_total, pricing_cleaning_fee,
-  pricing_service_fee, pricing_taxes, pricing_discount, pricing_total,
-  pricing_currency, pricing_applied_tier,
-  status, platform, external_id, external_url,
-  payment_status, payment_method, payment_transaction_id,
-  payment_paid_at, payment_refunded_at,
-  notes, internal_comments, special_requests,
-  check_in_time, check_out_time, actual_check_in, actual_check_out,
-  cancelled_at, cancelled_by, cancellation_reason,
-  created_at, updated_at, created_by, confirmed_at
+  *,
+  guests!guest_id (
+    id,
+    full_name,
+    first_name,
+    last_name,
+    email
+  )
 `.replace(/\s+/g, ' ').trim();

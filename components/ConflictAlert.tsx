@@ -3,7 +3,8 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Reservation } from '../App';
+// ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
+import type { Reservation } from '../types/reservation';
 
 interface ConflictInfo {
   propertyId: string;

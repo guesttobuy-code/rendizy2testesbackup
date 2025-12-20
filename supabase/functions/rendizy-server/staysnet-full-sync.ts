@@ -259,6 +259,9 @@ export async function fullSyncStaysNet(
             code: staysListing.id || staysListing._id || '',
             type: 'apartment', // Você pode mapear melhor baseado em staysListing._t_typeMeta
             status: staysListing.status === 'active' ? 'active' : 'draft',
+            externalIds: {
+              stays_net_id: staysListingId,
+            },
             address: staysListing.address ? {
               street: staysListing.address.street || '',
               number: staysListing.address.streetNumber || '',
@@ -318,31 +321,33 @@ export async function fullSyncStaysNet(
           
           const sqlData = propertyToSql(property, finalOrgId);
           
-          // Verificar se já existe
+          // ✅ CORREÇÃO v1.0.103.402: Verificar se já existe por external_ids.stays_net_id (mais confiável que code)
           const { data: existing } = await supabase
             .from('properties')
             .select('id')
             .eq('organization_id', organizationId)
-            .eq('code', property.code)
+            .contains('external_ids', { stays_net_id: staysListingId })
             .maybeSingle();
           
           if (existing) {
-            // Atualizar
+            // Atualizar propriedade existente
             const { error } = await supabase
               .from('properties')
               .update(sqlData)
               .eq('id', existing.id);
             
             if (error) throw error;
+            console.log(`[StaysNet Full Sync] ♻️ Propriedade atualizada: ${property.name} (${staysListingId})`);
             stats.properties.updated++;
             propertyIdMap.set(staysListingId, existing.id);
           } else {
-            // Criar
+            // Criar nova propriedade
             const { error } = await supabase
               .from('properties')
               .insert(sqlData);
             
             if (error) throw error;
+            console.log(`[StaysNet Full Sync] ✨ Nova propriedade criada: ${property.name} (${staysListingId})`);
             stats.properties.created++;
             propertyIdMap.set(staysListingId, property.id);
           }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { Reservation } from '../App';
+// ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
+import type { Reservation } from '../types/reservation';
 import { Calendar, User, DollarSign, Users, Moon, Building2, Mail, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { useNavigate } from 'react-router-dom';

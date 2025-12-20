@@ -46,7 +46,8 @@ import {
   Ban,
   Check
 } from 'lucide-react';
-import { Reservation } from '../App';
+// ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
+import type { Reservation } from '../types/reservation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -233,7 +234,10 @@ export function ReservationDetailsModal({
   // ✅ FIX: Lógica hoteleira - usar Math.floor ao invés de Math.ceil
   // Check-in ocupa o dia, check-out NÃO ocupa
   // Exemplo: 26/12 → 28/12 = 2 noites (26 e 27)
-  const nights = Math.floor((reservation.checkOut.getTime() - reservation.checkIn.getTime()) / (1000 * 60 * 60 * 24));
+  // ✅ FIX: Converter strings para Date objects antes de usar .getTime()
+  const checkInDate = typeof reservation.checkIn === 'string' ? new Date(reservation.checkIn) : reservation.checkIn;
+  const checkOutDate = typeof reservation.checkOut === 'string' ? new Date(reservation.checkOut) : reservation.checkOut;
+  const nights = Math.floor((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
   const pricePerNight = reservation.price / nights;
   const cleaningFee = 150;
   const serviceFee = Math.round(reservation.price * 0.05);
@@ -330,7 +334,7 @@ export function ReservationDetailsModal({
                           <div className="flex-1 min-w-0">
                             <div className="text-xs text-gray-500">Check-in</div>
                             <div className="text-sm font-medium truncate">
-                              {format(reservation.checkIn, "dd/MM/yyyy", { locale: ptBR })}
+                              {format(checkInDate, "dd/MM/yyyy", { locale: ptBR })}
                             </div>
                             <div className="text-xs text-gray-600">14h</div>
                           </div>
@@ -340,7 +344,7 @@ export function ReservationDetailsModal({
                           <div className="flex-1 min-w-0">
                             <div className="text-xs text-gray-500">Check-out</div>
                             <div className="text-sm font-medium truncate">
-                              {format(reservation.checkOut, "dd/MM/yyyy", { locale: ptBR })}
+                              {format(checkOutDate, "dd/MM/yyyy", { locale: ptBR })}
                             </div>
                             <div className="text-xs text-gray-600">12h</div>
                           </div>
@@ -1068,8 +1072,8 @@ export function ReservationDetailsModal({
                       <h4 className="font-medium mb-2">Detalhes da Reserva</h4>
                       <div className="text-sm text-gray-600 space-y-1">
                         <div><strong>Propriedade:</strong> Arraial Novo - Barra da Tijuca RJ</div>
-                        <div><strong>Check-in:</strong> {format(reservation.checkIn, "dd/MM/yyyy 'às 14h00'")}</div>
-                        <div><strong>Check-out:</strong> {format(reservation.checkOut, "dd/MM/yyyy 'às 12h00'")}</div>
+                        <div><strong>Check-in:</strong> {format(checkInDate, "dd/MM/yyyy 'às 14h00'")}</div>
+                        <div><strong>Check-out:</strong> {format(checkOutDate, "dd/MM/yyyy 'às 12h00'")}</div>
                         <div><strong>Noites:</strong> {nights}</div>
                         <div><strong>Hóspedes:</strong> 3 pessoas (2 adultos, 1 criança)</div>
                       </div>

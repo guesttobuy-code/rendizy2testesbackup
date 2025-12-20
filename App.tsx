@@ -150,17 +150,8 @@ export interface Property {
   tags?: string[];
 }
 
-export interface Reservation {
-  id: string;
-  propertyId: string;
-  guestName: string;
-  checkIn: Date;
-  checkOut: Date;
-  status: 'confirmed' | 'pending' | 'blocked' | 'maintenance';
-  platform: 'airbnb' | 'booking' | 'direct' | 'decolar';
-  price: number;
-  nights: number;
-}
+// ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado ao invés de interface duplicada
+export type { Reservation } from './types/reservation';
 
 export interface PriceRule {
   id: string;
@@ -691,7 +682,7 @@ function App() {
               checkOut: new Date(coYear, coMonth - 1, coDay),
               status: r.status,
               platform: r.platform,
-              price: r.pricing.total / 100, // Convert cents to reais
+              price: r.pricing.total, // ✅ CORREÇÃO v1.0.103.401: API já retorna em reais, não centavos
               nights: r.nights
             };
           });

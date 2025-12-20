@@ -7,7 +7,8 @@ import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Edit, AlertCircle } from 'lucide-react';
-import { Reservation } from '../App';
+// ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
+import type { Reservation } from '../types/reservation';
 import { toast } from 'sonner';
 
 interface EditReservationWizardProps {

@@ -17,6 +17,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Documentação operacional completa (`docs/operations/`)
 - `calendarApi.getBlocks()` - Busca bloqueios do backend
 - Hook `useCalendarData` agora carrega bloqueios reais do banco
+- Campo `external_ids` (JSONB) na tabela `properties` para rastreamento de IDs externos
 
 ### Fixed
 - 🔴 **Issue #42**: Calendário com datas hardcoded (outubro→dezembro)
@@ -33,6 +34,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Filtro por `property_id`, `start_date`, `end_date`
   - Cache de 3 minutos (React Query)
   - Bloqueios exibidos como cards laranjas no calendário
+- 🟡 **Issue #45**: StaysNet importação criava duplicatas após mudança de código
+  - `supabase/functions/rendizy-server/staysnet-full-sync.ts` linhas 257, 321-340
+  - Deduplicação agora usa `external_ids.stays_net_id` ao invés de `code`
+  - Propriedades rastreadas por ID original do Stays.net
+  - Importações idempotentes (UPDATE se existir, INSERT se novo)
+  - Migration: `20241220_add_external_ids_to_properties.sql`
 
 ### Changed
 - Nada ainda
