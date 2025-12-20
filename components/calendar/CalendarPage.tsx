@@ -10,6 +10,8 @@ import { CalendarProvider, useCalendar } from '../../contexts/CalendarContext';
 import { useProperties, useReservations, useCalendarData } from '../../hooks/useCalendarData';
 import { CalendarModule } from './CalendarModule';
 import type { Property, Reservation } from '../../App';
+import { useQuery } from '@tanstack/react-query';
+import { calendarApi } from '../../utils/api';
 
 interface CalendarPageProps {
   // Props do App.tsx (mantém compatibilidade)
@@ -52,7 +54,43 @@ function CalendarPageContent(props: CalendarPageProps) {
     data: reservationsData
   } = useReservations();
   
-  // ✅ React Query: Carregar dados do calendário (bloqueios, preços)
+  // ✅ BUSCAR BLOQUEIOS diretamente (bypassing useCalendarData)
+  const { 
+    data: blocksData,
+    isLoading: blocksLoading,
+    error: blocksError
+  } = useQuery({
+    queryKey: ['blocks', state.selectedProperties],
+    queryFn: async () => {
+      if (state.selectedProperties.length === 0) {
+        console.log('⏭️ [CalendarPage] Nenhuma propriedade selecionada, pulando busca de bloqueios');
+        return [];
+      }
+      
+      console.log(`🔄 [CalendarPage] Buscando bloqueios para ${state.selectedProperties.length} propriedades`);
+      console.log(`📤 [CalendarPage] PropertyIDs: ${JSON.stringify(state.selectedProperties)}`);
+      
+      const blocksResponse = await calendarApi.getBlocks(state.selectedProperties);
+      console.log(`📥 [CalendarPage] Resposta da API de bloqueios:`, blocksResponse);
+      
+      const blocks = blocksResponse.success ? blocksResponse.data : [];
+      console.log(`✅ [CalendarPage] ${blocks.length} bloqueios carregados`);
+      
+      if (blocksResponse.error) {
+        console.error(`❌ [CalendarPage] Erro ao buscar bloqueios:`, blocksResponse.error);
+      }
+      
+      return blocks;
+    },
+    enabled: state.selectedProperties.length > 0,
+    staleTime: 1 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  
+  console.log('🔍 [CalendarPage] Bloqueios:', { blocksData, blocksLoading, blocksError });
+  
+  // ✅ React Query: Carregar dados do calendário (preços)
   const { 
     data: calendarData 
   } = useCalendarData({
@@ -82,9 +120,19 @@ function CalendarPageContent(props: CalendarPageProps) {
   }, [reservationsData]);
   
   useEffect(() => {
+    console.log('🔄 [CalendarPage] blocksData changed:', blocksData);
+    if (blocksData && Array.isArray(blocksData)) {
+      console.log('📊 [CalendarPage] Sincronizando bloqueios:', blocksData.length);
+      setBlocks(blocksData);
+    } else {
+      console.log('⚠️ [CalendarPage] blocksData não é array:', blocksData);
+    }
+  }, [blocksData]);
+  
+  useEffect(() => {
     if (calendarData?.blocks) {
-      console.log('📊 [CalendarPage] Sincronizando bloqueios:', calendarData.blocks.length);
-      setBlocks(calendarData.blocks);
+      console.log('📊 [CalendarPage] Sincronizando bloqueios do calendarData:', calendarData.blocks.length);
+      // Não sobrescrever se já temos blocksData do useQuery direto
     }
   }, [calendarData]);
   

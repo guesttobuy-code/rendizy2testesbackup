@@ -1777,13 +1777,49 @@ export default function FormularioAnuncio() {
   // ============================================================================
   
   const handleSaveAll = async () => {
-    if (!anuncioId) {
-      toast.error('ID do anúncio não encontrado');
-      return;
-    }
-    
     setIsSaving(true);
     try {
+      // ✅ NOVO ANÚNCIO: Criar com INSERT
+      if (!anuncioId) {
+        const novoId = crypto.randomUUID();
+        
+        // Obter user_id e organization_id do localStorage
+        const userDataStr = localStorage.getItem('user');
+        const userData = userDataStr ? JSON.parse(userDataStr) : null;
+        const userId = userData?.id || '00000000-0000-0000-0000-000000000002';
+        const organizationId = userData?.organization?.id || '00000000-0000-0000-0000-000000000000';
+        
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts`, {
+          method: 'POST',
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            id: novoId,
+            organization_id: organizationId,
+            user_id: userId,
+            title: formData.title || 'Sem título',
+            data: formData,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+        });
+        
+        if (!response.ok) throw new Error('Erro ao criar anúncio');
+        
+        const [created] = await response.json();
+        toast.success('✅ Rascunho criado com sucesso!');
+        calculateProgress(formData);
+        
+        // Redirecionar para a URL de edição com o ID
+        navigate(`/anuncios-ultimate/${novoId}`);
+        return;
+      }
+      
+      // ✅ ANÚNCIO EXISTENTE: Atualizar com PATCH
       const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?id=eq.${anuncioId}`, {
         method: 'PATCH',
         headers: {
@@ -1793,6 +1829,7 @@ export default function FormularioAnuncio() {
           'Prefer': 'return=representation'
         },
         body: JSON.stringify({
+          title: formData.title || 'Sem título',
           data: formData,
           updated_at: new Date().toISOString()
         })

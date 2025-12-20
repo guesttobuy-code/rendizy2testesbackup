@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from './ui/button';
-import { ChevronLeft, ChevronRight, Calendar, Download, Settings, Grid3x3, List, Timeline } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Download, Settings, Grid3x3, List, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -166,7 +166,7 @@ export function CalendarHeader({
               onClick={() => onViewChange('timeline')}
               className="rounded-l-none"
             >
-              <Timeline className="h-4 w-4 mr-2" />
+              <Clock className="h-4 w-4 mr-2" />
               Timeline
             </Button>
           </div>

@@ -959,6 +959,17 @@ END IF;
 
 ## 🔄 CHANGELOG (Histórico de Mudanças)
 
+### v1.0.103.354 - 19/12/2025
+- ♻️ **Recuperação Completa**: Restaurado todo trabalho de calendário/reservas da sessão 18/12/2024
+- ✨ **9 Arquivos Modificados**: FormularioAnuncio, api.ts, CalendarPage, ReservationDetailsModal, useCalendarData, CalendarGrid, CalendarModule, BlockModal, App.tsx
+- 🔧 **Draft Creation**: Criação de anúncios sem anuncioId (POST com UUID gerado)
+- 🔧 **Blocks System**: getBlocks() API + useQuery direto em CalendarPage
+- 🔧 **Reservation Cancellation**: handleCancelReservation com API call + cache invalidation
+- 🔧 **Date Range Scrolling**: getDaysInMonth aceita dateRange (60+ dias)
+- 🔧 **Snake_case API**: BlockModal agora envia property_id, start_date, end_date
+- 🐛 **Fix BlockModal**: Corrigido propertyName hardcoded "Dona Rosa" → busca dinâmica de properties.find()
+- 📚 **Documentação**: Criados CONTEXTO_SESSAO_18_12_2024_v2.md e RECUPERACAO_TRABALHO_18_12_2024.md
+
 ### v2.0.0 - 13/12/2025
 - ✨ Redesign completo da arquitetura
 - ✨ PersistenceQueue com retry automático

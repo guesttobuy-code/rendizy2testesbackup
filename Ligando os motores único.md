@@ -50,8 +50,11 @@ Este documento registra:
 - 💡 Aprendizados de cada sessão
 - 🎯 Próximos passos e prioridades
 - ⚠️ Problemas e soluções aplicadas
+- 🔄 **Changelog completo** com todas as mudanças do sistema
 
 **REGRA**: Consultar sempre antes de modificar o módulo de anúncios. Atualizar após cada avanço.
+
+**CHANGELOG**: Todas as alterações significativas do sistema devem ser registradas na seção [🔄 CHANGELOG](Claude%20Sonnet%204.5%20Anuncios%20ultimate.md#-changelog-histórico-de-mudanças) do documento de controle.
 
 ---
 

@@ -93,8 +93,8 @@ export function ReservationsManagement({
     to: endOfMonth(addMonths(new Date(), 1))
   });
   
-  // Filtro de APIs de entrada (múltipla seleção)
-  const [selectedApis, setSelectedApis] = useState<string[]>(['airbnb', 'booking', 'decolar', 'stays']);
+  // Filtro de APIs de entrada (múltipla seleção) - ✅ v1.0.103.356 - Incluído 'direct'
+  const [selectedApis, setSelectedApis] = useState<string[]>(['airbnb', 'booking', 'decolar', 'stays', 'direct']);
 
   // Sidebar
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -135,6 +135,7 @@ export function ReservationsManagement({
   }, [autoOpenCreate, onCreateReservation]);
 
   const loadReservations = async () => {
+    console.log('🔄 [ReservationsManagement] loadReservations() chamado');
     setLoading(true);
     try {
       const filters: any = {};
@@ -147,19 +148,24 @@ export function ReservationsManagement({
         filters.platform = [platformFilter];
       }
       
+      console.log('📋 [ReservationsManagement] Filtros aplicados:', filters);
+      
       // Não filtrar por propriedade no backend, faremos isso no frontend
       // para permitir múltiplas seleções
 
       const response = await reservationsApi.list(filters);
       
+      console.log('📦 [ReservationsManagement] Resposta da API:', response);
+      
       if (response.success && response.data) {
+        console.log(`✅ [ReservationsManagement] ${response.data.length} reservas carregadas`);
         setReservations(response.data);
       } else {
-        console.error('Erro ao carregar reservas:', response.error);
+        console.error('❌ [ReservationsManagement] Erro ao carregar reservas:', response.error);
         toast.error('Erro ao carregar reservas');
       }
     } catch (error) {
-      console.error('Erro ao carregar reservas:', error);
+      console.error('❌ [ReservationsManagement] Exceção ao carregar reservas:', error);
       toast.error('Erro ao carregar reservas');
     } finally {
       setLoading(false);
@@ -168,12 +174,40 @@ export function ReservationsManagement({
 
   const loadProperties = async () => {
     try {
-      const response = await propertiesApi.list();
-      if (response.success && response.data) {
-        setProperties(response.data);
+      // ✅ v1.0.103.356 - Buscar de anuncios_drafts (Anúncios Ultimate)
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+        headers: {
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.ok && result.anuncios) {
+        // Mapear anuncios_drafts para formato Property
+        const mappedProperties = result.anuncios.map((a: any) => ({
+          id: a.id,
+          name: a.data?.title || a.title || 'Sem título',
+          title: a.data?.title || a.title || 'Sem título',
+          status: a.status || 'active',
+          type: a.data?.tipo || 'apartment',
+          // Outros campos que possam existir
+          ...a.data
+        }));
+        
+        setProperties(mappedProperties);
+        console.log(`✅ [ReservationsManagement] ${mappedProperties.length} imóveis carregados de Anúncios Ultimate`);
       }
     } catch (error) {
-      console.error('Erro ao carregar propriedades:', error);
+      console.error('❌ [ReservationsManagement] Erro ao carregar propriedades:', error);
     }
   };
 
@@ -211,7 +245,14 @@ export function ReservationsManagement({
 
   // Filter reservations by search and selected properties - OTIMIZADO: Memoizado
   const filteredReservations = useMemo(() => {
-    return reservations.filter(reservation => {
+    console.log('🔍 [ReservationsManagement] Filtrando reservas:', {
+      total: reservations.length,
+      selectedProperties: selectedProperties.length,
+      selectedApis: selectedApis,
+      searchQuery
+    });
+    
+    const filtered = reservations.filter(reservation => {
       // Filter by selected properties
       if (selectedProperties.length > 0 && !selectedProperties.includes(reservation.propertyId)) {
         return false;
@@ -225,6 +266,7 @@ export function ReservationsManagement({
           'booking': ['booking', 'booking.com'],
           'decolar': ['decolar'],
           'stays': ['stays', 'staysnet', 'stays.net'],
+          'direct': ['direct', 'direto', 'manual']
         };
         
         const matchesApi = selectedApis.some(api => 
@@ -250,6 +292,9 @@ export function ReservationsManagement({
         property?.name.toLowerCase().includes(query)
       );
     });
+    
+    console.log(`✅ [ReservationsManagement] Filtro aplicado: ${filtered.length} de ${reservations.length} reservas`);
+    return filtered;
   }, [reservations, selectedProperties, selectedApis, searchQuery, guestsMap, propertiesMap]);
 
   // Get property name - OTIMIZADO: Usa Map O(1)
@@ -386,7 +431,7 @@ export function ReservationsManagement({
   };
 
   const selectAllApis = () => {
-    setSelectedApis(['airbnb', 'booking', 'decolar', 'stays']);
+    setSelectedApis(['airbnb', 'booking', 'decolar', 'stays', 'direct']);
   };
 
   const deselectAllApis = () => {
@@ -570,7 +615,7 @@ export function ReservationsManagement({
                   <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-gray-50 dark:hover:bg-gray-800">
                     <div className="flex items-center gap-2">
                       <Label className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">APIs de Entrada</Label>
-                      {selectedApis.length < 4 && (
+                      {selectedApis.length < 5 && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                           {selectedApis.length}
                         </Badge>
@@ -583,14 +628,14 @@ export function ReservationsManagement({
                       {/* Controles de Seleção */}
                       <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
                         <span className="text-[10px] text-gray-600 dark:text-gray-400">
-                          {selectedApis.length} de 4 selecionadas
+                          {selectedApis.length} de 5 selecionadas
                         </span>
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={selectAllApis}
-                            disabled={selectedApis.length === 4}
+                            disabled={selectedApis.length === 5}
                             className="h-6 px-2 text-[10px]"
                           >
                             Todas
@@ -614,6 +659,7 @@ export function ReservationsManagement({
                           { value: 'booking', label: 'API Booking', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
                           { value: 'decolar', label: 'API Decolar', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
                           { value: 'stays', label: 'API Stays.net', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+                          { value: 'direct', label: 'Reserva Direta', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
                         ].map(api => (
                           <div
                             key={api.value}

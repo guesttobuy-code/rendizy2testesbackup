@@ -90,8 +90,10 @@ export function useReservations(options: UseReservationsOptions = {}) {
       const response = await reservationsApi.list();
       
       if (response.success && response.data) {
-        console.log(`✅ [useReservations] ${response.data.length} reservas carregadas`);
-        return response.data;
+        // ✅ Filtrar reservas canceladas
+        const activeReservations = response.data.filter((r: any) => r.status !== 'cancelled');
+        console.log(`✅ [useReservations] ${activeReservations.length} reservas ativas carregadas (${response.data.length} total, ${response.data.length - activeReservations.length} canceladas)`);
+        return activeReservations;
       }
       
       return [];

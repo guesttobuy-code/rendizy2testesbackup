@@ -13,6 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
 import { CancelReservationModal, CancelReservationData } from './CancelReservationModal';
+import { useQueryClient } from '@tanstack/react-query';
+import { reservationsApi } from '../utils/api';
 import {
   Calendar,
   User,
@@ -91,6 +93,7 @@ export function ReservationDetailsModal({
   onEdit,
   onCancelReservation
 }: ReservationDetailsModalProps) {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
   const [newNote, setNewNote] = useState('');
   const [newMessage, setNewMessage] = useState('');
@@ -115,20 +118,42 @@ export function ReservationDetailsModal({
 
   if (!reservation) return null;
 
-  const handleCancelReservation = (data: CancelReservationData) => {
-    console.log('Cancelamento processado:', data);
-
-    // Chama a função do App.tsx para atualizar o estado
-    if (onCancelReservation && reservation) {
-      onCancelReservation(reservation.id);
+  const handleCancelReservation = async (data: CancelReservationData) => {
+    if (!reservation) return;
+    
+    try {
+      console.log('🔄 Cancelando reserva via API:', reservation.id);
+      
+      // ✅ Chamar API para atualizar status
+      const response = await reservationsApi.update(reservation.id, {
+        status: 'cancelled'
+      });
+      
+      if (response.success) {
+        // ✅ Invalidar cache do React Query
+        queryClient.invalidateQueries({ queryKey: ['reservations'] });
+        queryClient.invalidateQueries({ queryKey: ['calendar'] });
+        
+        toast.success('Reserva cancelada com sucesso!', {
+          description: `Valor a devolver: R$ ${data.refundAmount?.toFixed(2) || reservation.totalPrice?.toFixed(2) || '0.00'}`
+        });
+        
+        // Chama callback do App.tsx se existir
+        if (onCancelReservation) {
+          onCancelReservation(reservation.id);
+        }
+        
+        setCancelModalOpen(false);
+        onClose();
+      } else {
+        throw new Error(response.error || 'Erro ao cancelar reserva');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao cancelar reserva:', error);
+      toast.error('Erro ao cancelar reserva', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
     }
-
-    toast.success('Reserva cancelada com sucesso', {
-      description: `Reembolso: R$ ${data.refundAmount?.toFixed(2) || '0,00'}`
-    });
-
-    setCancelModalOpen(false);
-    onClose();
   };
 
   const handleSendMessage = () => {

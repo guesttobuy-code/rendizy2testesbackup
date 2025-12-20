@@ -913,6 +913,29 @@ export const calendarApi = {
     });
   },
 
+  /**
+   * Busca bloqueios por IDs de propriedades
+   * ✅ v1.0.103.355 - Corrigida rota para usar endpoint correto do backend
+   */
+  getBlocks: async (propertyIds: string[]): Promise<ApiResponse<any[]>> => {
+    try {
+      const idsParam = propertyIds.join(',');
+      // ✅ CORREÇÃO: Usar rota correta do backend
+      const response = await apiRequest<any[]>(
+        `/rendizy-server/make-server-67caf26a/blocks?propertyIds=${idsParam}`,
+        { method: 'GET' }
+      );
+      return response;
+    } catch (error) {
+      console.error('❌ [calendarApi.getBlocks] Erro:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+        data: []
+      };
+    }
+  },
+
   // Atualizar bloqueio
   updateBlock: async (id: string, data: {
     subtype?: 'simple' | 'predictive' | 'maintenance';

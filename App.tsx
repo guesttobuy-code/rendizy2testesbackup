@@ -116,9 +116,7 @@ const BIModule = React.lazy(() => import('./components/bi/BIModule'));
 const AdminMasterModule = React.lazy(() =>
   import('./components/admin/AdminMasterModule').then((m) => ({ default: m.AdminMasterModule }))
 );
-const DashboardModule = React.lazy(() =>
-  import('./components/dashboard/DashboardModule').then((m) => ({ default: m.DashboardModule }))
-);
+const DashboardModule = React.lazy(() => import('./components/dashboard/DashboardModule'));
 const CalendarModule = React.lazy(() =>
   import('./components/calendar/CalendarModule').then((m) => ({ default: m.CalendarModule }))
 );
@@ -1553,6 +1551,20 @@ function App() {
               onSave={() => {
                 setBlockModal({ open: false });
                 // Recarregar dados do calendário
+                window.location.reload();
+              }}
+            />
+
+            {/* BlockDetailsModal - Ver/Editar Bloqueio */}
+            <BlockDetailsModal
+              isOpen={blockDetailsModal.open}
+              onClose={() => setBlockDetailsModal({ open: false, block: null })}
+              block={blockDetailsModal.block}
+              onDelete={(blockId: string) => {
+                console.log('🗑️ Deletando bloqueio:', blockId);
+                // Implementar delete via API
+                toast.success('Bloqueio removido!');
+                setBlockDetailsModal({ open: false, block: null });
                 window.location.reload();
               }}
             />

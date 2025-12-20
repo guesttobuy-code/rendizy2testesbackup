@@ -71,11 +71,11 @@ export function BlockModal({
       const fullNotes = notes.filter(Boolean).join(' | ');
 
       const response = await calendarApi.createBlock({
-        propertyId,
-        startDate: checkInISO,
-        endDate: checkOutISO,
-        type: 'block', // Tipo único
-        subtype: blockSubtype || undefined, // Subtipo opcional
+        property_id: propertyId,  // ✅ snake_case
+        start_date: checkInISO,   // ✅ snake_case
+        end_date: checkOutISO,    // ✅ snake_case
+        type: 'block',
+        subtype: blockSubtype || undefined,
         reason,
         notes: fullNotes
       });
