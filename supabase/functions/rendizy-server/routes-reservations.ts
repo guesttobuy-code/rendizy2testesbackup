@@ -570,7 +570,7 @@ export async function createReservation(c: Context) {
     };
 
     // ✅ MIGRAÇÃO: Salvar no SQL ao invés de KV Store
-    const sqlData = reservationToSql(reservation, organizationId || 'system');
+    const sqlData = reservationToSql(reservation, organizationId);
     
     const { data: insertedRow, error: insertError } = await client
       .from('reservations')
@@ -607,13 +607,13 @@ export async function createReservation(c: Context) {
         createdBy: tenant.userId || 'system',
       };
       
-      const blockSqlData = blockToSql(block, organizationId || 'system');
+      const blockSqlData = blockToSql(block, organizationId);
       
       // Verificar se já existe block para este período
       const { data: existingBlock } = await client
         .from('blocks')
         .select('id')
-        .eq('organization_id', organizationId || 'system')
+        .eq('organization_id', organizationId)
         .eq('property_id', body.propertyId)
         .eq('start_date', body.checkIn)
         .eq('end_date', body.checkOut)
