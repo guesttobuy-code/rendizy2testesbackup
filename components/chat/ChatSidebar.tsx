@@ -9,8 +9,8 @@
 
 import React from 'react';
 import { Search, Pin, Zap, MessageCircle, CheckCircle2, Loader2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '../ui/input';
+import { ScrollArea } from '../ui/scroll-area';
 import { ChatFilterSidebar } from '../ChatFilterSidebar';
 import type { UnifiedConversation } from './hooks/useChatData';
 
