@@ -39,6 +39,27 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.0.103.366] - 2024-12-19
+
+### Fixed
+- 🔴 **CRITICAL**: Timezone issues causando reservas invisíveis no calendário
+  - `components/CalendarGrid.tsx` linhas 927-949
+  - Substituído `.toDateString()` por comparação de strings locais YYYY-MM-DD
+  - Criado helper `formatLocalDate()` para extrair data local sem conversão UTC
+  - Corrigido filtro `reservationsStartingToday` que usava timezone-aware comparison
+  - Corrigido verificação `blockStartsToday` que usava `.toISOString().split('T')[0]`
+  - Debug logs atualizados para usar `dayStr` local
+  - **Impacto**: Reservas voltaram a aparecer após fix do timezone
+  - **Causa Raiz**: Brasil UTC-3 causava shift de datas ao usar `.toDateString()` e `.toISOString()`
+
+### Technical Details
+- **Problema**: Função `.toDateString()` é timezone-aware, convertendo datas para UTC
+- **Exemplo**: "2025-12-20 00:00 BRT" → "2025-12-19 21:00 UTC" → "Wed Dec 19 2025"
+- **Solução**: Comparação direta de strings YYYY-MM-DD extraídas localmente
+- **Pattern**: `checkInStr === dayStr` em vez de `new Date(checkIn).toDateString() === day.toDateString()`
+
+---
+
 ## [1.0.103.405] - 2024-12-19
 
 ### Added

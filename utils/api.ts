@@ -916,15 +916,24 @@ export const calendarApi = {
   /**
    * Busca bloqueios por IDs de propriedades
    * ✅ v1.0.103.355 - Corrigida rota para usar endpoint correto do backend
+   * ✅ v1.0.103.357 - Adiciona conversão snake_case → camelCase
    */
   getBlocks: async (propertyIds: string[]): Promise<ApiResponse<any[]>> => {
     try {
       const idsParam = propertyIds.join(',');
-      // ✅ CORREÇÃO: Usar rota correta do backend
+      // ✅ FIX v1.0.103.360: Remover /rendizy-server duplicado (API_BASE_URL já inclui)
       const response = await apiRequest<any[]>(
-        `/rendizy-server/make-server-67caf26a/blocks?propertyIds=${idsParam}`,
+        `/make-server-67caf26a/blocks?propertyIds=${idsParam}`,
         { method: 'GET' }
       );
+      
+      // ✅ FIX v1.0.103.364: Backend já retorna camelCase via sqlToBlock()
+      // Não precisamos transformar novamente
+      if (response.success && response.data) {
+        console.log(`✅ [calendarApi.getBlocks] ${response.data.length} bloqueios carregados`);
+        console.log(`🔍 [calendarApi.getBlocks] Primeiro bloqueio:`, response.data[0]);
+      }
+      
       return response;
     } catch (error) {
       console.error('❌ [calendarApi.getBlocks] Erro:', error);
@@ -948,29 +957,8 @@ export const calendarApi = {
     });
   },
 
-  // Buscar bloqueios
-  getBlocks: async (params?: {
-    propertyId?: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<ApiResponse<any[]>> => {
-    const searchParams = new URLSearchParams();
-    
-    if (params?.propertyId) {
-      searchParams.set('property_id', params.propertyId);
-    }
-    if (params?.startDate) {
-      searchParams.set('start_date', params.startDate);
-    }
-    if (params?.endDate) {
-      searchParams.set('end_date', params.endDate);
-    }
-    
-    const query = searchParams.toString();
-    const url = query ? `/calendar/blocks?${query}` : '/calendar/blocks';
-    
-    return apiRequest<any[]>(url);
-  },
+  // ❌ REMOVIDO: Método duplicado getBlocks() com rota ERRADA
+  // O método correto está na linha 920 com rota: /rendizy-server/make-server-67caf26a/blocks
 
   // Deletar bloqueio
   deleteBlock: async (id: string): Promise<ApiResponse<null>> => {

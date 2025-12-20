@@ -54,6 +54,8 @@ blocks.get('/', async (c) => {
     const tenant = getTenant(c);
     const client = getSupabaseClient();
     
+    // ✅ FIX v1.0.103.364: Suportar propertyIds (plural) para buscar múltiplas propriedades
+    const propertyIdsParam = c.req.query('propertyIds');
     const propertyId = c.req.query('property_id');
     const startDate = c.req.query('start_date');
     const endDate = c.req.query('end_date');
@@ -73,8 +75,11 @@ blocks.get('/', async (c) => {
       return c.json({ success: false, error: 'organization_id is required' }, 400);
     }
     
-    // Filtrar por propriedade se fornecido
-    if (propertyId) {
+    // ✅ FIX v1.0.103.364: Filtrar por múltiplas propriedades ou uma propriedade
+    if (propertyIdsParam) {
+      const idsArray = propertyIdsParam.split(',').map(id => id.trim());
+      query = query.in('property_id', idsArray);
+    } else if (propertyId) {
       query = query.eq('property_id', propertyId);
     }
     

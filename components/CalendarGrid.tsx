@@ -95,27 +95,53 @@ const getBlockForPropertyAndDate = (
   date: Date,
   blocks: any[]
 ): any | null => {
-  if (!blocks || blocks.length === 0) return null;
+  // ✅ FIX v1.0.103.365: Usar data local em vez de UTC para evitar problemas de fuso horário
+  const formatLocalDate = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   
-  return blocks.find(b => {
+  const debugInfo = {
+    blocksReceived: blocks?.length || 0,
+    propertyIdSearching: propertyId,
+    dateSearching: formatLocalDate(date)  // ✅ Usar data local
+  };
+  
+  if (!blocks || blocks.length === 0) {
+    // Logar apenas na primeira chamada para evitar spam
+    if (debugInfo.dateSearching.endsWith('-19')) {
+      console.log('🔍 [getBlockForPropertyAndDate] Sem bloqueios ou array vazio', debugInfo);
+    }
+    return null;
+  }
+  
+  const foundBlock = blocks.find(b => {
     if (b.propertyId !== propertyId) return false;
     
-    // Parse dates from YYYY-MM-DD format
-    const [startYear, startMonth, startDay] = b.startDate.split('-').map(Number);
-    const [endYear, endMonth, endDay] = b.endDate.split('-').map(Number);
+    // ✅ FIX v1.0.103.365: Comparar strings de data diretamente (YYYY-MM-DD)
+    // Evita problemas de timezone ao criar objetos Date
+    const currentDateStr = formatLocalDate(date);
     
-    const startDate = new Date(startYear, startMonth - 1, startDay);
-    const endDate = new Date(endYear, endMonth - 1, endDay);
+    // Block ocupa de startDate (inclusive) até endDate (exclusive)
+    const matches = currentDateStr >= b.startDate && currentDateStr < b.endDate;
     
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
+    if (matches) {
+      console.log('✅ [getBlockForPropertyAndDate] Bloqueio encontrado:', {
+        blockId: b.id,
+        propertyId: b.propertyId,
+        startDate: b.startDate,
+        endDate: b.endDate,
+        currentDateStr,  // ✅ Usar a variável local em vez de currentDate
+        nights: b.nights
+      });
+    }
     
-    const currentDate = new Date(date);
-    currentDate.setHours(0, 0, 0, 0);
-    
-    // Mesma lógica hoteleira: startDate ocupa, endDate não ocupa
-    return currentDate >= startDate && currentDate < endDate;
+    return matches;
   }) || null;
+  
+  return foundBlock;
 };
 
 // Nova função: Retorna TODAS as reservas que ocupam uma data (para detectar sobreposições)
@@ -124,17 +150,25 @@ const getAllReservationsForPropertyAndDate = (
   date: Date,
   reservations: Reservation[]
 ): Reservation[] => {
+  // ✅ FIX v1.0.103.365: Usar comparação de strings para evitar timezone issues
+  const formatLocalDate = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  const currentDateStr = formatLocalDate(date);
+  
   return reservations.filter(r => {
     if (r.propertyId !== propertyId) return false;
-    const checkIn = new Date(r.checkIn);
-    const checkOut = new Date(r.checkOut);
-    checkIn.setHours(0, 0, 0, 0);
-    checkOut.setHours(0, 0, 0, 0);
-    const currentDate = new Date(date);
-    currentDate.setHours(0, 0, 0, 0);
+    
+    // Extrair apenas YYYY-MM-DD das strings de checkIn/checkOut
+    const checkInStr = r.checkIn.split('T')[0];
+    const checkOutStr = r.checkOut.split('T')[0];
     
     // LÓGICA HOTELEIRA: Check-out não ocupa o dia (previne overbooking)
-    return currentDate >= checkIn && currentDate < checkOut;
+    return currentDateStr >= checkInStr && currentDateStr < checkOutStr;
   });
 };
 
@@ -170,6 +204,26 @@ export function Calendar({
   onReservationClick,
   onBlockClick
 }: CalendarProps) {
+  // 🔍 DEBUG: Verificar se bloqueios chegam como props
+  useEffect(() => {
+    console.log('🔍 [CalendarGrid] Props recebidas:', {
+      blocksCount: blocks?.length || 0,
+      blocksArray: blocks,
+      propertiesCount: properties.length,
+      reservationsCount: reservations.length
+    });
+    
+    if (blocks && blocks.length > 0) {
+      console.log('🔍 [CalendarGrid] Primeiro bloqueio:', {
+        id: blocks[0].id,
+        propertyId: blocks[0].propertyId,
+        startDate: blocks[0].startDate,
+        endDate: blocks[0].endDate,
+        nights: blocks[0].nights
+      });
+    }
+  }, [blocks, properties, reservations]);
+  
   // Usar dateRange se fornecido, senão usar currentMonth
   const days = dateRange ? getDaysInMonth(currentMonth, dateRange) : getDaysInMonth(currentMonth);
   const [priceSelectionStart, setPriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
@@ -875,13 +929,35 @@ export function Calendar({
                         const blockOnDay = getBlockForPropertyAndDate(property.id, day, blocks);
                         const isSelected = isDateInEmptySelection(property.id, day);
                         
+                        // ✅ FIX v1.0.103.366: Helper para extrair data local sem timezone
+                        const formatLocalDate = (d: Date): string => {
+                          const year = d.getFullYear();
+                          const month = String(d.getMonth() + 1).padStart(2, '0');
+                          const dayNum = String(d.getDate()).padStart(2, '0');
+                          return `${year}-${month}-${dayNum}`;
+                        };
+                        
+                        const dayStr = formatLocalDate(day);
+                        
                         // Renderizar apenas reservas que COMEÇAM neste dia (primeira célula)
-                        const reservationsStartingToday = allReservationsOnDay.filter(r => 
-                          new Date(r.checkIn).toDateString() === day.toDateString()
-                        );
+                        const reservationsStartingToday = allReservationsOnDay.filter(r => {
+                          const checkInStr = r.checkIn.split('T')[0];
+                          return checkInStr === dayStr;
+                        });
                         
                         // Verificar se o bloqueio COMEÇA neste dia
-                        const blockStartsToday = blockOnDay && blockOnDay.startDate === day.toISOString().split('T')[0];
+                        const blockStartsToday = blockOnDay && blockOnDay.startDate === dayStr;
+                        
+                        // Debug APENAS para primeiras iterações
+                        if (idx < 5 && blockOnDay) {
+                          console.log('🔍 [CalendarGrid] Bloqueio detectado:', {
+                            dayStr,  // ✅ Usar dayStr local
+                            blockStartDate: blockOnDay.startDate,
+                            blockStartsToday,
+                            blockNights: blockOnDay.nights,
+                            propertyId: property.id
+                          });
+                        }
                         
                         return (
                           <td

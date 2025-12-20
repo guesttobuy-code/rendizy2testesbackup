@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { propertiesApi, reservationsApi } from '../utils/api';
+import { propertiesApi, reservationsApi, calendarApi } from '../utils/api';
 import { toast } from 'sonner';
 import type { Property } from '../App';
 
@@ -130,21 +130,12 @@ export function useCalendarData({ propertyIds, dateRange, enabled = true }: UseC
       console.log(`🔄 [useCalendarData] Buscando bloqueios para ${propertyIds.length} propriedades`);
       
       try {
-        // Buscar bloqueios do backend para todas as propriedades selecionadas
-        const blocksPromises = propertyIds.map(propertyId => 
-          calendarApi.getBlocks({
-            propertyId,
-            startDate: dateRange.from.toISOString().split('T')[0],
-            endDate: dateRange.to.toISOString().split('T')[0]
-          })
-        );
+        // ✅ Buscar todos os bloqueios de uma vez (API aceita array de IDs)
+        const blocksResponse = await calendarApi.getBlocks(propertyIds);
         
-        const blocksResults = await Promise.all(blocksPromises);
-        
-        // Combinar todos os bloqueios em um único array
-        const allBlocks = blocksResults
-          .filter(result => result.success && result.data)
-          .flatMap(result => result.data || []);
+        const allBlocks = blocksResponse.success && blocksResponse.data 
+          ? blocksResponse.data 
+          : [];
         
         console.log(`✅ [useCalendarData] ${allBlocks.length} bloqueios carregados`);
         

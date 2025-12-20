@@ -292,12 +292,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, 5 * 60 * 1000);
 
+    // ✅ FIX v1.0.103.358: Throttle para evitar loop infinito de verificação de foco
+    let lastFocusCheck = 0;
+    const FOCUS_CHECK_THROTTLE = 30000; // 30 segundos entre verificações
+
     const handleVisibilityChange = () => {
       if (isMounted && !document.hidden) {
         const token = localStorage.getItem('rendizy-token');
         if (token) {
-          console.log('👁️ [AuthContext] Aba voltou ao foco - revalidando sessão...');
-          loadUser(1, true, true);
+          const now = Date.now();
+          if (now - lastFocusCheck > FOCUS_CHECK_THROTTLE) {
+            lastFocusCheck = now;
+            console.log('👁️ [AuthContext] Aba voltou ao foco - revalidando sessão...');
+            loadUser(1, true, true);
+          }
         }
       }
     };
@@ -306,8 +314,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isMounted) {
         const token = localStorage.getItem('rendizy-token');
         if (token) {
-          console.log('🪟 [AuthContext] Janela ganhou foco - revalidando sessão...');
-          loadUser(1, true, true);
+          const now = Date.now();
+          if (now - lastFocusCheck > FOCUS_CHECK_THROTTLE) {
+            lastFocusCheck = now;
+            console.log('🪟 [AuthContext] Janela ganhou foco - revalidando sessão...');
+            loadUser(1, true, true);
+          }
         }
       }
     };
