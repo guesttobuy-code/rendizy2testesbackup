@@ -309,7 +309,7 @@ export class EvolutionContactsService {
     // ✅ Tentar SQL primeiro se organizationId disponível
     if (organizationId) {
       try {
-        const { createClient } = await import('@jsr/supabase__supabase-js');
+        const { createClient } = await import('@supabase/supabase-js');
         const { projectId, publicAnonKey } = await import('../supabase/info');
         const supabaseUrl = `https://${projectId}.supabase.co`;
         const supabase = createClient(supabaseUrl, publicAnonKey);
@@ -369,7 +369,7 @@ export class EvolutionContactsService {
     // ✅ Tentar SQL primeiro se organizationId disponível
     if (organizationId) {
       try {
-        const { createClient } = await import('@jsr/supabase__supabase-js');
+        const { createClient } = await import('@supabase/supabase-js');
         const { projectId, publicAnonKey } = await import('../supabase/info');
         const supabaseUrl = `https://${projectId}.supabase.co`;
         const supabase = createClient(supabaseUrl, publicAnonKey);
