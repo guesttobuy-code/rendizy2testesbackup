@@ -21,7 +21,7 @@ export function generatePropertyId(): string {
 }
 
 export function generateReservationId(): string {
-  return generateId('res');
+  return crypto.randomUUID(); // Remove prefixo - PostgreSQL rejeita UUIDs com prefixo
 }
 
 export function generateGuestId(): string {
