@@ -39,6 +39,23 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.0.103.368] - 2024-12-20
+
+### Fixed
+- 🔴 **BUILD ERROR**: Vercel build failing with ENOENT for ChatSidebar imports
+  - `components/chat/ChatSidebar.tsx` linhas 12-13
+  - Substituído `@/components/ui/input` por `../ui/input` (caminho relativo)
+  - Substituído `@/components/ui/scroll-area` por `../ui/scroll-area`
+  - Alias `@` aponta para `./RendizyPrincipal`, não raiz do projeto
+
+### Technical Details
+- **Problema**: `Could not load /vercel/path0/RendizyPrincipal/components/ui/input`
+- **Causa**: Arquivos em `./components` tentando usar alias `@/components`
+- **Causa Raiz**: Vite alias `@` configurado para `./RendizyPrincipal` (linha 69 vite.config.ts)
+- **Solução**: Usar caminhos relativos `../ui/...` em arquivos fora de `RendizyPrincipal/`
+
+---
+
 ## [1.0.103.367] - 2024-12-19
 
 ### Fixed
