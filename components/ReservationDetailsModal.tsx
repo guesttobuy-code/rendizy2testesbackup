@@ -230,7 +230,10 @@ export function ReservationDetailsModal({
     toast.success(`Status alterado para: ${statusLabels[newStatus]}`);
   };
 
-  const nights = Math.ceil((reservation.checkOut.getTime() - reservation.checkIn.getTime()) / (1000 * 60 * 60 * 24));
+  // ✅ FIX: Lógica hoteleira - usar Math.floor ao invés de Math.ceil
+  // Check-in ocupa o dia, check-out NÃO ocupa
+  // Exemplo: 26/12 → 28/12 = 2 noites (26 e 27)
+  const nights = Math.floor((reservation.checkOut.getTime() - reservation.checkIn.getTime()) / (1000 * 60 * 60 * 24));
   const pricePerNight = reservation.price / nights;
   const cleaningFee = 150;
   const serviceFee = Math.round(reservation.price * 0.05);

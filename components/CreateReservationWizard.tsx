@@ -370,8 +370,11 @@ export function CreateReservationWizard({
   const effectiveStartDate = newStartDate || startDate;
   const effectiveEndDate = newEndDate || endDate;
   
+  // ✅ FIX: Lógica hoteleira - usar Math.floor ao invés de Math.ceil
+  // Check-in ocupa o dia, check-out NÃO ocupa
+  // Exemplo: 26/12 → 28/12 = 2 noites (26 e 27)
   const nights = effectiveStartDate && effectiveEndDate 
-    ? Math.ceil((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24))
+    ? Math.floor((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
   // ✅ Usar preço real do imóvel ou fallback
