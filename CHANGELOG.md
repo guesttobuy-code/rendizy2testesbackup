@@ -39,6 +39,23 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.0.103.367] - 2024-12-19
+
+### Fixed
+- 🔴 **BUILD ERROR**: Vercel build failing with unresolved JSR import
+  - `utils/services/evolutionContactsService.ts` linhas 312, 372
+  - Substituído `@jsr/supabase__supabase-js` por `@supabase/supabase-js`
+  - JSR imports não funcionam em builds Vite/Rollup de produção
+  - Dynamic imports agora usam pacote npm padrão
+
+### Technical Details
+- **Problema**: `Rollup failed to resolve import "@jsr/supabase__supabase-js"`
+- **Causa**: JSR (JavaScript Registry) imports não são compatíveis com Rollup
+- **Solução**: Usar pacote npm `@supabase/supabase-js` (já instalado)
+- **Pattern**: `await import('@supabase/supabase-js')` em vez de JSR path
+
+---
+
 ## [1.0.103.366] - 2024-12-19
 
 ### Fixed
