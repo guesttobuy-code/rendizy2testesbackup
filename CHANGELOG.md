@@ -39,6 +39,21 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.0.103.369] - 2024-12-20
+
+### Fixed
+- 🔴 **DEPLOY ERROR**: Vercel failing with "No Output Directory named 'dist' found"
+  - `vite.config.ts` linha 89
+  - Alterado `outDir: 'build'` para `outDir: 'dist'`
+  - Alinhado com `vercel.json` outputDirectory: "dist"
+
+### Technical Details
+- **Problema**: Vite gerando saída em `build/`, Vercel esperando `dist/`
+- **Causa**: Incompatibilidade entre vite.config.ts e vercel.json
+- **Solução**: Padronizado para `dist` (padrão Vite e convenção Vercel)
+
+---
+
 ## [1.0.103.368] - 2024-12-20
 
 ### Fixed
