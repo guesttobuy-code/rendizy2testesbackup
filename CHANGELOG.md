@@ -40,6 +40,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Propriedades rastreadas por ID original do Stays.net
   - Importações idempotentes (UPDATE se existir, INSERT se novo)
   - Migration: `20241220_add_external_ids_to_properties.sql`
+- 🔴 **Issue #46**: StaysNet configuração retornava 401/Invalid JWT
+  - Frontend envia apenas `X-Auth-Token` (removido `Authorization: Bearer`)
+  - Edge Function redeployada (20/12/2024) com validação `getOrganizationIdOrThrow`
+  - Configuração lida da tabela `staysnet_config` (apiKey/apiSecret/baseUrl)
+  - Documento: `⚡_FIX_STAYSNET_AUTH_HEADER_v1.0.103.502.md`
 
 ### Changed
 - Nada ainda

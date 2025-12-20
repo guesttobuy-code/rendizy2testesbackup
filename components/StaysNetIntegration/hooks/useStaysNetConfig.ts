@@ -67,8 +67,9 @@ export function useStaysNetConfig(): UseStaysNetConfigReturn {
 
       // ⚠️ CRÍTICO: Header de autenticação customizado
       // ✅ USAR: 'X-Auth-Token' (custom token system)
-      // ❌ NÃO USAR: 'Authorization: Bearer' (Supabase valida como JWT e falha)
+      // ❌ NÃO USAR: 'Authorization: Bearer' (Supabase valida como JWT e retorna "Invalid JWT")
       // Histórico: 19/12/2024 - Mudança para Bearer causou 401 "Invalid JWT"
+      // Histórico: 20/12/2024 - Confirmado que apenas X-Auth-Token funciona
       const headers = {
         'X-Auth-Token': token, // ⚠️ NÃO MUDAR - Sistema de token customizado
         'Content-Type': 'application/json',
