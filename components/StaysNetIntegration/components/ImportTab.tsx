@@ -85,7 +85,7 @@ export function ImportTab({
 
       {/* Properties Section */}
       <Card className="bg-blue-50/50 dark:bg-blue-950/20 border-blue-200">
-        <CardHeader>
+        <CardHeader className="overflow-x-hidden">
           <CardTitle className="text-base flex items-center gap-2">
             <Home className="w-4 h-4" />
             Importar Propriedades
@@ -94,7 +94,7 @@ export function ImportTab({
             Busque, selecione e importe propriedades do Stays.net
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 overflow-x-hidden">
           {/* Fetch button */}
           <div className="flex justify-end">
             <LoadingButton
@@ -109,7 +109,7 @@ export function ImportTab({
           </div>
 
           {preview && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30 p-4 space-y-3">
+            <div className="rounded-lg border border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30 p-4 space-y-3 overflow-hidden">
               <div className="flex items-start gap-3">
                 <Database className="w-4 h-4 mt-0.5" />
                 <div className="flex-1 text-sm">
@@ -125,7 +125,7 @@ export function ImportTab({
                   isLoading={isImporting && importType === 'properties'}
                   loadingText="Importando novos..."
                   disabled={preview.newCount === 0 || isImporting}
-                  className="w-full"
+                  className="w-full whitespace-normal text-left leading-snug"
                   size="sm"
                   variant="default"
                   icon={<Download className="w-4 h-4 mr-2" />}
@@ -137,7 +137,7 @@ export function ImportTab({
                   isLoading={isImporting && importType === 'properties'}
                   loadingText="Atualizando e importando..."
                   disabled={isImporting}
-                  className="w-full"
+                  className="w-full whitespace-normal text-left leading-snug"
                   size="sm"
                   variant="outline"
                   icon={<RefreshCw className="w-4 h-4 mr-2" />}
@@ -172,7 +172,7 @@ export function ImportTab({
 
               {/* Test button - Import 1 property to map the flow */}
               {availableProperties.length > 0 && (
-                <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 overflow-hidden">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 space-y-3">
@@ -190,7 +190,7 @@ export function ImportTab({
                         loadingText="Importando 1 imóvel com logs..."
                         disabled={availableProperties.length === 0}
                         variant="outline"
-                        className="w-full border-yellow-300 hover:bg-yellow-100 dark:border-yellow-700 dark:hover:bg-yellow-900/50"
+                        className="w-full border-yellow-300 hover:bg-yellow-100 dark:border-yellow-700 dark:hover:bg-yellow-900/50 whitespace-normal text-left leading-snug"
                         size="default"
                         icon={<Database className="w-4 h-4 mr-2" />}
                       >
@@ -207,7 +207,7 @@ export function ImportTab({
                 isLoading={isImporting && importType === 'properties'}
                 loadingText={`Importando ${selectedPropertyIds.length} anúncios...`}
                 disabled={selectedPropertyIds.length === 0}
-                className="w-full"
+                className="w-full whitespace-normal text-left leading-snug"
                 size="lg"
                 icon={<Download className="w-4 h-4 mr-2" />}
               >
@@ -266,7 +266,7 @@ export function ImportTab({
             onClick={onImportReservations}
             isLoading={isImporting && importType === 'reservations'}
             loadingText="Importando reservas..."
-            className="w-full"
+            className="w-full whitespace-normal text-left leading-snug"
             size="lg"
             icon={<Download className="w-4 h-4 mr-2" />}
           >
@@ -291,7 +291,7 @@ export function ImportTab({
             onClick={onImportGuests}
             isLoading={isImporting && importType === 'guests'}
             loadingText="Importando hóspedes..."
-            className="w-full"
+            className="w-full whitespace-normal text-left leading-snug"
             size="lg"
             icon={<Download className="w-4 h-4 mr-2" />}
           >
@@ -317,7 +317,7 @@ export function ImportTab({
             isLoading={isImporting && importType === 'all'}
             loadingText="Importando tudo..."
             disabled={selectedPropertyIds.length === 0}
-            className="w-full"
+            className="w-full whitespace-normal text-left leading-snug"
             size="lg"
             icon={<Database className="w-4 h-4 mr-2" />}
           >

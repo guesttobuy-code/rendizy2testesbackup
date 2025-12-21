@@ -93,8 +93,8 @@ export function PropertySelector({
 
       {/* Properties list */}
       <Card>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[400px]">
+        <CardContent className="p-0 overflow-x-hidden">
+          <ScrollArea className="h-[400px] overflow-x-hidden">
             <div className="divide-y">
               {filteredProperties.length === 0 ? (
                 <div className="p-8 text-center text-slate-500">
@@ -109,24 +109,24 @@ export function PropertySelector({
                   return (
                     <label
                       key={property.id}
-                      className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors"
+                      className="flex items-start gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors"
                     >
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onToggleProperty(property.id)}
                       />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-sm truncate">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-medium text-sm leading-tight break-words whitespace-normal">
                             {property.name || property.internalName || property.id}
                           </h4>
                           {property.internalName && property.name !== property.internalName && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground break-words whitespace-normal">
                               ({property.internalName})
                             </span>
                           )}
                           {property.code && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs break-words whitespace-normal">
                               {property.code}
                             </Badge>
                           )}
@@ -139,7 +139,7 @@ export function PropertySelector({
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 break-words whitespace-normal">
                           ID: {property.id}
                         </p>
                       </div>
