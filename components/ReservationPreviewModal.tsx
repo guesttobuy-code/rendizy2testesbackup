@@ -4,13 +4,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import type { Reservation } from '../types/reservation';
 import { Calendar, User, DollarSign, Users, Moon, Building2, Mail, X } from 'lucide-react';
 import { Button } from './ui/button';
-import { useNavigate } from 'react-router-dom';
 
 interface ReservationPreviewModalProps {
   open: boolean;
   onClose: () => void;
   reservation?: Reservation;
-  onOpenDetails: () => void;
+  onOpenDetails: (reservation: Reservation) => void;
 }
 
 export function ReservationPreviewModal({
@@ -19,7 +18,6 @@ export function ReservationPreviewModal({
   reservation,
   onOpenDetails
 }: ReservationPreviewModalProps) {
-  const navigate = useNavigate();
 
   if (!reservation) return null;
 
@@ -159,8 +157,8 @@ export function ReservationPreviewModal({
           <div className="pt-4 border-t border-gray-200">
             <Button
               onClick={() => {
-                navigate('/reservations', { state: { action: 'viewDetails', reservation } });
-                onOpenDetails();
+                onOpenDetails(reservation);
+                onClose();
               }}
               className="w-full"
             >

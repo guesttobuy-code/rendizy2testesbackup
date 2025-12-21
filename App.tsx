@@ -50,6 +50,7 @@ import { EditReservationWizard } from './components/EditReservationWizard';
 import { PriceTiersModal } from './components/PriceTiersModal';
 import { SeasonalityModal } from './components/SeasonalityModal';
 import { CancelReservationModal } from './components/CancelReservationModal';
+import { ReservationDetailsModal } from './components/ReservationDetailsModal';
 import { LocationsManager } from './components/LocationsManager';
 import { IconsPreview } from './components/IconsPreview';
 import { FontSelector } from './components/FontSelector';
@@ -352,6 +353,11 @@ function App() {
     reservation?: Reservation;
   }>({ open: false });
 
+  const [reservationDetailsModal, setReservationDetailsModal] = useState<{
+    open: boolean;
+    reservation?: Reservation;
+  }>({ open: false });
+
   const [databaseInitModal, setDatabaseInitModal] = useState(false);
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [showConflictAlert, setShowConflictAlert] = useState(true);
@@ -514,8 +520,12 @@ function App() {
     });
   };
 
-  const handleOpenReservationDetails = () => {
+  const handleOpenReservationDetails = (reservation: Reservation) => {
     setReservationPreviewModal({ open: false });
+    setReservationDetailsModal({
+      open: true,
+      reservation
+    });
   };
 
   const handleOpenBlockDetails = (block: any) => {
@@ -1513,6 +1523,13 @@ function App() {
               onClose={() => setReservationPreviewModal({ open: false })}
               reservation={reservationPreviewModal.reservation}
               onOpenDetails={handleOpenReservationDetails}
+            />
+
+            <ReservationDetailsModal
+              isOpen={reservationDetailsModal.open}
+              onClose={() => setReservationDetailsModal({ open: false })}
+              reservation={reservationDetailsModal.reservation}
+              onCancelReservation={() => setRefreshKey(prev => prev + 1)}
             />
 
             {/* Quick Actions Modal - Seleção de período no calendário */}
