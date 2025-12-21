@@ -115,7 +115,7 @@ export function CalendarModule({
             />
 
             {/* Scroll container - permite sticky dos filhos dentro dele */}
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto min-h-0">
               {currentView === 'calendar' && (
                 <Calendar
                   properties={properties.filter((p) => selectedProperties.includes(p.id))}
