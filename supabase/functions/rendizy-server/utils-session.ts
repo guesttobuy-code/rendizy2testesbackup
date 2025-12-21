@@ -367,39 +367,23 @@ export async function getSessionFromToken(token: string | undefined): Promise<Se
 
       // Atualizar last_activity e expires_at no banco (silenciosamente, não bloquear se falhar)
 
-      client
+      try {
+        const { error } = await client
+          .from('sessions')
+          .update({
+            last_activity: now.toISOString(),
+            expires_at: newExpiresAt.toISOString()
+          })
+          .eq('token', token);
 
-        .from('sessions')
-
-        .update({
-
-          last_activity: now.toISOString(),
-
-          expires_at: newExpiresAt.toISOString()
-
-        })
-
-        .eq('token', token)
-
-        .then(({ error }) => {
-
-          if (error) {
-
-            console.warn('⚠️ [getSessionFromToken] Erro ao atualizar sessão (não crítico):', error);
-
-          } else {
-
-            console.log('✅ [getSessionFromToken] Sessão estendida automaticamente');
-
-          }
-
-        })
-
-        .catch(err => {
-
-          console.warn('⚠️ [getSessionFromToken] Erro ao atualizar sessão (não crítico):', err);
-
-        });
+        if (error) {
+          console.warn('⚠️ [getSessionFromToken] Erro ao atualizar sessão (não crítico):', error);
+        } else {
+          console.log('✅ [getSessionFromToken] Sessão estendida automaticamente');
+        }
+      } catch (err) {
+        console.warn('⚠️ [getSessionFromToken] Erro ao atualizar sessão (não crítico):', err);
+      }
 
     }
 

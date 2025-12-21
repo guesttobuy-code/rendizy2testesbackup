@@ -11,6 +11,7 @@ CREATE TABLE kv_store_67caf26a (
 
 // This file provides a simple key-value interface for storing Figma Make data. It should be adequate for most small-scale use cases.
 import { createClient } from "jsr:@supabase/supabase-js@2.49.8";
+import type { Context } from "npm:hono";
 import {
   SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_URL,
@@ -83,13 +84,13 @@ export const set = async (key: string, value: any): Promise<void> => {
 };
 
 // Get retrieves a key-value pair from the database.
-export const get = async (key: string): Promise<any> => {
+export const get = async <T = any>(key: string): Promise<T | undefined> => {
   const supabase = client()
   const { data, error } = await supabase.from("kv_store_67caf26a").select("value").eq("key", key).maybeSingle();
   if (error) {
     throw new Error(error.message);
   }
-  return data?.value;
+  return data?.value as T | undefined;
 };
 
 // Delete deletes a key-value pair from the database.
@@ -122,13 +123,13 @@ export const mset = async (keys: string[], values: any[]): Promise<void> => {
 };
 
 // Gets multiple key-value pairs from the database.
-export const mget = async (keys: string[]): Promise<any[]> => {
+export const mget = async <T = any>(keys: string[]): Promise<T[]> => {
   const supabase = client()
   const { data, error } = await supabase.from("kv_store_67caf26a").select("value").in("key", keys);
   if (error) {
     throw new Error(error.message);
   }
-  return data?.map((d) => d.value) ?? [];
+  return (data?.map((d) => d.value) ?? []) as T[];
 };
 
 // Deletes multiple key-value pairs from the database.
@@ -141,19 +142,17 @@ export const mdel = async (keys: string[]): Promise<void> => {
 };
 
 // Search for key-value pairs by prefix.
-export const getByPrefix = async (prefix: string): Promise<any[]> => {
+export const getByPrefix = async <T = any>(prefix: string): Promise<T[]> => {
   const supabase = client()
   const { data, error } = await supabase.from("kv_store_67caf26a").select("key, value").like("key", prefix + "%");
   if (error) {
     throw new Error(error.message);
   }
-  return data?.map((d) => d.value) ?? [];
+  return (data?.map((d) => d.value) ?? []) as T[];
 };
 
 // Get Supabase client for direct database operations
-export const getSupabaseClient = () => {
-  return createClient(
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY
-  );
+export const getSupabaseClient = (_c?: Context) => {
+  // Context é aceito para compatibilidade com handlers, mesmo não sendo usado aqui
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 };

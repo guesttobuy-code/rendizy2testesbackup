@@ -8,40 +8,12 @@ import { blockToSql, sqlToBlock, BLOCK_SELECT_FIELDS } from './utils-block-mappe
 // ✅ REFATORADO v1.0.103.500 - Helper híbrido para organization_id (UUID)
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import type { Block } from './types.ts';
-import { logInfo, logError } from './utils.ts';
+import { logInfo, logError, calculateNights } from './utils.ts';
 
 const blocks = new Hono();
 
 // ✅ MELHORIA v1.0.103.400 - Aplicar tenancyMiddleware em todas as rotas de blocks
 blocks.use('*', tenancyMiddleware);
-
-// ============================================
-// TYPES
-// ============================================
-
-type BlockSubtype = 'simple' | 'predictive' | 'maintenance';
-
-interface Block {
-  id: string;
-  organization_id: string;
-  property_id: string;
-  property_name?: string;
-  start_date: string;
-  end_date: string;
-  type: 'block';
-  subtype?: BlockSubtype;
-  reason: string;
-  notes?: string;
-  check_in_time?: string;
-  check_out_time?: string;
-  limitations?: {
-    acoes?: boolean;
-    espera?: boolean;
-  };
-  created_at: string;
-  updated_at: string;
-  created_by: string;
-}
 
 // ============================================
 // BLOCKS CRUD
@@ -305,12 +277,14 @@ blocks.post('/', async (c) => {
     // ✅ Criar block (usando interface Block do types.ts)
     const blockId = `blk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
+    const nights = calculateNights(start_date, end_date);
 
     const block: Block = {
       id: blockId,
       propertyId: property_id,
       startDate: start_date,
       endDate: end_date,
+      nights,
       type: 'block',
       subtype: subtype || undefined,
       reason: reason || 'Bloqueio',
@@ -395,7 +369,8 @@ blocks.patch('/:id', async (c) => {
     // ✅ Converter resultado SQL para Block (TypeScript)
     const block = sqlToBlock(existingRow);
     // ✅ REFATORADO v1.0.103.500 - Usar helper híbrido para obter organization_id (UUID)
-    let finalOrgId = existingRow.organization_id; // Usar do block existente como padrão
+    const existingOrgId = (existingRow as any).organization_id; // Usar do block existente como padrão
+    let finalOrgId = existingOrgId;
     if (tenant.type === 'imobiliaria') {
       finalOrgId = await getOrganizationIdOrThrow(c);
     }

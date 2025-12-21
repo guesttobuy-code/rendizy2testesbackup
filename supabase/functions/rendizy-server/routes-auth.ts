@@ -449,7 +449,7 @@ app.post('/logout', async (c) => {
 
     // Fallback para header (compatibilidade durante migração)
     if (!token) {
-      token = c.req.header('Authorization')?.split(' ')[1];
+      token = c.req.header('Authorization')?.split(' ')[1] || '';
     }
 
     if (token) {

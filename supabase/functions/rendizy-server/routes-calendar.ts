@@ -36,6 +36,30 @@ import {
 import { getTenant, isSuperAdmin } from './utils-tenancy.ts';
 
 // ============================================================================
+// LISTAR BLOQUEIOS (LEGADO KV)
+// ============================================================================
+
+export async function getBlocks(c: Context) {
+  try {
+    const startDate = c.req.query('startDate');
+    const endDate = c.req.query('endDate');
+
+    let blocks = await kv.getByPrefix<Block>('block:');
+
+    if (startDate && endDate) {
+      blocks = blocks.filter(b =>
+        datesOverlap(startDate, endDate, b.startDate, b.endDate)
+      );
+    }
+
+    return c.json(successResponse(blocks));
+  } catch (error) {
+    logError('Error getting blocks', error);
+    return c.json(errorResponse('Failed to get blocks'), 500);
+  }
+}
+
+// ============================================================================
 // BUSCAR DADOS DO CALENDÁRIO
 // ============================================================================
 

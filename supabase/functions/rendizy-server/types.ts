@@ -479,6 +479,7 @@ export interface Reservation {
   id: string; // "res_uuid"
   propertyId: string; // "prop_uuid"
   guestId: string; // "guest_uuid"
+  guestName?: string; // Nome do hóspede resolvido via JOIN
 
   // Datas
   checkIn: string; // ISO date (YYYY-MM-DD)
@@ -690,7 +691,8 @@ export interface Block {
 export type BlockSubtype =
   | "simple" // Bloqueio simples
   | "maintenance" // Manutenção
-  | "predictive"; // Bloqueio preditivo
+  | "predictive" // Bloqueio preditivo
+  | "reservation"; // Bloqueio derivado de reserva
 
 // ============================================================================
 // PREÇO CUSTOMIZADO
@@ -880,9 +882,13 @@ export interface UpdateReservationDTO {
   checkOut?: string;
   adults?: number;
   children?: number;
+  infants?: number;
+  pets?: number;
   notes?: string;
   internalComments?: string;
   paymentStatus?: PaymentStatus;
+  // Transferência opcional de propriedade
+  propertyId?: string;
 }
 
 // Criar Hóspede

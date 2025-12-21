@@ -77,7 +77,7 @@ import { getSupabaseClient } from './kv_store.tsx';
 import { reservationToSql, sqlToReservation, RESERVATION_SELECT_FIELDS } from './utils-reservation-mapper.ts';
 // ✅ REFATORADO v1.0.103.500 - Helper híbrido para organization_id (UUID)
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
-import { getOrganizationIdForRequest } from './utils-multi-tenant.ts';
+import { getOrganizationIdForRequest, RENDIZY_MASTER_ORG_ID } from './utils-multi-tenant.ts';
 
 // ============================================================================
 // LISTAR TODAS AS RESERVAS
@@ -98,8 +98,9 @@ export async function listReservations(c: Context) {
     
     // ✅ REGRA MESTRE: Filtrar por organization_id (superadmin = Rendizy master, outros = sua organização)
     const organizationId = await getOrganizationIdForRequest(c);
-    query = query.eq('organization_id', organizationId);
-    logInfo(`✅ [listReservations] Filtering reservations by organization_id: ${organizationId}`);
+    const orgIdFinal = organizationId || RENDIZY_MASTER_ORG_ID;
+    query = query.eq('organization_id', orgIdFinal);
+    logInfo(`✅ [listReservations] Filtering reservations by organization_id: ${orgIdFinal}`);
     
     // Aplicar filtros de query params
     const propertyIdFilter = c.req.query('propertyId');
@@ -372,11 +373,9 @@ export async function createReservation(c: Context) {
     
     logInfo(`Creating reservation for tenant: ${tenant.username}`, body);
 
-    // ✅ REFATORADO v1.0.103.500 - Usar helper híbrido para obter organization_id (UUID)
-    let organizationId: string | undefined;
-    if (tenant.type !== 'superadmin') {
-      organizationId = await getOrganizationIdOrThrow(c);
-    }
+    // ✅ REGRA MESTRE: Sempre obter organization_id garantido (inclui superadmin → Rendizy master)
+    const organizationId = await getOrganizationIdForRequest(c);
+    const orgIdFinal = organizationId || RENDIZY_MASTER_ORG_ID;
 
     // Validações
     if (!body.propertyId || !body.guestId) {
@@ -404,18 +403,16 @@ export async function createReservation(c: Context) {
     // ✅ CORREÇÃO CRÍTICA: Buscar em anuncios_drafts (onde estão os imóveis ativos)
     let propertyQuery = client
       .from('anuncios_drafts')
-      .select('id, title, data')
+      .select('id, title, data, organization_id')
       .eq('id', body.propertyId);
     
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
-    if (tenant.type === 'imobiliaria') {
-      // ✅ REFATORADO: Usar helper híbrido para obter organization_id (UUID)
-      const organizationId = await getOrganizationIdOrThrow(c);
-      console.log('🏢 [createReservation] Filtrando por organization_id:', organizationId);
-      propertyQuery = propertyQuery.eq('organization_id', organizationId);
+    if (tenant.type === 'imobiliaria' || tenant.type === 'superadmin') {
+      console.log('🏢 [createReservation] Filtrando por organization_id:', orgIdFinal);
+      propertyQuery = propertyQuery.eq('organization_id', orgIdFinal);
     }
     
-    const { data: propertyRow, error: propertyError } = await propertyQuery.maybeSingle();
+    let { data: propertyRow, error: propertyError } = await propertyQuery.maybeSingle();
     
     if (propertyError) {
       console.error('❌ [createReservation] SQL error fetching property:', propertyError);
@@ -423,8 +420,24 @@ export async function createReservation(c: Context) {
     }
     
     if (!propertyRow) {
-      console.error('❌ [createReservation] Propriedade não encontrada:', body.propertyId);
-      return c.json(notFoundResponse('Property'), 404);
+      console.warn('⚠️ [createReservation] Propriedade não encontrada em anuncios_drafts, tentando anuncios_ultimate...', body.propertyId);
+      let fallbackQuery = client
+        .from('anuncios_ultimate')
+        .select('id, title, data, organization_id')
+        .eq('id', body.propertyId);
+      if (tenant.type === 'imobiliaria' || tenant.type === 'superadmin') {
+        fallbackQuery = fallbackQuery.eq('organization_id', orgIdFinal);
+      }
+      const { data: ultimateRow, error: ultimateErr } = await fallbackQuery.maybeSingle();
+      if (ultimateErr) {
+        console.error('❌ [createReservation] SQL error fetching property (ultimate):', ultimateErr);
+        return c.json(errorResponse('Erro ao buscar propriedade', { details: ultimateErr.message }), 500);
+      }
+      if (!ultimateRow) {
+        console.error('❌ [createReservation] Propriedade não encontrada em nenhuma tabela:', body.propertyId);
+        return c.json(notFoundResponse('Property'), 404);
+      }
+      propertyRow = ultimateRow;
     }
     
     console.log('✅ [createReservation] Propriedade encontrada:', propertyRow.id, propertyRow.title);
@@ -454,10 +467,9 @@ export async function createReservation(c: Context) {
       .eq('id', body.guestId);
     
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que guest pertence à organização
-    if (tenant.type === 'imobiliaria') {
-      const guestOrgId = await getOrganizationIdOrThrow(c);
-      console.log('🏢 [createReservation] Filtrando guest por organization_id:', guestOrgId);
-      guestQuery = guestQuery.eq('organization_id', guestOrgId);
+    if (tenant.type === 'imobiliaria' || tenant.type === 'superadmin') {
+      console.log('🏢 [createReservation] Filtrando guest por organization_id:', orgIdFinal);
+      guestQuery = guestQuery.eq('organization_id', orgIdFinal);
     }
     
     const { data: guestRow, error: guestError } = await guestQuery.maybeSingle();
@@ -490,10 +502,8 @@ export async function createReservation(c: Context) {
       .gt('check_out', body.checkIn); // Reserva termina depois do nosso checkin
     
     // ✅ FILTRO MULTI-TENANT
-    if (tenant.type === 'imobiliaria') {
-      // ✅ REFATORADO: Usar helper híbrido para obter organization_id (UUID)
-      const organizationId = await getOrganizationIdOrThrow(c);
-      conflictQuery = conflictQuery.eq('organization_id', organizationId);
+    if (tenant.type === 'imobiliaria' || tenant.type === 'superadmin') {
+      conflictQuery = conflictQuery.eq('organization_id', orgIdFinal);
     }
     
     const { data: conflicts, error: conflictError } = await conflictQuery;
@@ -592,7 +602,7 @@ export async function createReservation(c: Context) {
     };
 
     // ✅ MIGRAÇÃO: Salvar no SQL ao invés de KV Store
-    const sqlData = reservationToSql(reservation, organizationId);
+    const sqlData = reservationToSql(reservation, orgIdFinal);
     
     const { data: insertedRow, error: insertError } = await client
       .from('reservations')
@@ -679,11 +689,12 @@ export async function createReservation(c: Context) {
       201
     );
   } catch (error) {
+    const err = error as any;
     console.error('💥 [createReservation] === ERRO ===');
-    console.error('❌ Tipo:', error?.constructor?.name);
-    console.error('❌ Mensagem:', error?.message);
-    console.error('❌ Stack:', error?.stack);
-    logError('Error creating reservation', error);
+    console.error('❌ Tipo:', err?.constructor?.name);
+    console.error('❌ Mensagem:', err?.message);
+    console.error('❌ Stack:', err?.stack);
+    logError('Error creating reservation', err);
     return c.json(errorResponse('Failed to create reservation'), 500);
   }
 }
@@ -911,7 +922,8 @@ export async function updateReservation(c: Context) {
 
     // ✅ MIGRAÇÃO: Salvar no SQL ao invés de KV Store
     // ✅ REFATORADO v1.0.103.500 - Usar helper híbrido para obter organization_id (UUID)
-    let organizationId = existingRow.organization_id; // Usar da reservation existente como padrão
+    const organizationIdFromRow = (existingRow as any).organization_id; // Usar da reservation existente como padrão
+    let organizationId = organizationIdFromRow;
     if (tenant.type === 'imobiliaria') {
       organizationId = await getOrganizationIdOrThrow(c);
     }
@@ -1177,7 +1189,7 @@ export async function detectConflicts(c: Context) {
     // Criar mapa de propriedades (id -> name)
     const propertiesMap = new Map<string, string>();
     for (const prop of propertyRows || []) {
-      propertiesMap.set(prop.id, prop.name);
+      propertiesMap.set(prop.id, (prop as any).name || prop.title || prop.id);
     }
 
     // Mapa: propertyId -> data -> array de reservas

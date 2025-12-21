@@ -342,7 +342,8 @@ export async function updateGuest(c: Context) {
       
       // ✅ FILTRO MULTI-TENANT: Verificar email apenas dentro da organização
       // ✅ REFATORADO v1.0.103.500 - Usar helper híbrido para obter organization_id (UUID)
-      let organizationId = existingRow.organization_id; // Usar do guest existente como padrão
+      const organizationIdFromRow = (existingRow as any).organization_id; // Usar do guest existente como padrão
+      let organizationId = organizationIdFromRow;
       if (tenant.type === 'imobiliaria') {
         organizationId = await getOrganizationIdOrThrow(c);
       }
@@ -395,7 +396,7 @@ export async function updateGuest(c: Context) {
 
     // ✅ MIGRAÇÃO: Salvar no SQL ao invés de KV Store
     // ✅ Obter organization_id do tenant ou do guest existente
-    const organizationId = tenant.imobiliariaId || tenant.organizationId || existingRow.organization_id;
+    const organizationId = tenant.imobiliariaId || tenant.organizationId || (existingRow as any).organization_id;
     
     // Converter para formato SQL
     const sqlData = guestToSql(updated, organizationId);
@@ -658,7 +659,7 @@ export async function toggleBlacklist(c: Context) {
 
     // ✅ MIGRAÇÃO: Salvar no SQL ao invés de KV Store
     // ✅ Obter organization_id do tenant ou do guest existente
-    const organizationId = tenant.imobiliariaId || tenant.organizationId || existingRow.organization_id;
+    const organizationId = tenant.imobiliariaId || tenant.organizationId || (existingRow as any).organization_id;
     
     // Converter para formato SQL
     const sqlData = guestToSql(updated, organizationId);

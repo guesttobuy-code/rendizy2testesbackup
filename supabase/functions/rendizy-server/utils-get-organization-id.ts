@@ -179,7 +179,7 @@ async function getOrganizationIdFromSupabaseAuth(token: string): Promise<string 
     // Extrair organization_id dos metadados
     const orgId =
       (user.user_metadata as any)?.organization_id ??
-      (user.raw_user_meta_data as any)?.organization_id;
+      (user as any)?.raw_user_meta_data?.organization_id;
     
     if (orgId) {
       console.log(`✅ [getOrganizationIdFromSupabaseAuth] organization_id encontrado: ${orgId} para usuário ${user.id}`);
