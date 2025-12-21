@@ -1319,7 +1319,6 @@ export function Calendar({
               })}
               </tbody>
             </table>
-          </div>
         </TooltipProvider>
       </div>
 
