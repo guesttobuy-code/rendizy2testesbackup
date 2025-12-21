@@ -808,7 +808,7 @@ export function Calendar({
                         )}
                       </button>
                     </div>
-                  </td>
+                  </th>
                   {days.map((day, idx) => {
                     // ✅ FIX v1.0.103.407: Detectar dia atual
                     const today = new Date();
@@ -818,9 +818,9 @@ export function Calendar({
                     const isToday = dayNormalized.getTime() === today.getTime();
                     
                     return (
-                      <td key={idx} className={`border-r border-gray-200 ${
+                      <th key={idx} className={`border-r border-gray-200 ${
                         isToday ? 'bg-blue-50' : 'bg-green-200'
-                      }`}></td>
+                      }`}></th>
                     );
                   })}
                 </tr>
