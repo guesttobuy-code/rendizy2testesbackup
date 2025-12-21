@@ -98,8 +98,8 @@ export function CalendarModule({
             onViewChange={setCurrentView}
           />
 
-          {/* ✅ FIX v1.0.103.423: Remove overflow-hidden que bloqueia sticky */}
-          <div className="flex-1 flex flex-col">
+          {/* ✅ FIX v1.0.103.418: Headers TOTALMENTE fora do overflow */}
+          <div className="flex-1 flex flex-col overflow-hidden">
             {/* Header 1: CalendarHeader - FIXO NO TOPO */}
             <CalendarHeader
               currentMonth={currentMonth}
