@@ -730,53 +730,55 @@ export function Calendar({
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 flex flex-col h-full overflow-auto">
+      <div className="bg-white rounded-lg border border-gray-200 flex flex-col h-full">
         <TooltipProvider>
-          <table className="w-full border-collapse relative">
-          {/* Header with days - Sticky (fixo durante rolagem vertical e horizontal) */}
-          <thead className="sticky top-0 z-50 bg-gray-50">
-            <tr className="bg-gray-50 border-b border-gray-200 shadow-md">
-              <th className="sticky top-0 left-0 z-50 bg-gray-50 border-r border-gray-200 p-2 text-left min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+          {/* ✅ FIX v1.0.103.412: Header SEPARADO e FIXO (não rola) */}
+          <div className="sticky top-0 z-50 bg-gray-50 border-b border-gray-200 shadow-md">
+            <div className="flex">
+              <div className="sticky left-0 z-50 bg-gray-50 border-r border-gray-200 p-2 text-left min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                 <span className="text-sm text-gray-600">Padrão</span>
-              </th>
-                {days.map((day, idx) => {
-                  // ✅ FIX v1.0.103.407: Detectar dia atual para destacar coluna
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const dayNormalized = new Date(day);
-                  dayNormalized.setHours(0, 0, 0, 0);
-                  const isToday = dayNormalized.getTime() === today.getTime();
-                  
-                  return (
-                    <th
-                      key={idx}
-                      className={`sticky top-0 z-40 border-r border-gray-200 p-1.5 min-w-[80px] text-center ${
-                        isToday ? 'bg-blue-100' : 'bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center gap-0 py-0.5">
-                        <div className={`text-sm font-medium ${
-                          isToday ? 'text-blue-900' : 'text-gray-900'
-                        }`}>
-                          {day.getDate()}
-                        </div>
-                        <div className={`text-2xs uppercase leading-tight ${
-                          isToday ? 'text-blue-700' : 'text-gray-500'
-                        }`}>
-                          {day.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
-                        </div>
-                        <div className={`text-2xs leading-tight ${
-                          isToday ? 'text-blue-600' : 'text-gray-400'
-                        }`}>
-                          {day.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
-                        </div>
+              </div>
+              {days.map((day, idx) => {
+                // ✅ FIX v1.0.103.407: Detectar dia atual para destacar coluna
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const dayNormalized = new Date(day);
+                dayNormalized.setHours(0, 0, 0, 0);
+                const isToday = dayNormalized.getTime() === today.getTime();
+                
+                return (
+                  <div
+                    key={idx}
+                    className={`border-r border-gray-200 p-1.5 min-w-[80px] text-center flex-shrink-0 ${
+                      isToday ? 'bg-blue-100' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-0 py-0.5">
+                      <div className={`text-sm font-medium ${
+                        isToday ? 'text-blue-900' : 'text-gray-900'
+                      }`}>
+                        {day.getDate()}
                       </div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
+                      <div className={`text-2xs uppercase leading-tight ${
+                        isToday ? 'text-blue-700' : 'text-gray-500'
+                      }`}>
+                        {day.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
+                      </div>
+                      <div className={`text-2xs leading-tight ${
+                        isToday ? 'text-blue-600' : 'text-gray-400'
+                      }`}>
+                        {day.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
+          {/* ✅ FIX v1.0.103.412: Tabela que ROLA (overflow-auto) */}
+          <div className="flex-1 overflow-auto">
+            <table className="w-full border-collapse">
               <tbody>
                 {/* Regras em Lote Section */}
                 <tr className="border-b border-gray-200 bg-gray-100">
@@ -1316,7 +1318,8 @@ export function Calendar({
               })}
               </tbody>
             </table>
-          </TooltipProvider>
+          </div>
+        </TooltipProvider>
       </div>
 
       {/* Drag Selection Tooltip - Mostra quantas noites estão selecionadas */}
