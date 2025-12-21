@@ -54,24 +54,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('rendizy-token');
-      let hasToken = false;
-      
-      if (token && (token.startsWith('eyJ') || token.length < 80)) {
-        console.warn('⚠️ [AuthContext] Token antigo/JWT detectado - limpando:', token.substring(0, 30) + '...');
-        localStorage.removeItem('rendizy-token');
-        localStorage.removeItem('supabase.auth.token');
-        setHasTokenState(false);
-        hasToken = false;
-      } else {
-        hasToken = !!token;
-        console.log('🔍 [AuthContext] Token no localStorage ao montar:', hasToken ? `SIM (${token!.substring(0, 20)}...)` : 'NÃO');
-        setHasTokenState(hasToken);
-      }
-      
-      if (!hasToken) {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+      const hasToken = !!token;
+
+      console.log('🔍 [AuthContext] Token no localStorage ao montar:', hasToken ? `SIM (${token!.substring(0, 20)}...)` : 'NÃO');
+      setHasTokenState(hasToken);
+
+      if (!hasToken && isMounted) {
+        setIsLoading(false);
       }
     }
     
@@ -100,18 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
               }
             }, 100);
-          }
-          return;
-        }
-
-        if (token && token.length < 80) {
-          console.warn(`⚠️ [AuthContext] Token muito curto (${token.length} chars). Limpando e solicitando novo login.`);
-          localStorage.removeItem('rendizy-token');
-          setHasTokenState(false);
-          if (isMounted && !isPeriodicCheck) {
-            setUser(null);
-            setOrganization(null);
-            setIsLoading(false);
           }
           return;
         }
@@ -178,9 +155,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        const backendUser = data.user || data.data?.user;
+
+        // Fallback: backend mínimo pode responder success sem user; usamos cache local
+        const cachedUserRaw = localStorage.getItem('rendizy-user');
+        const cachedUser = cachedUserRaw ? (() => { try { return JSON.parse(cachedUserRaw); } catch { return null; } })() : null;
+
+        if (!backendUser || !backendUser.id) {
+          if (cachedUser && cachedUser.id) {
+            console.warn('⚠️ [AuthContext] Resposta sem usuário válido - usando cache local');
+          } else {
+            console.warn('⚠️ [AuthContext] Resposta sem usuário válido e sem cache', data);
+          }
+
+          if (cachedUser && cachedUser.id) {
+            setUser(cachedUser);
+            setHasTokenState(true);
+            if (isMounted && !isPeriodicCheck) {
+              setIsLoading(false);
+            }
+            return;
+          }
+
+          // Sem user nem cache: não derruba o token para evitar loop; apenas marca loading false
+          if (isMounted && !isPeriodicCheck) {
+            setIsLoading(false);
+          }
+          return;
+        }
+
         console.log('✅ [AuthContext] Sessão válida - carregando dados do backend SQL');
-        
-        const backendUser = data.user;
         const loggedUser: User = {
           id: backendUser.id,
           email: backendUser.email,
@@ -198,6 +202,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (isMounted) {
           setUser(loggedUser);
         }
+
+        // Cacheia usuário para modo mínimo/offline
+        try {
+          localStorage.setItem('rendizy-user', JSON.stringify(loggedUser));
+        } catch {}
 
         if (backendUser.organization) {
           const org: Organization = {
@@ -265,6 +274,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (isMounted && !isPeriodicCheck) {
           setIsLoading(false);
         }
+
+        // Cacheia usuário para modo mínimo/offline
+        try {
+          localStorage.setItem('rendizy-user', JSON.stringify(loggedUser));
+        } catch {}
       } catch (error) {
         console.error('❌ [AuthContext] Erro ao carregar usuário:', error);
         if (isMounted && !isPeriodicCheck) {
@@ -447,6 +461,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(loggedUser);
       setHasTokenState(true);
+
+      // Cache local para modo mínimo/offline
+      try {
+        localStorage.setItem('rendizy-user', JSON.stringify(loggedUser));
+      } catch {}
       
       const token = localStorage.getItem('rendizy-token');
       if (token) {

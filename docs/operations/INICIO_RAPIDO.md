@@ -18,7 +18,7 @@
 
 ### **1️⃣ Navegar para Pasta**
 ```powershell
-cd "C:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main"
+cd "c:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main"
 ```
 
 ### **2️⃣ Verificar Dependências**

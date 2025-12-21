@@ -18,7 +18,7 @@ app.get("/lista", async (c) => {
     const supabase = getSupabaseClient(c);
 
     const { data, error } = await supabase
-      .from("anuncios_drafts")
+      .from("anuncios_ultimate")
       .select("*")
       .order("updated_at", { ascending: false });
 
@@ -44,9 +44,9 @@ app.get("/:id", async (c) => {
     const id = c.req.param("id");
     const supabase = getSupabaseClient(c);
 
-    // Busca em drafts
+    // Busca em anuncios_ultimate
     const { data, error } = await supabase
-      .from("anuncios_drafts")
+      .from("anuncios_ultimate")
       .select("id, data, organization_id, user_id, status, completion_percentage, step_completed, title, created_at, updated_at")
       .eq("id", id)
       .single();
@@ -87,7 +87,7 @@ app.post("/create", async (c) => {
     if (user_id) payload.user_id = user_id;
 
     const { data, error } = await supabase
-      .from("anuncios_drafts")
+      .from("anuncios_ultimate")
       .insert(payload)
       .select()
       .single();

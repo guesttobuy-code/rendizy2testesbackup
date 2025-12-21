@@ -10,6 +10,7 @@ import * as calendarRoutes from "./routes-calendar.ts";
 import blocksApp from "./routes-blocks.ts";
 import * as guestsRoutes from "./routes-guests.ts";
 import * as staysnetRoutes from "./routes-staysnet.ts";
+import { importStaysNetSimple } from "./import-staysnet-simple.ts";
 
 const app = new Hono();
 
@@ -88,6 +89,9 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/test", staysnetRoutes.te
 app.post("/rendizy-server/make-server-67caf26a/staysnet/test-endpoint", staysnetRoutes.testStaysNetEndpoint);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/preview", staysnetRoutes.previewStaysNetImport);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetRoutes.importFullStaysNet);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/debug", staysnetRoutes.debugRawStaysNet); // 🧪 DEBUG
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/SIMPLE", importStaysNetSimple); // ⚡ SIMPLES - INSERT direto
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/RPC", importStaysNetRPC); // ✅ USA RPC (igual FormularioAnuncio)
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/reservations", staysnetRoutes.importStaysNetReservations);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/guests", staysnetRoutes.importStaysNetGuests);
 

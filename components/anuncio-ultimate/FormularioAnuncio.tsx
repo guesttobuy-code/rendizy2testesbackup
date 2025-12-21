@@ -511,7 +511,7 @@ export default function FormularioAnuncio() {
   const loadAnuncio = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?id=eq.${anuncioId}&select=*`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncioId}&select=*`, {
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`
@@ -1789,7 +1789,7 @@ export default function FormularioAnuncio() {
         const userId = userData?.id || '00000000-0000-0000-0000-000000000002';
         const organizationId = userData?.organization?.id || '00000000-0000-0000-0000-000000000000';
         
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate`, {
           method: 'POST',
           headers: {
             'apikey': ANON_KEY,

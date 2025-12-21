@@ -344,61 +344,37 @@ git status
 
 ---
 
-## 1. ESTRUTURA DE DADOS
+## 4. IMPORTAÇÃO STAYSNET (ANÚNCIOS ULTIMATE)
 
-### 1.1 Tabela Oficial de Anúncios
+### 4.1 Destino correto de dados
 
 ```
-✅ SEMPRE: anuncios_drafts (Anúncios Ultimate com JSONB)
-❌ NUNCA: properties (deprecado desde v1.0.103.403)
+✅ SEMPRE: anuncios_ultimate
+❌ NUNCA: properties / tabelas legadas
 ```
 
-**Por quê?**
-- `properties` era wizard antigo com schema rígido (colunas fixas)
-- `anuncios_drafts` usa JSONB (`data` column) → flexibilidade total
-- Migração completa realizada em 20/12/2024 (159 anúncios migrados)
-- Sistema novo (Anúncios Ultimate) depende de `anuncios_drafts`
+### 4.2 Deduplicação (regra de ouro)
 
-**Referência:** Issue #47 (StaysNet exportava para tabela errada)
+- Nunca duplicar anúncio. Se houver ID externo, atualizar; se não houver, criar.
+- Chave primária de dedup: `data.externalIds.stays_property_id` (ID do Stays). Fallback legado: `stays_net_id`.
+- Index/constraint: índice único parcial em `stays_property_id` (migration 20251221_unique_stays_property_id.sql).
+- Full sync/import deve:
+  - Preencher sempre `externalIds.stays_property_id` (e manter `stays_net_id` como legado).
+  - Buscar existentes por `stays_property_id`, fallback `stays_net_id` e, em último caso, global (todas as orgs) para evitar duplicar.
+  - Usar o ID Rendizy imutável (coluna `id`) como chave do anúncio; nunca sobrescrever/alterar esse valor.
 
----
+### 4.3 Hóspedes e Reservas (não duplicar)
 
-### 1.2 Estrutura JSONB Padrão
+- Hóspedes: não inserir se já existir email ou documento (CPF/passaporte) na organização; atualizar em vez de criar.
+- Reservas: não inserir se bookingId/externalId já existir; atualizar em vez de criar.
 
-```typescript
-// Tabela: anuncios_drafts
-{
-  // Colunas SQL fixas
-  id: UUID,                    // PK, gerado automaticamente
-  organization_id: UUID,       // FK para organizations
-  user_id: UUID,               // FK para auth.users
-  title: string,               // Título principal do anúncio
-  status: 'draft' | 'active',  // Estado de publicação
-  completion_percentage: number, // 0-100, calculado automaticamente
-  created_at: timestamp,
-  updated_at: timestamp,
-  
-  // Coluna JSONB flexível (data)
-  data: {
-    // Informações básicas
-    propertyType: string,      // Ex: 'apartamento', 'casa', 'studio'
-    name: string,              // Nome descritivo
-    description?: string,      // Descrição longa
-    
-    // Localização
-    address: string,
-    city: string,
-    state: string,
-    zipCode: string,
-    latitude?: number,
-    longitude?: number,
-    
-    // Características físicas
-    bedrooms: number,
-    bathrooms: number,
-    maxGuests: number,
-    area?: number,             // Área em m²
-    
+### 4.4 Regra geral para integrações (PMS/OTAs/marketplaces)
+
+- Antes de qualquer fluxo de importação, mapear o ID externo primário de imóvel (ex.: `stays_property_id`, `airbnb_listing_id`, `booking_property_id`) como primeiro campo obrigatório; sem isso não há dedup segura.
+- Para imóveis, campos mínimos obrigatórios: `externalIds.<plataforma>_property_id` + nome interno (para conferência humana/logs). O ID Rendizy permanece imutável e não depende de integrações.
+- Para hóspedes: capturar `email` e/ou documento (CPF/passaporte) como chaves de dedup da organização; se o PMS expõe um guest_id externo, armazenar também em `externalIds` para futura reconciliação.
+- Para reservas: armazenar `bookingId`/`externalId` da plataforma como chave única de dedup; nunca criar reserva sem esse identificador externo quando a plataforma o fornece.
+- Se a plataforma não fornece ID estável, registrar explicitamente no requisito de integração que não há dedup garantida e requerer intervenção/manual ou critério secundário (nome+datas) com alto risco.
     // Precificação
     basePrice: number,         // Preço base por noite
     cleaningFee?: number,

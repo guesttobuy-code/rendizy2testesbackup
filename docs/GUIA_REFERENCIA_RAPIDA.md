@@ -7,11 +7,11 @@
 
 ## 📂 CAMINHOS IMPORTANTES
 
-```
-Pasta Principal:
-C:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main
+```powershell
+# Pasta Principal:
+cd "c:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main"
 
-Backup de Consulta:
+# Backup de Consulta:
 C:\Users\rafae\OneDrive\Desktop\RENDIZY_BACKUP_CONSULTA
 ```
 
@@ -21,8 +21,8 @@ C:\Users\rafae\OneDrive\Desktop\RENDIZY_BACKUP_CONSULTA
 
 ### **Desenvolvimento**
 ```powershell
-# Iniciar servidor dev
-npm run dev
+# Iniciar servidor dev (porta 5173)
+npm run dev -- --host --port 5173
 
 # Build para produção
 npm run build

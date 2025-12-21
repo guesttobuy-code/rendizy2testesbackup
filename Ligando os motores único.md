@@ -9,8 +9,8 @@
 
 ### 0️⃣ 🚨 CAMINHO DA PASTA PRINCIPAL DO PROJETO (SEMPRE USAR ESTA)
 **📂 Pasta Principal ATUAL**: 
-```
-C:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main
+```powershell
+cd "c:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main"
 ```
 
 **⚠️ ATENÇÃO**: Esta é a ÚNICA pasta com a versão mais atual contendo:
@@ -31,8 +31,8 @@ C:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do 
 
 **Para iniciar o sistema:**
 ```powershell
-cd "C:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main"
-npm run dev
+cd "c:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main"
+npm run dev -- --host --port 5173
 ```
 
 ### 2️⃣ LOCALIZAÇÃO DO BACKUP DE CONSULTA

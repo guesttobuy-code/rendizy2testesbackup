@@ -973,22 +973,66 @@ export async function previewStaysNetImport(c: Context) {
     }
 
     const supabase = getSupabaseClient(c);
-    const { data: existingRows, error } = await supabase
-      .from('anuncios_drafts')
-      .select('id, data')
+
+    // Buscar apenas em anuncios_ultimate (tabela oficial), considerando todos os formatos de external_id
+    const { data: ultimateData, error: ultimateError } = await supabase
+      .from('anuncios_ultimate')
+      .select('id, data, external_ids')
       .eq('organization_id', organizationId);
 
-    if (error) {
-      console.error('[StaysNet Import Preview] ❌ Erro ao consultar anuncios_drafts:', error.message);
-      return c.json(errorResponse('Erro ao consultar anúncios existentes', error), 500);
+    if (ultimateError) {
+      console.warn('[StaysNet Import Preview] ⚠️ Falha ao consultar anuncios_ultimate:', ultimateError.message);
+    }
+
+    let allExisting = [...(ultimateData || [])];
+
+    // Fallback: se não encontrou nada para a organização atual, faz varredura global (apenas IDs) para detectar duplicados históricos
+    if (allExisting.length === 0) {
+      const { data: ultimateAny, error: ultimateAnyError } = await supabase
+        .from('anuncios_ultimate')
+        .select('id, data, external_ids');
+
+      if (ultimateAnyError) {
+        console.warn('[StaysNet Import Preview] ⚠️ Falha fallback anuncios_ultimate (global):', ultimateAnyError.message);
+      }
+
+      allExisting = [...(ultimateAny || [])];
     }
 
     const existingSet = new Set<string>();
-    (existingRows || []).forEach((row: any) => {
-      const extId = row?.data?.externalIds?.stays_net_id || row?.data?.externalIds?.staysnet_id;
-      if (extId) {
-        existingSet.add(String(extId));
+
+    const addIfString = (value: any) => {
+      if (value !== undefined && value !== null) {
+        existingSet.add(String(value));
       }
+    };
+
+    allExisting.forEach((row: any) => {
+      const data = row?.data || {};
+      const ext = row?.external_ids || {};
+      const extIds = data?.externalIds || data?.external_ids || {};
+      const orig = data?._stays_net_original || {};
+
+      // Novo campo primário de deduplicação
+      addIfString(extIds.stays_property_id);
+
+      addIfString(ext.stays_net_id);
+      addIfString(ext.staysnet_id);
+      addIfString(ext.staysNetId);
+
+      addIfString(extIds.stays_net_id);
+      addIfString(extIds.staysnet_id);
+      addIfString(extIds.staysNetId);
+
+      // Variantes snake_case para stays_property_id (compat)
+      addIfString(extIds.stays_property_id);
+      addIfString(extIds.staysPropertyId);
+      addIfString(extIds.staysPropertyID);
+
+      // Alguns registros antigos podem ter salvo o id bruto no objeto original
+      addIfString(orig.id);
+      addIfString(orig._id);
+      addIfString(orig.listingId);
     });
 
     const existingIds = propertyIds.filter((id) => existingSet.has(String(id)));
@@ -1015,10 +1059,13 @@ export async function previewStaysNetImport(c: Context) {
  * Importação completa de dados da Stays.net (hóspedes, propriedades, reservas)
  */
 export async function importFullStaysNet(c: Context) {
+  const requestId = `import-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   try {
     console.log('\n' + '='.repeat(80));
-    console.log('[StaysNet Full Import] 🚀 INICIANDO IMPORTAÇÃO COMPLETA');
+    console.log(`[StaysNet Full Import] 🚀 INICIANDO IMPORTAÇÃO COMPLETA [${requestId}]`);
     console.log('='.repeat(80));
+    console.log('[StaysNet Full Import] Timestamp:', new Date().toISOString());
+    console.log('[StaysNet Full Import] Request ID:', requestId);
     
     // Obter organization_id
     const organizationId = await getOrganizationIdOrThrow(c);
@@ -1028,10 +1075,13 @@ export async function importFullStaysNet(c: Context) {
     const body = await c.req.json().catch(() => ({}));
     const { selectedPropertyIds, startDate, endDate } = body;
     
-    console.log('[StaysNet Full Import] Parâmetros:', {
+    console.log('[StaysNet Full Import] Parâmetros recebidos:', {
       selectedPropertyIds: selectedPropertyIds?.length || 0,
+      selectedIds: selectedPropertyIds,
       startDate,
       endDate,
+      hasBody: !!body,
+      bodyKeys: Object.keys(body),
     });
     
     // ✅ Obter configuração (banco de dados primeiro, depois KV Store)
@@ -1064,9 +1114,19 @@ export async function importFullStaysNet(c: Context) {
     
     // Criar cliente
     const client = new StaysNetClient(config.apiKey, config.baseUrl, config.apiSecret);
+    console.log('[StaysNet Full Import] ✅ Cliente Stays.net criado');
     
     // Importar função de sincronização completa
     const { fullSyncStaysNet } = await import('./staysnet-full-sync.ts');
+    console.log('[StaysNet Full Import] ✅ Função fullSyncStaysNet importada');
+    
+    console.log('[StaysNet Full Import] 🔄 Chamando fullSyncStaysNet com parâmetros:', {
+      requestId,
+      organizationId,
+      selectedPropertyIdsCount: selectedPropertyIds?.length || 0,
+      startDate,
+      endDate,
+    });
     
     // Executar sincronização completa
     const result = await fullSyncStaysNet(
@@ -1074,8 +1134,16 @@ export async function importFullStaysNet(c: Context) {
       organizationId,
       selectedPropertyIds,
       startDate,
-      endDate
+      endDate,
+      requestId
     );
+    
+    console.log('[StaysNet Full Import] 🔙 fullSyncStaysNet retornou:', {
+      requestId,
+      success: result.success,
+      hasStats: !!result.stats,
+      statsKeys: result.stats ? Object.keys(result.stats) : [],
+    });
     
     console.log('[StaysNet Full Import] ✅ Sincronização concluída');
     console.log('[StaysNet Full Import] Estatísticas:', result.stats);
@@ -1103,5 +1171,123 @@ export async function importFullStaysNet(c: Context) {
       message: error.message,
       stack: error.stack,
     }), 500);
+  }
+}
+
+/**
+ * POST /staysnet/import/debug
+ * 🧪 ENDPOINT DEBUG: Retorna JSON BRUTO da StaysNet sem processar
+ * Objetivo: Confirmar que backend consegue puxar dados da API
+ */
+export async function debugRawStaysNet(c: Context) {
+  const requestId = `debug-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  
+  console.error('🧪🧪🧪 [DEBUG RAW] INICIANDO 🧪🧪🧪');
+  console.error(`[DEBUG RAW] Request ID: ${requestId}`);
+  
+  try {
+    // Obter organization_id
+    const organizationId = await getOrganizationIdOrThrow(c);
+    console.error(`[DEBUG RAW] Organization ID: ${organizationId}`);
+    
+    // Obter parâmetros
+    const body = await c.req.json().catch(() => ({}));
+    const { selectedPropertyIds } = body;
+    
+    console.error(`[DEBUG RAW] Selected IDs: ${JSON.stringify(selectedPropertyIds || [])}`);
+    
+    // Carregar configuração StaysNet
+    let config: StaysNetConfig | null = null;
+    
+    const dbResult = await staysnetDB.loadStaysNetConfigDB(organizationId);
+    if (dbResult.success && dbResult.data) {
+      config = dbResult.data;
+      console.error('[DEBUG RAW] ✅ Config carregada do banco');
+    } else {
+      config = await kv.get<StaysNetConfig>('settings:staysnet');
+      if (config) {
+        console.error('[DEBUG RAW] ⚠️ Config carregada do KV Store');
+      }
+    }
+    
+    if (!config || !config.apiKey) {
+      console.error('[DEBUG RAW] ❌ StaysNet não configurado');
+      return c.json(errorResponse('Stays.net não configurado. Configure as credenciais primeiro.'), 400);
+    }
+    
+    console.error(`[DEBUG RAW] ✅ Config: ${config.baseUrl} | Key: ${config.apiKey.substring(0, 4)}****`);
+    
+    // Criar cliente StaysNet
+    const client = new StaysNetClient(config.apiKey, config.baseUrl, config.apiSecret);
+    console.error('[DEBUG RAW] ✅ Cliente criado');
+    
+    // 🧪 BUSCAR LISTINGS BRUTO
+    console.error('[DEBUG RAW] 📡 Chamando StaysNet API...');
+    
+    const listingsResult = client.getAllListings 
+      ? await client.getAllListings() 
+      : await client.getListings();
+    
+    console.error(`[DEBUG RAW] 📡 Resposta recebida - Success: ${listingsResult.success}`);
+    
+    if (!listingsResult.success) {
+      console.error('[DEBUG RAW] ❌ API retornou erro');
+      return c.json({
+        success: false,
+        error: listingsResult.error || 'StaysNet API retornou erro',
+        api_called: true,
+        config_exists: true,
+      }, 500);
+    }
+    
+    // Extrair array de listings
+    let staysListings: any[] = [];
+    if (Array.isArray(listingsResult.data)) {
+      staysListings = listingsResult.data;
+    } else if (listingsResult.data?.listings && Array.isArray(listingsResult.data.listings)) {
+      staysListings = listingsResult.data.listings;
+    } else if (listingsResult.data?.data && Array.isArray(listingsResult.data.data)) {
+      staysListings = listingsResult.data.data;
+    }
+    
+    console.error(`[DEBUG RAW] 📊 Total de propriedades recebidas: ${staysListings.length}`);
+    
+    // Filtrar por IDs selecionados (se fornecido)
+    if (selectedPropertyIds && selectedPropertyIds.length > 0) {
+      const before = staysListings.length;
+      staysListings = staysListings.filter(listing => 
+        selectedPropertyIds.includes(listing._id || listing.id)
+      );
+      console.error(`[DEBUG RAW] 🔍 Filtrado: ${before} → ${staysListings.length} propriedades`);
+    }
+    
+    // 🎉 RETORNAR JSON BRUTO
+    console.error('[DEBUG RAW] ✅ Retornando dados brutos');
+    console.error('🧪🧪🧪 [DEBUG RAW] CONCLUÍDO 🧪🧪🧪');
+    
+    return c.json({
+      success: true,
+      message: '✅ Backend conseguiu puxar dados da StaysNet API!',
+      api_called: true,
+      config_exists: true,
+      stats: {
+        total_fetched: staysListings.length,
+        first_property_id: staysListings[0]?._id || staysListings[0]?.id,
+        first_property_name: staysListings[0]?.internalName,
+      },
+      raw_data: staysListings, // 🎯 JSON BRUTO AQUI
+      timestamp: new Date().toISOString(),
+      request_id: requestId,
+    });
+    
+  } catch (error: any) {
+    console.error('[DEBUG RAW] ❌ ERRO:', error);
+    return c.json({
+      success: false,
+      error: error.message,
+      api_called: false,
+      config_exists: false,
+      stack: error.stack,
+    }, 500);
   }
 }

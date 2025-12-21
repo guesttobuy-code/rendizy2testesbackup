@@ -69,12 +69,23 @@ export async function fullSyncStaysNet(
   organizationId: string,
   selectedPropertyIds?: string[], // IDs de propriedades selecionadas para importar
   startDate?: string, // Data inicial para reservas (opcional)
-  endDate?: string // Data final para reservas (opcional)
+  endDate?: string, // Data final para reservas (opcional)
+  requestId?: string // Request ID para rastreamento
 ): Promise<{
   success: boolean;
   stats: SyncStats;
 }> {
+  const reqId = requestId || `sync-${Date.now()}`;
   const supabase = getSupabaseClient();
+  
+  // 🚨 LOG CRÍTICO: Garantir que aparece SEMPRE
+  console.error('🚨🚨🚨 [FULL SYNC START] 🚨🚨🚨');
+  console.error(`[Full Sync] Request ID: ${reqId}`);
+  console.error(`[Full Sync] Organization ID: ${organizationId}`);
+  console.error(`[Full Sync] Selected Properties: ${selectedPropertyIds?.length || 0}`);
+  console.error(`[Full Sync] Selected IDs: ${JSON.stringify(selectedPropertyIds || [])}`);
+  console.error('🚨🚨🚨 [FULL SYNC START] 🚨🚨🚨');
+  
   const stats: SyncStats = {
     guests: { fetched: 0, created: 0, updated: 0, failed: 0 },
     properties: { fetched: 0, created: 0, updated: 0, failed: 0 },
@@ -83,7 +94,14 @@ export async function fullSyncStaysNet(
   };
 
   try {
-    console.log('[StaysNet Full Sync] 🚀 Iniciando importação completa...');
+    console.log('\n' + '█'.repeat(80));
+    console.log(`[StaysNet Full Sync] 🚀 INICIANDO SYNC [${reqId}]`);
+    console.log('█'.repeat(80));
+    console.log('[StaysNet Full Sync] Timestamp:', new Date().toISOString());
+    console.log('[StaysNet Full Sync] Organization ID:', organizationId);
+    console.log('[StaysNet Full Sync] Selected Property IDs:', selectedPropertyIds?.length || 0, selectedPropertyIds);
+    console.log('[StaysNet Full Sync] Date Range:', { startDate, endDate });
+    console.log('█'.repeat(80) + '\n');
     
     // ✅ Maps para usar nas reservas (criados nas fases anteriores)
     const guestIdMap = new Map<string, string>(); // clientId -> guestId
@@ -234,17 +252,29 @@ export async function fullSyncStaysNet(
       
       // Filtrar por propriedades selecionadas se fornecido
       if (selectedPropertyIds && selectedPropertyIds.length > 0) {
+        console.error(`🔍 [Full Sync] ANTES DO FILTRO: ${staysListings.length} propriedades`);
         staysListings = staysListings.filter(listing => 
           selectedPropertyIds.includes(listing._id || listing.id)
         );
+        console.error(`🔍 [Full Sync] DEPOIS DO FILTRO: ${staysListings.length} propriedades`);
+        console.error(`🔍 [Full Sync] IDs filtrados: ${staysListings.map(l => l._id || l.id).join(', ')}`);
       }
       
       stats.properties.fetched = staysListings.length;
-      console.log(`[StaysNet Full Sync] ✅ ${stats.properties.fetched} propriedades encontradas`);
+      console.log(`[StaysNet Full Sync] [${reqId}] ✅ ${stats.properties.fetched} propriedades encontradas`);
+      console.error(`🚨 [Full Sync] TOTAL A PROCESSAR: ${staysListings.length}`);
+      console.log(`[StaysNet Full Sync] [${reqId}] 📊 Início do processamento de ${staysListings.length} propriedades...`);
       
       for (const staysListing of staysListings) {
+        const staysListingId = staysListing._id || staysListing.id;
+        console.error(`\n🚨 [LOOP] PROPRIEDADE ${staysListings.indexOf(staysListing) + 1}/${staysListings.length}`);
+        console.error(`🚨 [LOOP] Stays ID: ${staysListingId}`);
+        console.log(`\n[StaysNet Full Sync] [${reqId}] 🔹 PROCESSANDO PROPRIEDADE ${staysListings.indexOf(staysListing) + 1}/${staysListings.length}`);
+        console.log(`[StaysNet Full Sync] [${reqId}]    Stays ID: ${staysListingId}`);
+        console.log(`[StaysNet Full Sync] [${reqId}]    Internal Name: ${staysListing.internalName || 'N/A'}`);
+        console.log(`[StaysNet Full Sync] [${reqId}]    Title: ${staysListing._mstitle?.pt_BR || staysListing._mstitle?.en_US || 'N/A'}`);
+        
         try {
-          const staysListingId = staysListing._id || staysListing.id;
           
           // ✅ Converter ObjectId (MongoDB) para UUID válido
           const propertyId = objectIdToUUID(staysListingId);
@@ -260,7 +290,8 @@ export async function fullSyncStaysNet(
             type: 'apartment', // Você pode mapear melhor baseado em staysListing._t_typeMeta
             status: staysListing.status === 'active' ? 'active' : 'draft',
             externalIds: {
-              stays_net_id: staysListingId,
+              stays_property_id: staysListingId, // ID primário no Stays para deduplicação
+              stays_net_id: staysListingId,      // legado: manter enquanto limpamos dados antigos
             },
             address: staysListing.address ? {
               street: staysListing.address.street || '',
@@ -319,14 +350,15 @@ export async function fullSyncStaysNet(
           // Atualizar property com owner_id válido
           property.ownerId = defaultOwnerId;
           
-          // ✅ CORREÇÃO v1.0.103.403: Salvar em anuncios_drafts (Anúncios Ultimate) ao invés de properties (wizard antigo)
-          const anuncioDraft = {
+          // ✅ Salvar em anuncios_ultimate (tabela correta do sistema Ultimate)
+          const anuncioData = {
             id: propertyId,
             organization_id: finalOrgId,
             user_id: defaultOwnerId,
             data: {
               title: property.name,
               internalId: property.code || staysListingId,
+              internalName: staysListing.internalName || property.name, // Nome interno vindo da Stays para rastreio
               description: property.description,
               propertyType: property.type || 'apartment',
               guests: property.maxGuests || 2,
@@ -347,37 +379,115 @@ export async function fullSyncStaysNet(
             updated_at: property.updatedAt || new Date().toISOString(),
           };
           
-          // Verificar se já existe por stays_net_id dentro do campo JSONB data
-          const { data: existing } = await supabase
-            .from('anuncios_drafts')
+          // Verificar se já existe por stays_property_id / stays_net_id (org) com fallback global para evitar duplicar
+          console.log(`[StaysNet Full Sync] [${reqId}] 🔍 Verificando duplicação para stays_property_id: ${staysListingId}`);
+          console.log(`[StaysNet Full Sync] [${reqId}]    Org ID: ${finalOrgId}`);
+          
+          const { data: existingByStaysId, error: dedupError1 } = await supabase
+            .from('anuncios_ultimate')
             .select('id')
             .eq('organization_id', finalOrgId)
-            .contains('data', { externalIds: { stays_net_id: staysListingId } })
+            .contains('data', { externalIds: { stays_property_id: staysListingId } })
             .maybeSingle();
           
-          if (existing) {
+          console.log(`[StaysNet Full Sync] [${reqId}]    Query 1 (stays_property_id): ${existingByStaysId ? 'ENCONTRADO' : 'NÃO ENCONTRADO'}`, dedupError1 || '');
+
+          let existing: { id: string } | null = existingByStaysId;
+          let existingLegacy: { id: string } | null = existingByStaysId;
+
+          if (!existing) {
+            console.log(`[StaysNet Full Sync] [${reqId}]    Tentando stays_net_id (legado)...`);
+            const { data: legacyOrg, error: dedupError2 } = await supabase
+              .from('anuncios_ultimate')
+              .select('id')
+              .eq('organization_id', finalOrgId)
+              .contains('data', { externalIds: { stays_net_id: staysListingId } })
+              .maybeSingle();
+            console.log(`[StaysNet Full Sync] [${reqId}]    Query 2 (stays_net_id org): ${legacyOrg ? 'ENCONTRADO' : 'NÃO ENCONTRADO'}`, dedupError2 || '');
+            existingLegacy = legacyOrg;
+          }
+
+          // Fallback global: nunca duplicar mesmo que esteja em outra org
+          if (!existing && !existingLegacy) {
+            console.log(`[StaysNet Full Sync] [${reqId}]    Fallback: buscando globalmente (todas orgs)...`);
+            const { data: existingAny, error: dedupError3 } = await supabase
+              .from('anuncios_ultimate')
+              .select('id')
+              .contains('data', { externalIds: { stays_property_id: staysListingId } })
+              .maybeSingle();
+            console.log(`[StaysNet Full Sync] [${reqId}]    Query 3 (global stays_property_id): ${existingAny ? 'ENCONTRADO' : 'NÃO ENCONTRADO'}`, dedupError3 || '');
+            existing = existingAny || null;
+
+            if (!existing) {
+              console.log(`[StaysNet Full Sync] [${reqId}]    Fallback: tentando stays_net_id globalmente...`);
+              const { data: legacyAny, error: dedupError4 } = await supabase
+                .from('anuncios_ultimate')
+                .select('id')
+                .contains('data', { externalIds: { stays_net_id: staysListingId } })
+                .maybeSingle();
+              console.log(`[StaysNet Full Sync] [${reqId}]    Query 4 (global stays_net_id): ${legacyAny ? 'ENCONTRADO' : 'NÃO ENCONTRADO'}`, dedupError4 || '');
+              existingLegacy = legacyAny || null;
+            }
+          }
+          
+          const targetExisting = existing || existingLegacy;
+          console.log(`[StaysNet Full Sync] [${reqId}] 🎯 Resultado dedup: ${targetExisting ? `EXISTENTE (${targetExisting.id})` : 'NOVO'}`);
+
+          if (targetExisting) {
             // Atualizar anúncio existente
-            const { error } = await supabase
-              .from('anuncios_drafts')
+            console.log(`[StaysNet Full Sync] [${reqId}] 🔄 Atualizando anúncio existente ${targetExisting.id}...`);
+            console.log(`[StaysNet Full Sync] [${reqId}]    Payload:`, JSON.stringify({
+              dataKeys: Object.keys(anuncioData.data),
+              status: anuncioData.status,
+              title: anuncioData.data.title,
+              internalName: anuncioData.data.internalName,
+            }));
+            
+            const { data: updateResult, error: updateError } = await supabase
+              .from('anuncios_ultimate')
               .update({
-                data: anuncioDraft.data,
-                status: anuncioDraft.status,
+                data: anuncioData.data,
+                status: anuncioData.status,
                 updated_at: new Date().toISOString(),
               })
-              .eq('id', existing.id);
+              .eq('id', targetExisting.id)
+              .select();
             
-            if (error) throw error;
-            console.log(`[StaysNet Full Sync] ♻️ Anúncio atualizado em anuncios_drafts: ${property.name} (${staysListingId})`);
+            if (updateError) {
+              console.error(`[StaysNet Full Sync] [${reqId}] ❌ Erro no UPDATE:`, updateError);
+              throw updateError;
+            }
+            console.log(`[StaysNet Full Sync] [${reqId}] ✅ Anúncio atualizado: ${property.name} (${staysListingId})`);
+            console.log(`[StaysNet Full Sync] [${reqId}]    Update result:`, updateResult ? `${updateResult.length} row(s)` : 'no data returned');
             stats.properties.updated++;
-            propertyIdMap.set(staysListingId, existing.id);
+            propertyIdMap.set(staysListingId, targetExisting.id);
           } else {
             // Criar novo anúncio
-            const { error } = await supabase
-              .from('anuncios_drafts')
-              .insert(anuncioDraft);
+            console.error(`🚨 [INSERT] Criando NOVO anúncio: ${property.name}`);
+            console.error(`🚨 [INSERT] Property ID: ${propertyId}`);
+            console.error(`🚨 [INSERT] Org ID: ${finalOrgId}`);
+            console.log(`[StaysNet Full Sync] [${reqId}] ✨ Criando NOVO anúncio...`);
+            console.log(`[StaysNet Full Sync] [${reqId}]    Payload completo:`, JSON.stringify(anuncioData, null, 2).substring(0, 500));
             
-            if (error) throw error;
-            console.log(`[StaysNet Full Sync] ✨ Novo anúncio criado em anuncios_drafts: ${property.name} (${staysListingId})`);
+            const { data: insertResult, error: insertError } = await supabase
+              .from('anuncios_ultimate')
+              .insert(anuncioData)
+              .select();
+            
+            console.error(`🚨 [INSERT] Resultado - Error: ${insertError ? JSON.stringify(insertError) : 'null'}`);
+            console.error(`🚨 [INSERT] Resultado - Data: ${insertResult ? JSON.stringify(insertResult).substring(0, 200) : 'null'}`);
+            
+            if (insertError) {
+              console.error(`[StaysNet Full Sync] [${reqId}] ❌ Erro no INSERT:`, insertError);
+              console.error(`[StaysNet Full Sync] [${reqId}]    Error code:`, insertError.code);
+              console.error(`[StaysNet Full Sync] [${reqId}]    Error message:`, insertError.message);
+              console.error(`[StaysNet Full Sync] [${reqId}]    Error details:`, insertError.details);
+              console.error(`[StaysNet Full Sync] [${reqId}]    Error hint:`, insertError.hint);
+              throw insertError;
+            }
+            console.log(`[StaysNet Full Sync] [${reqId}] ✅ Novo anúncio criado: ${property.name} (${staysListingId})`);
+            console.log(`[StaysNet Full Sync] [${reqId}]    Insert result:`, insertResult ? `${insertResult.length} row(s)` : 'no data returned');
+            console.log(`[StaysNet Full Sync] [${reqId}]    Inserted ID:`, insertResult?.[0]?.id || 'N/A');
             stats.properties.created++;
             propertyIdMap.set(staysListingId, propertyId);
           }
@@ -389,7 +499,15 @@ export async function fullSyncStaysNet(
       }
     }
     
-    console.log(`[StaysNet Full Sync] ✅ Fase 2 concluída: ${stats.properties.created} criadas, ${stats.properties.updated} atualizadas, ${stats.properties.failed} falharam`);
+    console.log('\n' + '─'.repeat(80));
+    console.log(`[StaysNet Full Sync] [${reqId}] ✅ FASE 2 CONCLUÍDA`);
+    console.log('─'.repeat(80));
+    console.log(`[StaysNet Full Sync] [${reqId}] 📊 Estatísticas:`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    ✨ Criadas: ${stats.properties.created}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    🔄 Atualizadas: ${stats.properties.updated}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    ❌ Falharam: ${stats.properties.failed}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    📥 Total buscadas: ${stats.properties.fetched}`);
+    console.log('─'.repeat(80) + '\n');
     
     // ============================================================================
     // FASE 3: IMPORTAR RESERVAS [DESABILITADA TEMPORARIAMENTE]
@@ -707,14 +825,54 @@ export async function fullSyncStaysNet(
     console.log(`[StaysNet Full Sync] ✅ Fase 3 concluída: ${stats.reservations.created} criadas, ${stats.reservations.updated} atualizadas, ${stats.reservations.failed} falharam`);
     */
     console.log('[StaysNet Full Sync] ⚠️ Fase 3 (reservas) DESABILITADA - focando apenas em propriedades');
-    console.log('[StaysNet Full Sync] 🎉 Importação completa finalizada!');
+    
+    console.log('\n' + '█'.repeat(80));
+    console.log(`[StaysNet Full Sync] [${reqId}] 🎉 IMPORTAÇÃO COMPLETA FINALIZADA`);
+    console.log('█'.repeat(80));
+    console.log(`[StaysNet Full Sync] [${reqId}] 📊 RESUMO FINAL:`);
+    console.log(`[StaysNet Full Sync] [${reqId}]`);
+    console.log(`[StaysNet Full Sync] [${reqId}] 👥 HÓSPEDES:`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    📥 Buscados: ${stats.guests.fetched}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    ✨ Criados: ${stats.guests.created}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    🔄 Atualizados: ${stats.guests.updated}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    ❌ Falharam: ${stats.guests.failed}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]`);
+    console.log(`[StaysNet Full Sync] [${reqId}] 🏠 PROPRIEDADES:`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    📥 Buscadas: ${stats.properties.fetched}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    ✨ Criadas: ${stats.properties.created}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    🔄 Atualizadas: ${stats.properties.updated}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    ❌ Falharam: ${stats.properties.failed}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]`);
+    console.log(`[StaysNet Full Sync] [${reqId}] 📅 RESERVAS:`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    📥 Buscadas: ${stats.reservations.fetched}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    ✨ Criadas: ${stats.reservations.created}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    🔄 Atualizadas: ${stats.reservations.updated}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]    ❌ Falharam: ${stats.reservations.failed}`);
+    console.log(`[StaysNet Full Sync] [${reqId}]`);
+    console.log(`[StaysNet Full Sync] [${reqId}] ❌ ERROS (${stats.errors.length}):`);
+    if (stats.errors.length > 0) {
+      stats.errors.forEach((err, idx) => {
+        console.log(`[StaysNet Full Sync] [${reqId}]    ${idx + 1}. ${err}`);
+      });
+    } else {
+      console.log(`[StaysNet Full Sync] [${reqId}]    Nenhum erro!`);
+    }
+    console.log(`[StaysNet Full Sync] [${reqId}]`);
+    console.log(`[StaysNet Full Sync] [${reqId}] ✅ SUCCESS: ${stats.properties.created + stats.properties.updated > 0 || stats.errors.length === 0}`);
+    console.log('█'.repeat(80) + '\n');
     
     return {
       success: true,
       stats,
     };
   } catch (error: any) {
-    console.error('[StaysNet Full Sync] ❌ Erro geral:', error);
+    console.log('\n' + '⚠'.repeat(80));
+    console.error(`[StaysNet Full Sync] [${reqId}] ❌ ERRO GERAL NA IMPORTAÇÃO`);
+    console.log('⚠'.repeat(80));
+    console.error(`[StaysNet Full Sync] [${reqId}] Tipo:`, error.constructor.name);
+    console.error(`[StaysNet Full Sync] [${reqId}] Mensagem:`, error.message);
+    console.error(`[StaysNet Full Sync] [${reqId}] Stack:`, error.stack);
+    console.log('⚠'.repeat(80) + '\n');
     stats.errors.push(`Erro geral: ${error.message}`);
     return {
       success: false,
