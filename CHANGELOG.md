@@ -48,6 +48,23 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - 🔴 **Issue #47**: StaysNet exportava anúncios para wizard antigo (properties) ao invés de Anúncios Ultimate
   - `supabase/functions/rendizy-server/staysnet-full-sync.ts` linha ~320
   - Mudança de tabela: `properties` (abandonado) → `anuncios_drafts` (oficial)
+- 🔴 **Issue #48**: ListaAnuncios retornava apenas 2 anúncios ao invés de 159
+  - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 69
+  - Frontend mudou de REST API direta → Edge Function `/anuncios-ultimate/lista`
+  - Adiciona header `X-Auth-Token` para aplicar RLS corretamente
+  - Agora retorna TODOS os anúncios da organização (filtrado via token)
+  - Documento: `⚡_FIX_LISTA_ANUNCIOS_VIA_BACKEND_v1.0.103.404.md`
+- 🔴 **Issue #49**: URL incorreta em ListaAnuncios + 157 anúncios invisíveis em tabela antiga
+  - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 73
+  - **Problema 1 (URL)**: Removido prefixo incorreto `/make-server-67caf26a/` da URL
+  - URL corrigida: `/functions/v1/rendizy-server/anuncios-ultimate/lista` (sem prefixo)
+  - **Problema 2 (Dados)**: 157 anúncios em `properties` (tabela antiga) não apareciam
+  - **Solução**: Criado script `migrar-properties-para-anuncios.ps1`
+  - Migra `properties` → `anuncios_drafts` preservando IDs originais
+  - Converte estrutura para JSONB: `properties.name` → `anuncios_drafts.title` + `data`
+  - Status padrão: `"draft"`, completion: 50%
+  - Metadados: `migrated_from: "properties"`, `migrated_at: timestamp`
+  - Documento: `⚡_FIX_MIGRACAO_PROPERTIES_v1.0.103.405.md`
   - Estrutura adaptada: campos SQL → campo JSONB `data` flexível
   - Anúncios importados agora aparecem em `/anuncios-ultimate/lista`
   - Query de deduplicação: `contains('data', { externalIds: { stays_net_id } })`

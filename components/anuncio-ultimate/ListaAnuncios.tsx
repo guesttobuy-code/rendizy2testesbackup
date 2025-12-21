@@ -66,11 +66,11 @@ export const ListaAnuncios = () => {
   const loadAnuncios = async () => {
     setLoading(true);
     try {
-      // ✅ v1.0.103.404: Usar backend Edge Function ao invés de REST API direta
-      // Problema: RLS bloqueia registros quando usa REST API sem org context
+      // ✅ v1.0.103.405: Corrigida URL da Edge Function (removido /make-server-67caf26a/)
+      // URL correta: /functions/v1/rendizy-server/anuncios-ultimate/lista
       const token = localStorage.getItem('rendizy-token');
       
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/make-server-67caf26a/anuncios-ultimate/lista`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
         headers: {
           'apikey': ANON_KEY,
           'X-Auth-Token': token || '',
