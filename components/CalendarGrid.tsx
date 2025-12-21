@@ -735,9 +735,9 @@ export function Calendar({
           <TooltipProvider>
             <table className="w-full border-collapse">
             {/* Header with days - Sticky (fixo durante rolagem vertical e horizontal) */}
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="sticky top-0 left-0 z-40 bg-gray-50 border-r border-gray-200 p-2 text-left min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
+            <thead className="sticky top-0 z-50">
+              <tr className="bg-gray-50 border-b border-gray-200 shadow-md">
+                <th className="sticky top-0 left-0 z-50 bg-gray-50 border-r border-gray-200 p-2 text-left min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                   <span className="text-sm text-gray-600">Padrão</span>
                 </th>
                 {days.map((day, idx) => {
@@ -751,7 +751,7 @@ export function Calendar({
                   return (
                     <th
                       key={idx}
-                      className={`sticky top-0 z-30 border-r border-gray-200 p-1.5 min-w-[80px] text-center ${
+                      className={`sticky top-0 z-40 border-r border-gray-200 p-1.5 min-w-[80px] text-center ${
                         isToday ? 'bg-blue-100' : 'bg-gray-50'
                       }`}
                     >
