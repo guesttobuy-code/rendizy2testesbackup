@@ -26,7 +26,9 @@ const getDaysInMonth = (date: Date, dateRange?: { from: Date; to: Date }) => {
   // Se dateRange fornecido, gerar todos os dias do range
   if (dateRange) {
     const days: Date[] = [];
+    // ✅ FIX v1.0.103.407: Incluir o dia anterior ao from para ver cards de reservas que terminam hoje
     const currentDate = new Date(dateRange.from);
+    currentDate.setDate(currentDate.getDate() - 1); // Começar 1 dia antes
     currentDate.setHours(0, 0, 0, 0);
     const endDate = new Date(dateRange.to);
     endDate.setHours(0, 0, 0, 0);
@@ -738,24 +740,41 @@ export function Calendar({
                 <th className="sticky top-0 left-0 z-40 bg-gray-50 border-r border-gray-200 p-2 text-left min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
                   <span className="text-sm text-gray-600">Padrão</span>
                 </th>
-                {days.map((day, idx) => (
-                  <th
-                    key={idx}
-                    className="sticky top-0 z-30 border-r border-gray-200 p-1.5 min-w-[80px] text-center bg-gray-50"
-                  >
-                    <div className="flex flex-col items-center gap-0 py-0.5">
-                      <div className="text-sm text-gray-900 font-medium">
-                        {day.getDate()}
+                {days.map((day, idx) => {
+                  // ✅ FIX v1.0.103.407: Detectar dia atual para destacar coluna
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const dayNormalized = new Date(day);
+                  dayNormalized.setHours(0, 0, 0, 0);
+                  const isToday = dayNormalized.getTime() === today.getTime();
+                  
+                  return (
+                    <th
+                      key={idx}
+                      className={`sticky top-0 z-30 border-r border-gray-200 p-1.5 min-w-[80px] text-center ${
+                        isToday ? 'bg-blue-100' : 'bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-0 py-0.5">
+                        <div className={`text-sm font-medium ${
+                          isToday ? 'text-blue-900' : 'text-gray-900'
+                        }`}>
+                          {day.getDate()}
+                        </div>
+                        <div className={`text-2xs uppercase leading-tight ${
+                          isToday ? 'text-blue-700' : 'text-gray-500'
+                        }`}>
+                          {day.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
+                        </div>
+                        <div className={`text-2xs leading-tight ${
+                          isToday ? 'text-blue-600' : 'text-gray-400'
+                        }`}>
+                          {day.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
+                        </div>
                       </div>
-                      <div className="text-gray-500 text-2xs uppercase leading-tight">
-                        {day.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
-                      </div>
-                      <div className="text-gray-400 text-2xs leading-tight">
-                        {day.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
-                      </div>
-                    </div>
-                  </th>
-                ))}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
 
@@ -791,9 +810,20 @@ export function Calendar({
                       </button>
                     </div>
                   </td>
-                  {days.map((day, idx) => (
-                    <td key={idx} className="border-r border-gray-200 bg-gray-100"></td>
-                  ))}
+                  {days.map((day, idx) => {
+                    // ✅ FIX v1.0.103.407: Detectar dia atual
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dayNormalized = new Date(day);
+                    dayNormalized.setHours(0, 0, 0, 0);
+                    const isToday = dayNormalized.getTime() === today.getTime();
+                    
+                    return (
+                      <td key={idx} className={`border-r border-gray-200 ${
+                        isToday ? 'bg-blue-50' : 'bg-gray-100'
+                      }`}></td>
+                    );
+                  })}
                 </tr>
 
                 {/* Bulk Rules rows - Only shown when expanded */}
@@ -808,12 +838,20 @@ export function Calendar({
                         </div>
                       </td>
                       {days.map((day, idx) => {
+                        // ✅ FIX v1.0.103.407: Detectar dia atual
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const dayNormalized = new Date(day);
+                        dayNormalized.setHours(0, 0, 0, 0);
+                        const isToday = dayNormalized.getTime() === today.getTime();
                         const isSelected = isDateInGlobalPriceSelection(day);
+                        
                         return (
                           <td
                             key={idx}
                             className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
-                              isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-orange-50 hover:bg-orange-100'
+                              isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 
+                              isToday ? 'bg-orange-100' : 'bg-orange-50 hover:bg-orange-100'
                             }`}
                             onMouseDown={(e) => handleGlobalPriceMouseDown(day, e)}
                             onMouseEnter={(e) => handleGlobalPriceMouseEnter(day, e)}
@@ -834,14 +872,22 @@ export function Calendar({
                         </div>
                       </td>
                       {days.map((day, idx) => {
+                        // ✅ FIX v1.0.103.407: Detectar dia atual
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const dayNormalized = new Date(day);
+                        dayNormalized.setHours(0, 0, 0, 0);
+                        const isToday = dayNormalized.getTime() === today.getTime();
                         const dayOfWeek = day.getDay();
                         const isSunday = dayOfWeek === 0;
                         const isSelected = isDateInGlobalRestrictionsSelection(day);
+                        
                         return (
                           <td
                             key={idx}
                             className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
                               isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 
+                              isToday ? (isSunday ? 'bg-red-200' : 'bg-red-100') :
                               isSunday ? 'bg-red-200 hover:bg-red-300' : 'bg-red-50 hover:bg-red-100'
                             }`}
                             onMouseDown={(e) => handleGlobalRestrictionsMouseDown(day, e)}
@@ -863,12 +909,20 @@ export function Calendar({
                         </div>
                       </td>
                       {days.map((day, idx) => {
+                        // ✅ FIX v1.0.103.407: Detectar dia atual
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const dayNormalized = new Date(day);
+                        dayNormalized.setHours(0, 0, 0, 0);
+                        const isToday = dayNormalized.getTime() === today.getTime();
                         const isSelected = isDateInGlobalMinNightsSelection(day);
+                        
                         return (
                           <td
                             key={idx}
                             className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
-                              isSelected ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset' : 'bg-blue-50 hover:bg-blue-100'
+                              isSelected ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset' : 
+                              isToday ? 'bg-blue-100' : 'bg-blue-50 hover:bg-blue-100'
                             }`}
                             onMouseDown={(e) => handleGlobalMinNightsMouseDown(day, e)}
                             onMouseEnter={(e) => handleGlobalMinNightsMouseEnter(day, e)}
@@ -887,9 +941,20 @@ export function Calendar({
                   <td className="sticky left-0 z-10 bg-gray-50 border-r border-gray-200 p-2">
                     <span className="text-sm text-gray-700">Anúncios - Imóveis</span>
                   </td>
-                  {days.map((day, idx) => (
-                    <td key={idx} className="border-r border-gray-200 bg-gray-50"></td>
-                  ))}
+                  {days.map((day, idx) => {
+                    // ✅ FIX v1.0.103.407: Detectar dia atual
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dayNormalized = new Date(day);
+                    dayNormalized.setHours(0, 0, 0, 0);
+                    const isToday = dayNormalized.getTime() === today.getTime();
+                    
+                    return (
+                      <td key={idx} className={`border-r border-gray-200 ${
+                        isToday ? 'bg-blue-50' : 'bg-gray-50'
+                      }`}></td>
+                    );
+                  })}
                 </tr>
 
               {properties.map((property) => {
@@ -929,6 +994,13 @@ export function Calendar({
                         const blockOnDay = getBlockForPropertyAndDate(property.id, day, blocks);
                         const isSelected = isDateInEmptySelection(property.id, day);
                         
+                        // ✅ FIX v1.0.103.407: Detectar dia atual para destaque
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const dayNormalized = new Date(day);
+                        dayNormalized.setHours(0, 0, 0, 0);
+                        const isToday = dayNormalized.getTime() === today.getTime();
+                        
                         // ✅ FIX v1.0.103.366: Helper para extrair data local sem timezone
                         const formatLocalDate = (d: Date): string => {
                           const year = d.getFullYear();
@@ -939,11 +1011,28 @@ export function Calendar({
                         
                         const dayStr = formatLocalDate(day);
                         
-                        // Renderizar apenas reservas que COMEÇAM neste dia (primeira célula)
+                        // ✅ FIX v1.0.103.407: Renderizar reservas que COMEÇAM neste dia OU que terminam no dia seguinte
+                        // Isso garante que vemos cards de reservas anteriores que ainda ocupam hoje
                         const reservationsStartingToday = allReservationsOnDay.filter(r => {
                           const checkInStr = r.checkIn.split('T')[0];
                           return checkInStr === dayStr;
                         });
+                        
+                        // ✅ NOVO v1.0.103.407: Incluir também reservas que terminam amanhã (para ver no dia anterior)
+                        const tomorrow = new Date(day);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        const tomorrowStr = formatLocalDate(tomorrow);
+                        
+                        const reservationsEndingTomorrow = reservations.filter(r => {
+                          if (r.propertyId !== property.id) return false;
+                          const checkOutStr = r.checkOut.split('T')[0];
+                          const checkInStr = r.checkIn.split('T')[0];
+                          // Incluir se termina amanhã E não começa hoje (para evitar duplicatas)
+                          return checkOutStr === tomorrowStr && checkInStr !== dayStr;
+                        });
+                        
+                        // Combinar ambos os arrays
+                        const allReservationsToShow = [...reservationsStartingToday, ...reservationsEndingTomorrow];
                         
                         // Verificar se o bloqueio COMEÇA neste dia
                         const blockStartsToday = blockOnDay && blockOnDay.startDate === dayStr;
@@ -963,8 +1052,10 @@ export function Calendar({
                           <td
                             key={idx}
                             className={`border-r border-gray-200 p-0.5 h-12 align-top relative group ${
+                              isToday ? 'bg-blue-50' : ''
+                            } ${
                               allReservationsOnDay.length === 0 && !blockOnDay
-                                ? `hover:bg-blue-50 ${isSelectingEmpty ? 'cursor-grabbing' : 'cursor-pointer'}` 
+                                ? `hover:bg-blue-100 ${isSelectingEmpty ? 'cursor-grabbing' : 'cursor-pointer'}` 
                                 : ''
                             }`}
                             onMouseDown={() => allReservationsOnDay.length === 0 && !blockOnDay && handleEmptyMouseDown(property.id, day)}
@@ -995,8 +1086,8 @@ export function Calendar({
                               </div>
                             )}
                             
-                            {/* Renderizar todas as reservas que COMEÇAM neste dia */}
-                            {reservationsStartingToday.map((reservation, resIdx) => {
+                            {/* ✅ FIX v1.0.103.407: Renderizar TODAS as reservas (incluindo as que terminam amanhã) */}
+                            {allReservationsToShow.map((reservation, resIdx) => {
                               // Check for adjacent reservations
                               let hasAdjacentPrev = false;
                               let hasAdjacentNext = false;
@@ -1028,7 +1119,7 @@ export function Calendar({
                               return (
                                 <div 
                                   key={reservation.id} 
-                                  className={resIdx < reservationsStartingToday.length - 1 ? 'mb-1' : ''}
+                                  className={resIdx < allReservationsToShow.length - 1 ? 'mb-1' : ''}
                                   onClick={() => onReservationClick(reservation)}
                                 >
                                   <ReservationCard
@@ -1037,7 +1128,7 @@ export function Calendar({
                                     hasAdjacentNext={hasAdjacentNext}
                                     hasAdjacentPrev={hasAdjacentPrev}
                                     stackIndex={resIdx}
-                                    totalStacked={reservationsStartingToday.length}
+                                    totalStacked={allReservationsToShow.length}
                                   />
                                 </div>
                               );
