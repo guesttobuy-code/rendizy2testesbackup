@@ -68,7 +68,7 @@ import { DocumentosListasClientes } from './components/DocumentosListasClientes'
 import { ReservationsManagement } from './components/ReservationsManagement';
 import { BookingComIntegration } from './components/BookingComIntegration';
 import { LocationsAndListings } from './components/LocationsAndListings';
-import { PropertiesManagement } from './components/PropertiesManagement';
+// ❌ DEPRECADO v1.0.103.406 - import { PropertiesManagement } from './components/PropertiesManagement';
 import { DiagnosticoImovel } from './components/DiagnosticoImovel';
 import { SettingsManager } from './components/SettingsManager';
 import { BulkPricingManager } from './components/BulkPricingManager';
@@ -129,9 +129,10 @@ const ChatModule = React.lazy(() =>
 const LocationsModule = React.lazy(() =>
   import('./components/locations/LocationsModule').then((m) => ({ default: m.LocationsModule }))
 );
-const PropertiesModule = React.lazy(() =>
-  import('./components/properties/PropertiesModule').then((m) => ({ default: m.PropertiesModule }))
-);
+// ❌ DEPRECADO v1.0.103.406 - PropertiesModule removido
+// const PropertiesModule = React.lazy(() =>
+//   import('./components/properties/PropertiesModule').then((m) => ({ default: m.PropertiesModule }))
+// );
 const GuestsModule = React.lazy(() =>
   import('./components/guests/GuestsModule').then((m) => ({ default: m.GuestsModule }))
 );

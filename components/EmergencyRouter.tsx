@@ -18,8 +18,9 @@ export function EmergencyRouter() {
     // Se está em qualquer rota que não seja uma das válidas, redirecionar
     const validRoutes = [
       '/',
-      '/properties',
-      '/properties/new',
+      // '/properties', // ❌ DEPRECADO v1.0.103.406
+      // '/properties/new', // ❌ DEPRECADO v1.0.103.406
+      '/anuncios-ultimate/lista',
       '/reservations',
       '/admin',
       '/financeiro',

@@ -30,7 +30,7 @@ import bulkPricingApp from "./routes-bulk-pricing.ts";
 import quotationsApp from "./routes-quotations.ts";
 import blocksApp from "./routes-blocks.ts";
 import propertyTypesApp from "./routes-property-types.ts";
-import propertyWizardApp from "./routes-property-wizard.ts";
+// ❌ DEPRECADO v1.0.103.406 - import propertyWizardApp from "./routes-property-wizard.ts";
 import * as locationAmenitiesRoutes from "./routes-location-amenities.ts";
 import * as staysnetRoutes from "./routes-staysnet.ts";
 import * as amenitiesRoutes from "./routes-amenities.ts";
@@ -572,51 +572,30 @@ app.use("/rendizy-server/make-server-67caf26a/properties/*", tenancyMiddleware);
 // ✅ Novas rotas sem hash também protegidas
 app.use("/rendizy-server/properties/*", tenancyMiddleware);
 
-// Rotas antigas (com hash)
-app.get(
-  "/rendizy-server/make-server-67caf26a/properties",
-  propertiesRoutes.listProperties
-);
-app.get(
-  "/rendizy-server/make-server-67caf26a/properties/:id",
-  propertiesRoutes.getProperty
-);
-app.post(
-  "/rendizy-server/make-server-67caf26a/properties",
-  propertiesRoutes.createProperty
-);
-app.put(
-  "/rendizy-server/make-server-67caf26a/properties/:id",
-  propertiesRoutes.updateProperty
-);
-app.delete(
-  "/rendizy-server/make-server-67caf26a/properties/:id",
-  propertiesRoutes.deleteProperty
-);
-app.get(
-  "/rendizy-server/make-server-67caf26a/properties/:id/stats",
-  propertiesRoutes.getPropertyStats
-);
-// ✅ MELHORIA v1.0.103.400 - Listings separados de Properties
-app.get(
-  "/rendizy-server/make-server-67caf26a/properties/:id/listings",
-  propertiesRoutes.getPropertyListings
-);
+// ❌ DEPRECADO v1.0.103.406 - Rotas antigas (com hash) do wizard properties
+// app.get("/rendizy-server/make-server-67caf26a/properties", propertiesRoutes.listProperties);
+// app.get("/rendizy-server/make-server-67caf26a/properties/:id", propertiesRoutes.getProperty);
+// app.post("/rendizy-server/make-server-67caf26a/properties", propertiesRoutes.createProperty);
+// app.put("/rendizy-server/make-server-67caf26a/properties/:id", propertiesRoutes.updateProperty);
+// app.delete("/rendizy-server/make-server-67caf26a/properties/:id", propertiesRoutes.deleteProperty);
+// app.get("/rendizy-server/make-server-67caf26a/properties/:id/stats", propertiesRoutes.getPropertyStats);
 
-// ✅ Novas rotas sem hash (usadas por `utils/api.ts` → `/properties`)
-app.get("/rendizy-server/properties", propertiesRoutes.listProperties);
-app.get("/rendizy-server/properties/:id", propertiesRoutes.getProperty);
-app.post("/rendizy-server/properties", propertiesRoutes.createProperty);
-app.put("/rendizy-server/properties/:id", propertiesRoutes.updateProperty);
-app.delete("/rendizy-server/properties/:id", propertiesRoutes.deleteProperty);
-app.get(
-  "/rendizy-server/properties/:id/stats",
-  propertiesRoutes.getPropertyStats
-);
-app.get(
-  "/rendizy-server/properties/:id/listings",
-  propertiesRoutes.getPropertyListings
-);
+// ❌ DEPRECADO v1.0.103.406 - Rotas antigas do wizard properties (migrado para anuncios_drafts)
+// app.get("/rendizy-server/make-server-67caf26a/properties/:id", propertiesRoutes.getProperty);
+// app.post("/rendizy-server/make-server-67caf26a/properties/:id", propertiesRoutes.createProperty);
+// app.put("/rendizy-server/make-server-67caf26a/properties/:id", propertiesRoutes.updateProperty);
+// app.delete("/rendizy-server/make-server-67caf26a/properties/:id", propertiesRoutes.deleteProperty);
+// app.get("/rendizy-server/make-server-67caf26a/properties/:id/stats", propertiesRoutes.getPropertyStats);
+// app.get("/rendizy-server/make-server-67caf26a/properties/:id/listings", propertiesRoutes.getPropertyListings);
+
+// ❌ DEPRECADO v1.0.103.406 - Rotas sem hash (migrado para anuncios_drafts)
+// app.get("/rendizy-server/properties", propertiesRoutes.listProperties);
+// app.get("/rendizy-server/properties/:id", propertiesRoutes.getProperty);
+// app.post("/rendizy-server/properties", propertiesRoutes.createProperty);
+// app.put("/rendizy-server/properties/:id", propertiesRoutes.updateProperty);
+// app.delete("/rendizy-server/properties/:id", propertiesRoutes.deleteProperty);
+// app.get("/rendizy-server/properties/:id/stats", propertiesRoutes.getPropertyStats);
+// app.get("/rendizy-server/properties/:id/listings", propertiesRoutes.getPropertyListings);
 
 // ============================================================================
 // AMENITIES ROUTES (v1.0.103.80)

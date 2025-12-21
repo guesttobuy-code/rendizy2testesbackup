@@ -382,7 +382,7 @@ export function MainSidebar({
     'calendario': '/calendario',
     'central-reservas': '/reservations',
     'central-mensagens': '/chat',
-    'imoveis': '/properties',
+    // ❌ DEPRECADO v1.0.103.406 - 'imoveis': '/properties',
     'locations-manager': '/locations',
     'precificacao-lote': '/pricing',
     'integracoes-bookingcom': '/integrations',
