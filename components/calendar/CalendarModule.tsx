@@ -62,6 +62,21 @@ export function CalendarModule({
   handleReservationClick,
   handleOpenBlockDetails,
 }: CalendarModuleProps) {
+  // Paginação de propriedades para reduzir DOM e melhorar performance
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(50);
+
+  const filteredProperties = React.useMemo(
+    () => properties.filter((p) => selectedProperties.includes(p.id)),
+    [properties, selectedProperties]
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredProperties.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedProperties = React.useMemo(
+    () => filteredProperties.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredProperties, safePage, pageSize]
+  );
+
   return (
     <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors">
       <LoadingProgress isLoading={initialLoading} />
@@ -114,11 +129,46 @@ export function CalendarModule({
               onExport={() => setExportModal(true)}
             />
 
+            {/* Barra de Paginação */}
+            <div className="flex items-center gap-2 px-4 py-2 border-t border-b bg-white">
+              <span className="text-sm text-gray-700">Imóveis: {filteredProperties.length}</span>
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="text-sm text-gray-600">Por página</label>
+                <select
+                  className="border rounded px-2 py-1 text-sm"
+                  value={pageSize}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setPageSize(val);
+                    setPage(1);
+                  }}
+                >
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <button
+                  className="px-2 py-1 border rounded text-sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                >
+                  ◀
+                </button>
+                <span className="text-sm">Página {safePage} / {totalPages}</span>
+                <button
+                  className="px-2 py-1 border rounded text-sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                >
+                  ▶
+                </button>
+              </div>
+            </div>
+
             {/* 🎁 Container de scroll ISOLADO para o calendário - permite scroll X e Y */}
             <div className="flex-1 min-h-0 overflow-auto">
               {currentView === 'calendar' && (
                 <Calendar
-                  properties={properties.filter((p) => selectedProperties.includes(p.id))}
+                  properties={paginatedProperties}
                   reservations={reservations}
                   blocks={blocks}
                   currentMonth={currentMonth}
@@ -133,7 +183,7 @@ export function CalendarModule({
 
               {currentView === 'list' && (
                 <ListView
-                  properties={properties.filter((p) => selectedProperties.includes(p.id))}
+                  properties={paginatedProperties}
                   reservations={reservations}
                   selectedReservationTypes={selectedReservationTypes}
                   onReservationClick={handleReservationClick}
@@ -142,7 +192,7 @@ export function CalendarModule({
 
               {currentView === 'timeline' && (
                 <TimelineView
-                  properties={properties.filter((p) => selectedProperties.includes(p.id))}
+                  properties={paginatedProperties}
                   reservations={reservations}
                   blocks={blocks}
                   dateRange={dateRange}

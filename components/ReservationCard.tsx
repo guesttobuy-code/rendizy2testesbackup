@@ -70,7 +70,7 @@ const getStatusInfo = (status: string) => {
   return info[status] || info.confirmed;
 };
 
-export function ReservationCard({ 
+function ReservationCardComponent({ 
   reservation, 
   days, 
   hasAdjacentNext = false, 
@@ -228,3 +228,5 @@ export function ReservationCard({
     </TooltipProvider>
   );
 }
+
+export const ReservationCard = React.memo(ReservationCardComponent);
