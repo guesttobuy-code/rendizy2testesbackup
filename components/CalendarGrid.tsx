@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Property, Reservation } from '../App';
 import { ReservationCard } from './ReservationCard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -209,27 +209,14 @@ export function Calendar({
   onBlockClick
 }: CalendarProps) {
   // 🔍 DEBUG: Verificar se bloqueios chegam como props
-  useEffect(() => {
-    console.log('🔍 [CalendarGrid] Props recebidas:', {
-      blocksCount: blocks?.length || 0,
-      blocksArray: blocks,
-      propertiesCount: properties.length,
-      reservationsCount: reservations.length
-    });
-    
-    if (blocks && blocks.length > 0) {
-      console.log('🔍 [CalendarGrid] Primeiro bloqueio:', {
-        id: blocks[0].id,
-        propertyId: blocks[0].propertyId,
-        startDate: blocks[0].startDate,
-        endDate: blocks[0].endDate,
-        nights: blocks[0].nights
-      });
-    }
-  }, [blocks, properties, reservations]);
+        useEffect(() => {
+          // Logs removidos para melhorar performance de renderização
+        }, [blocks, properties, reservations]);
   
-  // Usar dateRange se fornecido, senão usar currentMonth
-  const days = dateRange ? getDaysInMonth(currentMonth, dateRange) : getDaysInMonth(currentMonth);
+  // Usar dateRange se fornecido, senão usar currentMonth (memoizado)
+  const days = useMemo(() => {
+    return dateRange ? getDaysInMonth(currentMonth, dateRange) : getDaysInMonth(currentMonth);
+  }, [currentMonth, dateRange]);
   const [priceSelectionStart, setPriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
   const [priceSelectionEnd, setPriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -333,14 +320,7 @@ export function Calendar({
     if (!priceSelectionEnd) return date.getTime() === priceSelectionStart.date.getTime();
     
     const start = priceSelectionStart.date < priceSelectionEnd.date ? priceSelectionStart.date : priceSelectionEnd.date;
-    const end = priceSelectionStart.date > priceSelectionEnd.date ? priceSelectionStart.date : priceSelectionEnd.date;
-    
-    return date >= start && date <= end;
-  };
-
-  // Min nights handlers
-  const handleMinNightsMouseDown = (propertyId: string, date: Date) => {
-    setMinNightsSelectionStart({ propertyId, date });
+            // Evitar logs a cada célula para reduzir overhead
     setIsSelectingMinNights(true);
   };
 
