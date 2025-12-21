@@ -1010,28 +1010,13 @@ export function Calendar({
                         
                         const dayStr = formatLocalDate(day);
                         
-                        // ✅ FIX v1.0.103.407: Renderizar reservas que COMEÇAM neste dia OU que terminam no dia seguinte
-                        // Isso garante que vemos cards de reservas anteriores que ainda ocupam hoje
+                        // ✅ FIX v1.0.103.411: Renderizar apenas reservas que COMEÇAM neste dia
+                        // O card já se estende naturalmente pelos dias (width = nights * 80px)
+                        // Com dia anterior incluído no range, vemos a continuação dos cards automaticamente
                         const reservationsStartingToday = allReservationsOnDay.filter(r => {
                           const checkInStr = r.checkIn.split('T')[0];
                           return checkInStr === dayStr;
                         });
-                        
-                        // ✅ NOVO v1.0.103.407: Incluir também reservas que terminam amanhã (para ver no dia anterior)
-                        const tomorrow = new Date(day);
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        const tomorrowStr = formatLocalDate(tomorrow);
-                        
-                        const reservationsEndingTomorrow = reservations.filter(r => {
-                          if (r.propertyId !== property.id) return false;
-                          const checkOutStr = r.checkOut.split('T')[0];
-                          const checkInStr = r.checkIn.split('T')[0];
-                          // Incluir se termina amanhã E não começa hoje (para evitar duplicatas)
-                          return checkOutStr === tomorrowStr && checkInStr !== dayStr;
-                        });
-                        
-                        // Combinar ambos os arrays
-                        const allReservationsToShow = [...reservationsStartingToday, ...reservationsEndingTomorrow];
                         
                         // Verificar se o bloqueio COMEÇA neste dia
                         const blockStartsToday = blockOnDay && blockOnDay.startDate === dayStr;
@@ -1085,8 +1070,9 @@ export function Calendar({
                               </div>
                             )}
                             
-                            {/* ✅ FIX v1.0.103.407: Renderizar TODAS as reservas (incluindo as que terminam amanhã) */}
-                            {allReservationsToShow.map((reservation, resIdx) => {
+                            {/* ✅ FIX v1.0.103.411: Renderizar apenas reservas que começam neste dia */}
+                            {/* O card se estende automaticamente pelos dias - não duplicar! */}
+                            {reservationsStartingToday.map((reservation, resIdx) => {
                               // Check for adjacent reservations
                               let hasAdjacentPrev = false;
                               let hasAdjacentNext = false;
@@ -1118,7 +1104,7 @@ export function Calendar({
                               return (
                                 <div 
                                   key={reservation.id} 
-                                  className={resIdx < allReservationsToShow.length - 1 ? 'mb-1' : ''}
+                                  className={resIdx < reservationsStartingToday.length - 1 ? 'mb-1' : ''}
                                   onClick={() => onReservationClick(reservation)}
                                 >
                                   <ReservationCard
@@ -1127,7 +1113,7 @@ export function Calendar({
                                     hasAdjacentNext={hasAdjacentNext}
                                     hasAdjacentPrev={hasAdjacentPrev}
                                     stackIndex={resIdx}
-                                    totalStacked={allReservationsToShow.length}
+                                    totalStacked={reservationsStartingToday.length}
                                   />
                                 </div>
                               );
