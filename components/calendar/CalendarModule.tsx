@@ -66,11 +66,12 @@ export function CalendarModule({
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(50);
 
-  const filteredProperties = React.useMemo(
-    () => properties.filter((p) => selectedProperties.includes(p.id)),
-    [properties, selectedProperties]
-  );
-  const totalPages = Math.max(1, Math.ceil(filteredProperties.length / pageSize));
+  const filteredProperties = React.useMemo(() => {
+    if (!selectedProperties || selectedProperties.length === 0) return properties;
+    const selectedSet = new Set(selectedProperties);
+    return properties.filter((p) => selectedSet.has(p.id));
+  }, [properties, selectedProperties]);
+  const totalPages = Math.max(1, Math.ceil((filteredProperties?.length || 0) / pageSize));
   const safePage = Math.min(page, totalPages);
   const paginatedProperties = React.useMemo(
     () => filteredProperties.slice((safePage - 1) * pageSize, safePage * pageSize),
