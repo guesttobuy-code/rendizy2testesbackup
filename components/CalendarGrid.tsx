@@ -777,10 +777,16 @@ export function Calendar({
                         className="sticky left-0 z-30 bg-white border-r border-gray-200 p-1.5 w-[180px] min-w-[180px] max-w-[180px]"
                       >
                         <div className="flex items-center gap-2">
-                          {/* Simplificar cabeçalho: remover imagem para reduzir custo de layout */}
-                          <div className="w-9 h-9 rounded bg-gray-100 flex-shrink-0 flex items-center justify-center text-xs text-gray-500">
-                            ID
-                          </div>
+                          {/* Imagem menor com lazy-loading para identificação rápida do imóvel */}
+                          <img
+                            src={property.image}
+                            alt={property.name}
+                            loading="lazy"
+                            decoding="async"
+                            width={28}
+                            height={28}
+                            className="w-7 h-7 rounded object-cover flex-shrink-0"
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm text-gray-900 truncate">{property.name}</div>
                             <div className="text-gray-500 text-xs truncate">{property.id}</div>
