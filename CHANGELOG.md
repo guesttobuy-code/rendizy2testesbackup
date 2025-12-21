@@ -45,6 +45,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Edge Function redeployada (20/12/2024) com validação `getOrganizationIdOrThrow`
   - Configuração lida da tabela `staysnet_config` (apiKey/apiSecret/baseUrl)
   - Documento: `⚡_FIX_STAYSNET_AUTH_HEADER_v1.0.103.502.md`
+- 🔴 **Issue #47**: StaysNet exportava anúncios para wizard antigo (properties) ao invés de Anúncios Ultimate
+  - `supabase/functions/rendizy-server/staysnet-full-sync.ts` linha ~320
+  - Mudança de tabela: `properties` (abandonado) → `anuncios_drafts` (oficial)
+  - Estrutura adaptada: campos SQL → campo JSONB `data` flexível
+  - Anúncios importados agora aparecem em `/anuncios-ultimate/lista`
+  - Query de deduplicação: `contains('data', { externalIds: { stays_net_id } })`
+  - Documento: `⚡_FIX_STAYSNET_TARGET_ANUNCIOS_ULTIMATE_v1.0.103.403.md`
 
 ### Changed
 - Nada ainda

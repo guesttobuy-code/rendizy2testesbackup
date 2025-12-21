@@ -319,37 +319,67 @@ export async function fullSyncStaysNet(
           // Atualizar property com owner_id válido
           property.ownerId = defaultOwnerId;
           
-          const sqlData = propertyToSql(property, finalOrgId);
+          // ✅ CORREÇÃO v1.0.103.403: Salvar em anuncios_drafts (Anúncios Ultimate) ao invés de properties (wizard antigo)
+          const anuncioDraft = {
+            id: propertyId,
+            organization_id: finalOrgId,
+            user_id: defaultOwnerId,
+            data: {
+              title: property.name,
+              internalId: property.code || staysListingId,
+              description: property.description,
+              propertyType: property.type || 'apartment',
+              guests: property.maxGuests || 2,
+              bedrooms: property.bedrooms || 0,
+              beds: property.beds || 0,
+              bathrooms: property.bathrooms || 0,
+              basePrice: property.pricing?.basePrice || 0,
+              cleaningFee: 0,
+              amenities: [],
+              photos: property.photos || [],
+              address: property.address || {},
+              externalIds: {
+                stays_net_id: staysListingId,
+              },
+            },
+            status: property.isActive ? 'active' : 'draft',
+            created_at: property.createdAt || new Date().toISOString(),
+            updated_at: property.updatedAt || new Date().toISOString(),
+          };
           
-          // ✅ CORREÇÃO v1.0.103.402: Verificar se já existe por external_ids.stays_net_id (mais confiável que code)
+          // Verificar se já existe por stays_net_id dentro do campo JSONB data
           const { data: existing } = await supabase
-            .from('properties')
+            .from('anuncios_drafts')
             .select('id')
-            .eq('organization_id', organizationId)
-            .contains('external_ids', { stays_net_id: staysListingId })
+            .eq('organization_id', finalOrgId)
+            .contains('data', { externalIds: { stays_net_id: staysListingId } })
             .maybeSingle();
           
           if (existing) {
-            // Atualizar propriedade existente
+            // Atualizar anúncio existente
             const { error } = await supabase
-              .from('properties')
-              .update(sqlData)
+              .from('anuncios_drafts')
+              .update({
+                data: anuncioDraft.data,
+                status: anuncioDraft.status,
+                updated_at: new Date().toISOString(),
+              })
               .eq('id', existing.id);
             
             if (error) throw error;
-            console.log(`[StaysNet Full Sync] ♻️ Propriedade atualizada: ${property.name} (${staysListingId})`);
+            console.log(`[StaysNet Full Sync] ♻️ Anúncio atualizado em anuncios_drafts: ${property.name} (${staysListingId})`);
             stats.properties.updated++;
             propertyIdMap.set(staysListingId, existing.id);
           } else {
-            // Criar nova propriedade
+            // Criar novo anúncio
             const { error } = await supabase
-              .from('properties')
-              .insert(sqlData);
+              .from('anuncios_drafts')
+              .insert(anuncioDraft);
             
             if (error) throw error;
-            console.log(`[StaysNet Full Sync] ✨ Nova propriedade criada: ${property.name} (${staysListingId})`);
+            console.log(`[StaysNet Full Sync] ✨ Novo anúncio criado em anuncios_drafts: ${property.name} (${staysListingId})`);
             stats.properties.created++;
-            propertyIdMap.set(staysListingId, property.id);
+            propertyIdMap.set(staysListingId, propertyId);
           }
         } catch (error: any) {
           console.error(`[StaysNet Full Sync] ❌ Erro ao importar propriedade:`, error);
