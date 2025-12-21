@@ -98,8 +98,8 @@ export function CalendarModule({
             onViewChange={setCurrentView}
           />
 
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* ✅ FIX v1.0.103.414: CalendarHeader sticky no topo */}
+          <div className="flex-1 flex flex-col">
+            {/* ✅ FIX v1.0.103.416: CalendarHeader sticky no topo */}
             <div className="sticky top-0 z-40">
               <CalendarHeader
                 currentMonth={currentMonth}
