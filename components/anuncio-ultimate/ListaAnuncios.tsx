@@ -73,17 +73,35 @@ export const ListaAnuncios = () => {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
         headers: {
           'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
           'X-Auth-Token': token || '',
           'Content-Type': 'application/json'
         }
       });
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+      let data: any[] = [];
+
+      if (res.ok) {
+        const response = await res.json();
+        data = response.anuncios || [];
       }
 
-      const response = await res.json();
-      const data = response.anuncios || [];
+      // Fallback direto via REST se a função retornar vazio (ambiente ainda não deployado)
+      if (!data || data.length === 0) {
+        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?select=*`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!rest.ok) {
+          throw new Error(`HTTP ${rest.status}`);
+        }
+
+        data = await rest.json();
+      }
       
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('✅ Anúncios carregados - Total:', data.length);

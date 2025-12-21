@@ -593,22 +593,43 @@ function App() {
         
         const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
           headers: {
+            'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
             'Content-Type': 'application/json'
           }
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        let anuncios: any[] = [];
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Resposta da API de anúncios:', result);
+          anuncios = result.anuncios || [];
         }
 
-        const result = await response.json();
-        console.log('✅ Resposta da API de anúncios:', result);
+        // Fallback REST direto se função devolver vazio (ambiente ainda não deployado)
+        if (!anuncios || anuncios.length === 0) {
+          const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?select=*`, {
+            headers: {
+              'apikey': ANON_KEY,
+              'Authorization': `Bearer ${ANON_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          });
 
-        if (result.ok && result.anuncios) {
-          console.log('📋 Estrutura dos anúncios recebidos:', result.anuncios);
-          
-          const apiProperties = result.anuncios.map((a: any) => {
+          if (!rest.ok) {
+            throw new Error(`HTTP ${rest.status}`);
+          }
+
+          anuncios = await rest.json();
+          console.log('✅ Resposta REST de anúncios:', anuncios?.length);
+        }
+
+        if (anuncios && anuncios.length) {
+          console.log('📋 Estrutura dos anúncios recebidos:', anuncios);
+
+          const apiProperties = anuncios.map((a: any) => {
             // Extrai título do objeto data ou diretamente
             const title = a.data?.title || a.title || 'Sem título';
             const propertyId = a.id || '';

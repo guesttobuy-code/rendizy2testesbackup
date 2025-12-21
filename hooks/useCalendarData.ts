@@ -30,19 +30,38 @@ export function useProperties() {
       
       const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
         headers: {
+          'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      let anuncios: any[] = [];
+
+      if (response.ok) {
+        const result = await response.json();
+        anuncios = result.anuncios || [];
       }
 
-      const result = await response.json();
-      
-      if (result.ok && result.anuncios) {
-        const properties: Property[] = result.anuncios.map((a: any) => {
+      if (!anuncios || anuncios.length === 0) {
+        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?select=*`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!rest.ok) {
+          throw new Error(`HTTP ${rest.status}`);
+        }
+
+        anuncios = await rest.json();
+      }
+
+      if (anuncios && anuncios.length) {
+        const properties: Property[] = anuncios.map((a: any) => {
           const title = a.data?.title || a.title || 'Sem título';
           const propertyId = a.id || '';
           
