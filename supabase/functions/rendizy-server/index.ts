@@ -9,6 +9,7 @@ import * as reservationsRoutes from "./routes-reservations.ts";
 import * as calendarRoutes from "./routes-calendar.ts";
 import blocksApp from "./routes-blocks.ts";
 import * as guestsRoutes from "./routes-guests.ts";
+import * as staysnetRoutes from "./routes-staysnet.ts";
 
 const app = new Hono();
 
@@ -74,6 +75,20 @@ app.delete("/rendizy-server/calendar/blocks/:id", calendarRoutes.deleteBlock);
 // BLOCKS LEGACY ROUTER (compat)
 // ============================================================================
 app.route("/rendizy-server/blocks", blocksApp);
+
+// ============================================================================
+// STAYS.NET INTEGRAÇÃO
+// ============================================================================
+// Mantemos todos os endpoints StaysNet registrados aqui para evitar voltar ao
+// fallback "Edge Function funcionando" no frontend; paths são usados pelo hook
+// `useStaysNetConfig` e pelo service `StaysNetService` (não renomear sem alinhar UI).
+app.get("/rendizy-server/make-server-67caf26a/settings/staysnet", staysnetRoutes.getStaysNetConfig);
+app.post("/rendizy-server/make-server-67caf26a/settings/staysnet", staysnetRoutes.saveStaysNetConfig);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/test", staysnetRoutes.testStaysNetConnection);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/test-endpoint", staysnetRoutes.testStaysNetEndpoint);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetRoutes.importFullStaysNet);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/reservations", staysnetRoutes.importStaysNetReservations);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/guests", staysnetRoutes.importStaysNetGuests);
 
 // ============================================================================
 // GUESTS (mínimo necessário para reservas)

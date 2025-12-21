@@ -51,7 +51,9 @@ export class StaysNetService {
       headers['X-Auth-Token'] = token;
     }
 
+    // Edge Function exige Bearer + apikey mesmo sendo rota privada; não remover.
     if (publicAnonKey) {
+      headers['Authorization'] = `Bearer ${publicAnonKey}`;
       headers['apikey'] = publicAnonKey;
     }
 

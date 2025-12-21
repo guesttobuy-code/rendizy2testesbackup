@@ -10,7 +10,9 @@
  * Se algo falhar, ele IMPEDE o servidor de subir, evitando dor de cabeça.
  */
 
-require('dotenv').config({ path: '.env.local' });
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.local' });
 
 const RED = '\x1b[31m';
 const GREEN = '\x1b[32m';
