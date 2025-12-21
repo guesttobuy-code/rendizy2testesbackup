@@ -52,6 +52,7 @@ export default function StaysNetIntegration() {
   const {
     availableProperties,
     selectedPropertyIds,
+    preview,
     loadingProperties,
     isImporting,
     importType,
@@ -61,6 +62,7 @@ export default function StaysNetIntegration() {
     overallProgress,
     fetchProperties,
     importProperties,
+    importNewProperties,
     importReservations,
     importGuests,
     importAll,
@@ -68,6 +70,8 @@ export default function StaysNetIntegration() {
     toggleProperty,
     selectAllProperties,
     deselectAllProperties,
+    selectProperties,
+    selectNewProperties,
   } = useStaysNetImport();
 
   // Date range for reservations
@@ -102,6 +106,24 @@ export default function StaysNetIntegration() {
       await importProperties(config, { selectedPropertyIds });
     } catch (error) {
       // Error is already logged by the hook
+    }
+  };
+
+  const handleImportNewOnly = async () => {
+    try {
+      await importNewProperties(config);
+    } catch (error) {
+      // Error already logged in hook
+    }
+  };
+
+  const handleImportUpsertAll = async () => {
+    try {
+      const allIds = availableProperties.map((p) => p.id).filter(Boolean);
+      selectProperties(allIds);
+      await importProperties(config, { selectedPropertyIds: allIds });
+    } catch (error) {
+      // Error already logged
     }
   };
 
@@ -193,16 +215,20 @@ export default function StaysNetIntegration() {
             config={config}
             availableProperties={availableProperties}
             selectedPropertyIds={selectedPropertyIds}
+            preview={preview}
             loadingProperties={loadingProperties}
             onFetchProperties={handleFetchProperties}
             onToggleProperty={toggleProperty}
             onSelectAllProperties={selectAllProperties}
             onDeselectAllProperties={deselectAllProperties}
+            onSelectNewProperties={selectNewProperties}
             isImporting={isImporting}
             importType={importType}
             stats={stats}
             error={error}
             onImportProperties={handleImportProperties}
+            onImportNewOnly={handleImportNewOnly}
+            onImportUpsertAll={handleImportUpsertAll}
             onImportReservations={handleImportReservations}
             onImportGuests={handleImportGuests}
             onImportAll={handleImportAll}

@@ -15,11 +15,13 @@ import type {
   ImportType,
   ImportOptions,
   StaysNetProperty,
+  ImportPreview,
 } from '../types';
 
 export interface UseStaysNetImportReturn extends ImportStateExtended {
   fetchProperties: (config: StaysNetConfig) => Promise<void>;
   importProperties: (config: StaysNetConfig, options: ImportOptions) => Promise<void>;
+  importNewProperties: (config: StaysNetConfig) => Promise<void>;
   importReservations: (config: StaysNetConfig, options: ImportOptions) => Promise<void>;
   importGuests: (config: StaysNetConfig) => Promise<void>;
   importAll: (config: StaysNetConfig, options: ImportOptions) => Promise<void>;
@@ -27,6 +29,8 @@ export interface UseStaysNetImportReturn extends ImportStateExtended {
   toggleProperty: (propertyId: string) => void;
   selectAllProperties: () => void;
   deselectAllProperties: () => void;
+  selectProperties: (ids: string[]) => void;
+  selectNewProperties: () => void;
   resetImport: () => void;
 }
 
@@ -43,6 +47,8 @@ type ImportAction =
   | { type: 'DESELECT_PROPERTY'; payload: string }
   | { type: 'SELECT_ALL_PROPERTIES' }
   | { type: 'DESELECT_ALL_PROPERTIES' }
+  | { type: 'SET_SELECTED_PROPERTIES'; payload: string[] }
+  | { type: 'SET_PREVIEW'; payload: ImportPreview | null }
   | { type: 'UPDATE_PROGRESS'; payload: { progress: ImportProgressData; overallProgress: number } };
 
 interface ImportStateExtended extends ImportState {
@@ -52,6 +58,7 @@ interface ImportStateExtended extends ImportState {
   propertiesError: string | null;
   importProgress: ImportProgressData;
   overallProgress: number;
+  preview: ImportPreview | null;
 }
 
 const initialState: ImportStateExtended = {
@@ -65,6 +72,7 @@ const initialState: ImportStateExtended = {
   propertiesError: null,
   importProgress: {},
   overallProgress: 0,
+  preview: null,
 };
 
 /**
@@ -151,6 +159,18 @@ function importReducer(state: ImportStateExtended, action: ImportAction): Import
         selectedPropertyIds: [],
       };
 
+    case 'SET_SELECTED_PROPERTIES':
+      return {
+        ...state,
+        selectedPropertyIds: action.payload,
+      };
+
+    case 'SET_PREVIEW':
+      return {
+        ...state,
+        preview: action.payload,
+      };
+
     case 'UPDATE_PROGRESS':
       return {
         ...state,
@@ -177,6 +197,18 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
       const properties = await StaysNetService.fetchAllProperties(config);
       dispatch({ type: 'FETCH_PROPERTIES_SUCCESS', payload: properties });
       staysnetLogger.properties.success(`${properties.length} propriedades carregadas`);
+
+      const propertyIds = properties.map((p) => p.id).filter(Boolean);
+      try {
+        const preview = await StaysNetService.previewImport(propertyIds);
+        dispatch({ type: 'SET_PREVIEW', payload: preview });
+        // Seleciona por padrão apenas os novos para evitar duplicações
+        dispatch({ type: 'SET_SELECTED_PROPERTIES', payload: preview.newIds || [] });
+        staysnetLogger.import.info('Preview de importação gerado', preview);
+      } catch (previewError) {
+        staysnetLogger.import.error('Erro ao gerar preview de importação', previewError);
+        dispatch({ type: 'SET_PREVIEW', payload: null });
+      }
     } catch (error) {
       const errorMessage = (error as Error).message;
       dispatch({ type: 'FETCH_PROPERTIES_ERROR', payload: errorMessage });
@@ -236,6 +268,25 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
       }
     },
     []
+  );
+
+  /**
+   * Import only new properties detected in preview (no duplications)
+   */
+  const importNewProperties = useCallback(
+    async (config: StaysNetConfig) => {
+      const newIds = state.preview?.newIds || [];
+
+      if (!newIds.length) {
+        throw new Error('Nenhum imóvel novo encontrado para importar');
+      }
+
+      // Garante seleção alinhada com o que será enviado
+      dispatch({ type: 'SET_SELECTED_PROPERTIES', payload: newIds });
+
+      await importProperties(config, { selectedPropertyIds: newIds });
+    },
+    [state.preview?.newIds, importProperties]
   );
 
   /**
@@ -339,6 +390,21 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
   }, []);
 
   /**
+   * Select explicit list of properties (e.g., só novos)
+   */
+  const selectProperties = useCallback((ids: string[]) => {
+    dispatch({ type: 'SET_SELECTED_PROPERTIES', payload: ids });
+  }, []);
+
+  /**
+   * Select only new properties from preview to evitar duplicação
+   */
+  const selectNewProperties = useCallback(() => {
+    const newIds = state.preview?.newIds || [];
+    dispatch({ type: 'SET_SELECTED_PROPERTIES', payload: newIds });
+  }, [state.preview?.newIds]);
+
+  /**
    * Reset import state
    */
   const resetImport = useCallback(() => {
@@ -413,6 +479,7 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     ...state,
     fetchProperties,
     importProperties,
+    importNewProperties,
     importReservations,
     importGuests,
     importAll,
@@ -420,6 +487,8 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     toggleProperty,
     selectAllProperties,
     deselectAllProperties,
+    selectProperties,
+    selectNewProperties,
     resetImport,
   };
 }

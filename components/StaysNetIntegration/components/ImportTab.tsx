@@ -12,25 +12,29 @@ import { LoadingButton } from './LoadingButton';
 import { PropertySelector } from './PropertySelector';
 import { ImportStats } from './ImportStats';
 import { ImportProgress, ImportProgressData } from './ImportProgress';
-import { Home, Search, Download, Calendar, Users, Database, Info, AlertCircle } from 'lucide-react';
-import type { StaysNetConfig, ImportStats as ImportStatsType, ImportType } from '../types';
+import { Home, Search, Download, Calendar, Users, Database, Info, AlertCircle, RefreshCw } from 'lucide-react';
+import type { StaysNetConfig, ImportStats as ImportStatsType, ImportType, ImportPreview } from '../types';
 
 interface ImportTabProps {
   config: StaysNetConfig;
   // Properties
   availableProperties: any[];
   selectedPropertyIds: string[];
+  preview?: ImportPreview | null;
   loadingProperties: boolean;
   onFetchProperties: () => void;
   onToggleProperty: (id: string) => void;
   onSelectAllProperties: () => void;
   onDeselectAllProperties: () => void;
+  onSelectNewProperties: () => void;
   // Import
   isImporting: boolean;
   importType: ImportType | null;
   stats: ImportStatsType | null;
   error: string | null;
   onImportProperties: () => void;
+  onImportNewOnly: () => void;
+  onImportUpsertAll: () => void;
   onImportReservations: () => void;
   onImportGuests: () => void;
   onImportAll: () => void;
@@ -48,16 +52,20 @@ export function ImportTab({
   config,
   availableProperties,
   selectedPropertyIds,
+  preview,
   loadingProperties,
   onFetchProperties,
   onToggleProperty,
   onSelectAllProperties,
   onDeselectAllProperties,
+  onSelectNewProperties,
   isImporting,
   importType,
   stats,
   error,
   onImportProperties,
+  onImportNewOnly,
+  onImportUpsertAll,
   onImportReservations,
   onImportGuests,
   onImportAll,
@@ -99,6 +107,57 @@ export function ImportTab({
               Buscar Imóveis
             </LoadingButton>
           </div>
+
+          {preview && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <Database className="w-4 h-4 mt-0.5" />
+                <div className="flex-1 text-sm">
+                  <div className="font-semibold">Status da Importação</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                    {`Recebidos ${preview.totalRemote} imóveis da Stays. Já temos ${preview.existingCount} cadastrados e ${preview.newCount} são novos.`}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <LoadingButton
+                  onClick={onImportNewOnly}
+                  isLoading={isImporting && importType === 'properties'}
+                  loadingText="Importando novos..."
+                  disabled={preview.newCount === 0 || isImporting}
+                  className="w-full"
+                  size="sm"
+                  variant="default"
+                  icon={<Download className="w-4 h-4 mr-2" />}
+                >
+                  Importar apenas {preview.newCount} novos
+                </LoadingButton>
+                <LoadingButton
+                  onClick={onImportUpsertAll}
+                  isLoading={isImporting && importType === 'properties'}
+                  loadingText="Atualizando e importando..."
+                  disabled={isImporting}
+                  className="w-full"
+                  size="sm"
+                  variant="outline"
+                  icon={<RefreshCw className="w-4 h-4 mr-2" />}
+                >
+                  Atualizar {preview.existingCount} + importar novos
+                </LoadingButton>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Regra de ouro: não duplicar anúncios. O ID mestre é o stays_net_id.</span>
+                <button
+                  type="button"
+                  className="text-blue-700 dark:text-blue-300 underline"
+                  onClick={onSelectNewProperties}
+                  disabled={preview.newCount === 0}
+                >
+                  Marcar apenas novos
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Property selector */}
           {availableProperties.length > 0 && (

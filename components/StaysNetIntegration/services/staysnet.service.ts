@@ -13,6 +13,7 @@ import type {
   TestConnectionResult,
   FetchPropertiesResult,
   ImportType,
+  ImportPreview,
 } from '../types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1`;
@@ -246,6 +247,24 @@ export class StaysNetService {
     staysnetLogger.properties.success(`Total: ${allProperties.length} propriedades carregadas`);
 
     return allProperties;
+  }
+
+  /**
+   * Preview import to detect existing vs new listings (no DB writes)
+   */
+  static async previewImport(propertyIds: string[]): Promise<ImportPreview> {
+    staysnetLogger.import.info('Gerando preview de importação', { total: propertyIds.length });
+
+    const response = await this.request<{ success: boolean; data: ImportPreview }>(
+      '/rendizy-server/make-server-67caf26a/staysnet/import/preview',
+      {
+        method: 'POST',
+        body: JSON.stringify({ propertyIds }),
+      }
+    );
+
+    // API envelopa em { success, data }
+    return (response as any).data || (response as any);
   }
 
   /**

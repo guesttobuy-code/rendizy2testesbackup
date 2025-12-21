@@ -86,6 +86,7 @@ app.get("/rendizy-server/make-server-67caf26a/settings/staysnet", staysnetRoutes
 app.post("/rendizy-server/make-server-67caf26a/settings/staysnet", staysnetRoutes.saveStaysNetConfig);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/test", staysnetRoutes.testStaysNetConnection);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/test-endpoint", staysnetRoutes.testStaysNetEndpoint);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/preview", staysnetRoutes.previewStaysNetImport);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetRoutes.importFullStaysNet);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/reservations", staysnetRoutes.importStaysNetReservations);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/guests", staysnetRoutes.importStaysNetGuests);

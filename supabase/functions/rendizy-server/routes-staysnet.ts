@@ -1,5 +1,6 @@
 import { Context } from 'npm:hono@4.6.14';
 import * as kv from './kv_store.tsx';
+import { getSupabaseClient } from './kv_store.tsx';
 import { successResponse, errorResponse, logInfo, logError } from './utils.ts';
 import * as staysnetDB from './staysnet-db.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
@@ -953,6 +954,59 @@ export async function previewStaysNetReservations(c: Context) {
       message: error.message,
       stack: error.stack,
     }), 500);
+  }
+}
+
+// ============================================================================
+// PREVIEW IMPORT (Propriedades): evita duplicar anúncios
+// ============================================================================
+export async function previewStaysNetImport(c: Context) {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const body = await c.req.json().catch(() => ({}));
+    const propertyIds: string[] = Array.isArray(body.propertyIds) ? body.propertyIds : [];
+
+    console.log('[StaysNet Import Preview] org:', organizationId, 'totalIds:', propertyIds.length);
+
+    if (!propertyIds.length) {
+      return c.json(errorResponse('Envie propertyIds para pré-visualizar a importação'), 400);
+    }
+
+    const supabase = getSupabaseClient(c);
+    const { data: existingRows, error } = await supabase
+      .from('anuncios_drafts')
+      .select('id, data')
+      .eq('organization_id', organizationId);
+
+    if (error) {
+      console.error('[StaysNet Import Preview] ❌ Erro ao consultar anuncios_drafts:', error.message);
+      return c.json(errorResponse('Erro ao consultar anúncios existentes', error), 500);
+    }
+
+    const existingSet = new Set<string>();
+    (existingRows || []).forEach((row: any) => {
+      const extId = row?.data?.externalIds?.stays_net_id || row?.data?.externalIds?.staysnet_id;
+      if (extId) {
+        existingSet.add(String(extId));
+      }
+    });
+
+    const existingIds = propertyIds.filter((id) => existingSet.has(String(id)));
+    const newIds = propertyIds.filter((id) => !existingSet.has(String(id)));
+
+    console.log('[StaysNet Import Preview] existentes:', existingIds.length, 'novos:', newIds.length);
+
+    return c.json(successResponse({
+      totalRemote: propertyIds.length,
+      existingCount: existingIds.length,
+      newCount: newIds.length,
+      existingIds,
+      newIds,
+      timestamp: new Date().toISOString(),
+    }));
+  } catch (error: any) {
+    console.error('[StaysNet Import Preview] ❌ Exception:', error.message);
+    return c.json(errorResponse(error.message || 'Falha ao gerar preview'), 500);
   }
 }
 

@@ -101,6 +101,15 @@ export interface ImportResult {
   error?: string;
 }
 
+export interface ImportPreview {
+  totalRemote: number;
+  existingCount: number;
+  newCount: number;
+  existingIds: string[];
+  newIds: string[];
+  timestamp?: string;
+}
+
 export interface TestConnectionResult {
   success: boolean;
   message: string;

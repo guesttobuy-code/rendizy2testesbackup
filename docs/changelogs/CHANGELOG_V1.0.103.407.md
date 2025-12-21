@@ -3,9 +3,11 @@
 ## Backend / Supabase Edge (rendizy-server)
 - Registradas todas as rotas StaysNet (settings, test, imports) no entrypoint para garantir persistência e evitar resposta padrão "Edge Function funcionando".
 - Deploy executado via `npx supabase@latest functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc`, liberando GET/POST de config e imports no ambiente.
+- Novo `/staysnet/import/preview` cruza `stays_net_id` dos anúncios existentes (anuncios_drafts) com a lista vinda da Stays e retorna totais (remotos, existentes, novos) para evitar duplicação.
 
 ## Frontend / StaysNet
 - `StaysNetService` documentado sobre uso obrigatório de `Authorization: Bearer <anon>` + `apikey` + `X-Auth-Token`, prevenindo remoção acidental dos headers que destravam as rotas privadas do Edge.
+- Fluxo de importação agora mostra preview (totais novos vs existentes) e oferece ações: importar só novos ou atualizar existentes + novos, sempre respeitando o ID mestre `stays_net_id`.
 
 ## DX / Scripts
 - `npm run dev` na raiz agora delega para `Rendizyoficial-main`, evitando erros de diretório incorreto.
