@@ -476,8 +476,10 @@ export function CreateReservationWizard({
         // Form será resetado pelo useEffect de fechamento
       } else {
         const errorMsg = response.error || 'Erro ao criar reserva';
-        console.error('❌ Erro na resposta:', errorMsg);
-        toast.error(errorMsg);
+        const details = (response as any).details;
+        const fullMsg = details ? `${errorMsg}: ${typeof details === 'string' ? details : JSON.stringify(details)}` : errorMsg;
+        console.error('❌ Erro na resposta:', fullMsg);
+        toast.error(fullMsg);
         
         // Ajuda específica para erros conhecidos
         if (errorMsg.includes('Property not found')) {

@@ -1,8 +1,8 @@
 # Script para fazer deploy da Edge Function rendizy-server
 Write-Host "=== Deploy da Edge Function rendizy-server ===" -ForegroundColor Green
 
-# Navegar para o diretório do projeto
-Set-Location "c:\Users\rafae\Downloads\login-que-funcionou-20251124-172504 BACKUP"
+# Navegar para o diretório do projeto CORRETO
+Set-Location "c:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main"
 
 # Verificar se Supabase CLI está instalado
 $supabaseInstalled = Get-Command supabase -ErrorAction SilentlyContinue

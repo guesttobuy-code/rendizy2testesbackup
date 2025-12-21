@@ -3,7 +3,7 @@ Write-Host "=== Deploy da Edge Function rendizy-server ===" -ForegroundColor Gre
 Write-Host ""
 
 # Navegar para o diretório do projeto
-$projectRoot = "c:\Users\rafae\Downloads\login-que-funcionou-20251124-172504 BACKUP"
+$projectRoot = "c:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do github 09 12 2025\Rendizyoficial-main"
 Set-Location $projectRoot
 
 # Project ID do Supabase

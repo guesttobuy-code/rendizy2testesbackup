@@ -20,6 +20,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Campo `external_ids` (JSONB) na tabela `properties` para rastreamento de IDs externos
 
 ### Fixed
+- 🔴 **Env falta VITE_SUPABASE_ANON_KEY em build do Vercel**
+  - `utils/supabase/info.tsx`: adiciona guard com erro explícito quando a key não está configurada
+  - `services/authService.ts`: remove log que imprimia a chave completa; mantém only status configurada/faltando
+  - Evita crash "supabaseKey is required" e protege a key nos consoles de produção
 - 🔴 **Issue #42**: Calendário com datas hardcoded (outubro→dezembro)
   - `contexts/CalendarContext.tsx` linhas 81-84
   - `dateRange.from` agora usa `new Date()` (data atual)

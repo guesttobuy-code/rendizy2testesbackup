@@ -66,17 +66,29 @@ export function CalendarModule({
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(50);
 
+  // Garante que a seleção referencia apenas IDs existentes; se seleção inválida ou vazia, usa todos
   const filteredProperties = React.useMemo(() => {
-    if (!selectedProperties || selectedProperties.length === 0) return properties;
-    const selectedSet = new Set(selectedProperties);
+    const propertyIdSet = new Set(properties.map((p) => p.id));
+    const effectiveSelected = (selectedProperties || []).filter((id) => propertyIdSet.has(id));
+    if (effectiveSelected.length === 0) return properties;
+    const selectedSet = new Set(effectiveSelected);
     return properties.filter((p) => selectedSet.has(p.id));
   }, [properties, selectedProperties]);
+
   const totalPages = Math.max(1, Math.ceil((filteredProperties?.length || 0) / pageSize));
   const safePage = Math.min(page, totalPages);
   const paginatedProperties = React.useMemo(
     () => filteredProperties.slice((safePage - 1) * pageSize, safePage * pageSize),
     [filteredProperties, safePage, pageSize]
   );
+
+  // Se a seleção muda ou o total de itens muda, fixa a página dentro do range
+  React.useEffect(() => {
+    const newTotal = Math.max(1, Math.ceil((filteredProperties?.length || 0) / pageSize));
+    if (page > newTotal) {
+      setPage(newTotal);
+    }
+  }, [filteredProperties, pageSize]);
 
   return (
     <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors">

@@ -1,3 +1,14 @@
+/*
+  Aviso Importante (PT-BR)
+  --------------------------------------------
+  Este componente foi ajustado para evitar erros ao formatar valores
+  quando o preço total da reserva não está definido (ex.: toLocaleString
+  em valores undefined). As quantias agora usam quedas seguras a partir
+  de reservation.pricing.total → pricing.baseTotal → reservation.price → 0.
+
+  Não remover este comentário: Registro de auditoria de correções no fluxo
+  de cancelamento. Data: 21/12/2025.
+*/
 import React, { useState } from 'react';
 import {
   AlertDialog,
