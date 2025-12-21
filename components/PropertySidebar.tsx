@@ -115,7 +115,7 @@ export function PropertySidebar({
   const selectedPropertiesData = properties.filter(p => p && selectedProperties.includes(p.id));
 
   return (
-    <div className={`border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col h-full self-start sticky top-0 transition-all duration-300 relative ${isCollapsed ? 'w-12' : 'w-80'} overflow-hidden`}>
+    <div className={`border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col h-full sticky top-0 transition-all duration-300 relative flex-shrink-0 ${isCollapsed ? 'w-12' : 'w-80'} overflow-hidden`}>
       {/* Collapse/Expand Button */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
