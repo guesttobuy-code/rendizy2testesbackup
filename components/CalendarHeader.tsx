@@ -70,7 +70,7 @@ export function CalendarHeader({
   const dateRangeText = `${format(dateRange.from, 'dd/MM/yyyy', { locale: ptBR })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: ptBR })}`;
 
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-4">
+    <div className="bg-red-200 border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Left side - Navigation */}
         <div className="flex items-center gap-4">

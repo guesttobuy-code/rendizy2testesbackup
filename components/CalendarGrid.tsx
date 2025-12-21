@@ -730,12 +730,12 @@ export function Calendar({
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 flex flex-col h-full">
+      <div className="bg-white rounded-lg border border-gray-200 flex flex-col">
         <TooltipProvider>
           {/* ✅ FIX v1.0.103.413: Header SEPARADO e FIXO no topo */}
-          <div className="sticky top-0 z-50 bg-gray-50 border-b border-gray-200 shadow-md">
+          <div className="sticky top-0 z-50 bg-yellow-200 border-b border-gray-200 shadow-md">
             <div className="flex">
-              <div className="sticky left-0 z-50 bg-gray-50 border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+              <div className="sticky left-0 z-50 bg-yellow-200 border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                 <span className="text-sm text-gray-600">Padrão</span>
               </div>
               {days.map((day, idx) => {
@@ -750,7 +750,7 @@ export function Calendar({
                   <div
                     key={idx}
                     className={`border-r border-gray-200 p-1.5 min-w-[80px] text-center flex-shrink-0 ${
-                      isToday ? 'bg-blue-100' : 'bg-gray-50'
+                      isToday ? 'bg-blue-100' : 'bg-yellow-200'
                     }`}
                   >
                     <div className="flex flex-col items-center gap-0 py-0.5">
@@ -776,13 +776,13 @@ export function Calendar({
             </div>
           </div>
 
-          {/* ✅ FIX v1.0.103.412: Tabela que ROLA (overflow-auto) */}
-          <div className="flex-1 overflow-auto">
+          {/* ✅ FIX v1.0.103.415: Tabela SEM overflow - scroll no CalendarModule */}
+          <div>
             <table className="w-full border-collapse">
               <tbody>
                 {/* Regras em Lote Section */}
-                <tr className="border-b border-gray-200 bg-gray-100">
-                  <td className="sticky left-0 z-10 bg-gray-100 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
+                <tr className="border-b border-gray-200 bg-green-200">
+                  <td className="sticky left-0 z-10 bg-green-200 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-700">Regras em Lote</span>
@@ -821,7 +821,7 @@ export function Calendar({
                     
                     return (
                       <td key={idx} className={`border-r border-gray-200 ${
-                        isToday ? 'bg-blue-50' : 'bg-gray-100'
+                        isToday ? 'bg-blue-50' : 'bg-green-200'
                       }`}></td>
                     );
                   })}
