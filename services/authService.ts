@@ -11,9 +11,7 @@ import { publicAnonKey } from '../utils/supabase/info';
 import { API_BASE_URL } from '../utils/apiBase';
 
 console.log(`[AuthService] API_BASE: ${API_BASE_URL}`);
-console.log(`[AuthService] Using Anon Key: '${publicAnonKey ? publicAnonKey.substring(0, 10) + '...' : 'MISSING'}'`);
-console.log(`[AuthService] Full Key Value (Debug): ${publicAnonKey}`); // TODO: Remove after debug
-
+console.log(`[AuthService] Anon Key: ${publicAnonKey ? '✅ Configurada' : '❌ FALTANDO'}`);
 
 const API_BASE = API_BASE_URL;
 const STORAGE_KEY = 'rendizy-token';

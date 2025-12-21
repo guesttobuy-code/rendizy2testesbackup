@@ -4,3 +4,12 @@ export const projectId = "odcgnzfremrqnvtitpcc";
 
 // Key from environment variables (Vite)
 export const publicAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+
+// ✅ Validação: Avisar se a chave estiver faltando
+if (!publicAnonKey) {
+  console.error(
+    "❌ ERRO CRÍTICO: VITE_SUPABASE_ANON_KEY não configurada!\n" +
+    "Configure a variável de ambiente VITE_SUPABASE_ANON_KEY no Vercel/Netlify\n" +
+    "Ou adicione no arquivo .env.local para desenvolvimento local"
+  );
+}
