@@ -15,19 +15,14 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 # Configuração
 $env:SUPABASE_URL = "https://odcgnzfremrqnvtitpcc.supabase.co"
 $env:SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
-$token = Get-Content -Path "token.txt" -ErrorAction SilentlyContinue
+$org_id = "00000000-0000-0000-0000-000000000000"
 
-if (-not $token) {
-    Write-Host "❌ Token não encontrado em token.txt" -ForegroundColor Red
-    Write-Host "💡 Execute: `$token = 'seu-token-aqui' | Out-File token.txt" -ForegroundColor Yellow
-    exit 1
-}
-
+# Headers para API REST (sem autenticação de usuário - usa RLS com org_id)
 $headers = @{
     "apikey" = $env:SUPABASE_ANON_KEY
     "Authorization" = "Bearer $env:SUPABASE_ANON_KEY"
     "Content-Type" = "application/json"
-    "X-Auth-Token" = $token.Trim()
+    "Prefer" = "return=minimal"
 }
 
 Write-Host "`n📊 1. CONTANDO REGISTROS..." -ForegroundColor Cyan
@@ -132,6 +127,16 @@ foreach ($prop in $propertiesToMigrate) {
         continue
     }
 
+    # ✅ REGRA DE OURO: Verificar se JÁ EXISTE antes de inserir (evitar duplicatas)
+    $checkUrl = "$env:SUPABASE_URL/rest/v1/anuncios_drafts?id=eq.$($prop.id)&select=id"
+    $existing = Invoke-RestMethod -Uri $checkUrl -Headers $headers -ErrorAction SilentlyContinue
+    
+    if ($existing -and $existing.Count -gt 0) {
+        Write-Host "    ⏭️  JÁ EXISTE - pulando (ID: $($prop.id))" -ForegroundColor Yellow
+        $skipped++
+        continue
+    }
+    
     # Inserir no anuncios_drafts
     try {
         $insertUrl = "$env:SUPABASE_URL/rest/v1/anuncios_drafts"

@@ -54,7 +54,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Adiciona header `X-Auth-Token` para aplicar RLS corretamente
   - Agora retorna TODOS os anúncios da organização (filtrado via token)
   - Documento: `⚡_FIX_LISTA_ANUNCIOS_VIA_BACKEND_v1.0.103.404.md`
-- 🔴 **Issue #49**: URL incorreta em ListaAnuncios + 157 anúncios invisíveis em tabela antiga
+- 🔴 **Issue #49**: URL incorreta em ListaAnuncios + 157 anúncios invisíveis em tabela antiga ✅ RESOLVIDO
   - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 73
   - **Problema 1 (URL)**: Removido prefixo incorreto `/make-server-67caf26a/` da URL
   - URL corrigida: `/functions/v1/rendizy-server/anuncios-ultimate/lista` (sem prefixo)
@@ -64,6 +64,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Converte estrutura para JSONB: `properties.name` → `anuncios_drafts.title` + `data`
   - Status padrão: `"draft"`, completion: 50%
   - Metadados: `migrated_from: "properties"`, `migrated_at: timestamp`
+  - **RESULTADO**: 159 anúncios migrados com sucesso (0 erros)
+  - Total na lista: 161 anúncios (2 originais + 159 migrados)
+  - Script auxiliar: `contar-anuncios.ps1` para verificação
+  - Verificado: StaysNet agora exporta corretamente para `anuncios_drafts` (Issue #47)
   - Documento: `⚡_FIX_MIGRACAO_PROPERTIES_v1.0.103.405.md`
   - Estrutura adaptada: campos SQL → campo JSONB `data` flexível
   - Anúncios importados agora aparecem em `/anuncios-ultimate/lista`
