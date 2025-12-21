@@ -202,13 +202,14 @@ export function MainSidebar({
           iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
           badge: '8'
         },
-        {
-          id: 'imoveis',
-          label: 'Locais e Anúncios',
-          icon: Building2,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
-        },
+        // ❌ DEPRECADO v1.0.103.406 - Wizard antigo removido, usar apenas Anúncios Ultimate
+        // {
+        //   id: 'imoveis',
+        //   label: 'Locais e Anúncios',
+        //   icon: Building2,
+        //   iconColor: 'text-white',
+        //   iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+        // },
         {
           id: 'anuncio-ultimate',
           label: 'Anúncio Ultimate',

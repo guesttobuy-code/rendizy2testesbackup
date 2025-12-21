@@ -1257,7 +1257,8 @@ function App() {
                 } />
 
                 {/* ✅ REABILITADO v1.0.103.174 - Rotas properties com MainSidebar sempre visível - PROTEGIDAS */}
-                <Route path="/properties/new" element={
+                {/* ❌ DEPRECADO v1.0.103.406 - Wizard antigo removido, migrado para Anúncios Ultimate */}
+                {/* <Route path="/properties/new" element={
                   <ProtectedRoute>
                     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
                       <MainSidebar
@@ -1303,9 +1304,10 @@ function App() {
                       </div>
                     </div>
                   </ProtectedRoute>
-                } />
+                } /> */}
 
-                <Route path="/properties" element={
+                {/* ❌ DEPRECADO v1.0.103.406 - Wizard antigo removido, migrado para Anúncios Ultimate */}
+                {/* <Route path="/properties" element={
                   <ProtectedRoute>
                     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
                       <LoadingProgress
@@ -1333,10 +1335,11 @@ function App() {
                       </div>
                     </div>
                   </ProtectedRoute>
-                } />
+                } /> */}
 
                 {/* 🔍 ROTA DIAGNÓSTICO DE IMÓVEL - v1.0.103.314 - PROTEGIDA */}
-                <Route path="/properties/:id/diagnostico" element={
+                {/* ❌ DEPRECADO v1.0.103.406 - Relacionado ao wizard antigo */}
+                {/* <Route path="/properties/:id/diagnostico" element={
                   <ProtectedRoute>
                     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
                       <MainSidebar
@@ -1360,7 +1363,7 @@ function App() {
                       </div>
                     </div>
                   </ProtectedRoute>
-                } />
+                } /> */}
 
                 {/* ⭐ ROTA CONVENCIONADA - Dashboard Inicial - v1.0.103.267 - PROTEGIDA (ENCAPSULADA) */}
                 <Route path="/dashboard" element={
