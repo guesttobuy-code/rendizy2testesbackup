@@ -19,6 +19,12 @@ C:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado do 
 - ✅ Todas as funcionalidades mais recentes
 - ✅ Documentação atualizada (incluindo este arquivo)
 
+### 3️⃣ FLUXO DE REPOS (STAGING → PRODUÇÃO)
+- **Staging**: `guesttobuy-code/rendizy2testesbackup` — usamos para testar na web (Vercel) tudo o que está na pasta atual antes de levar ao cliente.
+- **Produção**: `guesttobuy-code/Rendizyoficial` — só recebe push com aprovação explícita do time/cliente.
+- **Regra**: todo código sai desta pasta principal → push para `rendizy2testesbackup` (ramo `final-clean`) → validar em Vercel → após OK explícito, fazer push para `Rendizyoficial`.
+- **Evitar divergências**: sempre `git pull` em `final-clean` antes de começar; não trabalhar em cópias antigas nem outras pastas.
+
 **🚫 PASTAS ANTIGAS DELETADAS** (não existem mais):
 - ❌ `C:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main` (SEM sufixo - deletada)
 - ❌ `C:\Users\rafae\Downloads\Rendizyoficial-oficial\Rendizyoficial-main` (deletada)

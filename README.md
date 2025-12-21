@@ -6,6 +6,7 @@
 > - 🔒 **[RULES.md](RULES.md)** - Regras de Ouro (especialmente Seção 0 para IAs)
 > - 📚 **[docs/README.md](docs/README.md)** - Índice completo da documentação
 > - 📝 **[CHANGELOG.md](CHANGELOG.md)** - Histórico de mudanças
+> - 🌐 **Fluxo de repositórios:** staging primeiro em `guesttobuy-code/rendizy2testesbackup` (ramo `final-clean` e Vercel); produção apenas com aprovação em `guesttobuy-code/Rendizyoficial`.
 
 **Versão**: v1.0.103.405  
 **Última atualização**: 20/12/2024  
