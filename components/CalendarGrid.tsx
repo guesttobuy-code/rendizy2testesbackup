@@ -730,9 +730,9 @@ export function Calendar({
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 flex flex-col">
+      <div className="bg-white rounded-lg border border-gray-200">
         <TooltipProvider>
-          {/* ✅ FIX v1.0.103.413: Header SEPARADO e FIXO no topo */}
+          {/* ✅ FIX v1.0.103.418: Header das Datas - STICKY dentro do container */}
           <div className="sticky top-0 z-50 bg-yellow-200 border-b border-gray-200 shadow-md">
             <div className="flex">
               <div className="sticky left-0 z-50 bg-yellow-200 border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
@@ -776,13 +776,11 @@ export function Calendar({
             </div>
           </div>
 
-          {/* ✅ FIX v1.0.103.415: Tabela SEM overflow - scroll no CalendarModule */}
-          <div>
-            <table className="w-full border-collapse">
-              <tbody>
-                {/* Regras em Lote Section */}
-                <tr className="border-b border-gray-200 bg-green-200">
-                  <td className="sticky left-0 z-10 bg-green-200 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
+          {/* ✅ FIX v1.0.103.418: Tabela com Regras em Lote também STICKY */}
+          <table className="w-full border-collapse">
+            <thead className="sticky top-[64px] z-40 bg-green-200 border-b border-gray-200 shadow-md">
+              <tr>
+                <th className="sticky left-0 z-50 bg-green-200 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-700">Regras em Lote</span>
@@ -957,7 +955,12 @@ export function Calendar({
                     );
                   })}
                 </tr>
+              </>
+              )}
+            </thead>
 
+            {/* ✅ FIX v1.0.103.418: Corpo da tabela - ROLA */}
+            <tbody>
               {properties.map((property) => {
                 const isExpanded = expandedProperties.has(property.id);
                 

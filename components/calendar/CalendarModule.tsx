@@ -81,7 +81,7 @@ export function CalendarModule({
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72',
         )}
       >
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1">
           <PropertySidebar
             properties={properties}
             selectedProperties={selectedProperties}
@@ -98,23 +98,23 @@ export function CalendarModule({
             onViewChange={setCurrentView}
           />
 
-          <div className="flex-1 flex flex-col">
-            {/* ✅ FIX v1.0.103.416: CalendarHeader sticky no topo */}
-            <div className="sticky top-0 z-40">
-              <CalendarHeader
-                currentMonth={currentMonth}
-                onMonthChange={setCurrentMonth}
-                currentView={currentView}
-                onViewChange={setCurrentView}
-                dateRange={dateRange}
-                onDateRangeChange={setDateRange}
-                selectedProperties={selectedProperties}
-                selectedReservationTypes={selectedReservationTypes}
-                onReservationTypesChange={setSelectedReservationTypes}
-                onExport={() => setExportModal(true)}
-              />
-            </div>
+          {/* ✅ FIX v1.0.103.418: Headers TOTALMENTE fora do overflow */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Header 1: CalendarHeader - FIXO NO TOPO */}
+            <CalendarHeader
+              currentMonth={currentMonth}
+              onMonthChange={setCurrentMonth}
+              currentView={currentView}
+              onViewChange={setCurrentView}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              selectedProperties={selectedProperties}
+              selectedReservationTypes={selectedReservationTypes}
+              onReservationTypesChange={setSelectedReservationTypes}
+              onExport={() => setExportModal(true)}
+            />
 
+            {/* Apenas CORPO rola */}
             <div className="flex-1 overflow-auto">
               {currentView === 'calendar' && (
                 <Calendar
