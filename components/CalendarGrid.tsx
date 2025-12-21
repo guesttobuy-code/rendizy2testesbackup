@@ -731,15 +731,16 @@ export function Calendar({
   }, [isSelecting, isSelectingMinNights, isSelectingEmpty, isSelectingGlobalPrice, isSelectingGlobalRestrictions, isSelectingGlobalMinNights, isSelectingBasePrice, isSelectingWeekly7Price, isSelectingCustom15Price, isSelectingMonthly28Price]);
 
   return (
-    <>
-      {/* ✅ FIX v1.0.103.428: Headers + Tabela em estrutura simples */}
-      <TooltipProvider>
+    <div className="relative h-full w-full overflow-auto">
+      <div className="relative w-max min-w-full">
+        {/* ✅ FIX v1.0.103.428: Headers + Tabela em estrutura simples */}
+        <TooltipProvider>
         {/* Header das Datas - STICKY TOP-0 */}
         <CalendarHeaderDates days={days} />
 
         {/* Tabela com Regras em Lote e Propriedades */}
-        <table className="w-full border-collapse bg-white">
-            <thead className="sticky top-[64px] z-40 bg-green-200 border-b border-gray-200 shadow-md">
+        <table className="w-max min-w-full border-collapse bg-white">
+          <thead className="sticky top-16 z-40 bg-white border-b border-gray-200 shadow-md">
               {/* ✅ FIX v1.0.103.426: Regras em Lote em componente separado */}
               <CalendarBulkRules
                 days={days}
@@ -761,7 +762,7 @@ export function Calendar({
 
               {/* Anúncios - Imóveis Section Header */}
               <tr className="border-b border-gray-200 bg-gray-50">
-                <td className="sticky left-0 z-10 bg-gray-50 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
+                <td className="sticky left-0 z-30 bg-gray-50 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
                   <span className="text-sm text-gray-700">Anúncios - Imóveis</span>
                 </td>
                 {days.map((day, idx) => {
@@ -774,7 +775,7 @@ export function Calendar({
                   return (
                     <td
                       key={idx}
-                      className={`border-r border-gray-200 ${
+                      className={`border-r border-gray-200 min-w-[80px] w-20 ${
                         isToday ? 'bg-blue-50' : 'bg-gray-50'
                       }`}
                     />
@@ -793,7 +794,7 @@ export function Calendar({
                     {/* Reservations row */}
                     <tr className="border-b border-gray-200">
                       <td 
-                        className="sticky left-0 z-10 bg-white border-r border-gray-200 p-1.5 w-[180px] min-w-[180px] max-w-[180px]"
+                        className="sticky left-0 z-30 bg-white border-r border-gray-200 p-1.5 w-[180px] min-w-[180px] max-w-[180px]"
                       >
                         <div className="flex items-center gap-2">
                           <img
@@ -864,7 +865,7 @@ export function Calendar({
                         return (
                           <td
                             key={idx}
-                            className={`border-r border-gray-200 p-0.5 h-12 align-top relative group ${
+                            className={`border-r border-gray-200 p-0.5 h-12 align-top relative group min-w-[80px] w-20 ${
                               isToday ? 'bg-blue-50' : ''
                             } ${
                               allReservationsOnDay.length === 0 && !blockOnDay
@@ -967,7 +968,7 @@ export function Calendar({
                       <>
                         {/* Condições row */}
                         <tr className="border-b border-gray-100 bg-orange-50">
-                          <td className="sticky left-0 z-10 bg-orange-50 border-r border-gray-200 p-1 pl-12">
+                          <td className="sticky left-0 z-30 bg-orange-50 border-r border-gray-200 p-1 pl-12">
                             <div className="flex items-center gap-2 text-xs text-orange-700">
                               <span className="text-orange-600">%</span>
                               <span>Condição (%)</span>
@@ -978,7 +979,7 @@ export function Calendar({
                             return (
                               <td
                                 key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-sm cursor-pointer transition-colors select-none ${
+                                className={`border-r border-gray-200 p-1 h-8 text-center text-sm cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                                   isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-orange-50 hover:bg-orange-100'
                                 }`}
                                 onMouseDown={() => handlePriceMouseDown(property.id, day)}
@@ -993,7 +994,7 @@ export function Calendar({
 
                         {/* Restrições row */}
                         <tr className="border-b border-gray-100 bg-red-50">
-                          <td className="sticky left-0 z-10 bg-red-50 border-r border-gray-200 p-1 pl-12">
+                          <td className="sticky left-0 z-30 bg-red-50 border-r border-gray-200 p-1 pl-12">
                             <div className="flex items-center gap-2 text-xs text-red-700">
                               <span className="text-red-600">🚫</span>
                               <span>Restrições</span>
@@ -1002,7 +1003,7 @@ export function Calendar({
                           {days.map((day, idx) => (
                             <td
                               key={idx}
-                              className="border-r border-gray-200 p-1 h-8 text-center text-xs bg-red-50 cursor-pointer hover:bg-red-100"
+                              className="border-r border-gray-200 p-1 h-8 text-center text-xs bg-red-50 cursor-pointer hover:bg-red-100 min-w-[80px] w-20"
                             >
                               —
                             </td>
@@ -1011,7 +1012,7 @@ export function Calendar({
 
                         {/* Mín. Noites row */}
                         <tr className="border-b border-gray-100 bg-blue-50">
-                          <td className="sticky left-0 z-10 bg-blue-50 border-r border-gray-200 p-1 pl-12">
+                          <td className="sticky left-0 z-30 bg-blue-50 border-r border-gray-200 p-1 pl-12">
                             <div className="flex items-center gap-2 text-xs text-blue-700">
                               <span className="text-blue-600">🌙</span>
                               <span>Mín. noites</span>
@@ -1022,7 +1023,7 @@ export function Calendar({
                             return (
                               <td
                                 key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
+                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                                   isSelected ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset' : 'bg-blue-50 hover:bg-blue-100'
                                 }`}
                                 onMouseDown={() => handleMinNightsMouseDown(property.id, day)}
@@ -1037,7 +1038,7 @@ export function Calendar({
 
                         {/* Base (R$) row */}
                         <tr className="border-b border-gray-100 bg-gray-50">
-                          <td className="sticky left-0 z-10 bg-gray-50 border-r border-gray-200 p-1 pl-12">
+                          <td className="sticky left-0 z-30 bg-gray-50 border-r border-gray-200 p-1 pl-12">
                             <div className="flex items-center gap-2 text-xs text-gray-700">
                               <span className="text-gray-600">💰</span>
                               <span>Base (R$)</span>
@@ -1048,7 +1049,7 @@ export function Calendar({
                             return (
                               <td
                                 key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
+                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                                   isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-gray-50 hover:bg-gray-100'
                                 }`}
                                 onMouseDown={() => handleBasePriceMouseDown(property.id, day)}
@@ -1063,7 +1064,7 @@ export function Calendar({
 
                         {/* Semanal 07 (R$) row */}
                         <tr className="border-b border-gray-100 bg-cyan-50">
-                          <td className="sticky left-0 z-10 bg-cyan-50 border-r border-gray-200 p-1 pl-12">
+                          <td className="sticky left-0 z-30 bg-cyan-50 border-r border-gray-200 p-1 pl-12">
                             <div className="flex items-center gap-2 text-xs text-cyan-700">
                               <span className="text-cyan-600">📅</span>
                               <span>Semanal 07 (R$)</span>
@@ -1074,7 +1075,7 @@ export function Calendar({
                             return (
                               <td
                                 key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
+                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                                   isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-cyan-50 hover:bg-cyan-100'
                                 }`}
                                 onMouseDown={() => handleWeekly7PriceMouseDown(property.id, day)}
@@ -1089,7 +1090,7 @@ export function Calendar({
 
                         {/* Personalizado 15 (R$) row */}
                         <tr className="border-b border-gray-100 bg-purple-50">
-                          <td className="sticky left-0 z-10 bg-purple-50 border-r border-gray-200 p-1 pl-12">
+                          <td className="sticky left-0 z-30 bg-purple-50 border-r border-gray-200 p-1 pl-12">
                             <div className="flex items-center gap-2 text-xs text-purple-700">
                               <span className="text-purple-600">⭐</span>
                               <span>Personalizado 15 (R$)</span>
@@ -1100,7 +1101,7 @@ export function Calendar({
                             return (
                               <td
                                 key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
+                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                                   isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-purple-50 hover:bg-purple-100'
                                 }`}
                                 onMouseDown={() => handleCustom15PriceMouseDown(property.id, day)}
@@ -1115,7 +1116,7 @@ export function Calendar({
 
                         {/* Mensal 28 (R$) row */}
                         <tr className="border-b border-gray-200 bg-teal-50">
-                          <td className="sticky left-0 z-10 bg-teal-50 border-r border-gray-200 p-1 pl-12">
+                          <td className="sticky left-0 z-30 bg-teal-50 border-r border-gray-200 p-1 pl-12">
                             <div className="flex items-center gap-2 text-xs text-teal-700">
                               <span className="text-teal-600">📆</span>
                               <span>Mensal 28 (R$)</span>
@@ -1126,7 +1127,7 @@ export function Calendar({
                             return (
                               <td
                                 key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
+                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                                   isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-teal-50 hover:bg-teal-100'
                                 }`}
                                 onMouseDown={() => handleMonthly28PriceMouseDown(property.id, day)}
@@ -1237,6 +1238,7 @@ export function Calendar({
           />
         </>
       )}
-    </>
+      </div>
+    </div>
   );
 }

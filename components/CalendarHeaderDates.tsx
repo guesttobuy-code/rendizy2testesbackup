@@ -6,9 +6,9 @@ interface CalendarHeaderDatesProps {
 
 export function CalendarHeaderDates({ days }: CalendarHeaderDatesProps) {
   return (
-    <div className="sticky top-0 z-50 bg-yellow-200 border-b border-gray-200 shadow-md">
-      <div className="flex">
-        <div className="sticky left-0 z-51 bg-yellow-200 border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px]">
+    <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-md h-16">
+      <div className="flex h-full">
+        <div className="sticky left-0 z-[60] bg-white border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px] flex items-center">
           <span className="text-sm text-gray-600">Padrão</span>
         </div>
         {days.map((day, idx) => {
@@ -22,7 +22,7 @@ export function CalendarHeaderDates({ days }: CalendarHeaderDatesProps) {
             <div
               key={idx}
               className={`border-r border-gray-200 p-1.5 min-w-[80px] text-center flex-shrink-0 ${
-                isToday ? 'bg-blue-100' : 'bg-yellow-200'
+                isToday ? 'bg-gray-100' : 'bg-white'
               }`}
             >
               <div className="flex flex-col items-center gap-0 py-0.5">

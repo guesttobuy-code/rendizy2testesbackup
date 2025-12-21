@@ -39,8 +39,8 @@ export function CalendarBulkRules({
 }: CalendarBulkRulesProps) {
   return (
     <>
-      <tr className="border-b border-gray-200 bg-green-200">
-        <th className="sticky left-0 z-50 bg-green-200 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
+      <tr className="border-b border-gray-200 bg-white">
+        <th className="sticky left-0 z-50 bg-white border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-700">Regras em Lote</span>
@@ -79,8 +79,8 @@ export function CalendarBulkRules({
           return (
             <th
               key={idx}
-              className={`border-r border-gray-200 ${
-                isToday ? 'bg-blue-50' : 'bg-green-200'
+              className={`border-r border-gray-200 min-w-[80px] w-20 ${
+                isToday ? 'bg-gray-100' : 'bg-white'
               }`}
             />
           );
@@ -108,7 +108,7 @@ export function CalendarBulkRules({
               return (
                 <td
                   key={idx}
-                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
+                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                     isSelected
                       ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset'
                       : isToday
@@ -146,7 +146,7 @@ export function CalendarBulkRules({
               return (
                 <td
                   key={idx}
-                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
+                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                     isSelected
                       ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset'
                       : isToday
@@ -186,7 +186,7 @@ export function CalendarBulkRules({
               return (
                 <td
                   key={idx}
-                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
+                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                     isSelected
                       ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset'
                       : isToday

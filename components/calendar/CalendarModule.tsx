@@ -63,7 +63,7 @@ export function CalendarModule({
   handleOpenBlockDetails,
 }: CalendarModuleProps) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors">
       <LoadingProgress isLoading={initialLoading} />
 
       <MainSidebar
@@ -77,7 +77,7 @@ export function CalendarModule({
 
       <div
         className={cn(
-          'flex flex-col min-h-screen transition-all duration-300',
+          'flex flex-col h-full transition-all duration-300',
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72',
         )}
       >
@@ -99,7 +99,7 @@ export function CalendarModule({
           />
 
           {/* ✅ FIX v1.0.103.428: Estrutura com scroll separado para células */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Header 1: CalendarHeader - FIXO NO TOPO (fora de qualquer scroll) */}
             <CalendarHeader
               currentMonth={currentMonth}
@@ -115,7 +115,7 @@ export function CalendarModule({
             />
 
             {/* 🎁 Container de scroll ISOLADO para o calendário - permite scroll X e Y */}
-            <div className="flex-1 overflow-auto min-h-0">
+            <div className="flex-1 min-h-0 overflow-auto">
               {currentView === 'calendar' && (
                 <Calendar
                   properties={properties.filter((p) => selectedProperties.includes(p.id))}
