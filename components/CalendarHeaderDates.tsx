@@ -8,7 +8,7 @@ export function CalendarHeaderDates({ days }: CalendarHeaderDatesProps) {
   return (
     <div className="sticky top-0 z-50 bg-yellow-200 border-b border-gray-200 shadow-md">
       <div className="flex">
-        <div className="sticky left-0 z-50 bg-yellow-200 border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+        <div className="sticky left-0 z-51 bg-yellow-200 border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px]">
           <span className="text-sm text-gray-600">Padrão</span>
         </div>
         {days.map((day, idx) => {

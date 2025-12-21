@@ -98,9 +98,9 @@ export function CalendarModule({
             onViewChange={setCurrentView}
           />
 
-          {/* ✅ FIX v1.0.103.424: Scroll container com headers fixos DENTRO dele */}
-          <div className="flex-1 flex flex-col">
-            {/* Header 1: CalendarHeader - FIXO NO TOPO (fora do scroll) */}
+          {/* ✅ FIX v1.0.103.428: Estrutura com scroll separado para células */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Header 1: CalendarHeader - FIXO NO TOPO (fora de qualquer scroll) */}
             <CalendarHeader
               currentMonth={currentMonth}
               onMonthChange={setCurrentMonth}
@@ -114,7 +114,7 @@ export function CalendarModule({
               onExport={() => setExportModal(true)}
             />
 
-            {/* Scroll container - permite sticky dos filhos dentro dele */}
+            {/* 🎁 Container de scroll ISOLADO para o calendário - permite scroll X e Y */}
             <div className="flex-1 overflow-auto min-h-0">
               {currentView === 'calendar' && (
                 <Calendar

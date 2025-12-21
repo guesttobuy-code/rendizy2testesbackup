@@ -732,13 +732,13 @@ export function Calendar({
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200">
-        <TooltipProvider>
-          {/* ✅ FIX v1.0.103.426: Header das Datas em componente separado */}
-          <CalendarHeaderDates days={days} />
+      {/* ✅ FIX v1.0.103.428: Headers + Tabela em estrutura simples */}
+      <TooltipProvider>
+        {/* Header das Datas - STICKY TOP-0 */}
+        <CalendarHeaderDates days={days} />
 
-          {/* ✅ FIX v1.0.103.426: Tabela com Regras em Lote e Propriedades */}
-          <table className="w-full border-collapse">
+        {/* Tabela com Regras em Lote e Propriedades */}
+        <table className="w-full border-collapse bg-white">
             <thead className="sticky top-[64px] z-40 bg-green-200 border-b border-gray-200 shadow-md">
               {/* ✅ FIX v1.0.103.426: Regras em Lote em componente separado */}
               <CalendarBulkRules
@@ -1146,7 +1146,6 @@ export function Calendar({
               </tbody>
             </table>
         </TooltipProvider>
-      </div>
 
       {/* Drag Selection Tooltip - Mostra quantas noites estão selecionadas */}
       {isSelectingEmpty && emptySelectionStart && emptySelectionEnd && (() => {
