@@ -237,11 +237,14 @@ export function ReservationDetailsModal({
   // ✅ FIX: Converter strings para Date objects antes de usar .getTime()
   const checkInDate = typeof reservation.checkIn === 'string' ? new Date(reservation.checkIn) : reservation.checkIn;
   const checkOutDate = typeof reservation.checkOut === 'string' ? new Date(reservation.checkOut) : reservation.checkOut;
-  const nights = Math.floor((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-  const pricePerNight = reservation.price / nights;
-  const cleaningFee = 150;
-  const serviceFee = Math.round(reservation.price * 0.05);
-  const totalAmount = reservation.price + cleaningFee;
+  const rawNights = Math.floor((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+  const nights = Number.isFinite(rawNights) && rawNights > 0 ? rawNights : Math.max(reservation.nights || 1, 1);
+  const baseStayAmount = reservation.pricing?.total ?? reservation.pricing?.baseTotal ?? reservation.price ?? 0;
+  const pricePerNight = reservation.pricing?.pricePerNight ?? (nights > 0 ? baseStayAmount / nights : 0);
+  const cleaningFee = reservation.pricing?.cleaningFee ?? 150;
+  const serviceFee = reservation.pricing?.serviceFee ?? Math.round(baseStayAmount * 0.05);
+  const discount = reservation.pricing?.discount ?? 0;
+  const totalAmount = baseStayAmount + cleaningFee + serviceFee - discount;
   const platformCommission = Math.round(totalAmount * 0.15);
   const netAmount = totalAmount - platformCommission;
 
@@ -447,7 +450,7 @@ export function ReservationDetailsModal({
                         <div className="flex justify-between items-center gap-2">
                           <span className="text-xs text-gray-600">Diárias ({nights}x)</span>
                           <span className="text-xs font-medium text-gray-900 text-right">
-                            R$ {reservation.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {baseStayAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="flex justify-between items-center gap-2">
@@ -886,7 +889,7 @@ export function ReservationDetailsModal({
                       <div className="border rounded-lg divide-y">
                         <div className="p-3 flex justify-between">
                           <span className="text-gray-700">Diárias ({nights} noites)</span>
-                          <span className="font-medium">R$ {reservation.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="font-medium">R$ {baseStayAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="p-3 flex justify-between">
                           <span className="text-gray-700">Valor por noite</span>
@@ -1098,7 +1101,7 @@ export function ReservationDetailsModal({
                             <td className="py-2">Diária</td>
                             <td className="py-2 text-right">{nights}</td>
                             <td className="py-2 text-right">R$ {pricePerNight.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                            <td className="py-2 text-right">R$ {reservation.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                            <td className="py-2 text-right">R$ {baseStayAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           </tr>
                           <tr className="border-b">
                             <td className="py-2">Taxa de limpeza</td>

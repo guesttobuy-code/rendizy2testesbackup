@@ -52,6 +52,9 @@ export function CancelReservationModal({
   const today = new Date();
   const daysUntilCheckIn = Math.ceil((checkIn.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
+  // Derive safe pricing from pricing object or fallback to deprecated price field
+  const totalPrice = reservation.pricing?.total ?? reservation.pricing?.baseTotal ?? reservation.price ?? 0;
+
   // Calcula reembolso baseado na política
   let refundPercentage = 0;
   let policyText = '';
@@ -67,7 +70,7 @@ export function CancelReservationModal({
     policyText = 'Sem reembolso (menos de 7 dias)';
   }
 
-  const refundAmount = (reservation.price * refundPercentage) / 100;
+  const refundAmount = (totalPrice * refundPercentage) / 100;
 
   const handleConfirmCancel = () => {
     const data: CancelReservationData = {
@@ -137,7 +140,7 @@ export function CancelReservationModal({
               </div>
               <div className="flex items-center gap-2 text-gray-700">
                 <span className="font-medium">Valor:</span>
-                <span>R$ {reservation.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span>R$ {totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
@@ -208,7 +211,7 @@ export function CancelReservationModal({
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-blue-900">Valor pago:</span>
                   <span className="text-sm text-blue-900">
-                    R$ {reservation.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
