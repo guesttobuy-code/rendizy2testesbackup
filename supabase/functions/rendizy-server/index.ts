@@ -51,7 +51,7 @@ import shortIdsApp from "./routes-short-ids.ts";
 import adminCleanupApp from "./routes-admin-cleanup.ts";
 import resetRoutes from "./reset-database.ts";
 import { seedDatabase } from "./seed-data.ts";
-import { seedDatabaseNew } from "./seed-data-new.ts";
+import { seedDatabaseNew } from "./seed-data-enhanced.ts";
 import { seedTestProperties } from "./seed-data-test.ts";
 import { seedCompleteTest } from "./seed-complete-test.ts";
 import { migrateNormalizeProperties } from "./migrate-normalize-properties.ts";

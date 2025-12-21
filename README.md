@@ -1,6 +1,17 @@
-# RENDIZY PRODUÇÃO
+# RENDIZY PMS
 
-This is a code bundle for RENDIZY PRODUÇÃO. The original project is available at https://www.figma.com/design/MIUsvRcBYzJU8Rfv4MA6Qg/RENDIZY-PRODU%C3%87%C3%83O.
+> **Sistema de Gestão de Propriedades para Aluguel por Temporada**
+> 
+> ⚠️ **IMPORTANTE:** Antes de fazer qualquer alteração, leia:
+> - 🔒 **[RULES.md](RULES.md)** - Regras de Ouro (especialmente Seção 0 para IAs)
+> - 📚 **[docs/README.md](docs/README.md)** - Índice completo da documentação
+> - 📝 **[CHANGELOG.md](CHANGELOG.md)** - Histórico de mudanças
+
+**Versão**: v1.0.103.405  
+**Última atualização**: 20/12/2024  
+**Figma**: [RENDIZY PRODUÇÃO](https://www.figma.com/design/MIUsvRcBYzJU8Rfv4MA6Qg/RENDIZY-PRODU%C3%87%C3%83O)
+
+---
 
 ## 🚀 Tecnologias
 
