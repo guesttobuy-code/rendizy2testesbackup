@@ -732,10 +732,10 @@ export function Calendar({
     <>
       <div className="bg-white rounded-lg border border-gray-200 flex flex-col h-full">
         <TooltipProvider>
-          {/* ✅ FIX v1.0.103.412: Header SEPARADO e FIXO (não rola) */}
+          {/* ✅ FIX v1.0.103.413: Header SEPARADO e FIXO no topo */}
           <div className="sticky top-0 z-50 bg-gray-50 border-b border-gray-200 shadow-md">
             <div className="flex">
-              <div className="sticky left-0 z-50 bg-gray-50 border-r border-gray-200 p-2 text-left min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+              <div className="sticky left-0 z-50 bg-gray-50 border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                 <span className="text-sm text-gray-600">Padrão</span>
               </div>
               {days.map((day, idx) => {
@@ -782,7 +782,7 @@ export function Calendar({
               <tbody>
                 {/* Regras em Lote Section */}
                 <tr className="border-b border-gray-200 bg-gray-100">
-                  <td className="sticky left-0 z-10 bg-gray-100 border-r border-gray-200 p-2">
+                  <td className="sticky left-0 z-10 bg-gray-100 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-700">Regras em Lote</span>
@@ -939,7 +939,7 @@ export function Calendar({
 
                 {/* Anúncios - Imóveis Section Header */}
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <td className="sticky left-0 z-10 bg-gray-50 border-r border-gray-200 p-2">
+                  <td className="sticky left-0 z-10 bg-gray-50 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
                     <span className="text-sm text-gray-700">Anúncios - Imóveis</span>
                   </td>
                   {days.map((day, idx) => {
@@ -966,17 +966,17 @@ export function Calendar({
                     {/* Reservations row */}
                     <tr className="border-b border-gray-200">
                       <td 
-                        className="sticky left-0 z-10 bg-white border-r border-gray-200 p-1.5"
+                        className="sticky left-0 z-10 bg-white border-r border-gray-200 p-1.5 w-[180px] min-w-[180px] max-w-[180px]"
                       >
                         <div className="flex items-center gap-2">
                           <img
                             src={property.image}
                             alt={property.name}
-                            className="w-9 h-9 rounded object-cover"
+                            className="w-9 h-9 rounded object-cover flex-shrink-0"
                           />
-                          <div className="flex-1">
-                            <div className="text-sm text-gray-900">{property.name}</div>
-                            <div className="text-gray-500 text-xs">{property.type}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-gray-900 truncate">{property.name}</div>
+                            <div className="text-gray-500 text-xs truncate">{property.type}</div>
                           </div>
                           <button
                             onClick={() => togglePropertyExpansion(property.id)}
