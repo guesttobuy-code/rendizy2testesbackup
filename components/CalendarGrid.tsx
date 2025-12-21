@@ -6,6 +6,8 @@ import { ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { BulkPriceConditionModal } from './BulkPriceConditionModal';
 import { BulkRestrictionsModal } from './BulkRestrictionsModal';
 import { BulkMinNightsModal } from './BulkMinNightsModal';
+import { CalendarHeaderDates } from './CalendarHeaderDates';
+import { CalendarBulkRules } from './CalendarBulkRules';
 
 interface CalendarProps {
   currentMonth: Date;
@@ -732,232 +734,56 @@ export function Calendar({
     <>
       <div className="bg-white rounded-lg border border-gray-200">
         <TooltipProvider>
-          {/* ✅ FIX v1.0.103.418: Header das Datas - STICKY dentro do container */}
-          <div className="sticky top-0 z-50 bg-yellow-200 border-b border-gray-200 shadow-md">
-            <div className="flex">
-              <div className="sticky left-0 z-50 bg-yellow-200 border-r border-gray-200 p-2 text-left w-[180px] min-w-[180px] max-w-[180px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
-                <span className="text-sm text-gray-600">Padrão</span>
-              </div>
-              {days.map((day, idx) => {
-                // ✅ FIX v1.0.103.407: Detectar dia atual para destacar coluna
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const dayNormalized = new Date(day);
-                dayNormalized.setHours(0, 0, 0, 0);
-                const isToday = dayNormalized.getTime() === today.getTime();
-                
-                return (
-                  <div
-                    key={idx}
-                    className={`border-r border-gray-200 p-1.5 min-w-[80px] text-center flex-shrink-0 ${
-                      isToday ? 'bg-blue-100' : 'bg-yellow-200'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center gap-0 py-0.5">
-                      <div className={`text-sm font-medium ${
-                        isToday ? 'text-blue-900' : 'text-gray-900'
-                      }`}>
-                        {day.getDate()}
-                      </div>
-                      <div className={`text-2xs uppercase leading-tight ${
-                        isToday ? 'text-blue-700' : 'text-gray-500'
-                      }`}>
-                        {day.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
-                      </div>
-                      <div className={`text-2xs leading-tight ${
-                        isToday ? 'text-blue-600' : 'text-gray-400'
-                      }`}>
-                        {day.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          {/* ✅ FIX v1.0.103.426: Header das Datas em componente separado */}
+          <CalendarHeaderDates days={days} />
 
-          {/* ✅ FIX v1.0.103.418: Tabela com Regras em Lote também STICKY */}
+          {/* ✅ FIX v1.0.103.426: Tabela com Regras em Lote e Propriedades */}
           <table className="w-full border-collapse">
             <thead className="sticky top-[64px] z-40 bg-green-200 border-b border-gray-200 shadow-md">
-              <tr>
-                <th className="sticky left-0 z-50 bg-green-200 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-700">Regras em Lote</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="w-4 h-4 rounded-full border border-gray-400 flex items-center justify-center cursor-help hover:bg-gray-200 transition-colors">
-                              <Info className="h-2.5 w-2.5 text-gray-600" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs">
-                            <p className="text-sm">
-                              A alteração em Regras em Lote, seguirão estritamente para os imóveis selecionados com as regras de filtros avançados. Imóveis não selecionados, não receberão Regras em lote.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <button
-                        onClick={() => setIsBulkRulesExpanded(!isBulkRulesExpanded)}
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
-                      >
-                        {isBulkRulesExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-gray-600" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-600" />
-                        )}
-                      </button>
-                    </div>
-                  </th>
-                  {days.map((day, idx) => {
-                    // ✅ FIX v1.0.103.407: Detectar dia atual
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dayNormalized = new Date(day);
-                    dayNormalized.setHours(0, 0, 0, 0);
-                    const isToday = dayNormalized.getTime() === today.getTime();
-                    
-                    return (
-                      <th key={idx} className={`border-r border-gray-200 ${
-                        isToday ? 'bg-blue-50' : 'bg-green-200'
-                      }`}></th>
-                    );
-                  })}
-                </tr>
+              {/* ✅ FIX v1.0.103.426: Regras em Lote em componente separado */}
+              <CalendarBulkRules
+                days={days}
+                isBulkRulesExpanded={isBulkRulesExpanded}
+                setIsBulkRulesExpanded={setIsBulkRulesExpanded}
+                isDateInGlobalPriceSelection={isDateInGlobalPriceSelection}
+                isDateInGlobalRestrictionsSelection={isDateInGlobalRestrictionsSelection}
+                isDateInGlobalMinNightsSelection={isDateInGlobalMinNightsSelection}
+                handleGlobalPriceMouseDown={handleGlobalPriceMouseDown}
+                handleGlobalPriceMouseEnter={handleGlobalPriceMouseEnter}
+                handleGlobalPriceMouseUp={handleGlobalPriceMouseUp}
+                handleGlobalRestrictionsMouseDown={handleGlobalRestrictionsMouseDown}
+                handleGlobalRestrictionsMouseEnter={handleGlobalRestrictionsMouseEnter}
+                handleGlobalRestrictionsMouseUp={handleGlobalRestrictionsMouseUp}
+                handleGlobalMinNightsMouseDown={handleGlobalMinNightsMouseDown}
+                handleGlobalMinNightsMouseEnter={handleGlobalMinNightsMouseEnter}
+                handleGlobalMinNightsMouseUp={handleGlobalMinNightsMouseUp}
+              />
 
-                {/* Bulk Rules rows - Only shown when expanded */}
-                {isBulkRulesExpanded && (
-                  <>
-                    {/* Condição (%) row - GLOBAL */}
-                    <tr className="border-b border-gray-100 bg-orange-50">
-                      <td className="sticky left-0 z-10 bg-orange-50 border-r border-gray-200 p-1 pl-8">
-                        <div className="flex items-center gap-2 text-xs text-orange-700">
-                          <span className="text-orange-600">%</span>
-                          <span>Condição (%)</span>
-                        </div>
-                      </td>
-                      {days.map((day, idx) => {
-                        // ✅ FIX v1.0.103.407: Detectar dia atual
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const dayNormalized = new Date(day);
-                        dayNormalized.setHours(0, 0, 0, 0);
-                        const isToday = dayNormalized.getTime() === today.getTime();
-                        const isSelected = isDateInGlobalPriceSelection(day);
-                        
-                        return (
-                          <td
-                            key={idx}
-                            className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
-                              isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 
-                              isToday ? 'bg-orange-100' : 'bg-orange-50 hover:bg-orange-100'
-                            }`}
-                            onMouseDown={(e) => handleGlobalPriceMouseDown(day, e)}
-                            onMouseEnter={(e) => handleGlobalPriceMouseEnter(day, e)}
-                            onMouseUp={handleGlobalPriceMouseUp}
-                          >
-                            <span className="text-green-600">-10%</span>
-                          </td>
-                        );
-                      })}
-                    </tr>
+              {/* Anúncios - Imóveis Section Header */}
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <td className="sticky left-0 z-10 bg-gray-50 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
+                  <span className="text-sm text-gray-700">Anúncios - Imóveis</span>
+                </td>
+                {days.map((day, idx) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const dayNormalized = new Date(day);
+                  dayNormalized.setHours(0, 0, 0, 0);
+                  const isToday = dayNormalized.getTime() === today.getTime();
 
-                    {/* Restrições row - GLOBAL */}
-                    <tr className="border-b border-gray-100 bg-red-50">
-                      <td className="sticky left-0 z-10 bg-red-50 border-r border-gray-200 p-1 pl-8">
-                        <div className="flex items-center gap-2 text-xs text-red-700">
-                          <span className="text-red-600">🚫</span>
-                          <span>Restrições</span>
-                        </div>
-                      </td>
-                      {days.map((day, idx) => {
-                        // ✅ FIX v1.0.103.407: Detectar dia atual
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const dayNormalized = new Date(day);
-                        dayNormalized.setHours(0, 0, 0, 0);
-                        const isToday = dayNormalized.getTime() === today.getTime();
-                        const dayOfWeek = day.getDay();
-                        const isSunday = dayOfWeek === 0;
-                        const isSelected = isDateInGlobalRestrictionsSelection(day);
-                        
-                        return (
-                          <td
-                            key={idx}
-                            className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
-                              isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 
-                              isToday ? (isSunday ? 'bg-red-200' : 'bg-red-100') :
-                              isSunday ? 'bg-red-200 hover:bg-red-300' : 'bg-red-50 hover:bg-red-100'
-                            }`}
-                            onMouseDown={(e) => handleGlobalRestrictionsMouseDown(day, e)}
-                            onMouseEnter={(e) => handleGlobalRestrictionsMouseEnter(day, e)}
-                            onMouseUp={handleGlobalRestrictionsMouseUp}
-                          >
-                            {isSunday ? '🚫' : '—'}
-                          </td>
-                        );
-                      })}
-                    </tr>
-
-                    {/* Mín. Noites row - GLOBAL */}
-                    <tr className="border-b border-gray-200 bg-blue-50">
-                      <td className="sticky left-0 z-10 bg-blue-50 border-r border-gray-200 p-1 pl-8">
-                        <div className="flex items-center gap-2 text-xs text-blue-700">
-                          <span className="text-blue-600">🌙</span>
-                          <span>Mín. noites</span>
-                        </div>
-                      </td>
-                      {days.map((day, idx) => {
-                        // ✅ FIX v1.0.103.407: Detectar dia atual
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const dayNormalized = new Date(day);
-                        dayNormalized.setHours(0, 0, 0, 0);
-                        const isToday = dayNormalized.getTime() === today.getTime();
-                        const isSelected = isDateInGlobalMinNightsSelection(day);
-                        
-                        return (
-                          <td
-                            key={idx}
-                            className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none ${
-                              isSelected ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset' : 
-                              isToday ? 'bg-blue-100' : 'bg-blue-50 hover:bg-blue-100'
-                            }`}
-                            onMouseDown={(e) => handleGlobalMinNightsMouseDown(day, e)}
-                            onMouseEnter={(e) => handleGlobalMinNightsMouseEnter(day, e)}
-                            onMouseUp={handleGlobalMinNightsMouseUp}
-                          >
-                            <span className="text-blue-700">1</span>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  </>
-                )}
-
-                {/* Anúncios - Imóveis Section Header */}
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <td className="sticky left-0 z-10 bg-gray-50 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
-                    <span className="text-sm text-gray-700">Anúncios - Imóveis</span>
-                  </td>
-                  {days.map((day, idx) => {
-                    // ✅ FIX v1.0.103.407: Detectar dia atual
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dayNormalized = new Date(day);
-                    dayNormalized.setHours(0, 0, 0, 0);
-                    const isToday = dayNormalized.getTime() === today.getTime();
-                    
-                    return (
-                      <td key={idx} className={`border-r border-gray-200 ${
+                  return (
+                    <td
+                      key={idx}
+                      className={`border-r border-gray-200 ${
                         isToday ? 'bg-blue-50' : 'bg-gray-50'
-                      }`}></td>
-                    );
-                  })}
-                </tr>
+                      }`}
+                    />
+                  );
+                })}
+              </tr>
             </thead>
 
-            {/* ✅ FIX v1.0.103.418: Corpo da tabela - ROLA */}
+            {/* ✅ FIX v1.0.103.426: Corpo da tabela - ROLA */}
             <tbody>
               {properties.map((property) => {
                 const isExpanded = expandedProperties.has(property.id);
