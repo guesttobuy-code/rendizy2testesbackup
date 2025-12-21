@@ -112,7 +112,7 @@ export function CalendarModule({
               onExport={() => setExportModal(true)}
             />
 
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 flex flex-col">
               {currentView === 'calendar' && (
                 <Calendar
                   properties={properties.filter((p) => selectedProperties.includes(p.id))}
