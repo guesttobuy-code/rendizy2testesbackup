@@ -81,7 +81,7 @@ export function CalendarModule({
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72',
         )}
       >
-        <div className="flex flex-1">
+        <div className="flex flex-1 min-h-0">
           <PropertySidebar
             properties={properties}
             selectedProperties={selectedProperties}
@@ -98,9 +98,9 @@ export function CalendarModule({
             onViewChange={setCurrentView}
           />
 
-          {/* ✅ FIX v1.0.103.418: Headers TOTALMENTE fora do overflow */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Header 1: CalendarHeader - FIXO NO TOPO */}
+          {/* ✅ FIX v1.0.103.424: Scroll container com headers fixos DENTRO dele */}
+          <div className="flex-1 flex flex-col">
+            {/* Header 1: CalendarHeader - FIXO NO TOPO (fora do scroll) */}
             <CalendarHeader
               currentMonth={currentMonth}
               onMonthChange={setCurrentMonth}
@@ -114,7 +114,7 @@ export function CalendarModule({
               onExport={() => setExportModal(true)}
             />
 
-            {/* Apenas CORPO rola */}
+            {/* Scroll container - permite sticky dos filhos dentro dele */}
             <div className="flex-1 overflow-auto">
               {currentView === 'calendar' && (
                 <Calendar
