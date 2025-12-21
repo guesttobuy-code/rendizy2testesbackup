@@ -99,20 +99,23 @@ export function CalendarModule({
           />
 
           <div className="flex-1 flex flex-col overflow-hidden">
-            <CalendarHeader
-              currentMonth={currentMonth}
-              onMonthChange={setCurrentMonth}
-              currentView={currentView}
-              onViewChange={setCurrentView}
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-              selectedProperties={selectedProperties}
-              selectedReservationTypes={selectedReservationTypes}
-              onReservationTypesChange={setSelectedReservationTypes}
-              onExport={() => setExportModal(true)}
-            />
+            {/* ✅ FIX v1.0.103.414: CalendarHeader sticky no topo */}
+            <div className="sticky top-0 z-40">
+              <CalendarHeader
+                currentMonth={currentMonth}
+                onMonthChange={setCurrentMonth}
+                currentView={currentView}
+                onViewChange={setCurrentView}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                selectedProperties={selectedProperties}
+                selectedReservationTypes={selectedReservationTypes}
+                onReservationTypesChange={setSelectedReservationTypes}
+                onExport={() => setExportModal(true)}
+              />
+            </div>
 
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 overflow-auto">{
               {currentView === 'calendar' && (
                 <Calendar
                   properties={properties.filter((p) => selectedProperties.includes(p.id))}
