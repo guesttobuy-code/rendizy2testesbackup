@@ -66,10 +66,14 @@ export const ListaAnuncios = () => {
   const loadAnuncios = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?select=*&order=created_at.desc`, {
+      // ✅ v1.0.103.404: Usar backend Edge Function ao invés de REST API direta
+      // Problema: RLS bloqueia registros quando usa REST API sem org context
+      const token = localStorage.getItem('rendizy-token');
+      
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/make-server-67caf26a/anuncios-ultimate/lista`, {
         headers: {
           'apikey': ANON_KEY,
-          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': token || '',
           'Content-Type': 'application/json'
         }
       });
@@ -78,7 +82,9 @@ export const ListaAnuncios = () => {
         throw new Error(`HTTP ${res.status}`);
       }
 
-      const data = await res.json();
+      const response = await res.json();
+      const data = response.anuncios || [];
+      
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('✅ Anúncios carregados - Total:', data.length);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

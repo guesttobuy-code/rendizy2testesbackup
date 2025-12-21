@@ -52,6 +52,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Anúncios importados agora aparecem em `/anuncios-ultimate/lista`
   - Query de deduplicação: `contains('data', { externalIds: { stays_net_id } })`
   - Documento: `⚡_FIX_STAYSNET_TARGET_ANUNCIOS_ULTIMATE_v1.0.103.403.md`
+- 🔴 **Issue #48**: Lista Anúncios Ultimate retornava apenas 2 registros ao invés de 159
+  - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 69
+  - Frontend consultava REST API direta (sem org context) → RLS bloqueava registros
+  - Corrigido: usa Edge Function `/anuncios-ultimate/lista` com X-Auth-Token
+  - Resposta mudou: `data` array → `response.anuncios` array
+  - Agora retorna TODOS os anúncios da organização (159+ registros)
+  - Documento: `⚡_FIX_LISTA_ANUNCIOS_VIA_BACKEND_v1.0.103.404.md`
 
 ### Changed
 - Nada ainda
