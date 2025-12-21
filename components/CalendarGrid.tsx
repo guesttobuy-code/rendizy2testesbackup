@@ -730,16 +730,15 @@ export function Calendar({
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col h-full">
-        <div className="flex-1 overflow-auto">
-          <TooltipProvider>
-            <table className="w-full border-collapse">
-            {/* Header with days - Sticky (fixo durante rolagem vertical e horizontal) */}
-            <thead className="sticky top-0 z-50">
-              <tr className="bg-gray-50 border-b border-gray-200 shadow-md">
-                <th className="sticky top-0 left-0 z-50 bg-gray-50 border-r border-gray-200 p-2 text-left min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
-                  <span className="text-sm text-gray-600">Padrão</span>
-                </th>
+      <div className="bg-white rounded-lg border border-gray-200 flex flex-col h-full overflow-auto">
+        <TooltipProvider>
+          <table className="w-full border-collapse relative">
+          {/* Header with days - Sticky (fixo durante rolagem vertical e horizontal) */}
+          <thead className="sticky top-0 z-50 bg-gray-50">
+            <tr className="bg-gray-50 border-b border-gray-200 shadow-md">
+              <th className="sticky top-0 left-0 z-50 bg-gray-50 border-r border-gray-200 p-2 text-left min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+                <span className="text-sm text-gray-600">Padrão</span>
+              </th>
                 {days.map((day, idx) => {
                   // ✅ FIX v1.0.103.407: Detectar dia atual para destacar coluna
                   const today = new Date();
@@ -1331,9 +1330,7 @@ export function Calendar({
               })}
               </tbody>
             </table>
-
           </TooltipProvider>
-        </div>
       </div>
 
       {/* Drag Selection Tooltip - Mostra quantas noites estão selecionadas */}
