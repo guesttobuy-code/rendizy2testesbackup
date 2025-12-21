@@ -955,8 +955,6 @@ export function Calendar({
                     );
                   })}
                 </tr>
-              </>
-            )}
             </thead>
 
             {/* ✅ FIX v1.0.103.418: Corpo da tabela - ROLA */}
