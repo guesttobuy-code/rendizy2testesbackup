@@ -1820,7 +1820,7 @@ export default function FormularioAnuncio() {
       }
       
       // ✅ ANÚNCIO EXISTENTE: Atualizar com PATCH
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?id=eq.${anuncioId}`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncioId}`, {
         method: 'PATCH',
         headers: {
           'apikey': ANON_KEY,

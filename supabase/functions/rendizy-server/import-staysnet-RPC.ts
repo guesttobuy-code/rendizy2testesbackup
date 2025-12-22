@@ -56,7 +56,7 @@ export async function importStaysNetRPC(c: Context) {
       try {
         console.log(`\n💾 [RPC] Salvando: ${prop.internalName || prop._id}`);
         
-        // Campo 1: title (criar novo anúncio em anuncios_drafts)
+        // Campo 1: title (criar novo anúncio em anuncios_ultimate)
         const { data: anuncioData, error: createError } = await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: null,  // NULL = criar novo anúncio
           p_field: 'title',
@@ -131,7 +131,7 @@ export async function importStaysNetRPC(c: Context) {
     return c.json({
       success: true,
       method: 'RPC save_anuncio_field',
-      table: 'anuncios_drafts',
+      table: 'anuncios_ultimate',
       stats: { fetched, saved, errors },
       message: `Importados ${saved}/${fetched} anúncios usando RPC (igual FormularioAnuncio)`
     });

@@ -161,7 +161,7 @@ export const ListaAnuncios = () => {
 
   const handleStatusChange = async (anuncio: AnuncioUltimate, newStatus: 'inactive' | 'draft' | 'active') => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?id=eq.${anuncio.id}`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncio.id}`, {
         method: 'PATCH',
         headers: {
           'apikey': ANON_KEY,
@@ -192,7 +192,7 @@ export const ListaAnuncios = () => {
     }
 
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?id=eq.${anuncio.id}`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncio.id}`, {
         method: 'DELETE',
         headers: {
           'apikey': ANON_KEY,
