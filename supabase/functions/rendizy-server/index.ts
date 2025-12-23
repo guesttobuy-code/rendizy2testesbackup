@@ -15,8 +15,17 @@ import { importStaysNetSimple } from "./import-staysnet-simple.ts";
 
 const app = new Hono();
 
-// ✅ CORS SIMPLES - ESTÁ ASSIM E FUNCIONA (OBRIGATÓRIO - NÃO MUDAR)
+// ✅ CORS EXPLÍCITO - OPTIONS PREFLIGHT PRIMEIRO (OBRIGATÓRIO)
 // Ref: docs/operations/SETUP_COMPLETO.md - Seção 4.4
+app.options("/*", (c) => {
+  c.header("Access-Control-Allow-Origin", "*");
+  c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token");
+  c.header("Access-Control-Max-Age", "86400"); // 24 hours cache
+  return c.body(null, 204);
+});
+
+// ✅ CORS para todas as outras requisições
 app.use("/*", cors({
   origin: "*",
   allowHeaders: ["Content-Type", "Authorization", "X-Requested-With", "apikey", "X-Auth-Token"],
