@@ -3,7 +3,20 @@
   "compilerOptions": {
     "lib": ["deno.window", "deno.ns", "deno.unstable"],
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
     "types": []
+  },
+  "tasks": {
+    "check": "deno check index.ts",
+    "check-all": "deno check *.ts",
+    "validate": "deno check index.ts && echo '✅ Validação TypeScript OK'"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
   },
   "imports": {
     "openai": "./third_party/openai-stub.ts",

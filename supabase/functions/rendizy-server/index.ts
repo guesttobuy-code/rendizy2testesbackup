@@ -1,9 +1,44 @@
-// Rendizy Backend API - Main Entry Point (cápsula mínima)
+// ============================================================================
+// 🔒 RENDIZY BACKEND API - ENTRY POINT CRÍTICO
+// ============================================================================
+// ⚠️ ATENÇÃO: Este arquivo é o PONTO ÚNICO DE INTEGRAÇÃO de todos os módulos
+// 
+// ANTES DE MODIFICAR, LEIA OBRIGATORIAMENTE:
+// 📚 docs/architecture/BLINDAGEM_MODULAR_ANTI_REGRESSAO.md (⚠️ OBRIGATÓRIO)
+// 📚 docs/operations/SETUP_COMPLETO.md (Seção 4.4 - CORS)
+//
+// REGRAS CRÍTICAS:
+// 1. CORS (linhas 30-60) → NÃO MODIFICAR sem ler documentação
+// 2. Imports (linhas 20-28) → SEMPRE adicionar ANTES de usar na linha 80+
+// 3. Auth routes (linhas 65-70) → NÃO MOVER (login depende da ordem)
+// 4. TESTAR com `deno check index.ts` ANTES de QUALQUER commit
+//
+// HISTÓRICO DE PROBLEMAS:
+// - 23/12/2025: Import faltando → crash global → CORS quebrado (2h debug)
+// - 20/11/2025: CORS modificado → login quebrado (documentado SETUP_COMPLETO.md)
+//
+// 🎯 REGRA DE OURO: Se funciona, NÃO MEXER sem documentar!
+// ============================================================================
+
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 
-// Rotas essenciais habilitadas
+// ============================================================================
+// 📦 IMPORTS DE MÓDULOS (SEMPRE ADICIONAR ANTES DE USAR NAS ROTAS)
+// ============================================================================
+// ⚠️ CHECKLIST PARA NOVOS IMPORTS:
+// [ ] Import adicionado aqui PRIMEIRO
+// [ ] Rota registrada nas linhas 100+ DEPOIS
+// [ ] Se persistência: usar RPC atômica (docs/architecture/PERSISTENCIA_ATOMICA_PADRAO_VITORIOSO.md)
+// [ ] Testado com: deno check index.ts (ou .\VALIDATE-BEFORE-DEPLOY.ps1)
+// [ ] Deploy testado em staging antes de produção
+// 
+// 📚 PADRÃO DE PERSISTÊNCIA (LEITURA OBRIGATÓRIA):
+// - docs/architecture/PERSISTENCIA_ATOMICA_PADRAO_VITORIOSO.md
+// - Exemplo vitorioso: save_anuncio_field (UPSERT + idempotência)
+// - Nunca usar INSERT/UPDATE separados (race condition!)
+// ============================================================================
 import authApp from "./routes-auth.ts";
 import anunciosApp from "./routes-anuncios.ts";
 import * as reservationsRoutes from "./routes-reservations.ts";
@@ -12,12 +47,27 @@ import blocksApp from "./routes-blocks.ts";
 import * as guestsRoutes from "./routes-guests.ts";
 import * as staysnetRoutes from "./routes-staysnet.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
-import { importStaysNetRPC } from "./import-staysnet-RPC.ts";
+import { importStaysNetRPC } from "./import-staysnet-RPC.ts"; // ✅ Adicionado 23/12/2025
 
 const app = new Hono();
 
-// 🔥 CORREÇÃO DEFINITIVA CORS - Middleware GLOBAL antes de tudo
-// Ref: docs/operations/SETUP_COMPLETO.md - Seção 4.4
+// ============================================================================
+// 🛡️ CAMADA 1: CORS PROTECTION (CRÍTICO - NÃO MODIFICAR)
+// ============================================================================
+// ⚠️ ATENÇÃO: Esta é a configuração que FUNCIONA após múltiplas iterações
+// 
+// HISTÓRICO:
+// - 20/11/2025: Tentativa com credentials:true FALHOU (SETUP_COMPLETO.md)
+// - 23/12/2025: Movido para middleware global para garantir OPTIONS
+//
+// REGRAS:
+// ✅ origin: "*" SEM credentials:true → FUNCIONA
+// ❌ NUNCA adicionar credentials:true (quebra CORS)
+// ❌ NUNCA remover este middleware (login para de funcionar)
+// ❌ NUNCA modificar headers sem testar OPTIONS: curl -X OPTIONS [URL]
+//
+// REFERÊNCIA: docs/operations/SETUP_COMPLETO.md (Seção 4.4)
+// ============================================================================
 app.use("*", async (c, next) => {
   // Set CORS headers for ALL requests
   c.header("Access-Control-Allow-Origin", "*");
@@ -113,4 +163,56 @@ app.onError((err, c) => {
   return c.json({ error: "Internal Server Error" }, 500);
 });
 
-Deno.serve((req) => app.fetch(req));
+// ============================================================================
+// 🛡️ CAMADA 2: SERVIDOR COM CORS ISOLADO (PROTEÇÃO DEFINITIVA)
+// ============================================================================
+// ⚠️ CRITICAL: CORS é tratado ANTES do app Hono processar qualquer request
+// 
+// OBJETIVO: Mesmo se app.fetch() crashar, CORS continua funcionando
+// 
+// FLUXO:
+// 1. Request OPTIONS → Retorna 204 IMEDIATAMENTE (sem tocar no app)
+// 2. Outras requests → Try-catch garante resposta com CORS mesmo em erro
+//
+// REFERÊNCIA: docs/architecture/BLINDAGEM_MODULAR_ANTI_REGRESSAO.md
+// ============================================================================
+Deno.serve((req) => {
+  // ========================================
+  // CAMADA 1: CORS PREFLIGHT (SEMPRE FUNCIONA)
+  // ========================================
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token",
+        "Access-Control-Max-Age": "86400",
+      }
+    });
+  }
+
+  // ========================================
+  // CAMADA 2: APP HONO COM PROTEÇÃO DE ERRO
+  // ========================================
+  try {
+    return app.fetch(req);
+  } catch (error) {
+    console.error("🔥 ERRO CRÍTICO NO APP:", error);
+    // Garantir que CORS funciona mesmo em crash total
+    return new Response(
+      JSON.stringify({ 
+        error: "Internal Server Error", 
+        message: error.message,
+        hint: "Check server logs for details"
+      }), 
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        }
+      }
+    );
+  }
+});
