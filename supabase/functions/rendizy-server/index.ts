@@ -1,5 +1,6 @@
 // Rendizy Backend API - Main Entry Point (cápsula mínima)
 import { Hono } from "npm:hono";
+import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 
 // Rotas essenciais habilitadas
@@ -14,33 +15,13 @@ import { importStaysNetSimple } from "./import-staysnet-simple.ts";
 
 const app = new Hono();
 
-// CORS simples antes de tudo
-app.use("/*", async (c, next) => {
-  if (c.req.method === "OPTIONS") {
-    c.header("Access-Control-Allow-Origin", "*");
-    c.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD"
-    );
-    c.header(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token"
-    );
-    return c.body(null, 204);
-  }
-
-  await next();
-
-  c.header("Access-Control-Allow-Origin", "*");
-  c.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD"
-  );
-  c.header(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token"
-  );
-});
+// ✅ CORS SIMPLES - ESTÁ ASSIM E FUNCIONA (OBRIGATÓRIO - NÃO MUDAR)
+// Ref: docs/operations/SETUP_COMPLETO.md - Seção 4.4
+app.use("/*", cors({
+  origin: "*",
+  allowHeaders: ["Content-Type", "Authorization", "X-Requested-With", "apikey", "X-Auth-Token"],
+  allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+}));
 
 // Logger depois do CORS
 app.use("*", logger());
