@@ -515,18 +515,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    console.log('🚪 [AuthContext] INICIANDO LOGOUT COMPLETO');
+    
     try {
-      await authServiceLogout();
-      authBroadcast.notifyLogout();
-    } catch (error) {
-      console.error('❌ [AuthContext] Erro ao fazer logout:', error);
-    } finally {
+      // 1. Tentar logout no backend (pode falhar, tudo bem)
+      try {
+        await authServiceLogout();
+        console.log('✅ [AuthContext] Logout no backend OK');
+      } catch (backendError) {
+        console.warn('⚠️ [AuthContext] Erro no logout backend (ignorando):', backendError);
+      }
+      
+      // 2. Limpar TODOS os tokens do localStorage
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('token') || key.includes('auth') || key.includes('supabase'))) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      console.log('🗑️ [AuthContext] Removendo tokens:', keysToRemove);
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      // 3. Limpar especificamente os tokens conhecidos
       localStorage.removeItem('rendizy-token');
+      localStorage.removeItem('sb-odcgnzfremrqnvtitpcc-auth-token');
+      localStorage.removeItem('sb-odcgnzfremrqnvtitpcc-auth-token-code-verifier');
+      
+      // 4. Limpar sessionStorage também
+      sessionStorage.clear();
+      
+      // 5. Limpar estado do React
       setHasTokenState(false);
       setUser(null);
       setOrganization(null);
       
-      console.log('✅ [AuthContext] Logout completo - estado e token limpos');
+      // 6. Notificar outras abas
+      authBroadcast.notifyLogout();
+      
+      // 7. Verificar limpeza
+      const tokenAposLimpeza = localStorage.getItem('rendizy-token');
+      const sbTokenAposLimpeza = localStorage.getItem('sb-odcgnzfremrqnvtitpcc-auth-token');
+      
+      console.log('📊 [AuthContext] VERIFICAÇÃO PÓS-LOGOUT:');
+      console.log('   rendizy-token:', tokenAposLimpeza ? '❌ AINDA EXISTE' : '✅ REMOVIDO');
+      console.log('   sb-auth-token:', sbTokenAposLimpeza ? '❌ AINDA EXISTE' : '✅ REMOVIDO');
+      console.log('   user state:', user ? '❌ AINDA TEM USER' : '✅ NULL');
+      console.log('   hasToken:', hasTokenState ? '❌ TRUE' : '✅ FALSE');
+      
+      console.log('✅ [AuthContext] LOGOUT COMPLETO - Redirecionando...');
+      
+      // 8. Redirecionar para login
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ [AuthContext] ERRO CRÍTICO NO LOGOUT:', error);
+      // Mesmo com erro, força limpeza
+      localStorage.clear();
+      sessionStorage.clear();
+      setHasTokenState(false);
+      setUser(null);
+      setOrganization(null);
+      window.location.href = '/login';
     }
   };
 
