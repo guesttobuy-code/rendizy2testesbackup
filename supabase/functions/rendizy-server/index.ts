@@ -18,16 +18,24 @@ const app = new Hono();
 
 // 🔥 CORREÇÃO DEFINITIVA CORS - Middleware GLOBAL antes de tudo
 // Ref: docs/operations/SETUP_COMPLETO.md - Seção 4.4
-app.all("*", async (c, next) => {
+app.use("*", async (c, next) => {
   // Set CORS headers for ALL requests
   c.header("Access-Control-Allow-Origin", "*");
   c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
   c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token");
   c.header("Access-Control-Max-Age", "86400");
   
-  // Handle preflight
+  // Handle preflight - retornar IMEDIATAMENTE sem processar mais nada
   if (c.req.method === "OPTIONS") {
-    return c.text("", 204);
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token",
+        "Access-Control-Max-Age": "86400",
+      }
+    });
   }
   
   await next();
