@@ -48,6 +48,13 @@ npx supabase status
 3. Dê um nome (ex: "Rendizy CLI")
 4. Copie o token gerado
 
+### **Token Atual (Deploy CLI):**
+```
+sbp_b7b80ce4ececf6b14f55e1c663a6ea1f01365d60
+```
+**Gerado em:** 2025-12-23
+**Uso:** Deploy de Edge Functions via Supabase CLI
+
 ---
 
 ## 🐙 GitHub
