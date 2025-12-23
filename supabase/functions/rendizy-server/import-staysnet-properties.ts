@@ -1,5 +1,17 @@
 /**
- * ⚡ IMPORT STAYSNET - PROPERTIES (IMÓVEIS) - v1.0.104
+ * ⚡ IMPORT STAYSNET - PROPERTIES (IMÓVEIS) - v1.0.106 ✅ MAPEAMENTO COMPLETO
+ * 
+ * 🎯 CORREÇÕES APLICADAS:
+ * 1. ✅ externalIds salvo como OBJETO (não string JSON)
+ * 2. ✅ propertyType → tipoPropriedade (Building, House, etc.)
+ * 3. ✅ unitType → tipoAcomodacao (Duplo, Triplo, etc.)
+ * 4. ✅ beds → camas (número de camas)
+ * 5. ✅ bedrooms → quartos (CORRIGIDO - era string, agora número)
+ * 6. ✅ bathrooms → banheiros (CORRIGIDO - era string, agora número)
+ * 7. ✅ bedroomCounts → estrutura detalhada de quartos
+ * 8. ✅ publicDescription → descrição pública estruturada
+ * 9. ✅ listingType → tipo de listing (Entire Place, etc.)
+ * 10. ✅ Todos objetos/arrays salvos sem JSON.stringify()
  * 
  * PADRÃO ATÔMICO:
  * - Usa RPC save_anuncio_field (UPSERT + idempotency)
@@ -20,35 +32,80 @@ const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
 
 // ============================================================================
-// TIPOS - Estrutura da API StaysNet /content/listings
+// TIPOS - Estrutura COMPLETA da API StaysNet /content/listings
 // ============================================================================
 interface StaysNetProperty {
-  _id: string;                    // ID único do imóvel
+  // === IDENTIFICADORES ===
+  _id: string;                    // ID único do imóvel (ex: "PY02H")
   internalName: string;           // Nome interno
   name?: string;                  // Nome público
-  category?: string;              // Tipo (apartamento, casa, etc)
+  listingCode?: string;           // Código do listing
+  
+  // === TIPO DO IMÓVEL ===
+  propertyType?: string;          // Tipo de propriedade (Building, House, etc.) → tipoPropriedade
+  unitType?: string;              // Tipo de unidade (Duplo, Triplo, etc.) → tipoAcomodacao
+  category?: string;              // Categoria geral
+  accommodationType?: string;     // Tipo de acomodação
+  listingType?: string;           // Tipo de listing (Entire Place, Private Room, etc.)
+  
+  // === CAPACIDADE E ESTRUTURA ===
+  bedrooms?: number;              // Número de quartos → quartos
+  bedroomCounts?: {               // Contagem detalhada de quartos
+    double?: number;              // Quartos duplos
+    single?: number;              // Quartos individuais
+    [key: string]: any;
+  };
+  bathrooms?: number;             // Número de banheiros → banheiros
+  accommodates?: number;          // Capacidade de hóspedes → capacidade
+  _i_maxGuests?: number;          // Capacidade máxima alternativa
+  beds?: number;                  // Número de camas → camas
+  
+  // === ENDEREÇO ===
   address?: {
     street?: string;
     city?: string;
     state?: string;
     zip?: string;
     country?: string;
+    full?: string;                // Endereço completo
   };
+  
+  // === LOCALIZAÇÃO ===
   coordinates?: {
     latitude?: number;
     longitude?: number;
   };
-  bedrooms?: number;
-  bathrooms?: number;
-  accommodates?: number;          // Capacidade de hóspedes
-  _i_maxGuests?: number;          // Capacidade máxima
+  
+  // === FOTOS ===
   photos?: Array<{
     url: string;
     caption?: string;
+    order?: number;
   }>;
-  amenities?: string[];
-  description?: string;
-  active?: boolean;
+  picture?: {                     // Foto principal alternativa
+    thumbnail?: string;
+    large?: string;
+  };
+  
+  // === AMENIDADES E DESCRIÇÃO ===
+  amenities?: string[];           // Comodidades
+  description?: string;           // Descrição
+  publicDescription?: {           // Descrição pública estruturada
+    summary?: string;
+    space?: string;
+    access?: string;
+    notes?: string;
+  };
+  
+  // === STATUS ===
+  active?: boolean;               // Ativo/Inativo
+  published?: boolean;            // Publicado
+  
+  // === OUTROS CAMPOS ÚTEIS ===
+  importingBlockedStatus?: string;
+  timezone?: string;
+  cleaningFee?: number;
+  
   // Outros campos que podem vir...
   [key: string]: any;
 }
@@ -236,9 +293,10 @@ export async function importStaysNetProperties(c: Context) {
         }
 
         // ====================================================================
-        // 2.3: SALVAR CAMPOS INDIVIDUAIS (padrão atômico)
+        // 2.3: SALVAR CAMPOS INDIVIDUAIS - MAPEAMENTO COMPLETO E CORRETO
         // ====================================================================
         
+        // === IDENTIFICADORES ===
         // Campo: internalId (para busca rápida)
         await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: anuncioId,
@@ -246,17 +304,36 @@ export async function importStaysNetProperties(c: Context) {
           p_value: prop.internalName || prop._id
         });
 
-        // Campo: externalIds.staysnet_property_id (tracking e deduplicação)
+        // Campo: externalIds (tracking e deduplicação) - OBJETO, NÃO STRING!
         await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: anuncioId,
           p_field: 'externalIds',
-          p_value: JSON.stringify({
+          p_value: {
             staysnet_property_id: prop._id,
             staysnet_synced_at: new Date().toISOString()
-          })
+          }
         });
 
-        // Campo: tipoLocal (categoria)
+        // === TIPO DO IMÓVEL (ESTRUTURA CORRETA!) ===
+        // Campo: tipoPropriedade (Building, House, etc.) - propertyType
+        if (prop.propertyType) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'tipoPropriedade',
+            p_value: prop.propertyType
+          });
+        }
+
+        // Campo: tipoAcomodacao (Duplo, Triplo, etc.) - unitType
+        if (prop.unitType) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'tipoAcomodacao',
+            p_value: prop.unitType
+          });
+        }
+
+        // Campo: tipoLocal (fallback categoria)
         if (prop.category) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
@@ -265,20 +342,75 @@ export async function importStaysNetProperties(c: Context) {
           });
         }
 
-        // Campo: address (endereço completo)
+        // Campo: listingType (Entire Place, Private Room, etc.)
+        if (prop.listingType) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'listingType',
+            p_value: prop.listingType
+          });
+        }
+
+        // === CAPACIDADE E ESTRUTURA (TODOS OS CAMPOS!) ===
+        // Campo: quartos (bedrooms) - CORRIGIDO!
+        if (prop.bedrooms !== undefined) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'quartos',
+            p_value: prop.bedrooms
+          });
+        }
+
+        // Campo: banheiros (bathrooms) - CORRIGIDO!
+        if (prop.bathrooms !== undefined) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'banheiros',
+            p_value: prop.bathrooms
+          });
+        }
+
+        // Campo: camas (beds) - NOVO CAMPO!
+        if (prop.beds !== undefined) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'camas',
+            p_value: prop.beds
+          });
+        }
+
+        // Campo: capacidade (accommodates/maxGuests)
+        const capacity = prop.accommodates || prop._i_maxGuests || 2;
+        await supabase.rpc('save_anuncio_field', {
+          p_anuncio_id: anuncioId,
+          p_field: 'capacidade',
+          p_value: capacity
+        });
+
+        // Campo: bedroomCounts (contagem detalhada de quartos) - NOVO!
+        if (prop.bedroomCounts) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'bedroomCounts',
+            p_value: prop.bedroomCounts
+          });
+        }
+
+        // === ENDEREÇO ===
         if (prop.address) {
           const addressData = {
             street: prop.address.street || '',
             city: prop.address.city || '',
             state: prop.address.state || '',
             zip: prop.address.zip || '',
-            country: prop.address.country || 'BR'
+            country: prop.address.country || 'BR',
+            full: prop.address.full || ''
           };
           
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'endereco',
-            p_value: JSON.stringify(addressData)
+            p_value: addressData
           });
 
           // Campos individuais para busca
@@ -299,69 +431,54 @@ export async function importStaysNetProperties(c: Context) {
           }
         }
 
-        // Campo: coordinates (latitude/longitude)
+        // === LOCALIZAÇÃO ===
         if (prop.coordinates) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'coordinates',
-            p_value: JSON.stringify({
+            p_value: {
               latitude: prop.coordinates.latitude,
               longitude: prop.coordinates.longitude
-            })
+            }
           });
         }
 
-        // Campo: bedrooms (quartos)
-        if (prop.bedrooms !== undefined) {
-          await supabase.rpc('save_anuncio_field', {
-            p_anuncio_id: anuncioId,
-            p_field: 'quartos',
-            p_value: String(prop.bedrooms)
-          });
-        }
-
-        // Campo: bathrooms (banheiros)
-        if (prop.bathrooms !== undefined) {
-          await supabase.rpc('save_anuncio_field', {
-            p_anuncio_id: anuncioId,
-            p_field: 'banheiros',
-            p_value: String(prop.bathrooms)
-          });
-        }
-
-        // Campo: accommodates (capacidade de hóspedes)
-        const capacity = prop.accommodates || prop._i_maxGuests || 2;
-        await supabase.rpc('save_anuncio_field', {
-          p_anuncio_id: anuncioId,
-          p_field: 'capacidade',
-          p_value: String(capacity)
-        });
-
-        // Campo: photos (fotos)
+        // === FOTOS ===
         if (prop.photos && Array.isArray(prop.photos) && prop.photos.length > 0) {
           const photosData = prop.photos.map((photo, idx) => ({
             url: photo.url,
             caption: photo.caption || `Foto ${idx + 1}`,
-            order: idx
+            order: photo.order || idx
           }));
 
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'fotos',
-            p_value: JSON.stringify(photosData)
+            p_value: photosData
+          });
+        } else if (prop.picture) {
+          // Fallback: foto principal
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'fotos',
+            p_value: [{
+              url: prop.picture.large || prop.picture.thumbnail,
+              caption: 'Foto principal',
+              order: 0
+            }]
           });
         }
 
-        // Campo: amenities (comodidades)
+        // === AMENIDADES E DESCRIÇÃO ===
         if (prop.amenities && Array.isArray(prop.amenities) && prop.amenities.length > 0) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'comodidades',
-            p_value: JSON.stringify(prop.amenities)
+            p_value: prop.amenities
           });
         }
 
-        // Campo: description (descrição)
+        // Campo: description (descrição completa)
         if (prop.description) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
@@ -370,18 +487,28 @@ export async function importStaysNetProperties(c: Context) {
           });
         }
 
-        // Campo: active (status)
+        // Campo: publicDescription (descrição pública estruturada) - NOVO!
+        if (prop.publicDescription) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'publicDescription',
+            p_value: prop.publicDescription
+          });
+        }
+
+        // === STATUS ===
+        const isActive = prop.active !== false && prop.published !== false;
         await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: anuncioId,
           p_field: 'status',
-          p_value: prop.active ? 'active' : 'inactive'
+          p_value: isActive ? 'active' : 'inactive'
         });
 
-        // Campo: staysnet_raw (backup completo do JSON)
+        // === BACKUP COMPLETO (para debug) ===
         await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: anuncioId,
           p_field: 'staysnet_raw',
-          p_value: JSON.stringify(prop)
+          p_value: prop
         });
 
         console.log(`   ✅ Property ${isNewProperty ? 'criada' : 'atualizada'}: ${propertyName}`);

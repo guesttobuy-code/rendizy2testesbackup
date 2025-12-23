@@ -225,20 +225,49 @@ export async function getCurrentUser(): Promise<UserResponse> {
  * Faz logout limpando token local.
  */
 export async function logout(): Promise<void> {
+  console.log('🚪 [AuthService] Iniciando logout...');
+  
   try {
     const token = localStorage.getItem(STORAGE_KEY);
+    console.log(`🔍 [AuthService] Token encontrado: ${token ? 'SIM' : 'NÃO'}`);
+    
     if (token) {
-      await fetch(`${API_BASE}/auth/logout`, {
+      console.log(`📡 [AuthService] Chamando ${API_BASE}/auth/logout...`);
+      const response = await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          'apikey': publicAnonKey,
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-Auth-Token': token, // ✅ Token do usuário no header customizado
           'Content-Type': 'application/json',
         },
+        credentials: 'omit' // ✅ Não enviar credentials (CORS)
       });
+      
+      console.log(`📡 [AuthService] Resposta do logout: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.warn(`⚠️ [AuthService] Logout no servidor falhou: ${text}`);
+      } else {
+        console.log('✅ [AuthService] Logout no servidor bem-sucedido');
+      }
     }
-  } catch {
-    // silencioso
+  } catch (error) {
+    console.error('❌ [AuthService] Erro ao fazer logout no servidor:', error);
+    // silencioso - continua limpando token local
   } finally {
+    console.log('🗑️ [AuthService] Removendo token do localStorage...');
     localStorage.removeItem(STORAGE_KEY);
+    
+    // Verificar se realmente foi removido
+    const stillThere = localStorage.getItem(STORAGE_KEY);
+    if (stillThere) {
+      console.error('❌ [AuthService] ERRO: Token ainda está no localStorage!');
+    } else {
+      console.log('✅ [AuthService] Token removido com sucesso do localStorage');
+    }
   }
+  
+  console.log('✅ [AuthService] Logout concluído');
 }

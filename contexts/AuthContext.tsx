@@ -570,17 +570,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    console.log('🔴 [AuthContext] LOGOUT INICIADO');
+    
     try {
+      console.log('🔴 [AuthContext] Chamando authServiceLogout...');
       // ✅ ARQUITETURA OAuth2 v1.0.103.1010: Usar authService
       await authServiceLogout();
+      console.log('🔴 [AuthContext] authServiceLogout concluído');
       
       // ✅ ARQUITETURA OAuth2 v1.0.103.1010: Notificar outras abas
+      console.log('🔴 [AuthContext] Notificando outras abas...');
       authBroadcast.notifyLogout();
+      console.log('🔴 [AuthContext] Outras abas notificadas');
     } catch (error) {
       console.error('❌ [AuthContext] Erro ao fazer logout:', error);
+      console.error('❌ [AuthContext] Stack trace:', error);
     } finally {
       // ✅ Limpar estado local
+      console.log('🔴 [AuthContext] Limpando localStorage...');
+      const beforeRemove = localStorage.getItem('rendizy-token');
+      console.log('🔴 [AuthContext] Token antes de remover:', beforeRemove ? 'EXISTE' : 'JÁ REMOVIDO');
+      
       localStorage.removeItem('rendizy-token');
+      
+      const afterRemove = localStorage.getItem('rendizy-token');
+      console.log('🔴 [AuthContext] Token após remover:', afterRemove ? 'AINDA EXISTE!' : 'REMOVIDO');
+      
       setHasTokenState(false);
       setUser(null);
       setOrganization(null);
