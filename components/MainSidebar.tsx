@@ -769,7 +769,7 @@ export function MainSidebar({
     };
 
     const userName = user?.name || 'Usuário';
-    const userEmail = user?.email || 'usuario@rendizy.com';
+    const userEmail = user?.email || user?.username || '';
     const userInitials = getInitials(userName);
 
     return (
@@ -918,7 +918,7 @@ export function MainSidebar({
     };
 
     const userName = user?.name || 'Usuário';
-    const userEmail = user?.email || 'usuario@rendizy.com';
+    const userEmail = user?.email || user?.username || '';
     const userInitials = getInitials(userName);
     const userType = isSuperAdmin ? 'SuperAdmin' : 'Usuário';
 

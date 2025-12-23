@@ -141,6 +141,26 @@ function generateToken(bytes = 64): string {
 // ❌ REMOVIDO: initializeSuperAdmin() - SuperAdmins agora são criados na migration SQL
 // Ver: supabase/migrations/20241120_create_users_table.sql
 
+// 🧪 TESTE TEMPORÁRIO - Endpoint para testar hash
+app.get('/test-hash', async (c) => {
+  const testPassword = 'root';
+  const expectedHash = '4813494d137e1631bba301d5acab6e7bb7aa74ce1185d45665ef51d737677b2';
+  const computedHash = hashPassword(testPassword);
+  
+  return c.json({
+    testPassword,
+    expectedHash,
+    computedHash,
+    match: computedHash === expectedHash,
+    expectedLength: expectedHash.length,
+    computedLength: computedHash.length,
+    charByChar: {
+      expected: Array.from(expectedHash).map((c, i) => ({ i, c, code: c.charCodeAt(0) })),
+      computed: Array.from(computedHash).map((c, i) => ({ i, c, code: c.charCodeAt(0) }))
+    }
+  });
+});
+
 // POST /auth/login - Login
 app.post('/login', async (c) => {
   try {
@@ -220,6 +240,7 @@ app.post('/login', async (c) => {
     }
 
     console.log('✅ Usuário encontrado na tabela SQL:', { id: user.id, username: user.username, type: user.type });
+    console.log('🔍 DEBUG COMPLETO DO USUÁRIO:', JSON.stringify(user, null, 2));
 
     // 1. Verificar se é SuperAdmin ou usuário de organização
     if (user.type === 'superadmin' || user.type === 'imobiliaria' || user.type === 'staff') {
@@ -229,15 +250,25 @@ app.post('/login', async (c) => {
         username,
         passwordProvided: password ? 'SIM' : 'NÃO',
         passwordLength: password?.length,
+        passwordRaw: password,
         passwordHashLength: user.password_hash?.length,
         passwordHashPrefix: user.password_hash?.substring(0, 20),
+        passwordHashFull: user.password_hash,
         computedHash: computedHash,
+        computedHashLength: computedHash?.length,
         storedHash: user.password_hash,
-        hashesMatch: computedHash === user.password_hash
+        hashesMatch: computedHash === user.password_hash,
+        hashesMatchTrimmed: computedHash?.trim() === user.password_hash?.trim(),
+        typeOfComputed: typeof computedHash,
+        typeOfStored: typeof user.password_hash
       });
 
       const passwordValid = verifyPassword(password, user.password_hash);
       console.log('🔍 Resultado da verificação de senha:', passwordValid);
+      console.log('🔍 Comparação byte-a-byte:', {
+        computed: Array.from(computedHash).map(c => c.charCodeAt(0)),
+        stored: Array.from(user.password_hash || '').map(c => c.charCodeAt(0))
+      });
 
       if (!passwordValid) {
         console.log('❌ Senha incorreta para usuário:', username);

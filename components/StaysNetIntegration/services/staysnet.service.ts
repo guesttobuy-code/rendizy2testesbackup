@@ -381,39 +381,42 @@ export class StaysNetService {
 
   /**
    * Import all data (full sync)
+   * ✅ CORRIGIDO v1.0.105: Usa endpoints modulares em sequência
    */
   static async importAll(
     config: StaysNetConfig,
     options: ImportOptions
   ): Promise<ImportResult> {
-    staysnetLogger.import.info('Iniciando importação completa', options);
+    staysnetLogger.import.info('Iniciando importação completa (modular)', options);
 
     try {
-      const response = await this.request<{ success: boolean; data: any }>('/rendizy-server/make-server-67caf26a/staysnet/import/full', {
-        method: 'POST',
-        body: JSON.stringify({
-          apiKey: config.apiKey,
-          apiSecret: config.apiSecret,
-          baseUrl: config.baseUrl,
-          selectedPropertyIds: options.selectedPropertyIds,
-          startDate: options.startDate,
-          endDate: options.endDate,
-        }),
-      });
+      // STEP 1: Importar Properties
+      staysnetLogger.import.info('🏠 STEP 1/3: Importando propriedades...');
+      const propertiesResult = await this.importProperties(config, options);
+      
+      // STEP 2: Importar Reservations
+      staysnetLogger.import.info('📅 STEP 2/3: Importando reservas...');
+      const reservationsResult = await this.importReservations(config, options);
+      
+      // STEP 3: Importar Guests
+      staysnetLogger.import.info('👤 STEP 3/3: Importando hóspedes...');
+      const guestsResult = await this.importGuests(config);
 
-      if (!response.success) {
-        throw new Error(response.data?.error || 'Erro na importação completa');
-      }
+      // Consolidar estatísticas
+      const stats = {
+        properties: propertiesResult.stats,
+        reservations: reservationsResult.stats,
+        guests: guestsResult.stats,
+      };
 
-      const stats = response.data.stats || {};
-      staysnetLogger.import.success('Importação completa finalizada', stats);
+      staysnetLogger.import.success('✅ Importação completa finalizada (modular)', stats);
 
       return {
         success: true,
         stats,
       };
     } catch (error) {
-      staysnetLogger.import.error('Erro na importação completa', error);
+      staysnetLogger.import.error('❌ Erro na importação completa', error);
       throw error;
     }
   }

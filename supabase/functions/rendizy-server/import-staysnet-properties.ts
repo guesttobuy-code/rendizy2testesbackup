@@ -298,21 +298,39 @@ export async function importStaysNetProperties(c: Context) {
         
         // === IDENTIFICADORES ===
         // Campo: internalId (para busca rápida)
-        await supabase.rpc('save_anuncio_field', {
+        const { error: internalIdError } = await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: anuncioId,
           p_field: 'internalId',
-          p_value: prop.internalName || prop._id
+          p_value: prop.internalName || prop._id,
+          p_idempotency_key: `internal-${prop._id}`,
+          p_organization_id: DEFAULT_ORG_ID,
+          p_user_id: DEFAULT_USER_ID
         });
+        if (internalIdError) {
+          console.error(`❌ [ERRO] internalId: ${internalIdError.message}`);
+        }
 
-        // Campo: externalIds (tracking e deduplicação) - OBJETO, NÃO STRING!
-        await supabase.rpc('save_anuncio_field', {
+        // Campo: externalIds (tracking e deduplicação) - Objeto direto (Supabase serializa automaticamente)
+        const externalIdsValue = JSON.stringify({
+          staysnet_property_id: prop._id,
+          staysnet_synced_at: new Date().toISOString()
+        });
+        console.log(`   📋 Salvando externalIds: ${externalIdsValue}`);
+        
+        const { error: externalIdsError } = await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: anuncioId,
           p_field: 'externalIds',
-          p_value: {
-            staysnet_property_id: prop._id,
-            staysnet_synced_at: new Date().toISOString()
-          }
+          p_value: externalIdsValue,
+          p_idempotency_key: `externalIds-${prop._id}`,
+          p_organization_id: DEFAULT_ORG_ID,
+          p_user_id: DEFAULT_USER_ID
         });
+        if (externalIdsError) {
+          console.error(`❌ [ERRO CRÍTICO] externalIds: ${externalIdsError.message}`);
+          throw new Error(`Falha ao salvar externalIds: ${externalIdsError.message}`);
+        } else {
+          console.log(`   ✅ externalIds salvo com sucesso`);
+        }
 
         // === TIPO DO IMÓVEL (ESTRUTURA CORRETA!) ===
         // Campo: tipoPropriedade (Building, House, etc.) - propertyType
@@ -392,7 +410,7 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'bedroomCounts',
-            p_value: prop.bedroomCounts
+            p_value: JSON.stringify(prop.bedroomCounts)
           });
         }
 
@@ -410,7 +428,7 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'endereco',
-            p_value: addressData
+            p_value: JSON.stringify(addressData)
           });
 
           // Campos individuais para busca
@@ -436,10 +454,10 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'coordinates',
-            p_value: {
+            p_value: JSON.stringify({
               latitude: prop.coordinates.latitude,
               longitude: prop.coordinates.longitude
-            }
+            })
           });
         }
 
@@ -454,18 +472,18 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'fotos',
-            p_value: photosData
+            p_value: JSON.stringify(photosData)
           });
         } else if (prop.picture) {
           // Fallback: foto principal
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'fotos',
-            p_value: [{
+            p_value: JSON.stringify([{
               url: prop.picture.large || prop.picture.thumbnail,
               caption: 'Foto principal',
               order: 0
-            }]
+            }])
           });
         }
 
@@ -474,7 +492,7 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'comodidades',
-            p_value: prop.amenities
+            p_value: JSON.stringify(prop.amenities)
           });
         }
 
@@ -492,7 +510,9 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'publicDescription',
-            p_value: prop.publicDescription
+            p_value: typeof prop.publicDescription === 'object' 
+              ? JSON.stringify(prop.publicDescription)
+              : prop.publicDescription
           });
         }
 
