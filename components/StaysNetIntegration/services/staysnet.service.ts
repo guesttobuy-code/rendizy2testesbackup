@@ -279,12 +279,12 @@ export class StaysNetService {
     });
 
     try {
-      const response = await this.request<{ success: boolean; data: any }>('/rendizy-server/make-server-67caf26a/staysnet/import/full', {
+      // ✅ CORRIGIDO: Usar endpoint modular /import/properties em vez de /import/full
+      const response = await this.request<{ success: boolean; data: any }>('/rendizy-server/make-server-67caf26a/staysnet/import/properties', {
         method: 'POST',
         body: JSON.stringify({
           selectedPropertyIds: options.selectedPropertyIds,
-          startDate: options.startDate,
-          endDate: options.endDate,
+          // Note: startDate/endDate não são usados em properties, apenas em reservations
         }),
       });
 
@@ -292,7 +292,8 @@ export class StaysNetService {
         throw new Error(response.data?.error || 'Erro ao importar propriedades');
       }
 
-      const stats = response.data.stats || {};
+      // ✅ CONTRATO PADRONIZADO: response.data.stats
+      const stats = response.data?.stats || { total: 0, created: 0, updated: 0, errors: 0 };
       staysnetLogger.import.success('Propriedades importadas com sucesso', stats);
 
       return {

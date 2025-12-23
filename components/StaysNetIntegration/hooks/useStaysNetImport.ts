@@ -198,7 +198,13 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
       dispatch({ type: 'FETCH_PROPERTIES_SUCCESS', payload: properties });
       staysnetLogger.properties.success(`${properties.length} propriedades carregadas`);
 
-      const propertyIds = properties.map((p) => p.id).filter(Boolean);
+      // ⚡ CRITICAL: Stays.net usa '_id' (não 'id')!
+      // As properties vêm com { _id: "PY02H", ... } da API
+      const propertyIds = properties.map((p) => (p as any)._id || p.id).filter(Boolean);
+      
+      console.log(`[useStaysNetImport] 🔍 Extracted ${propertyIds.length} property IDs`);
+      console.log(`[useStaysNetImport] 📋 Sample IDs:`, propertyIds.slice(0, 5));
+      
       try {
         const preview = await StaysNetService.previewImport(propertyIds);
         dispatch({ type: 'SET_PREVIEW', payload: preview });

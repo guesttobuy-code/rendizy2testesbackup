@@ -1007,14 +1007,21 @@ export async function previewStaysNetImport(c: Context) {
       }
     };
 
+    console.log(`[StaysNet Import Preview] 🔍 Analisando ${allExisting.length} registros em anuncios_ultimate...`);
+
     allExisting.forEach((row: any) => {
       const data = row?.data || {};
       const ext = row?.external_ids || {};
       const extIds = data?.externalIds || data?.external_ids || {};
       const orig = data?._stays_net_original || {};
 
-      // Novo campo primário de deduplicação
+      // ✅ CAMPO PRINCIPAL usado pelo import-staysnet-properties.ts
+      addIfString(extIds.staysnet_property_id);  // ⚡ CAMPO CORRETO!
+
+      // Variantes para compatibilidade com imports antigos
       addIfString(extIds.stays_property_id);
+      addIfString(extIds.staysPropertyId);
+      addIfString(extIds.staysPropertyID);
 
       addIfString(ext.stays_net_id);
       addIfString(ext.staysnet_id);
@@ -1024,21 +1031,19 @@ export async function previewStaysNetImport(c: Context) {
       addIfString(extIds.staysnet_id);
       addIfString(extIds.staysNetId);
 
-      // Variantes snake_case para stays_property_id (compat)
-      addIfString(extIds.stays_property_id);
-      addIfString(extIds.staysPropertyId);
-      addIfString(extIds.staysPropertyID);
-
       // Alguns registros antigos podem ter salvo o id bruto no objeto original
       addIfString(orig.id);
       addIfString(orig._id);
       addIfString(orig.listingId);
     });
 
+    console.log(`[StaysNet Import Preview] 📊 Total de IDs únicos encontrados: ${existingSet.size}`);
+    console.log(`[StaysNet Import Preview] 📋 Sample IDs:`, Array.from(existingSet).slice(0, 5));
+
     const existingIds = propertyIds.filter((id) => existingSet.has(String(id)));
     const newIds = propertyIds.filter((id) => !existingSet.has(String(id)));
 
-    console.log('[StaysNet Import Preview] existentes:', existingIds.length, 'novos:', newIds.length);
+    console.log('[StaysNet Import Preview] ✅ Resultado: existentes:', existingIds.length, 'novos:', newIds.length);
 
     return c.json(successResponse({
       totalRemote: propertyIds.length,

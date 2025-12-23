@@ -31,8 +31,13 @@ export interface ApiResponse {
   timestamp: string;
 }
 
+/**
+ * StaysNet Property Type
+ * IMPORTANTE: A API Stays.net retorna '_id' (não 'id')
+ */
 export interface StaysNetProperty {
-  id: string;
+  _id: string;              // ⚡ Campo principal da API Stays.net
+  id?: string;              // Alias para compatibilidade
   name: string;
   code?: string;
   status?: 'active' | 'hidden' | 'inactive';
