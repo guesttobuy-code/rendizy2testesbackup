@@ -12,25 +12,26 @@ import blocksApp from "./routes-blocks.ts";
 import * as guestsRoutes from "./routes-guests.ts";
 import * as staysnetRoutes from "./routes-staysnet.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
+import { importStaysNetRPC } from "./import-staysnet-RPC.ts";
 
 const app = new Hono();
 
-// ✅ CORS EXPLÍCITO - OPTIONS PREFLIGHT PRIMEIRO (OBRIGATÓRIO)
+// 🔥 CORREÇÃO DEFINITIVA CORS - Middleware GLOBAL antes de tudo
 // Ref: docs/operations/SETUP_COMPLETO.md - Seção 4.4
-app.options("/*", (c) => {
+app.all("*", async (c, next) => {
+  // Set CORS headers for ALL requests
   c.header("Access-Control-Allow-Origin", "*");
   c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
   c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token");
-  c.header("Access-Control-Max-Age", "86400"); // 24 hours cache
-  return c.body(null, 204);
+  c.header("Access-Control-Max-Age", "86400");
+  
+  // Handle preflight
+  if (c.req.method === "OPTIONS") {
+    return c.text("", 204);
+  }
+  
+  await next();
 });
-
-// ✅ CORS para todas as outras requisições
-app.use("/*", cors({
-  origin: "*",
-  allowHeaders: ["Content-Type", "Authorization", "X-Requested-With", "apikey", "X-Auth-Token"],
-  allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
-}));
 
 // Logger depois do CORS
 app.use("*", logger());
