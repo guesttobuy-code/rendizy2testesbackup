@@ -58,6 +58,7 @@ export default function StaysNetIntegration() {
     importType,
     stats,
     error,
+    importLogs,
     importProgress,
     overallProgress,
     fetchProperties,
@@ -87,7 +88,7 @@ export default function StaysNetIntegration() {
       return d.toISOString().split('T')[0];
     })(),
     // ✅ Prioridade de negócio: não perder check-in/check-out → usar overlap
-    dateType: 'included' as 'creation' | 'checkin' | 'checkout' | 'included',
+    dateType: 'checkin' as 'creation' | 'checkin' | 'checkout' | 'included',
   });
 
   // Handlers
@@ -152,7 +153,11 @@ export default function StaysNetIntegration() {
 
   const handleImportGuests = async () => {
     try {
-      await importGuests(config);
+      await importGuests(config, {
+        startDate: importDateRange.startDate,
+        endDate: importDateRange.endDate,
+        dateType: importDateRange.dateType,
+      });
     } catch (error) {
       // Error is already logged by the hook
     }
@@ -160,8 +165,21 @@ export default function StaysNetIntegration() {
 
   const handleImportAll = async () => {
     try {
+      let ids = selectedPropertyIds;
+
+      // UX: um botão só. Se não houver seleção/carregamento ainda, busca imóveis e seleciona tudo.
+      if (!ids || ids.length === 0) {
+        const props = availableProperties.length > 0 ? availableProperties : await fetchProperties(config);
+        ids = props
+          .map((p: any) => p?._id || p?.id)
+          .filter(Boolean);
+        if (ids.length > 0) {
+          selectProperties(ids);
+        }
+      }
+
       await importAll(config, {
-        selectedPropertyIds,
+        selectedPropertyIds: ids,
         startDate: importDateRange.startDate,
         endDate: importDateRange.endDate,
         dateType: importDateRange.dateType,
@@ -242,6 +260,7 @@ export default function StaysNetIntegration() {
             importType={importType}
             stats={stats}
             error={error}
+            importLogs={importLogs}
             onImportProperties={handleImportProperties}
             onImportNewOnly={handleImportNewOnly}
             onImportUpsertAll={handleImportUpsertAll}

@@ -16,14 +16,17 @@ import type {
   ImportOptions,
   StaysNetProperty,
   ImportPreview,
+  ImportLogEntry,
+  ImportLogLevel,
+  ImportLogScope,
 } from '../types';
 
 export interface UseStaysNetImportReturn extends ImportStateExtended {
-  fetchProperties: (config: StaysNetConfig) => Promise<void>;
+  fetchProperties: (config: StaysNetConfig) => Promise<StaysNetProperty[]>;
   importProperties: (config: StaysNetConfig, options: ImportOptions) => Promise<void>;
   importNewProperties: (config: StaysNetConfig) => Promise<void>;
   importReservations: (config: StaysNetConfig, options: ImportOptions) => Promise<void>;
-  importGuests: (config: StaysNetConfig) => Promise<void>;
+  importGuests: (config: StaysNetConfig, options?: Pick<ImportOptions, 'startDate' | 'endDate' | 'dateType'>) => Promise<void>;
   importAll: (config: StaysNetConfig, options: ImportOptions) => Promise<void>;
   importOneForTest: (config: StaysNetConfig) => Promise<void>;
   toggleProperty: (propertyId: string) => void;
@@ -32,6 +35,7 @@ export interface UseStaysNetImportReturn extends ImportStateExtended {
   selectProperties: (ids: string[]) => void;
   selectNewProperties: () => void;
   resetImport: () => void;
+  clearImportLogs: () => void;
 }
 
 // Action types
@@ -49,7 +53,9 @@ type ImportAction =
   | { type: 'DESELECT_ALL_PROPERTIES' }
   | { type: 'SET_SELECTED_PROPERTIES'; payload: string[] }
   | { type: 'SET_PREVIEW'; payload: ImportPreview | null }
-  | { type: 'UPDATE_PROGRESS'; payload: { progress: ImportProgressData; overallProgress: number } };
+  | { type: 'UPDATE_PROGRESS'; payload: { progress: ImportProgressData; overallProgress: number } }
+  | { type: 'ADD_IMPORT_LOG'; payload: ImportLogEntry }
+  | { type: 'CLEAR_IMPORT_LOGS' };
 
 interface ImportStateExtended extends ImportState {
   availableProperties: StaysNetProperty[];
@@ -59,6 +65,7 @@ interface ImportStateExtended extends ImportState {
   importProgress: ImportProgressData;
   overallProgress: number;
   preview: ImportPreview | null;
+  importLogs: ImportLogEntry[];
 }
 
 const initialState: ImportStateExtended = {
@@ -73,7 +80,26 @@ const initialState: ImportStateExtended = {
   importProgress: {},
   overallProgress: 0,
   preview: null,
+  importLogs: [],
 };
+
+function safeGetHost(baseUrl: string): string | null {
+  try {
+    return new URL(baseUrl).host;
+  } catch {
+    return null;
+  }
+}
+
+function formatStats(stats?: { fetched?: number; created?: number; updated?: number; failed?: number } | null) {
+  if (!stats) return null;
+  return {
+    fetched: stats.fetched ?? 0,
+    created: stats.created ?? 0,
+    updated: stats.updated ?? 0,
+    failed: stats.failed ?? 0,
+  };
+}
 
 /**
  * Import state reducer
@@ -178,6 +204,15 @@ function importReducer(state: ImportStateExtended, action: ImportAction): Import
         overallProgress: action.payload.overallProgress,
       };
 
+    case 'ADD_IMPORT_LOG': {
+      const next = [...state.importLogs, action.payload];
+      // Keep last 200 entries to avoid unbounded growth.
+      return { ...state, importLogs: next.slice(-200) };
+    }
+
+    case 'CLEAR_IMPORT_LOGS':
+      return { ...state, importLogs: [] };
+
     default:
       return state;
   }
@@ -185,6 +220,28 @@ function importReducer(state: ImportStateExtended, action: ImportAction): Import
 
 export function useStaysNetImport(): UseStaysNetImportReturn {
   const [state, dispatch] = useReducer(importReducer, initialState);
+
+  const addImportLog = useCallback(
+    (level: ImportLogLevel, scope: ImportLogScope, message: string, details?: Record<string, unknown>) => {
+      const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      dispatch({
+        type: 'ADD_IMPORT_LOG',
+        payload: {
+          id,
+          timestamp: new Date().toISOString(),
+          level,
+          scope,
+          message,
+          details,
+        },
+      });
+    },
+    []
+  );
+
+  const clearImportLogs = useCallback(() => {
+    dispatch({ type: 'CLEAR_IMPORT_LOGS' });
+  }, []);
 
   const startPseudoProgress = useCallback(
     (step: keyof ImportProgressData, overallStart = 5, overallCap = 90) => {
@@ -225,14 +282,27 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
   /**
    * Fetch available properties
    */
-  const fetchProperties = useCallback(async (config: StaysNetConfig) => {
+  const fetchProperties = useCallback(async (config: StaysNetConfig): Promise<StaysNetProperty[]> => {
     staysnetLogger.properties.info('Buscando propriedades disponíveis...');
     dispatch({ type: 'FETCH_PROPERTIES_START' });
+
+    addImportLog(
+      'info',
+      'properties',
+      'Iniciando busca de imóveis (propriedades) no Stays.net',
+      {
+        baseUrlHost: safeGetHost(config.baseUrl) || undefined,
+      }
+    );
 
     try {
       const properties = await StaysNetService.fetchAllProperties(config);
       dispatch({ type: 'FETCH_PROPERTIES_SUCCESS', payload: properties });
       staysnetLogger.properties.success(`${properties.length} propriedades carregadas`);
+
+      addImportLog('success', 'properties', 'Imóveis carregados com sucesso', {
+        fetchedProperties: properties.length,
+      });
 
       // ⚡ CRITICAL: Stays.net usa '_id' (não 'id')!
       // As properties vêm com { _id: "PY02H", ... } da API
@@ -247,16 +317,35 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         // Seleciona por padrão apenas os novos para evitar duplicações
         dispatch({ type: 'SET_SELECTED_PROPERTIES', payload: preview.newIds || [] });
         staysnetLogger.import.info('Preview de importação gerado', preview);
+
+        addImportLog('success', 'properties', 'Preview de importação gerado', {
+          totalRemote: preview.totalRemote,
+          existingCount: preview.existingCount,
+          newCount: preview.newCount,
+          selectedNewByDefault: (preview.newIds || []).length,
+        });
       } catch (previewError) {
         staysnetLogger.import.error('Erro ao gerar preview de importação', previewError);
         dispatch({ type: 'SET_PREVIEW', payload: null });
+
+        addImportLog('error', 'properties', 'Falha ao gerar preview de importação', {
+          error: (previewError as Error)?.message || String(previewError),
+        });
       }
+
+      return properties;
     } catch (error) {
       const errorMessage = (error as Error).message;
       dispatch({ type: 'FETCH_PROPERTIES_ERROR', payload: errorMessage });
       staysnetLogger.properties.error('Erro ao buscar propriedades', error);
+
+      addImportLog('error', 'properties', 'Falha ao buscar imóveis (propriedades)', {
+        error: errorMessage,
+      });
+
+      return [];
     }
-  }, []);
+  }, [addImportLog]);
 
   /**
    * Import properties
@@ -265,6 +354,11 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     async (config: StaysNetConfig, options: ImportOptions) => {
       staysnetLogger.import.info('Iniciando importação de propriedades...');
       dispatch({ type: 'START_IMPORT', payload: 'properties' });
+
+      const startedAt = Date.now();
+      addImportLog('info', 'properties', 'Iniciando importação de imóveis (propriedades)', {
+        selectedProperties: options.selectedPropertyIds?.length || 0,
+      });
 
       try {
         // Validate
@@ -303,13 +397,23 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         updateProgress(total);
 
         dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
+
+        addImportLog('success', 'properties', 'Importação de imóveis concluída', {
+          durationMs: Date.now() - startedAt,
+          properties: formatStats(result.stats?.properties) || undefined,
+        });
       } catch (error) {
         const errorMessage = (error as Error).message;
         dispatch({ type: 'IMPORT_ERROR', payload: errorMessage });
+
+        addImportLog('error', 'properties', 'Falha na importação de imóveis (propriedades)', {
+          durationMs: Date.now() - startedAt,
+          error: errorMessage,
+        });
         throw error;
       }
     },
-    []
+    [addImportLog]
   );
 
   /**
@@ -339,6 +443,14 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
       staysnetLogger.import.info('Iniciando importação de reservas...');
       dispatch({ type: 'START_IMPORT', payload: 'reservations' });
 
+      const startedAt = Date.now();
+      addImportLog('info', 'reservations', 'Iniciando importação de reservas', {
+        selectedProperties: options.selectedPropertyIds?.length || 0,
+        startDate: options.startDate || undefined,
+        endDate: options.endDate || undefined,
+        dateType: options.dateType || undefined,
+      });
+
       let stop: (() => void) | null = null;
 
       try {
@@ -365,6 +477,11 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         });
 
         dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
+
+        addImportLog('success', 'reservations', 'Importação de reservas concluída', {
+          durationMs: Date.now() - startedAt,
+          reservations: formatStats(result.stats?.reservations) || undefined,
+        });
       } catch (error) {
         const errorMessage = (error as Error).message;
         dispatch({
@@ -377,26 +494,40 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
           },
         });
         dispatch({ type: 'IMPORT_ERROR', payload: errorMessage });
+
+        addImportLog('error', 'reservations', 'Falha na importação de reservas', {
+          durationMs: Date.now() - startedAt,
+          error: errorMessage,
+        });
         throw error;
       } finally {
         if (stop) stop();
       }
     },
-    [startPseudoProgress, state.overallProgress]
+    [addImportLog, startPseudoProgress, state.overallProgress]
   );
 
   /**
    * Import guests
    */
-  const importGuests = useCallback(async (config: StaysNetConfig) => {
+  const importGuests = useCallback(
+    async (config: StaysNetConfig, options?: Pick<ImportOptions, 'startDate' | 'endDate' | 'dateType'>) => {
     staysnetLogger.import.info('Iniciando importação de hóspedes...');
     dispatch({ type: 'START_IMPORT', payload: 'guests' });
+
+    const startedAt = Date.now();
+    addImportLog('info', 'guests', 'Iniciando importação de hóspedes', {
+      note: 'Este passo extrai hóspedes a partir das reservas retornadas pela Stays.net.',
+      startDate: options?.startDate || undefined,
+      endDate: options?.endDate || undefined,
+      dateType: options?.dateType || undefined,
+    });
 
     let stop: (() => void) | null = null;
 
     try {
       stop = startPseudoProgress('guests');
-      const result = await StaysNetService.importGuests(config);
+      const result = await StaysNetService.importGuests(config, options);
 
       stop();
       stop = null;
@@ -411,6 +542,11 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
       });
 
       dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
+
+      addImportLog('success', 'guests', 'Importação de hóspedes concluída', {
+        durationMs: Date.now() - startedAt,
+        guests: formatStats(result.stats?.guests) || undefined,
+      });
     } catch (error) {
       const errorMessage = (error as Error).message;
       dispatch({
@@ -423,11 +559,18 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         },
       });
       dispatch({ type: 'IMPORT_ERROR', payload: errorMessage });
+
+      addImportLog('error', 'guests', 'Falha na importação de hóspedes', {
+        durationMs: Date.now() - startedAt,
+        error: errorMessage,
+      });
       throw error;
     } finally {
       if (stop) stop();
     }
-  }, [startPseudoProgress, state.overallProgress]);
+    },
+    [addImportLog, startPseudoProgress, state.overallProgress]
+  );
 
   /**
    * Import all (full sync)
@@ -436,6 +579,14 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     async (config: StaysNetConfig, options: ImportOptions) => {
       staysnetLogger.import.info('Iniciando importação completa...');
       dispatch({ type: 'START_IMPORT', payload: 'all' });
+
+      const startedAt = Date.now();
+      addImportLog('info', 'all', 'Iniciando importação completa (imóveis + reservas + hóspedes)', {
+        selectedProperties: options.selectedPropertyIds?.length || 0,
+        startDate: options.startDate || undefined,
+        endDate: options.endDate || undefined,
+        dateType: options.dateType || undefined,
+      });
 
       try {
         // Validate
@@ -475,6 +626,9 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         });
 
         const propertiesResult = await StaysNetService.importProperties(config, options);
+        addImportLog('success', 'all', 'Etapa imóveis (propriedades) concluída', {
+          properties: formatStats(propertiesResult.stats?.properties) || undefined,
+        });
         dispatch({
           type: 'UPDATE_PROGRESS',
           payload: {
@@ -488,6 +642,9 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         });
 
         const reservationsResult = await StaysNetService.importReservations(config, options);
+        addImportLog('success', 'all', 'Etapa reservas concluída', {
+          reservations: formatStats(reservationsResult.stats?.reservations) || undefined,
+        });
         dispatch({
           type: 'UPDATE_PROGRESS',
           payload: {
@@ -501,6 +658,9 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         });
 
         const guestsResult = await StaysNetService.importGuests(config);
+        addImportLog('success', 'all', 'Etapa hóspedes concluída', {
+          guests: formatStats(guestsResult.stats?.guests) || undefined,
+        });
         dispatch({
           type: 'UPDATE_PROGRESS',
           payload: {
@@ -523,13 +683,25 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         };
 
         dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
+
+        addImportLog('success', 'all', 'Importação completa concluída', {
+          durationMs: Date.now() - startedAt,
+          properties: formatStats(propertiesResult.stats?.properties) || undefined,
+          reservations: formatStats(reservationsResult.stats?.reservations) || undefined,
+          guests: formatStats(guestsResult.stats?.guests) || undefined,
+        });
       } catch (error) {
         const errorMessage = (error as Error).message;
         dispatch({ type: 'IMPORT_ERROR', payload: errorMessage });
+
+        addImportLog('error', 'all', 'Falha na importação completa', {
+          durationMs: Date.now() - startedAt,
+          error: errorMessage,
+        });
         throw error;
       }
     },
-    []
+    [addImportLog]
   );
 
   /**
@@ -588,6 +760,11 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     async (config: StaysNetConfig) => {
       dispatch({ type: 'START_IMPORT', payload: 'test' as ImportType });
 
+      const startedAt = Date.now();
+      addImportLog('info', 'test', 'Iniciando importação de teste (1 imóvel)', {
+        baseUrlHost: safeGetHost(config.baseUrl) || undefined,
+      });
+
       try {
         // Get first property
         const firstProperty = state.availableProperties[0];
@@ -630,6 +807,11 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         console.log('🧪 ==========================================');
 
         dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
+
+        addImportLog('success', 'test', 'Importação de teste concluída', {
+          durationMs: Date.now() - startedAt,
+          properties: formatStats(result.stats?.properties) || undefined,
+        });
       } catch (error) {
         console.error('');
         console.error('❌ ERRO NA IMPORTAÇÃO DE TESTE:');
@@ -638,10 +820,15 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         
         const errorMessage = (error as Error).message;
         dispatch({ type: 'IMPORT_ERROR', payload: errorMessage });
+
+        addImportLog('error', 'test', 'Falha na importação de teste', {
+          durationMs: Date.now() - startedAt,
+          error: errorMessage,
+        });
         throw error;
       }
     },
-    [state.availableProperties]
+    [addImportLog, state.availableProperties]
   );
 
   return {
@@ -659,5 +846,6 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     selectProperties,
     selectNewProperties,
     resetImport,
+    clearImportLogs,
   };
 }

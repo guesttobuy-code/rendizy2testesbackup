@@ -44,6 +44,18 @@ function normalizeSectionStats(raw: any): NormalizedSectionStats {
 
   // Newer backend: { fetched, saved, errors, skipped }
   if (typeof raw.fetched === 'number' || typeof raw.saved === 'number' || typeof raw.errors === 'number') {
+    // Guests import variant: { fetched, processed, created, linked, skipped, errors }
+    // - processed: quantos registros foram processados
+    // - created: quantos hóspedes foram criados
+    // - linked: quantas reservas foram vinculadas ao hóspede
+    if (typeof raw.processed === 'number' || typeof raw.linked === 'number') {
+      const fetched = numberOrZero(raw.processed ?? raw.fetched);
+      const created = numberOrZero(raw.created);
+      const updated = numberOrZero(raw.linked);
+      const failed = numberOrZero(raw.errors);
+      return { fetched, created, updated, failed };
+    }
+
     const fetched = numberOrZero(raw.fetched);
     const saved = numberOrZero(raw.saved);
     const errors = numberOrZero(raw.errors);
@@ -376,7 +388,7 @@ export class StaysNetService {
           // ✅ API StaysNet usa from/to/dateType; backend aceita também startDate/endDate
           from: options.startDate,
           to: options.endDate,
-          dateType: options.dateType || 'included',
+          dateType: options.dateType || 'checkin',
           startDate: options.startDate,
           endDate: options.endDate,
         }),
@@ -400,7 +412,8 @@ export class StaysNetService {
    * Import guests
    */
   static async importGuests(
-    config: StaysNetConfig
+    config: StaysNetConfig,
+    options?: Pick<ImportOptions, 'startDate' | 'endDate' | 'dateType'>
   ): Promise<ImportResult> {
     staysnetLogger.import.info('Iniciando importação de hóspedes');
 
@@ -411,6 +424,12 @@ export class StaysNetService {
           apiKey: config.apiKey,
           apiSecret: config.apiSecret,
           baseUrl: config.baseUrl,
+          // ✅ API StaysNet usa from/to/dateType; backend aceita também startDate/endDate
+          from: options?.startDate,
+          to: options?.endDate,
+          dateType: options?.dateType || 'checkin',
+          startDate: options?.startDate,
+          endDate: options?.endDate,
         }),
       });
 
@@ -492,7 +511,7 @@ export class StaysNetService {
       
       // STEP 4: Importar Guests
       staysnetLogger.import.info('👤 STEP 4/4: Importando hóspedes...');
-      const guestsResult = await this.importGuests(config);
+      const guestsResult = await this.importGuests(config, options);
 
       // Consolidar estatísticas (apenas o que a UI exibe)
       const stats = {

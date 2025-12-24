@@ -81,6 +81,19 @@ export interface ImportState {
   error: string | null;
 }
 
+export type ImportLogLevel = 'info' | 'success' | 'error';
+
+export type ImportLogScope = 'properties' | 'reservations' | 'guests' | 'all' | 'system' | 'test';
+
+export interface ImportLogEntry {
+  id: string;
+  timestamp: string; // ISO
+  level: ImportLogLevel;
+  scope: ImportLogScope;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
 export interface ValidationResult {
   isValid: boolean;
   status: 'idle' | 'correct' | 'fixable' | 'invalid';

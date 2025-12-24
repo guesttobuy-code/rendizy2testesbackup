@@ -660,7 +660,34 @@ export const reservationsApi = {
     inHouseToday: number;
     newReservationsToday: number;
   }>> => {
-    return apiRequest(`/reservations/kpis`);
+    // Alguns deploys expõem KPIs em rotas diferentes.
+    // Tentamos primeiro a rota sem prefixo; se vier 404, tentamos a rota com /rendizy-server.
+    const primary = await apiRequest<{
+      date: string;
+      checkinsToday: number;
+      checkoutsToday: number;
+      inHouseToday: number;
+      newReservationsToday: number;
+    }>(`/reservations/kpis`);
+
+    const primaryAny = primary as any;
+    const looksLikeNotFound =
+      primaryAny?.message === 'Not Found' ||
+      primaryAny?.error === 'Not Found' ||
+      (primaryAny?.success === false && typeof primaryAny?.error === 'string' && primaryAny.error.toLowerCase().includes('not found'));
+
+    if (looksLikeNotFound) {
+      const secondary = await apiRequest<{
+        date: string;
+        checkinsToday: number;
+        checkoutsToday: number;
+        inHouseToday: number;
+        newReservationsToday: number;
+      }>(`/rendizy-server/reservations/kpis`);
+      if ((secondary as any)?.success) return secondary;
+    }
+
+    return primary;
   },
 
   // Buscar reserva por ID

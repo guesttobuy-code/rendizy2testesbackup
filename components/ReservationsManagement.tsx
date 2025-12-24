@@ -57,7 +57,6 @@ import { CreateReservationWizard } from './CreateReservationWizard';
 import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { reservationsApi, propertiesApi, guestsApi, Property, Reservation, Guest } from '../utils/api';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { format, startOfMonth, endOfMonth, addMonths, endOfDay, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
