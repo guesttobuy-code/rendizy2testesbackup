@@ -82,6 +82,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Causa raiz: rotas de `/reservations` estavam sem `tenancyMiddleware`, gerando `TenantContext não encontrado`
   - `supabase/functions/rendizy-server/index.ts`: aplicado `tenancyMiddleware` em GET/POST/PUT/DELETE de reservas
   - Nota de teste: Edge Gateway exige `Authorization: Bearer <anonKey>` e o token de sessão real em `X-Auth-Token`
+  - Segurança: removida rota local de reimportação e referência a arquivo não versionado (evita risco de credenciais hardcoded)
   - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 69
   - Frontend consultava REST API direta (sem org context) → RLS bloqueava registros
   - Corrigido: usa Edge Function `/anuncios-ultimate/lista` com X-Auth-Token

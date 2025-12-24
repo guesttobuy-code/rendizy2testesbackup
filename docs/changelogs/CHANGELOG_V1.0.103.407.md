@@ -5,6 +5,7 @@
 - Deploy executado via `npx supabase@latest functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc`, liberando GET/POST de config e imports no ambiente.
 - Novo `/staysnet/import/preview` cruza `stays_net_id` dos anúncios existentes (anuncios_drafts) com a lista vinda da Stays e retorna totais (remotos, existentes, novos) para evitar duplicação.
 - Corrigidas rotas de `/reservations` para aplicar `tenancyMiddleware`, evitando erro 500 (TenantContext ausente) e permitindo a listagem no frontend.
+- Segurança: removida rota/local reimport e referência a arquivo não versionado, prevenindo risco de credenciais hardcoded.
 
 ## Frontend / StaysNet
 - `StaysNetService` documentado sobre uso obrigatório de `Authorization: Bearer <anon>` + `apikey` + `X-Auth-Token`, prevenindo remoção acidental dos headers que destravam as rotas privadas do Edge.

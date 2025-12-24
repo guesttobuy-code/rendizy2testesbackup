@@ -49,7 +49,6 @@ import * as staysnetRoutes from "./routes-staysnet.ts";
 import { tenancyMiddleware } from "./utils-tenancy.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
 import { importStaysNetRPC } from "./import-staysnet-RPC.ts"; // ✅ Adicionado 23/12/2025
-import { reImportarCamposFaltantes } from "./re-importar-campos-faltantes.ts"; // 🔄 Adicionado 24/12/2025
 import { importStaysNetProperties } from "./import-staysnet-properties.ts"; // ✅ MODULAR: Properties separadas
 import { importStaysNetReservations } from "./import-staysnet-reservations.ts"; // ✅ MODULAR: Reservations separadas
 import { importStaysNetGuests } from "./import-staysnet-guests.ts"; // ✅ MODULAR: Guests separados
@@ -146,7 +145,6 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetRo
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/debug", staysnetRoutes.debugRawStaysNet); // 🧪 DEBUG
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/SIMPLE", importStaysNetSimple); // ⚡ SIMPLES - INSERT direto
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/RPC", importStaysNetRPC); // ✅ USA RPC (igual FormularioAnuncio) - LEGACY
-app.post("/rendizy-server/make-server-67caf26a/staysnet/reimport/campos-faltantes", reImportarCamposFaltantes); // 🔄 RE-IMPORTAR 5 CAMPOS
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade
 // ============================================================================
