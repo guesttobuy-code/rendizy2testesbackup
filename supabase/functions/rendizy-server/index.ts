@@ -46,8 +46,10 @@ import * as calendarRoutes from "./routes-calendar.ts";
 import blocksApp from "./routes-blocks.ts";
 import * as guestsRoutes from "./routes-guests.ts";
 import * as staysnetRoutes from "./routes-staysnet.ts";
+import { tenancyMiddleware } from "./utils-tenancy.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
 import { importStaysNetRPC } from "./import-staysnet-RPC.ts"; // ✅ Adicionado 23/12/2025
+import { reImportarCamposFaltantes } from "./re-importar-campos-faltantes.ts"; // 🔄 Adicionado 24/12/2025
 import { importStaysNetProperties } from "./import-staysnet-properties.ts"; // ✅ MODULAR: Properties separadas
 import { importStaysNetReservations } from "./import-staysnet-reservations.ts"; // ✅ MODULAR: Reservations separadas
 import { importStaysNetGuests } from "./import-staysnet-guests.ts"; // ✅ MODULAR: Guests separados
@@ -111,11 +113,11 @@ app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
 // ============================================================================
 // RESERVATIONS
 // ============================================================================
-app.get("/rendizy-server/reservations", reservationsRoutes.listReservations);
-app.get("/rendizy-server/reservations/:id", reservationsRoutes.getReservation);
-app.post("/rendizy-server/reservations", reservationsRoutes.createReservation);
-app.put("/rendizy-server/reservations/:id", reservationsRoutes.updateReservation);
-app.delete("/rendizy-server/reservations/:id", reservationsRoutes.deleteReservation);
+app.get("/rendizy-server/reservations", tenancyMiddleware, reservationsRoutes.listReservations);
+app.get("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRoutes.getReservation);
+app.post("/rendizy-server/reservations", tenancyMiddleware, reservationsRoutes.createReservation);
+app.put("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRoutes.updateReservation);
+app.delete("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRoutes.deleteReservation);
 
 // ============================================================================
 // CALENDAR / BLOCKS
@@ -144,6 +146,7 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetRo
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/debug", staysnetRoutes.debugRawStaysNet); // 🧪 DEBUG
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/SIMPLE", importStaysNetSimple); // ⚡ SIMPLES - INSERT direto
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/RPC", importStaysNetRPC); // ✅ USA RPC (igual FormularioAnuncio) - LEGACY
+app.post("/rendizy-server/make-server-67caf26a/staysnet/reimport/campos-faltantes", reImportarCamposFaltantes); // 🔄 RE-IMPORTAR 5 CAMPOS
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade
 // ============================================================================

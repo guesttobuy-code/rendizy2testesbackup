@@ -1,5 +1,5 @@
 // Ensure Node 16 has webcrypto/getRandomValues similar to Node 18+
-const crypto = require('node:crypto');
+import crypto from 'node:crypto';
 
 if (!globalThis.crypto) {
   globalThis.crypto = crypto.webcrypto;

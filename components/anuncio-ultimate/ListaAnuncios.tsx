@@ -264,68 +264,77 @@ export const ListaAnuncios = () => {
   const mapWizardData = (data: any) => {
     // Mapear endereço
     const address = {
-      street: data.address?.street || data.rua || '',
-      number: data.address?.number || data.numero || '',
-      neighborhood: data.address?.neighborhood || data.bairro || '',
-      city: data.address?.city || data.cidade || '',
-      state: data.address?.state || data.estado || data.sigla_estado || ''
+      street: data.address?.street || data.endereco?.street || data.rua || '',
+      number: data.address?.number || data.endereco?.number || data.numero || '',
+      neighborhood: data.address?.neighborhood || data.endereco?.neighborhood || data.bairro || '',
+      city: data.address?.city || data.endereco?.city || data.cidade || '',
+      state: data.address?.state || data.endereco?.state || data.estado || data.sigla_estado || ''
     };
     
-    // Calcular cômodos do array rooms[]
-    let bedrooms = 0;
-    let beds = 0;
-    let coverPhoto = data.coverPhoto || '';
+    // PRIORIDADE 1: Dados diretos dos campos (importação StaysNet)
+    let bedrooms = data.quartos || data.bedrooms || 0;
+    let bathrooms = data.banheiros || data.bathrooms || 0;
+    let beds = data.camas || data.beds || 0;
+    let guests = data.capacidade || data.guests || 0;
+    let coverPhoto = data.fotoPrincipal || data.coverPhoto || '';
     
-    try {
-      const rooms = typeof data.rooms === 'string' ? JSON.parse(data.rooms) : data.rooms;
-      if (Array.isArray(rooms)) {
-        bedrooms = rooms.filter(r => 
-          r.type?.includes('quarto') || r.typeName?.toLowerCase().includes('quarto')
-        ).length;
-        
-        rooms.forEach(room => {
-          if (room.beds && typeof room.beds === 'object') {
-            Object.values(room.beds).forEach((count: any) => {
-              beds += parseInt(count) || 0;
+    // PRIORIDADE 2: Calcular do array rooms[] se não tiver valores diretos
+    if (bedrooms === 0 || beds === 0) {
+      try {
+        const rooms = typeof data.rooms === 'string' ? JSON.parse(data.rooms) : data.rooms;
+        if (Array.isArray(rooms)) {
+          if (bedrooms === 0) {
+            bedrooms = rooms.filter(r => 
+              r.type?.includes('quarto') || r.typeName?.toLowerCase().includes('quarto')
+            ).length;
+          }
+          
+          if (beds === 0) {
+            rooms.forEach(room => {
+              if (room.beds && typeof room.beds === 'object') {
+                Object.values(room.beds).forEach((count: any) => {
+                  beds += parseInt(count) || 0;
+                });
+              }
             });
           }
-        });
-        
-        // Buscar foto de capa se não tiver
-        if (!coverPhoto && data.cover_photo_id) {
-          // Buscar foto específica pelo ID
-          for (const room of rooms) {
-            if (room.photos && Array.isArray(room.photos)) {
-              const photo = room.photos.find((p: any) => p.id === data.cover_photo_id);
-              if (photo?.url) {
-                coverPhoto = photo.url;
+          
+          // Buscar foto de capa se não tiver
+          if (!coverPhoto && data.cover_photo_id) {
+            // Buscar foto específica pelo ID
+            for (const room of rooms) {
+              if (room.photos && Array.isArray(room.photos)) {
+                const photo = room.photos.find((p: any) => p.id === data.cover_photo_id);
+                if (photo?.url) {
+                  coverPhoto = photo.url;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Se não achou, pegar primeira foto disponível
+          if (!coverPhoto) {
+            for (const room of rooms) {
+              if (room.photos && Array.isArray(room.photos) && room.photos.length > 0) {
+                coverPhoto = room.photos[0].url || '';
                 break;
               }
             }
           }
         }
-        
-        // Se não achou, pegar primeira foto disponível
-        if (!coverPhoto) {
-          for (const room of rooms) {
-            if (room.photos && Array.isArray(room.photos) && room.photos.length > 0) {
-              coverPhoto = room.photos[0].url || '';
-              break;
-            }
-          }
-        }
+      } catch (e) {
+        console.error('Erro ao parsear rooms:', e);
       }
-    } catch (e) {
-      console.error('Erro ao parsear rooms:', e);
     }
     
     return {
       ...data,
       address,
       bedrooms,
+      bathrooms,
       beds,
-      bathrooms: data.bathrooms || 0,
-      guests: data.guests || 0,
+      guests,
       coverPhoto
     };
   };
@@ -731,3 +740,5 @@ export const ListaAnuncios = () => {
     </div>
   );
 };
+
+export default ListaAnuncios;

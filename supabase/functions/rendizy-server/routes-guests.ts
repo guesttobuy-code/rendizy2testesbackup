@@ -91,8 +91,13 @@ export async function listGuests(c: Context) {
 
     return c.json(successResponse(guests));
   } catch (error) {
+    console.error('❌ [listGuests] ERRO COMPLETO:', error);
+    console.error('❌ [listGuests] Stack:', error?.stack);
     logError('Error listing guests', error);
-    return c.json(errorResponse('Failed to list guests'), 500);
+    return c.json(errorResponse('Failed to list guests', { 
+      details: error?.message || String(error),
+      stack: error?.stack?.split('\n').slice(0, 3).join('\n') 
+    }), 500);
   }
 }
 

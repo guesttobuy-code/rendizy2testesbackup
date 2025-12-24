@@ -975,9 +975,10 @@ export async function previewStaysNetImport(c: Context) {
     const supabase = getSupabaseClient(c);
 
     // Buscar apenas em anuncios_ultimate (tabela oficial), considerando todos os formatos de external_id
+    // ✅ CORREÇÃO: Buscar apenas 'data' pois 'external_ids' não existe mais (migrado para data->externalIds)
     const { data: ultimateData, error: ultimateError } = await supabase
       .from('anuncios_ultimate')
-      .select('id, data, external_ids')
+      .select('id, data')
       .eq('organization_id', organizationId);
 
     if (ultimateError) {
@@ -990,7 +991,7 @@ export async function previewStaysNetImport(c: Context) {
     if (allExisting.length === 0) {
       const { data: ultimateAny, error: ultimateAnyError } = await supabase
         .from('anuncios_ultimate')
-        .select('id, data, external_ids');
+        .select('id, data');
 
       if (ultimateAnyError) {
         console.warn('[StaysNet Import Preview] ⚠️ Falha fallback anuncios_ultimate (global):', ultimateAnyError.message);
@@ -1011,30 +1012,19 @@ export async function previewStaysNetImport(c: Context) {
 
     allExisting.forEach((row: any) => {
       const data = row?.data || {};
-      const ext = row?.external_ids || {};
-      const extIds = data?.externalIds || data?.external_ids || {};
-      const orig = data?._stays_net_original || {};
+      const extIds = data?.externalIds || {};
 
       // ✅ CAMPO PRINCIPAL usado pelo import-staysnet-properties.ts
-      addIfString(extIds.staysnet_property_id);  // ⚡ CAMPO CORRETO!
+      const staysnetId = extIds.staysnet_property_id;
+      if (staysnetId) {
+        addIfString(staysnetId);
+        console.log(`[Preview] ✅ Encontrado: ${data?.title || 'sem título'} → ID: ${staysnetId}`);
+      }
 
-      // Variantes para compatibilidade com imports antigos
+      // Variantes para compatibilidade com imports antigos (mais raros)
       addIfString(extIds.stays_property_id);
-      addIfString(extIds.staysPropertyId);
-      addIfString(extIds.staysPropertyID);
-
-      addIfString(ext.stays_net_id);
-      addIfString(ext.staysnet_id);
-      addIfString(ext.staysNetId);
-
-      addIfString(extIds.stays_net_id);
-      addIfString(extIds.staysnet_id);
-      addIfString(extIds.staysNetId);
-
-      // Alguns registros antigos podem ter salvo o id bruto no objeto original
-      addIfString(orig.id);
-      addIfString(orig._id);
-      addIfString(orig.listingId);
+      addIfString(data?._stays_net_original?.id);
+      addIfString(data?._stays_net_original?._id);
     });
 
     console.log(`[StaysNet Import Preview] 📊 Total de IDs únicos encontrados: ${existingSet.size}`);

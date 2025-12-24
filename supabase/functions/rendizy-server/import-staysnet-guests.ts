@@ -173,23 +173,33 @@ export async function importStaysNetGuests(c: Context) {
     // ========================================================================
     console.log('📡 [FETCH] Buscando reservations de /booking/reservations...');
     
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - 6);
-    const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + 12);
+    // ✅ CORREÇÃO: API exige from, to, dateType (não startDate/endDate)
+    const fromDate = new Date();
+    fromDate.setMonth(fromDate.getMonth() - 12); // 12 meses atrás
+    const toDate = new Date();
+    toDate.setMonth(toDate.getMonth() + 12); // +12 meses no futuro
+    
+    const from = fromDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const to = toDate.toISOString().split('T')[0];     // YYYY-MM-DD
+    
+    console.log(`   📅 Período: ${from} até ${to}`);
+    console.log(`   📌 dateType: creation`);
+    
+    // ✅ Basic Auth (não x-api-key)
+    const credentials = btoa(`${STAYSNET_CONFIG.apiKey}:${STAYSNET_CONFIG.apiSecret}`);
     
     const params = new URLSearchParams({
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
-      dateType: 'checkIn'
+      from: from,
+      to: to,
+      dateType: 'creation',
+      limit: '100'
     });
     
     const response = await fetch(
       `${STAYSNET_CONFIG.baseUrl}/booking/reservations?${params}`,
       {
         headers: {
-          'x-api-key': STAYSNET_CONFIG.apiKey,
-          'x-api-secret': STAYSNET_CONFIG.apiSecret,
+          'Authorization': `Basic ${credentials}`,
           'Accept': 'application/json'
         }
       }

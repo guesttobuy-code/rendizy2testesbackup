@@ -78,6 +78,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Query de deduplicação: `contains('data', { externalIds: { stays_net_id } })`
   - Documento: `⚡_FIX_STAYSNET_TARGET_ANUNCIOS_ULTIMATE_v1.0.103.403.md`
 - 🔴 **Issue #48**: Lista Anúncios Ultimate retornava apenas 2 registros ao invés de 159
+- 🔴 **Issue #50**: Lista de reservas não carregava (500) mesmo com dados no banco
+  - Causa raiz: rotas de `/reservations` estavam sem `tenancyMiddleware`, gerando `TenantContext não encontrado`
+  - `supabase/functions/rendizy-server/index.ts`: aplicado `tenancyMiddleware` em GET/POST/PUT/DELETE de reservas
+  - Nota de teste: Edge Gateway exige `Authorization: Bearer <anonKey>` e o token de sessão real em `X-Auth-Token`
   - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 69
   - Frontend consultava REST API direta (sem org context) → RLS bloqueava registros
   - Corrigido: usa Edge Function `/anuncios-ultimate/lista` com X-Auth-Token

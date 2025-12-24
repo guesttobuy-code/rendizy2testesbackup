@@ -151,8 +151,13 @@ export async function listReservations(c: Context) {
 
     return c.json(successResponse(reservations));
   } catch (error) {
+    console.error('❌ [listReservations] ERRO COMPLETO:', error);
+    console.error('❌ [listReservations] Stack:', error?.stack);
     logError('Error listing reservations', error);
-    return c.json(errorResponse('Failed to list reservations'), 500);
+    return c.json(errorResponse('Failed to list reservations', { 
+      details: error?.message || String(error),
+      stack: error?.stack?.split('\n').slice(0, 3).join('\n') 
+    }), 500);
   }
 }
 

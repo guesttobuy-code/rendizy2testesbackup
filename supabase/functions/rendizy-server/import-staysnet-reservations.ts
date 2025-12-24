@@ -27,6 +27,7 @@ const STAYSNET_CONFIG = {
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
+const FALLBACK_PROPERTY_ID = '00000000-0000-0000-0000-000000000001'; // Property padrão quando não encontrar
 
 // ============================================================================
 // TIPOS - Estrutura da API StaysNet /booking/reservations
@@ -134,21 +135,6 @@ function mapPlatform(staysPlatform: string | undefined, source: string | undefin
 }
 
 // ============================================================================
-// FUNÇÃO AUXILIAR: Gerar ID no formato esperado pelo schema
-// ============================================================================
-function generateReservationId(confirmationCode: string): string {
-  // Se já tem formato de ID, retorna
-  if (confirmationCode.match(/^[A-Z0-9]{8,}$/)) {
-    return confirmationCode;
-  }
-  
-  // Gera ID baseado em timestamp + random
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${timestamp}${random}`;
-}
-
-// ============================================================================
 // FUNÇÃO PRINCIPAL DE IMPORTAÇÃO
 // ============================================================================
 export async function importStaysNetReservations(c: Context) {
@@ -172,24 +158,34 @@ export async function importStaysNetReservations(c: Context) {
     // ========================================================================
     console.log('📡 [FETCH] Buscando reservations de /booking/reservations...');
     
-    // Buscar reservas dos últimos 6 meses (ajustar conforme necessário)
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - 6);
-    const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + 12); // +12 meses no futuro
+    // ✅ CORREÇÃO: API exige from, to, dateType (não startDate/endDate)
+    // Buscar reservas dos últimos 12 meses e próximos 12 meses
+    const fromDate = new Date();
+    fromDate.setMonth(fromDate.getMonth() - 12); // 12 meses atrás
+    const toDate = new Date();
+    toDate.setMonth(toDate.getMonth() + 12); // +12 meses no futuro
+    
+    const from = fromDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const to = toDate.toISOString().split('T')[0];     // YYYY-MM-DD
+    
+    console.log(`   📅 Período: ${from} até ${to}`);
+    console.log(`   📌 dateType: creation (todas as reservas criadas no período)`);
+    
+    // ✅ Basic Auth (não x-api-key)
+    const credentials = btoa(`${STAYSNET_CONFIG.apiKey}:${STAYSNET_CONFIG.apiSecret}`);
     
     const params = new URLSearchParams({
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
-      dateType: 'checkIn' // Filtrar por data de check-in
+      from: from,
+      to: to,
+      dateType: 'creation', // creation = busca por data de criação da reserva
+      limit: '100'          // Máximo por página
     });
     
     const response = await fetch(
       `${STAYSNET_CONFIG.baseUrl}/booking/reservations?${params}`,
       {
         headers: {
-          'x-api-key': STAYSNET_CONFIG.apiKey,
-          'x-api-secret': STAYSNET_CONFIG.apiSecret,
+          'Authorization': `Basic ${credentials}`,
           'Accept': 'application/json'
         }
       }
@@ -279,29 +275,40 @@ export async function importStaysNetReservations(c: Context) {
         const staysPropertyId = res.propertyId || res._id_listing;
 
         if (staysPropertyId) {
+          // ✅ Buscar em properties (não anuncios_ultimate)
+          // Tentar primeiro em properties, depois em anuncios_ultimate
           const { data: property, error: propError } = await supabase
-            .from('anuncios_ultimate')
+            .from('properties')
             .select('id')
             .eq('organization_id', DEFAULT_ORG_ID)
-            .contains('data', { externalIds: { staysnet_property_id: staysPropertyId } })
+            .eq('external_id', staysPropertyId)
             .maybeSingle();
-
-          if (propError) {
-            console.error(`   ⚠️ Erro ao buscar property:`, propError.message);
-          }
 
           if (property) {
             propertyId = property.id;
             console.log(`   ✅ Property vinculado: ${propertyId}`);
           } else {
-            console.warn(`   ⚠️ Property não encontrado para staysnet_id: ${staysPropertyId}`);
+            // Fallback: buscar em anuncios_ultimate
+            const { data: anuncio } = await supabase
+              .from('anuncios_ultimate')
+              .select('id')
+              .eq('organization_id', DEFAULT_ORG_ID)
+              .or(`external_ids->staysnet_property_id.eq.${staysPropertyId},staysnet_property_id.eq.${staysPropertyId}`)
+              .maybeSingle();
+            
+            if (anuncio) {
+              propertyId = anuncio.id;
+              console.log(`   ✅ Property vinculado (via anuncios): ${propertyId}`);
+            } else {
+              console.warn(`   ⚠️ Property não encontrado: ${staysPropertyId} - continuando sem property_id`);
+            }
           }
         }
 
         // ====================================================================
         // 2.4: PREPARAR DADOS (flat structure)
         // ====================================================================
-        const reservationId = generateReservationId(confirmationCode);
+        // ✅ FIX: Não gerar ID customizado - Postgres auto-gera UUID
         
         // ✅ FIX: Usar safeInt() para evitar erro "28.2005"
         const guestsAdults = safeInt(res.guests?.adults || res._i_maxGuests, 1);
@@ -319,10 +326,10 @@ export async function importStaysNetReservations(c: Context) {
         const total = baseTotal + cleaningFee + serviceFee + taxes - discount;
 
         const reservationData = {
-          // Identificadores
-          id: reservationId,
+          // Identificadores (✅ id é TEXT na tabela, usar confirmationCode)
+          id: confirmationCode, // TEXT PRIMARY KEY
           organization_id: DEFAULT_ORG_ID,
-          property_id: propertyId,
+          property_id: propertyId || FALLBACK_PROPERTY_ID, // ✅ property_id é NOT NULL, usar fallback se não encontrar
           guest_id: null, // Será populado em import-staysnet-guests.ts
 
           // Datas
@@ -378,7 +385,7 @@ export async function importStaysNetReservations(c: Context) {
         // ====================================================================
         // 2.5: INSERIR NA TABELA reservations
         // ====================================================================
-        console.log(`   ➕ Inserindo reservation...`);
+        console.log(`   ➕ Inserindo reservation (property_id: ${propertyId || 'NULL'})...`);
         
         const { data: insertedReservation, error: insertError } = await supabase
           .from('reservations')

@@ -112,6 +112,9 @@ async function fetchAPI<T>(
   options: RequestInit = {}
 ): Promise<{ success: boolean; data?: T; message?: string; error?: string }> {
   try {
+    // ✅ CORREÇÃO: Adicionar X-Auth-Token para autenticação multi-tenant
+    const token = localStorage.getItem('rendizy-token');
+    
     // ✅ GARANTIR que credentials não seja passado via options
     const { credentials, ...restOptions } = options;
     
@@ -120,6 +123,7 @@ async function fetchAPI<T>(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${publicAnonKey}`,
+        'X-Auth-Token': token || '', // ✅ Token de sessão do usuário logado
         ...restOptions.headers,
       },
       credentials: 'omit', // ✅ Explícito: não enviar credentials

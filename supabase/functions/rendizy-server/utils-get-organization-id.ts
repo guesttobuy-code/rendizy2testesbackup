@@ -263,12 +263,33 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
     const client = getSupabaseClient();
     
     // ✅ IMPORTANTE: SERVICE_ROLE_KEY não valida JWT - query direta na tabela
-    // ✅ ARQUITETURA OAuth2 v1.0.103.1010: Buscar por access_token OU token (compatibilidade)
-    const { data: session, error: sessionError } = await client
+    // ✅ CORREÇÃO v1.0.103.600: Buscar PRIMEIRO por access_token (OAuth2), depois por token (legacy)
+    let session: any = null;
+    let sessionError: any = null;
+    
+    // Tentar buscar por access_token primeiro (OAuth2)
+    const { data: sessionByAccessToken, error: errorAccessToken } = await client
       .from('sessions')
       .select('*')
-      .or(`token.eq.${token},access_token.eq.${token}`) // ✅ Buscar por token antigo OU access_token
+      .eq('access_token', token)
       .maybeSingle();
+    
+    if (!errorAccessToken && sessionByAccessToken) {
+      session = sessionByAccessToken;
+    } else {
+      // Fallback: buscar por token antigo
+      const { data: sessionByToken, error: errorToken } = await client
+        .from('sessions')
+        .select('*')
+        .eq('token', token)
+        .maybeSingle();
+      
+      if (!errorToken && sessionByToken) {
+        session = sessionByToken;
+      } else {
+        sessionError = errorToken || errorAccessToken;
+      }
+    }
     
     console.log(`🔍 [getOrganizationIdOrThrow] Query result:`, {
       hasSession: !!session,
