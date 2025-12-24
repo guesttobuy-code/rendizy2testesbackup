@@ -169,8 +169,9 @@ export function MainSidebar({
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(0);
 
-  // Admin Master: apenas super admin (e, se existir, org rendizy)
-  const isMasterUser = isSuperAdmin && (!organization?.slug || organization.slug === 'rendizy');
+  // Admin Master: apenas super admin (org rendizy / rendizy-master)
+  const organizationSlug = organization?.slug ?? '';
+  const isMasterUser = isSuperAdmin && (!organizationSlug || organizationSlug.startsWith('rendizy'));
 
   console.log('� [MainSidebar] RENDERIZANDO - v1.0.103.334 - REBUILD');
   console.log('🚨 [MainSidebar] isMasterUser:', isMasterUser);

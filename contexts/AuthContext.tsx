@@ -1,123 +1,13 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Organization, Permission, PermissionCheck, DEFAULT_PERMISSIONS } from '../src/types/auth';
-// ✅ ARQUITETURA OAuth2 v1.0.103.1010: Integração com authService e BroadcastChannel
-import { login as authServiceLogin, logout as authServiceLogout, getCurrentUser } from '../services/authService';
-import { getAuthBroadcast, authBroadcast } from '../utils/authBroadcast_clean';
-// ✅ ARQUITETURA OAuth2 v1.0.103.1010: Usar singleton do Supabase client
-import { getSupabaseClient } from '../utils/supabase/client';
+// ⚠️ IMPORTANTE
+// Este projeto historicamente teve uma duplicação de AuthContext em:
+// - `contexts/AuthContext.tsx`
+// - `src/contexts/AuthContext.tsx`
+// Isso causava bugs críticos (logout não limpava sessão; UI mostrava deslogado).
+//
+// A fonte canônica é `src/contexts/AuthContext.tsx` (usada pelo Provider em `src/main.tsx`).
+// Mantemos este arquivo apenas como re-export para compatibilidade de imports antigos.
 
-// ✅ MELHORIA v1.0.103.400 - Usa user_metadata do Supabase como fallback
-// ✅ ARQUITETURA OAuth2 v1.0.103.1010: Usar singleton
-const supabase = getSupabaseClient();
-
-interface AuthContextType {
-  user: User | null;
-  organization: Organization | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  hasToken: boolean; // ✅ CORREÇÃO v1.0.103.1007: Expor hasTokenState para ProtectedRoute
-  
-  // Auth actions
-  login: (username: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
-  logout: () => Promise<void>;
-  switchOrganization: (organizationId: string) => Promise<void>;
-  
-  // Permission checks
-  hasPermission: (check: PermissionCheck) => boolean;
-  canCreate: (resource: string) => boolean;
-  canRead: (resource: string) => boolean;
-  canUpdate: (resource: string) => boolean;
-  canDelete: (resource: string) => boolean;
-  canExport: (resource: string) => boolean;
-  
-  // Role checks
-  isSuperAdmin: boolean;
-  isAdmin: boolean;
-  isManager: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  // ✅ CORREÇÃO v1.0.103.1005: Estado reativo para token (evita problemas com F5)
-  const [hasTokenState, setHasTokenState] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return !!localStorage.getItem('rendizy-token');
-    }
-    return false;
-  });
-
-  // ✅ ARQUITETURA SQL v1.0.103.950 - SEMPRE valida token no backend SQL
-  // ✅ BOAS PRÁTICAS v1.0.103.1000 - Validação periódica + Refresh automático
-  // ✅ CORREÇÃO CRÍTICA v1.0.103.1001 - NUNCA limpar token em validações periódicas por erros de rede
-  // NÃO usa localStorage como fonte de verdade - sempre busca do banco
-  useEffect(() => {
-    let isMounted = true; // Flag para evitar atualizações após desmontar
-    
-    // ✅ CORREÇÃO v1.0.103.1009: CRÍTICO - Ler token ANTES de qualquer async
-    // Isso garante que o hasTokenState seja atualizado imediatamente
-    // IMPORTANTE: Executar de forma síncrona, antes de qualquer async
-    if (typeof window !== 'undefined') {
-      // ✅ CORREÇÃO v1.0.103.1020: Limpar tokens JWT antigos (incompatíveis com novo sistema)
-      // Tokens JWT começam com "eyJ" e não são compatíveis com tokens simples (128 chars hex)
-      const token = localStorage.getItem('rendizy-token');
-      let hasToken = false;
-      
-      if (token && (token.startsWith('eyJ') || token.length < 80)) {
-        console.warn('⚠️ [AuthContext] Token antigo/JWT detectado - limpando:', token.substring(0, 30) + '...');
-        localStorage.removeItem('rendizy-token');
-        // Limpar também tokens do Supabase Auth se existirem
-        localStorage.removeItem('supabase.auth.token');
-        setHasTokenState(false);
-        hasToken = false;
-      } else {
-        hasToken = !!token;
-        console.log('🔍 [AuthContext] Token no localStorage ao montar:', hasToken ? `SIM (${token!.substring(0, 20)}...)` : 'NÃO');
-        // ✅ CRÍTICO: Atualizar hasTokenState imediatamente (síncrono)
-        setHasTokenState(hasToken);
-      }
-      
-      // ✅ Se não tem token, marcar como não carregando mas continuar
-      // (deixar loadUser ser executado para garantir consistência)
-      if (!hasToken) {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-        // ✅ NÃO retornar aqui - deixar o loadUser ser executado para garantir consistência
-      }
-    }
-    
-    // ✅ CORREÇÃO MANUS.IM: Simplificar loadUser - reduzir retries para 1
-    const loadUser = async (retries = 1, skipDelay = false, isPeriodicCheck = false) => {
-      try {
-        // ✅ SOLUÇÃO SIMPLES: Token no header Authorization (não cookie)
-        if (!isPeriodicCheck) {
-          console.log('🔐 [AuthContext] Verificando sessão via token no header...');
-        }
-
-        // ✅ SEMPRE validar token no backend SQL via /auth/me
-        const { projectId, publicAnonKey } = await import('../utils/supabase/info');
-        // ✅ CORREÇÃO v1.0.103.1008: Ler token novamente (pode ter mudado)
-        const token = localStorage.getItem('rendizy-token'); // ✅ Token salvo no localStorage
-        
-        // ✅ CORREÇÃO v1.0.103.1007: Atualizar estado do token IMEDIATAMENTE (síncrono)
-        // Isso garante que o ProtectedRoute veja o token antes de fazer qualquer verificação
-        if (token) {
-          setHasTokenState(true);
-        } else {
-          setHasTokenState(false);
-          // ✅ Se não tem token, não precisa continuar
-          if (!isPeriodicCheck) {
-            console.log('⚠️ [AuthContext] Token não encontrado no localStorage');
-          }
-          // ✅ CORREÇÃO: Não limpar user imediatamente - pode estar em navegação
-          // Apenas marcar como não carregando se não for periódica
-          if (isMounted && !isPeriodicCheck) {
-            // Não limpar user aqui - pode estar em transição de navegação
-            // ✅ CORREÇÃO v1.0.103.1006: Aguardar um pouco antes de setar isLoading como false
+export * from '../src/contexts/AuthContext';
             // Isso dá tempo para o ProtectedRoute aguardar a validação
             setTimeout(() => {
               if (isMounted) {
