@@ -18,6 +18,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Documentação do módulo Sites dos Clientes (`docs/04-modules/SITES_DOS_CLIENTES.md`)
 - Cápsula do módulo Sites dos Clientes (`components/client-sites/ClientSitesModule.tsx`)
 - Tela **Minha Conta** (`/minha-conta`) para identificar usuário/org/sessão
+- Validação WhatsApp (Evolution): mapa e script de probe em produção (`docs/05-operations/`)
 - `calendarApi.getBlocks()` - Busca bloqueios do backend
 - Hook `useCalendarData` agora carrega bloqueios reais do banco
 - Campo `external_ids` (JSONB) na tabela `properties` para rastreamento de IDs externos

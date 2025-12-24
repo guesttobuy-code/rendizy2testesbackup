@@ -211,6 +211,10 @@ docs/
   - Configurar secrets
   - Troubleshooting deploy
 
+- **Validação WhatsApp (Evolution)**
+  - [MAPA_VALIDACAO_WHATSAPP_2025-12-24.md](05-operations/MAPA_VALIDACAO_WHATSAPP_2025-12-24.md)
+  - [TEST-WHATSAPP-PROD_2025-12-24.ps1](05-operations/TEST-WHATSAPP-PROD_2025-12-24.ps1)
+
 ### 🎯 Quando Usar Esta Seção
 
 - ✅ Fazer deploy de changes

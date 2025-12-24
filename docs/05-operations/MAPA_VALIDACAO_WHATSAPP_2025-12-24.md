@@ -17,12 +17,12 @@ Este arquivo é um **mapa prático** para validar (com testes reais) se o WhatsA
 ### Como pegar um token válido (RENDIZY_TOKEN)
 
 - Abra o app (local ou produção), faça login.
-- Rode no console do navegador o script [GET-TOKEN.js](GET-TOKEN.js).
+- Rode no console do navegador o script [GET-TOKEN.js](/GET-TOKEN.js).
 - Copie o valor de `rendizy-token` e exporte no PowerShell:
 
 `$env:RENDIZY_TOKEN = "<cole-o-token-aqui>"`
 
-Observação: o [token.txt](token.txt) pode estar **expirado** (quando isso acontece, `/auth/me` retorna 401 `SESSION_NOT_FOUND`).
+Observação: o [token.txt](/token.txt) pode estar **expirado** (quando isso acontece, `/auth/me` retorna 401 `SESSION_NOT_FOUND`).
 
 ## 🧪 Script de validação (recomendado)
 
@@ -52,7 +52,7 @@ Se quiser incluir probes longos (ex.: StaysNet modular pode demorar):
 
 ## 📌 Paths esperados (segundo o entrypoint atual do repo)
 
-No entrypoint local [Rendizyoficial-main/supabase/functions/rendizy-server/index.ts](Rendizyoficial-main/supabase/functions/rendizy-server/index.ts):
+No entrypoint local [supabase/functions/rendizy-server/index.ts](/supabase/functions/rendizy-server/index.ts):
 
 - Health: `GET /health`
 - Chat (novas):
@@ -82,7 +82,7 @@ Importante: se em produção o comportamento não bate com isso (ex.: 404), o sc
 
 1. Confirme que você está chamando a função certa: `.../functions/v1/rendizy-server/...`
 2. Rode o script de varredura e anote qual path (se algum) responde 200/401.
-3. Compare com o entrypoint do repo: [Rendizyoficial-main/supabase/functions/rendizy-server/index.ts](Rendizyoficial-main/supabase/functions/rendizy-server/index.ts).
+3. Compare com o entrypoint do repo: [supabase/functions/rendizy-server/index.ts](/supabase/functions/rendizy-server/index.ts).
 4. Se o contract em produção estiver diferente, a correção típica é: redeploy do `rendizy-server` a partir do diretório certo (onde está esse `index.ts`).
 
 ---
