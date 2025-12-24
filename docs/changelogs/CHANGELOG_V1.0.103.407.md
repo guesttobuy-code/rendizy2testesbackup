@@ -10,6 +10,7 @@
 ## Frontend / StaysNet
 - `StaysNetService` documentado sobre uso obrigatório de `Authorization: Bearer <anon>` + `apikey` + `X-Auth-Token`, prevenindo remoção acidental dos headers que destravam as rotas privadas do Edge.
 - Fluxo de importação agora mostra preview (totais novos vs existentes) e oferece ações: importar só novos ou atualizar existentes + novos, sempre respeitando o ID mestre `stays_net_id`.
+- Reservas: filtro por propriedade não oculta reservas cujo `propertyId` não existe na lista carregada (evita lista vazia quando contador mostra dados).
 
 ## DX / Scripts
 - `npm run dev` na raiz agora delega para `Rendizyoficial-main`, evitando erros de diretório incorreto.

@@ -271,8 +271,13 @@ export function ReservationsManagement({
     
     const filtered = reservations.filter(reservation => {
       // Filter by selected properties
-      if (selectedProperties.length > 0 && !selectedProperties.includes(reservation.propertyId)) {
-        return false;
+      // NOTE: não excluir reservas cujo propertyId não existe na lista carregada de propriedades
+      // (ex: reservas importadas com property_id apontando para tabela/ID diferente).
+      if (selectedProperties.length > 0) {
+        const propertyIsKnown = propertiesMap.has(reservation.propertyId);
+        if (propertyIsKnown && !selectedProperties.includes(reservation.propertyId)) {
+          return false;
+        }
       }
 
       // Filter by selected APIs (fonte da reserva)

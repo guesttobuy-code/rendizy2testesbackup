@@ -43,6 +43,7 @@ Alinhar completamente o módulo de Reservas com o padrão Admin Master v1.0.72, 
 - 📋 Filtro por Status (7 opções)
 - 🏢 Filtro por Plataforma (5 opções)
 - 🏠 Filtro por Propriedade (dinâmico)
+   - Nota: não deve ocultar reservas cujo `propertyId` não existe na lista carregada (ex: importações com IDs diferentes). Se a propriedade é desconhecida, exibir como "Propriedade não encontrada".
 
 **3. Tabela Completa (10 colunas)**
 1. ID (monospace)

@@ -83,6 +83,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - `supabase/functions/rendizy-server/index.ts`: aplicado `tenancyMiddleware` em GET/POST/PUT/DELETE de reservas
   - Nota de teste: Edge Gateway exige `Authorization: Bearer <anonKey>` e o token de sessão real em `X-Auth-Token`
   - Segurança: removida rota local de reimportação e referência a arquivo não versionado (evita risco de credenciais hardcoded)
+  - Frontend: filtro por propriedade não descarta reservas com `propertyId` desconhecido (corrige cenário: contador mostra 100, mas lista ficava vazia)
   - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 69
   - Frontend consultava REST API direta (sem org context) → RLS bloqueava registros
   - Corrigido: usa Edge Function `/anuncios-ultimate/lista` com X-Auth-Token
