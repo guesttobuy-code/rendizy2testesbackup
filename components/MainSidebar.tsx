@@ -121,11 +121,30 @@ export function MainSidebar({
   const { theme, setTheme } = useTheme();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const { user, organization, isSuperAdmin } = useAuth();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [customLogo, setCustomLogo] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState<number>(7);
+
+  const logoHeightClassBySize: Record<number, string> = {
+    4: 'h-4',
+    5: 'h-5',
+    6: 'h-6',
+    7: 'h-7',
+    8: 'h-8',
+    9: 'h-9',
+    10: 'h-10',
+    11: 'h-11',
+    12: 'h-12',
+    13: 'h-[3.25rem]',
+    14: 'h-14',
+    15: 'h-[3.75rem]',
+    16: 'h-16',
+  };
+
+  const logoHeightClass = logoHeightClassBySize[logoSize] ?? 'h-7';
 
   // Carregar logo personalizada do localStorage
   useEffect(() => {
@@ -150,11 +169,8 @@ export function MainSidebar({
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(0);
 
-  // Simulação: verificar se é usuário Master RENDIZY
-  // TODO: Integrar com AuthContext quando backend estiver pronto
-  const isMasterUser = true; // Temporariamente true para você testar
-  // const { user, organization } = useAuth();
-  // const isMasterUser = user?.role === 'super_admin' && organization?.slug === 'rendizy';
+  // Admin Master: apenas super admin (e, se existir, org rendizy)
+  const isMasterUser = isSuperAdmin && (!organization?.slug || organization.slug === 'rendizy');
 
   console.log('� [MainSidebar] RENDERIZANDO - v1.0.103.334 - REBUILD');
   console.log('🚨 [MainSidebar] isMasterUser:', isMasterUser);
@@ -850,7 +866,7 @@ export function MainSidebar({
             </DropdownMenuItem>
             
             <DropdownMenuItem
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate('/minha-conta')}
               className={cn(
                 isDark 
                   ? "text-gray-200 focus:bg-gray-700 focus:text-white" 
@@ -858,7 +874,7 @@ export function MainSidebar({
               )}
             >
               <UserCircle className="mr-2 h-4 w-4" />
-              Perfil
+              Minha Conta
             </DropdownMenuItem>
             
             <DropdownMenuSeparator className={isDark ? "bg-gray-700" : "bg-gray-200"} />
@@ -1021,7 +1037,7 @@ export function MainSidebar({
             </DropdownMenuItem>
             
             <DropdownMenuItem
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate('/minha-conta')}
               className={cn(
                 isDark 
                   ? "text-gray-200 focus:bg-gray-700 focus:text-white" 
@@ -1029,7 +1045,7 @@ export function MainSidebar({
               )}
             >
               <UserCircle className="mr-2 h-4 w-4" />
-              Perfil
+              Minha Conta
             </DropdownMenuItem>
             
             <DropdownMenuSeparator className={isDark ? "bg-gray-700" : "bg-gray-200"} />
@@ -1069,8 +1085,7 @@ export function MainSidebar({
                 <img 
                   src={customLogo} 
                   alt="Rendizy" 
-                  className="w-auto object-contain"
-                  style={{ height: `${logoSize * 0.25}rem` }}
+                  className={cn("w-auto object-contain", logoHeightClass)}
                 />
               ) : (
                 <Logo size="md" className="justify-start" />

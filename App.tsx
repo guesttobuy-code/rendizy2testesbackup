@@ -127,6 +127,9 @@ const ReservationsModule = React.lazy(() =>
 const ChatModule = React.lazy(() =>
   import('./components/chat/ChatModule').then((m) => ({ default: m.ChatModule }))
 );
+const MyAccountModule = React.lazy(() =>
+  import('./components/account/MyAccountModule').then((m) => ({ default: m.MyAccountModule }))
+);
 const ClientSitesModule = React.lazy(() =>
   import('./components/client-sites/ClientSitesModule').then((m) => ({ default: m.ClientSitesModule }))
 );
@@ -1169,6 +1172,22 @@ function App() {
                   <ProtectedRoute>
                     <React.Suspense fallback={<div className="min-h-screen bg-gray-50 dark:bg-gray-900" />}>
                       <ClientSitesModule
+                        sidebarCollapsed={sidebarCollapsed}
+                        setSidebarCollapsed={setSidebarCollapsed}
+                        initialLoading={initialLoading}
+                        onModuleChange={setActiveModule}
+                        onSearchReservation={handleSearchReservation}
+                        onAdvancedSearch={handleAdvancedSearch}
+                      />
+                    </React.Suspense>
+                  </ProtectedRoute>
+                } />
+
+                {/* ✅ MINHA CONTA / PERFIL (usuário logado) */}
+                <Route path="/minha-conta" element={
+                  <ProtectedRoute>
+                    <React.Suspense fallback={<div className="min-h-screen bg-gray-50 dark:bg-gray-900" />}>
+                      <MyAccountModule
                         sidebarCollapsed={sidebarCollapsed}
                         setSidebarCollapsed={setSidebarCollapsed}
                         initialLoading={initialLoading}
