@@ -134,6 +134,15 @@ app.post("/rendizy-server/reservations", tenancyMiddleware, reservationsRoutes.c
 app.put("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRoutes.updateReservation);
 app.delete("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRoutes.deleteReservation);
 
+// Alias sem prefixo: alguns pontos do frontend chamam diretamente `/reservations/*`
+// (base: /functions/v1/rendizy-server). Mantemos as duas formas para estabilidade.
+app.get("/reservations", tenancyMiddleware, reservationsRoutes.listReservations);
+app.get("/reservations/kpis", tenancyMiddleware, reservationsRoutes.getReservationsKpis);
+app.get("/reservations/:id", tenancyMiddleware, reservationsRoutes.getReservation);
+app.post("/reservations", tenancyMiddleware, reservationsRoutes.createReservation);
+app.put("/reservations/:id", tenancyMiddleware, reservationsRoutes.updateReservation);
+app.delete("/reservations/:id", tenancyMiddleware, reservationsRoutes.deleteReservation);
+
 // ============================================================================
 // CALENDAR / BLOCKS
 // ============================================================================
