@@ -44,6 +44,7 @@ import anunciosApp from "./routes-anuncios.ts";
 import * as reservationsRoutes from "./routes-reservations.ts";
 import * as calendarRoutes from "./routes-calendar.ts";
 import blocksApp from "./routes-blocks.ts";
+import icalApp from "./routes-ical.ts";
 import * as guestsRoutes from "./routes-guests.ts";
 import * as staysnetRoutes from "./routes-staysnet.ts";
 import { tenancyMiddleware } from "./utils-tenancy.ts";
@@ -130,6 +131,12 @@ app.delete("/rendizy-server/calendar/blocks/:id", calendarRoutes.deleteBlock);
 // BLOCKS LEGACY ROUTER (compat)
 // ============================================================================
 app.route("/rendizy-server/blocks", blocksApp);
+
+// ============================================================================
+// ICAL (Airbnb/Booking/etc) - Sync de calendário externo
+// ============================================================================
+app.route("/rendizy-server/ical", icalApp);
+app.route("/rendizy-server/make-server-67caf26a/ical", icalApp); // compat com prefix usado no frontend
 
 // ============================================================================
 // STAYS.NET INTEGRAÇÃO

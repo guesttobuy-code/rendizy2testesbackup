@@ -626,7 +626,7 @@ export async function createReservation(c: Context) {
     // ✅ NOVO: Criar block no calendário automaticamente quando reserva é criada
     try {
       const { blockToSql } = await import('./utils-block-mapper.ts');
-      const blockId = `blk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const blockId = crypto.randomUUID();
       const now = getCurrentDateTime();
       
       const block = {
