@@ -15,11 +15,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Protocolo de inicialização para IAs no SETUP_COMPLETO.md
 - Workflow profissional com scripts PowerShell
 - Documentação operacional completa (`docs/operations/`)
+- Documentação do módulo Sites dos Clientes (`docs/04-modules/SITES_DOS_CLIENTES.md`)
+- Cápsula do módulo Sites dos Clientes (`components/client-sites/ClientSitesModule.tsx`)
 - `calendarApi.getBlocks()` - Busca bloqueios do backend
 - Hook `useCalendarData` agora carrega bloqueios reais do banco
 - Campo `external_ids` (JSONB) na tabela `properties` para rastreamento de IDs externos
 
 ### Fixed
+- 🔒 **Sites dos Clientes: encapsulamento do módulo em cápsula**
+  - Rota `/sites-clientes` agora usa `ClientSitesModule` (evita JSX grande em `App.tsx`)
+  - Mantém o mesmo layout (sidebar + container) com melhor isolamento
 - 🔴 **Env falta VITE_SUPABASE_ANON_KEY em build do Vercel**
   - `utils/supabase/info.tsx`: adiciona guard com erro explícito quando a key não está configurada
   - `services/authService.ts`: remove log que imprimia a chave completa; mantém only status configurada/faltando

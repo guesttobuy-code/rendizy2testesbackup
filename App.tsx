@@ -76,7 +76,6 @@ import { BulkPricingManager } from './components/BulkPricingManager';
 import { ChatInbox } from './components/ChatInbox';
 import { ChatInboxWithEvolution } from './components/ChatInboxWithEvolution';
 import { GuestsManager } from './components/GuestsManager';
-import { ClientSitesManager } from './components/ClientSitesManager';
 import { NotFoundPage } from './components/NotFoundPage';
 import { EmergencyRouter } from './components/EmergencyRouter';
 import { EmergencyRecovery } from './components/EmergencyRecovery';
@@ -127,6 +126,9 @@ const ReservationsModule = React.lazy(() =>
 );
 const ChatModule = React.lazy(() =>
   import('./components/chat/ChatModule').then((m) => ({ default: m.ChatModule }))
+);
+const ClientSitesModule = React.lazy(() =>
+  import('./components/client-sites/ClientSitesModule').then((m) => ({ default: m.ClientSitesModule }))
 );
 const LocationsModule = React.lazy(() =>
   import('./components/locations/LocationsModule').then((m) => ({ default: m.LocationsModule }))
@@ -1165,31 +1167,16 @@ function App() {
                 {/* ✅ ROTA SITES CLIENTES - v1.0.103.253 - PROTEGIDA */}
                 <Route path="/sites-clientes" element={
                   <ProtectedRoute>
-                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-                      <LoadingProgress
-                        isLoading={initialLoading}
-                      />
-
-                      <MainSidebar
-                        activeModule='motor-reservas'
+                    <React.Suspense fallback={<div className="min-h-screen bg-gray-50 dark:bg-gray-900" />}>
+                      <ClientSitesModule
+                        sidebarCollapsed={sidebarCollapsed}
+                        setSidebarCollapsed={setSidebarCollapsed}
+                        initialLoading={initialLoading}
                         onModuleChange={setActiveModule}
-                        collapsed={sidebarCollapsed}
-                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                         onSearchReservation={handleSearchReservation}
                         onAdvancedSearch={handleAdvancedSearch}
                       />
-
-                      <div
-                        className={cn(
-                          "flex flex-col min-h-screen transition-all duration-300",
-                          sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"
-                        )}
-                      >
-                        <div className="flex-1 overflow-hidden">
-                          <ClientSitesManager />
-                        </div>
-                      </div>
-                    </div>
+                    </React.Suspense>
                   </ProtectedRoute>
                 } />
 

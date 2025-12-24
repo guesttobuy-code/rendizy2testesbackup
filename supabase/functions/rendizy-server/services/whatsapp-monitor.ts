@@ -9,7 +9,7 @@
  */
 
 import { getSupabaseClient } from '../kv_store.tsx';
-import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, SUPABASE_PROJECT_REF } from '../utils-env.ts';
+import { SUPABASE_PROJECT_REF } from '../utils-env.ts';
 
 /**
  * Normaliza base URL removendo barras finais
@@ -32,6 +32,8 @@ interface ConnectionStatus {
   lastChecked: Date;
   lastConnected?: Date;
   reconnectAttempts: number;
+  lastWebhookCheck?: Date;
+  lastDBUpdate?: Date;
 }
 
 // Cache de status por organização (evita verificações excessivas)

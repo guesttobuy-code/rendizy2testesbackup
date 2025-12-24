@@ -1,9 +1,5 @@
 /// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
-declare namespace Deno {
-  namespace env {
-    function get(key: string): string | undefined;
-  }
-}
-
-// Nota: removido o declare module "npm:*" para evitar resolução de pacote "*"
+// Nota: este arquivo existe apenas para referenciar os tipos do Edge Runtime.
+// Não declare novamente `Deno.env` aqui: o Edge Runtime já exporta `Deno.env` e
+// isso causa conflito (TS2451) durante `deno check`.

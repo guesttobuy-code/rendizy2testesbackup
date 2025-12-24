@@ -21,7 +21,6 @@
 // ============================================================================
 
 import { Hono } from "npm:hono";
-import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 
 // ============================================================================
@@ -102,7 +101,7 @@ app.use("*", async (c, next) => {
     });
   }
   
-  await next();
+  return await next();
 });
 
 // Logger depois do CORS
@@ -302,11 +301,12 @@ Deno.serve((req) => {
     return app.fetch(req);
   } catch (error) {
     console.error("🔥 ERRO CRÍTICO NO APP:", error);
+    const anyError = error as any;
     // Garantir que CORS funciona mesmo em crash total
     return new Response(
       JSON.stringify({ 
         error: "Internal Server Error", 
-        message: error.message,
+        message: anyError?.message,
         hint: "Check server logs for details"
       }), 
       {

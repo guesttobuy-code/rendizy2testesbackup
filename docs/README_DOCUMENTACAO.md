@@ -13,9 +13,18 @@ docs/
 ├── dev-logs/ (Logs diários de desenvolvimento)
 ├── operations/ (Setup, deploy, troubleshooting)
 ├── architecture/ (Arquitetura do sistema)
+├── 04-modules/ (Documentação por módulo)
 ├── api/ (Documentação de APIs)
 └── migrations/ (Histórico de migrações)
 ```
+
+---
+
+## 🧩 MÓDULOS
+
+| Módulo | Documento | Status |
+|--------|----------|--------|
+| Sites dos Clientes (Edição de site) | [04-modules/SITES_DOS_CLIENTES.md](04-modules/SITES_DOS_CLIENTES.md) | ✅ |
 
 ---
 

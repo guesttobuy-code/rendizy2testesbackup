@@ -19,27 +19,34 @@ interface EvolutionConfig {
   enabled: boolean;
 }
 
+function maskSecret(secret: string | null | undefined): string {
+  if (!secret) return '';
+  const trimmed = String(secret).trim();
+  if (!trimmed) return '';
+  if (trimmed.length <= 6) return '******';
+  return `${trimmed.slice(0, 3)}...${trimmed.slice(-2)}`;
+}
+
+function looksMaskedSecret(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const v = value.trim();
+  if (!v) return false;
+  // Aceitar formatos comuns de máscara: ***** / •••• / abc...yz
+  if (/^[*•]{4,}$/.test(v)) return true;
+  if (/^[^\s]{1,6}\.{3}[^\s]{1,6}$/.test(v)) return true;
+  return false;
+}
+
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
 async function getEvolutionConfigForOrganization(organizationId: string): Promise<EvolutionConfig | null> {
   try {
-    const client = getSupabaseClient();
-    
-    const { data, error } = await client
-      .from('organization_channel_config')
-      .select('whatsapp_enabled, whatsapp_api_url, whatsapp_instance_name, whatsapp_api_key, whatsapp_instance_token')
-      .eq('organization_id', organizationId)
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error(`❌ [Chat] Erro ao buscar config para org ${organizationId}:`, error);
-      return null;
-    }
+    const repo = new ChannelConfigRepository();
+    const data = await repo.findByOrganizationId(organizationId);
 
     if (!data || !data.whatsapp_enabled) {
-      console.warn(`⚠️ [Chat] WhatsApp não configurado para org ${organizationId}`);
       return null;
     }
 
@@ -89,7 +96,10 @@ async function evolutionRequest(
   // ✅ URL-encode instance name if present in endpoint
   const encodedEndpoint = endpoint.replace(
     /\/([\w\s]+)$/,
-    (match, instanceName) => `/${encodeURIComponent(instanceName)}`
+    (match, instanceName) => {
+      void match;
+      return `/${encodeURIComponent(instanceName)}`;
+    }
   );
   
   const url = `${config.apiUrl}${encodedEndpoint}`;
@@ -187,8 +197,12 @@ app.get('/channels/config', async (c) => {
         enabled: config.whatsapp_enabled || false,
         api_url: config.whatsapp_api_url || '',
         instance_name: config.whatsapp_instance_name || '',
-        api_key: config.whatsapp_api_key || '',
-        instance_token: config.whatsapp_instance_token || '',
+        // ⚠️ Segurança: não retornar segredos em texto puro para o frontend.
+        // Mantém compatibilidade (string), mas mascarado.
+        api_key: maskSecret(config.whatsapp_api_key),
+        instance_token: maskSecret(config.whatsapp_instance_token),
+        has_api_key: !!(config.whatsapp_api_key && String(config.whatsapp_api_key).trim()),
+        has_instance_token: !!(config.whatsapp_instance_token && String(config.whatsapp_instance_token).trim()),
         connected: config.whatsapp_connected || false,
         phone_number: config.whatsapp_phone_number || null,
         qr_code: config.whatsapp_qr_code || null,
@@ -199,7 +213,8 @@ app.get('/channels/config', async (c) => {
       sms: {
         enabled: config.sms_enabled || false,
         account_sid: config.sms_account_sid || '',
-        auth_token: config.sms_auth_token || '',
+        auth_token: maskSecret(config.sms_auth_token),
+        has_auth_token: !!(config.sms_auth_token && String(config.sms_auth_token).trim()),
         phone_number: config.sms_phone_number || '',
         credits_used: config.sms_credits_used || 0,
         last_recharged_at: config.sms_last_recharged_at || null,
@@ -248,8 +263,15 @@ app.patch('/channels/config', async (c) => {
       configToSave.whatsapp_enabled = body.whatsapp.enabled ?? existing?.whatsapp_enabled ?? false;
       configToSave.whatsapp_api_url = body.whatsapp.api_url || existing?.whatsapp_api_url || '';
       configToSave.whatsapp_instance_name = body.whatsapp.instance_name || existing?.whatsapp_instance_name || '';
-      configToSave.whatsapp_api_key = body.whatsapp.api_key || existing?.whatsapp_api_key || '';
-      configToSave.whatsapp_instance_token = body.whatsapp.instance_token || existing?.whatsapp_instance_token || '';
+      // Só sobrescrever segredos quando vier um valor REAL (não vazio, não mascarado)
+      const nextApiKey = body.whatsapp.api_key;
+      const nextInstanceToken = body.whatsapp.instance_token;
+      configToSave.whatsapp_api_key = (!looksMaskedSecret(nextApiKey) && typeof nextApiKey === 'string' && nextApiKey.trim())
+        ? nextApiKey.trim()
+        : (existing?.whatsapp_api_key || '');
+      configToSave.whatsapp_instance_token = (!looksMaskedSecret(nextInstanceToken) && typeof nextInstanceToken === 'string' && nextInstanceToken.trim())
+        ? nextInstanceToken.trim()
+        : (existing?.whatsapp_instance_token || '');
       
       // Preservar campos de conexão se não foram fornecidos
       configToSave.whatsapp_connected = body.whatsapp.connected ?? existing?.whatsapp_connected ?? false;
@@ -264,7 +286,10 @@ app.patch('/channels/config', async (c) => {
     if (body.sms) {
       configToSave.sms_enabled = body.sms.enabled ?? existing?.sms_enabled ?? false;
       configToSave.sms_account_sid = body.sms.account_sid || existing?.sms_account_sid || '';
-      configToSave.sms_auth_token = body.sms.auth_token || existing?.sms_auth_token || '';
+      const nextSmsToken = body.sms.auth_token;
+      configToSave.sms_auth_token = (!looksMaskedSecret(nextSmsToken) && typeof nextSmsToken === 'string' && nextSmsToken.trim())
+        ? nextSmsToken.trim()
+        : (existing?.sms_auth_token || '');
       configToSave.sms_phone_number = body.sms.phone_number || existing?.sms_phone_number || '';
       configToSave.sms_credits_used = body.sms.credits_used ?? existing?.sms_credits_used ?? 0;
       configToSave.sms_last_recharged_at = body.sms.last_recharged_at ?? existing?.sms_last_recharged_at ?? null;
@@ -425,7 +450,7 @@ app.post('/channels/whatsapp/connect', async (c) => {
           success: false, 
           error: 'Erro ao criar instância WhatsApp',
           details: errorText 
-        }, createResponse.status);
+        }, createResponse.status as any);
       }
       
       console.log('✅ [Chat] Instância criada com sucesso');
@@ -467,7 +492,7 @@ app.post('/channels/whatsapp/connect', async (c) => {
           success: false, 
           error: 'Erro ao obter QR Code',
           details: errorText 
-        }, qrResponse.status);
+        }, qrResponse.status as any);
       }
 
       const qrData = await qrResponse.json();
@@ -864,6 +889,7 @@ app.post('/channels/whatsapp/webhook', async (c) => {
     // Extract message info
     const senderJid = messageData.key?.remoteJid;
     const messageId = messageData.key?.id;
+    void messageId;
     const senderPhone = senderJid?.split('@')[0] || '';
     const senderName = messageData.pushName || `+${senderPhone}`;
     

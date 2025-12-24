@@ -17,7 +17,7 @@
 import { Context } from 'npm:hono';
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getSupabaseClient } from './kv_store.tsx';
-import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, SUPABASE_PROJECT_REF } from './utils-env.ts';
+import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from './utils-env.ts';
 
 class HttpStatusError extends Error {
   status: number;
@@ -84,7 +84,7 @@ function extractTokenFromContext(c: Context): string | undefined {
  * @param imobiliariaId - ID da imobiliária do KV Store (TEXT)
  * @returns Promise<string | null> - organizationId (UUID) ou null se não encontrado
  */
-async function lookupOrganizationIdFromImobiliariaId(imobiliariaId: string | undefined): Promise<string | null> {
+export async function lookupOrganizationIdFromImobiliariaId(imobiliariaId: string | undefined): Promise<string | null> {
   if (!imobiliariaId) {
     return null;
   }
@@ -174,7 +174,7 @@ function getAuthenticatedSupabaseClient(token: string) {
  * @param token - Token de autenticação
  * @returns Promise<string | null> - organization_id ou null se não encontrado
  */
-async function getOrganizationIdFromSupabaseAuth(token: string): Promise<string | null> {
+export async function getOrganizationIdFromSupabaseAuth(token: string): Promise<string | null> {
   try {
     const supabase = getAuthenticatedSupabaseClient(token);
     

@@ -10,6 +10,7 @@
   },
   "tasks": {
     "check": "deno check index.ts",
+    "check-core": "deno check routes-chat.ts routes-whatsapp-evolution.ts",
     "check-all": "deno check *.ts",
     "validate": "deno check index.ts && echo '✅ Validação TypeScript OK'"
   },
