@@ -17,15 +17,7 @@
 
 import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
-
-// ============================================================================
-// CONFIGURAÇÃO
-// ============================================================================
-const STAYSNET_CONFIG = {
-  apiKey: 'a5146970',
-  apiSecret: 'bfcf4daf',
-  baseUrl: 'https://bvm.stays.net/external/v1'
-};
+import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -186,7 +178,8 @@ export async function importStaysNetGuests(c: Context) {
     console.log(`   📌 dateType: creation`);
     
     // ✅ Basic Auth (não x-api-key)
-    const credentials = btoa(`${STAYSNET_CONFIG.apiKey}:${STAYSNET_CONFIG.apiSecret}`);
+    const staysConfig = await loadStaysNetRuntimeConfigOrThrow(orgId);
+    const credentials = btoa(`${staysConfig.apiKey}:${staysConfig.apiSecret}`);
     
     const params = new URLSearchParams({
       from: from,
@@ -196,7 +189,7 @@ export async function importStaysNetGuests(c: Context) {
     });
     
     const response = await fetch(
-      `${STAYSNET_CONFIG.baseUrl}/booking/reservations?${params}`,
+      `${staysConfig.baseUrl}/booking/reservations?${params}`,
       {
         headers: {
           'Authorization': `Basic ${credentials}`,

@@ -9,7 +9,13 @@ Write-Host "1. Testando rota /organizations diretamente..." -ForegroundColor Cya
 Write-Host ""
 
 $url = "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/organizations"
-$anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA1OTI2MDAsImV4cCI6MjA0NjE2ODYwMH0.8qJ8qJ8qJ8qJ8qJ8qJ8qJ8qJ8qJ8qJ8qJ8qJ8qJ8qJ8qJ"
+$SUPABASE_URL = $env:SUPABASE_URL
+$anonKey = $env:SUPABASE_ANON_KEY
+
+if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $anonKey) { throw "Missing env var SUPABASE_ANON_KEY" }
+
+$url = "$SUPABASE_URL/functions/v1/rendizy-server/make-server-67caf26a/organizations"
 
 try {
     $response = Invoke-RestMethod -Uri $url -Method GET -Headers @{

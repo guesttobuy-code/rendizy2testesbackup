@@ -1,9 +1,13 @@
 // Script para verificar se migrations foram aplicadas
 import 'dotenv/config';
 
-const SUPABASE_URL = 'https://odcgnzfremrqnvtitpcc.supabase.co';
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMzc1MTAyNCwiZXhwIjoyMDQ5MzI3MDI0fQ.zU8HYmEz2S1sInJI/1I6.lmOkYzduemZ/W1ycU54dG1dG11dG14GN4CCI6MjA0OTMyNzAyNH0.KXYSQ6uVKIx7I7IhgH4pqeLvb0Kv1WTqnE3cBY8-LXE';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('❌ Variáveis de ambiente ausentes. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (.env.local).');
+  process.exit(1);
+}
 console.log('🔍 Verificando infraestrutura do banco...\n');
 
 async function verificarTabela(tableName) {

@@ -11,8 +11,8 @@
 
 ```json
 {
-  "apiKey": "a5146970",
-  "apiSecret": "bfcf4daf",
+  "apiKey": "<STAYSNET_API_KEY>",
+  "apiSecret": "<STAYSNET_API_SECRET>",
   "baseUrl": "https://bvm.stays.net/external/v1",
   "accountName": "Sua Casa Rende Mais",
   "notificationWebhookUrl": "",
@@ -24,8 +24,8 @@
 ### **Detalhes:**
 
 - **Base URL:** `https://bvm.stays.net/external/v1`
-- **API Key:** `a5146970`
-- **API Secret:** `bfcf4daf`
+- **API Key:** `<STAYSNET_API_KEY>`
+- **API Secret:** `<STAYSNET_API_SECRET>`
 - **Account Name:** `Sua Casa Rende Mais`
 - **Scope:** `global`
 - **Painel Web:** `https://bvm.stays.net`
@@ -114,8 +114,8 @@ GET /rendizy-server/make-server-67caf26a/settings/staysnet
 {
   "success": true,
   "data": {
-    "apiKey": "a5146970",
-    "apiSecret": "bfcf4daf",
+    "apiKey": "<STAYSNET_API_KEY>",
+    "apiSecret": "<STAYSNET_API_SECRET>",
     "baseUrl": "https://bvm.stays.net/external/v1",
     "accountName": "Sua Casa Rende Mais",
     "scope": "global",
@@ -181,8 +181,8 @@ Body:
 **Configuração:** ✅ **ENCONTRADA E DOCUMENTADA**
 
 - ✅ Base URL: `https://bvm.stays.net/external/v1`
-- ✅ API Key: `a5146970`
-- ✅ API Secret: `bfcf4daf`
+- ✅ API Key: `<STAYSNET_API_KEY>`
+- ✅ API Secret: `<STAYSNET_API_SECRET>`
 - ✅ Account Name: `Sua Casa Rende Mais`
 - ✅ Scope: `global`
 

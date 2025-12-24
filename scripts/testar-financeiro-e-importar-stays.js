@@ -7,12 +7,25 @@
 
 import https from 'https';
 
-const PROJECT_ID = 'odcgnzfremrqnvtitpcc';
-const PUBLIC_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ';
-const BASE_URL = `https://${PROJECT_ID}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a`;
+import dotenv from 'dotenv';
 
-const USERNAME = 'rppt';
-const PASSWORD = 'root';
+dotenv.config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const PUBLIC_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+const USERNAME = process.env.RENDIZY_USERNAME || process.env.RENDIZY_DEBUG_USERNAME;
+const PASSWORD = process.env.RENDIZY_PASSWORD || process.env.RENDIZY_DEBUG_PASSWORD;
+
+if (!SUPABASE_URL || !PUBLIC_ANON_KEY) {
+  throw new Error('Missing SUPABASE_URL/SUPABASE_ANON_KEY (configure in .env.local).');
+}
+
+if (!USERNAME || !PASSWORD) {
+  throw new Error('Missing RENDIZY_USERNAME/RENDIZY_PASSWORD (configure in .env.local).');
+}
+
+const BASE_URL = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/make-server-67caf26a`;
 
 function makeRequest(path, method, body, token) {
   return new Promise((resolve, reject) => {
@@ -68,7 +81,7 @@ function makeRequest(path, method, body, token) {
 
 async function login() {
   console.log('🔐 Fazendo login...');
-  const url = new URL(`https://${PROJECT_ID}.supabase.co/functions/v1/rendizy-server/auth/login`);
+  const url = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/auth/login`);
   const data = JSON.stringify({ username: USERNAME, password: PASSWORD });
   
   return new Promise((resolve, reject) => {
@@ -253,12 +266,22 @@ async function verificarLancamentos(token) {
 
 async function salvarConfiguracaoStaysNet(token) {
   console.log('\n💾 Salvando configuração Stays.net...');
+
+  const staysnetApiKey = process.env.STAYSNET_API_KEY;
+  const staysnetApiSecret = process.env.STAYSNET_API_SECRET;
+  const staysnetBaseUrl = process.env.STAYSNET_BASE_URL || 'https://bvm.stays.net/external/v1';
+  const staysnetAccountName = process.env.STAYSNET_ACCOUNT_NAME || 'Stays.net';
+
+  if (!staysnetApiKey || !staysnetApiSecret) {
+    console.warn('⚠️  STAYSNET_API_KEY/STAYSNET_API_SECRET não configuradas em .env.local; pulando save de configuração.');
+    return false;
+  }
   
   const config = {
-    apiKey: 'a5146970',
-    apiSecret: 'bfcf4daf',
-    baseUrl: 'https://bvm.stays.net/external/v1',
-    accountName: 'Sua Casa Rende Mais',
+    apiKey: staysnetApiKey,
+    apiSecret: staysnetApiSecret,
+    baseUrl: staysnetBaseUrl,
+    accountName: staysnetAccountName,
     scope: 'global',
     enabled: true,
   };

@@ -1,12 +1,23 @@
+import os
 import requests
 import json
 import sys
 
-url = "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/organizations"
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL:
+    raise SystemExit("Missing env var SUPABASE_URL")
+
+if not SUPABASE_ANON_KEY:
+    raise SystemExit("Missing env var SUPABASE_ANON_KEY")
+
+url = f"{SUPABASE_URL.rstrip('/')}/functions/v1/rendizy-server/organizations"
 
 headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
+    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+    "apikey": SUPABASE_ANON_KEY,
 }
 
 payload = {

@@ -46,15 +46,15 @@ console.log(
 // Testar autenticação
 if (token) {
   fetch(
-    "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/auth/me",
+    "https://<PROJECT_REF>.supabase.co/functions/v1/rendizy-server/auth/me",
     {
       headers: {
         "Content-Type": "application/json",
         Authorization:
-          "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ",
+          "Bearer <SUPABASE_ANON_KEY>",
         "X-Auth-Token": token,
         apikey:
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ",
+          "<SUPABASE_ANON_KEY>",
       },
     }
   )
@@ -79,12 +79,12 @@ if (token) {
 ### Request:
 
 - **Method:** GET
-- **URL:** `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/auth/me`
+- **URL:** `https://<PROJECT_REF>.supabase.co/functions/v1/rendizy-server/auth/me`
 - **Headers:**
   - `Content-Type: application/json`
-  - `Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ`
+  - `Authorization: Bearer <SUPABASE_ANON_KEY>`
   - `X-Auth-Token: <seu-token-aqui>`
-  - `apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ`
+  - `apikey: <SUPABASE_ANON_KEY>`
 
 ---
 

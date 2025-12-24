@@ -1,9 +1,12 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://odcgnzfremrqnvtitpcc.supabase.co';
-// Using the service role key from previous context (hardcoded for this script only)
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMDg0MjQ2NiwiZXhwIjoyMDQ2NDE4NDY2fQ.sJ_8a--tZeXwW0dZg8v8-2F0o8hX_7uJ_3-x3qC_1_4';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    throw new Error('Missing SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY in environment.');
+}
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 

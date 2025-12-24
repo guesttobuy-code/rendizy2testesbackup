@@ -1,12 +1,19 @@
 // Script de teste para verificar se as tabelas e RPC existem
 
-const SUPABASE_URL = 'https://odcgnzfremrqnvtitpcc.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE';
+require('dotenv').config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('❌ Variáveis de ambiente ausentes. Configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY em .env.local');
+  process.exit(1);
+}
 
 async function checkTables() {
   console.log('\n🔍 Verificando tabela anuncios_ultimate...');
   
-  const res1 = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?limit=1`, {
+  const res1 = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/anuncios_ultimate?limit=1`, {
     headers: {
       'apikey': SERVICE_ROLE_KEY,
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
@@ -22,7 +29,7 @@ async function checkTables() {
 
   console.log('\n🔍 Verificando tabela anuncios_field_changes...');
   
-  const res2 = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_field_changes?limit=1`, {
+  const res2 = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/anuncios_field_changes?limit=1`, {
     headers: {
       'apikey': SERVICE_ROLE_KEY,
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
@@ -38,7 +45,7 @@ async function checkTables() {
 
   console.log('\n🔍 Testando RPC save_anuncio_field...');
   
-  const res3 = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_anuncio_field`, {
+  const res3 = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/save_anuncio_field`, {
     method: 'POST',
     headers: {
       'apikey': SERVICE_ROLE_KEY,

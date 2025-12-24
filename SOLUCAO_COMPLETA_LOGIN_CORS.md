@@ -19,7 +19,7 @@ Access-Control-Allow-Origin: * não pode ser usado com credentials: 'include'
 
 ### **Problema 2: Tokens JWT vs Tokens Simples**
 Pelos logs do Supabase:
-- Frontend envia: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` (JWT)
+- Frontend envia: `<JWT>` (JWT)
 - Backend espera: `458caaa88e3ab44a0621dccbaa973f...` (token simples 128 chars)
 - Backend gera: tokens simples com `generateToken()` (128 chars hex)
 

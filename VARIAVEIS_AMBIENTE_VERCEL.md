@@ -17,7 +17,7 @@ https://gjphsheavnkdtmsrxmtl.supabase.co
 ### 2. Supabase Anon Key (Pública - Frontend)
 ```
 VITE_SUPABASE_ANON_KEY
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqcGhzaGVhdm5rZHRtc3J4bXRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyODE1NzMsImV4cCI6MjA3OTg1NzU3M30.GH8_htMszSrylCd6rMXNXioZUKNE303T6QeTBrevAbs
+<SUPABASE_ANON_KEY>
 ```
 
 ---
@@ -27,7 +27,7 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqcGhzaGV
 ### 3. Supabase Service Role Key (Privada - Apenas Backend)
 ```
 VITE_SUPABASE_SERVICE_ROLE_KEY
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqcGhzaGVhdm5rZHRtc3J4bXRsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDI4MTU3MywiZXhwIjoyMDc5ODU3NTczfQ.nhcQUX2WpUnz3ho_PhL3qc_flhd1BgAD01n_W0P2FTo
+<SUPABASE_SERVICE_ROLE_KEY>
 ```
 
 **⚠️ ATENÇÃO:** Esta chave só deve ser usada em Edge Functions ou server-side. Não exponha no frontend!
@@ -57,11 +57,11 @@ No Vercel, ao adicionar variáveis de ambiente, você verá dois campos:
 
 **Variável 2:**
 - Key: `VITE_SUPABASE_ANON_KEY`
-- Value: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqcGhzaGVhdm5rZHRtc3J4bXRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyODE1NzMsImV4cCI6MjA3OTg1NzU3M30.GH8_htMszSrylCd6rMXNXioZUKNE303T6QeTBrevAbs`
+- Value: `<SUPABASE_ANON_KEY>`
 
 **Variável 3 (Opcional - Backend):**
 - Key: `VITE_SUPABASE_SERVICE_ROLE_KEY`
-- Value: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqcGhzaGVhdm5rZHRtc3J4bXRsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDI4MTU3MywiZXhwIjoyMDc5ODU3NTczfQ.nhcQUX2WpUnz3ho_PhL3qc_flhd1BgAD01n_W0P2FTo`
+- Value: `<SUPABASE_SERVICE_ROLE_KEY>`
 
 **Variável 4 (Opcional - Gemini):**
 - Key: `GEMINI_API_KEY`

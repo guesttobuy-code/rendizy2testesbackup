@@ -118,7 +118,7 @@ $body = @{
 } | ConvertTo-Json
 
 Invoke-RestMethod -Uri $url -Method POST -Body $body -ContentType "application/json" -Headers @{
-    "Authorization" = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
+  "Authorization" = "Bearer <SUPABASE_ANON_KEY>"
 }
 ```
 

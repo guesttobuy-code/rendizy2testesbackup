@@ -1,8 +1,21 @@
 const https = require('https');
 const url = require('url');
 
-const SUPABASE_URL = 'https://odcgnzfremrqnvtitpcc.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE';
+require('dotenv').config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+
+function inferProjectRef() {
+  if (!SUPABASE_URL) return null;
+  try {
+    const u = new URL(SUPABASE_URL);
+    const host = u.hostname || '';
+    const match = host.match(/^([a-z0-9-]+)\.supabase\.co$/i);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const fixSql = `DROP FUNCTION IF EXISTS public.save_anuncio_field CASCADE;
 
@@ -62,7 +75,8 @@ async function executeViaPyth() {
   
   console.log('✅ SQL salvo em: ' + sqlFile);
   console.log('\n📋 COMO EXECUTAR MANUALMENTE:\n');
-  console.log('1. Abra: https://app.supabase.com/project/odcgnzfremrqnvtitpcc/sql/new');
+  const projectRef = inferProjectRef() || '<PROJECT_REF>';
+  console.log(`1. Abra: https://app.supabase.com/project/${projectRef}/sql/new`);
   console.log('2. Cole o conteúdo do arquivo FIX_RPC_MANUAL.sql');
   console.log('3. Clique em "Run"');
   console.log('\nOu use psql:');

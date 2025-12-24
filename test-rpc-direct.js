@@ -1,5 +1,12 @@
-const SUPABASE_URL = 'https://odcgnzfremrqnvtitpcc.supabase.co'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE'
+require('dotenv').config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('❌ Variáveis de ambiente ausentes. Configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY em .env.local');
+  process.exit(1);
+}
 
 const ANUNCIO_ID = '9f6cad48-42e9-4ed5-b766-82127a62dce2'
 const FIELD = 'title'
@@ -23,7 +30,7 @@ async function testRpcDirectly() {
   console.log('Payload:', JSON.stringify(payload, null, 2))
   
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_anuncio_field`, {
+    const res = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/save_anuncio_field`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -68,7 +75,7 @@ async function testViaEdgeFunction() {
   console.log('Payload:', JSON.stringify(payload, null, 2))
   
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/anuncio-ultimate/save-field`, {
+    const res = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/anuncio-ultimate/save-field`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

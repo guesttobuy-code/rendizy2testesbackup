@@ -1,7 +1,14 @@
 // Script de teste completo do ciclo de criação de anúncio
 
-const SUPABASE_URL = 'https://odcgnzfremrqnvtitpcc.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE';
+require('dotenv').config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('❌ Variáveis de ambiente ausentes. Configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY em .env.local');
+  process.exit(1);
+}
 
 async function testCompleteFlow() {
   console.log('\n🧪 TESTE COMPLETO DO CICLO DE ANÚNCIO');
@@ -10,7 +17,7 @@ async function testCompleteFlow() {
   // PASSO 1: Criar novo anúncio via RPC
   console.log('📝 PASSO 1: Criando novo anúncio...\n');
   
-  const createRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/save_anuncio_field`, {
+  const createRes = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/save_anuncio_field`, {
     method: 'POST',
     headers: {
       'apikey': SERVICE_ROLE_KEY,
@@ -40,7 +47,7 @@ async function testCompleteFlow() {
   // PASSO 2: Verificar se está na lista
   console.log('📊 PASSO 2: Consultando lista de anúncios...\n');
   
-  const listRes = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*&order=created_at.desc&limit=1`, {
+  const listRes = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/anuncios_ultimate?select=*&order=created_at.desc&limit=1`, {
     headers: {
       'apikey': SERVICE_ROLE_KEY,
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
@@ -62,7 +69,7 @@ async function testCompleteFlow() {
   // PASSO 3: Carregar anúncio específico
   console.log('🔍 PASSO 3: Carregando anúncio específico...\n');
   
-  const getRes = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncioId}&select=*`, {
+  const getRes = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/anuncios_ultimate?id=eq.${anuncioId}&select=*`, {
     headers: {
       'apikey': SERVICE_ROLE_KEY,
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,

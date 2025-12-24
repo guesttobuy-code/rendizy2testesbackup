@@ -10,30 +10,46 @@
  */
 
 import https from 'https';
+import dotenv from 'dotenv';
 
-const PROJECT_ID = 'odcgnzfremrqnvtitpcc';
-const PUBLIC_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ';
-const BASE_URL_AUTH = `https://${PROJECT_ID}.supabase.co/functions/v1/rendizy-server/auth`;
-const BASE_URL_WITH_MAKE = `https://${PROJECT_ID}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a`;
+dotenv.config({ path: '.env.local' });
 
-// Credenciais Rendizy
-const USERNAME = 'rppt';
-const PASSWORD = 'root';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const PUBLIC_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-// Configuração Stays.net (encontrada na documentação)
+if (!SUPABASE_URL || !PUBLIC_ANON_KEY) {
+  throw new Error('Missing SUPABASE_URL/SUPABASE_ANON_KEY (configure in .env.local).');
+}
+
+const AUTH_BASE = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/auth`;
+const MAKE_BASE = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/make-server-67caf26a`;
+
+// Credenciais Rendizy (somente para teste local; não commitar valores)
+const USERNAME = process.env.RENDIZY_USERNAME || process.env.RENDIZY_DEBUG_USERNAME;
+const PASSWORD = process.env.RENDIZY_PASSWORD || process.env.RENDIZY_DEBUG_PASSWORD;
+
+if (!USERNAME || !PASSWORD) {
+  throw new Error('Missing RENDIZY_USERNAME/RENDIZY_PASSWORD (configure in .env.local).');
+}
+
+// Configuração Stays.net: será salva via endpoint /settings/staysnet
 const STAYSNET_CONFIG = {
-  apiKey: 'a5146970',
-  apiSecret: 'bfcf4daf',
-  baseUrl: 'https://bvm.stays.net/external/v1',
-  accountName: 'Sua Casa Rende Mais',
-  scope: 'global',
+  apiKey: process.env.STAYSNET_API_KEY,
+  apiSecret: process.env.STAYSNET_API_SECRET,
+  baseUrl: process.env.STAYSNET_BASE_URL || 'https://bvm.stays.net/external/v1',
+  accountName: process.env.STAYSNET_ACCOUNT_NAME || 'Stays.net',
+  scope: process.env.STAYSNET_SCOPE || 'global',
   enabled: true
 };
+
+if (!STAYSNET_CONFIG.apiKey || !STAYSNET_CONFIG.apiSecret) {
+  throw new Error('Missing STAYSNET_API_KEY/STAYSNET_API_SECRET (configure in .env.local).');
+}
 
 function makeRequest(path, method, body, token) {
   return new Promise((resolve, reject) => {
     const fullPath = path.startsWith('/') ? path : `/${path}`;
-    const url = new URL(`https://${PROJECT_ID}.supabase.co/functions/v1${fullPath}`);
+    const url = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1${fullPath}`);
     const data = body ? JSON.stringify(body) : null;
 
     const options = {

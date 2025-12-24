@@ -2,10 +2,17 @@
 const https = require("https");
 const url = require("url");
 
-const projectId = "odcgnzfremrqnvtitpcc";
-const apiUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/auth/me`;
-const publicAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ";
+require('dotenv').config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('❌ Variáveis de ambiente ausentes. Configure SUPABASE_URL e SUPABASE_ANON_KEY em .env.local');
+  process.exit(1);
+}
+
+const apiUrl = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/auth/me`;
 
 // Token pode ser passado como argumento ou variável de ambiente
 const token = process.argv[2] || process.env.RENDIZY_TOKEN;
@@ -39,9 +46,9 @@ const options = {
   method: "GET",
   headers: {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${publicAnonKey}`,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
     "X-Auth-Token": token,
-    apikey: publicAnonKey,
+    apikey: SUPABASE_ANON_KEY,
   },
 };
 

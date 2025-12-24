@@ -113,7 +113,7 @@ if (!token) {
     headers: {
       'Content-Type': 'application/json',
       'X-Auth-Token': token,
-      'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE4NzQ1MDAsImV4cCI6MjA1MzQ1MDUwMH0.7qJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJq'
+      'apikey': '<SUPABASE_ANON_KEY>'
     },
     body: JSON.stringify(imovelData)
   })
@@ -235,7 +235,7 @@ if (!token) {
       headers: {
         'Content-Type': 'application/json',
         'X-Auth-Token': token,
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE4NzQ1MDAsImV4cCI6MjA1MzQ1MDUwMH0.7qJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJq'
+        'apikey': '<SUPABASE_ANON_KEY>'
       },
       body: JSON.stringify(imovelData)
     });

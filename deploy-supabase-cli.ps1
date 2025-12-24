@@ -164,7 +164,8 @@ try {
 Write-Host "🧪 Passo 5: Testando backend..." -ForegroundColor Yellow
 Write-Host ""
 
-$ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
+$ANON_KEY = $env:SUPABASE_ANON_KEY
+if (-not $ANON_KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
 
 $headers = @{
     "Authorization" = "Bearer $ANON_KEY"

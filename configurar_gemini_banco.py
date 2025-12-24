@@ -12,12 +12,21 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 import base64
 
-# Configurações do Supabase
-SUPABASE_URL = "https://odcgnzfremrqnvtitpcc.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzIxNzY0MDAsImV4cCI6MjA0NzczNjQwMH0.7qJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJq"
+# Configurações do Supabase (via env vars)
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("VITE_SUPABASE_ANON_KEY")
 
-# API Key do Gemini (fornecida pelo usuário)
-GEMINI_API_KEY = "AIzaSyB7zxTH2Q6nDyYMGEb7AUrwidIiy1W9Qzw"
+if not SUPABASE_URL:
+    raise SystemExit("Missing env var SUPABASE_URL")
+
+if not SUPABASE_ANON_KEY:
+    raise SystemExit("Missing env var SUPABASE_ANON_KEY")
+
+# API Key do Gemini (via env vars)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    raise SystemExit("Missing env var GEMINI_API_KEY (or GOOGLE_GEMINI_API_KEY)")
 
 # Modelo Gemini testado e funcionando
 GEMINI_MODEL = "gemini-2.5-flash"

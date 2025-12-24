@@ -41,8 +41,16 @@ interface PropertyData {
   [key: string]: any;
 }
 
-const BACKEND_URL = 'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/make-server-67caf26a';
-const PUBLIC_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE4NzQ1MDAsImV4cCI6MjA1MzQ1MDUwMH0.7qJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJq';
+import 'dotenv/config';
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const PUBLIC_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !PUBLIC_ANON_KEY) {
+  throw new Error('Variáveis ausentes: defina SUPABASE_URL e SUPABASE_ANON_KEY (ou VITE_*) no ambiente');
+}
+
+const BACKEND_URL = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/make-server-67caf26a`;
 
 /**
  * Criar imóvel completo

@@ -76,7 +76,7 @@ Os imóveis continuam no banco de dados esperando você executar o comando de li
 ```javascript
 // ⚠️ ATENÇÃO: Isso vai DELETAR TUDO!
 const PROJECT_ID = 'qnmkmcvupxulgbpnuiuk';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFubWttY3Z1cHh1bGdicG51aXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1ODA5ODIsImV4cCI6MjA0NDE1Njk4Mn0.4y28XS5nVGdcq77Mx6SgE03l6Ir85B8KD1nJXRk2Pnk';
+const ANON_KEY = '<SUPABASE_ANON_KEY>';
 
 if (confirm('⚠️ DELETAR TODOS OS IMÓVEIS? Esta ação é IRREVERSÍVEL!')) {
   fetch(`https://${PROJECT_ID}.supabase.co/functions/v1/make-server-67caf26a/admin/cleanup/properties`, {
@@ -115,7 +115,7 @@ Pressionar F5
 # Deletar tudo
 curl -X DELETE \
   https://qnmkmcvupxulgbpnuiuk.supabase.co/functions/v1/make-server-67caf26a/admin/cleanup/properties \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFubWttY3Z1cHh1bGdicG51aXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1ODA5ODIsImV4cCI6MjA0NDE1Njk4Mn0.4y28XS5nVGdcq77Mx6SgE03l6Ir85B8KD1nJXRk2Pnk"
+  -H "Authorization: Bearer <SUPABASE_ANON_KEY>"
 ```
 
 ---
@@ -127,7 +127,7 @@ curl -X DELETE \
 ```javascript
 // Colar no console
 fetch('https://qnmkmcvupxulgbpnuiuk.supabase.co/functions/v1/make-server-67caf26a/admin/cleanup/properties/status', {
-  headers: { 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFubWttY3Z1cHh1bGdicG51aXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1ODA5ODIsImV4cCI6MjA0NDE1Njk4Mn0.4y28XS5nVGdcq77Mx6SgE03l6Ir85B8KD1nJXRk2Pnk' }
+  headers: { 'Authorization': 'Bearer <SUPABASE_ANON_KEY>' }
 })
 .then(r => r.json())
 .then(data => console.table(data.data));
@@ -149,7 +149,7 @@ Use qualquer um dos métodos acima.
 ```javascript
 // Colar no console novamente
 fetch('https://qnmkmcvupxulgbpnuiuk.supabase.co/functions/v1/make-server-67caf26a/admin/cleanup/properties/status', {
-  headers: { 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFubWttY3Z1cHh1bGdicG51aXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1ODA5ODIsImV4cCI6MjA0NDE1Njk4Mn0.4y28XS5nVGdcq77Mx6SgE03l6Ir85B8KD1nJXRk2Pnk' }
+  headers: { 'Authorization': 'Bearer <SUPABASE_ANON_KEY>' }
 })
 .then(r => r.json())
 .then(data => console.table(data.data));
@@ -185,7 +185,7 @@ totalToDelete: 0
 ### **Terminal:**
 
 ```bash
-curl -X DELETE https://qnmkmcvupxulgbpnuiuk.supabase.co/functions/v1/make-server-67caf26a/admin/cleanup/properties -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFubWttY3Z1cHh1bGdicG51aXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg1ODA5ODIsImV4cCI6MjA0NDE1Njk4Mn0.4y28XS5nVGdcq77Mx6SgE03l6Ir85B8KD1nJXRk2Pnk"
+curl -X DELETE https://qnmkmcvupxulgbpnuiuk.supabase.co/functions/v1/make-server-67caf26a/admin/cleanup/properties -H "Authorization: Bearer <SUPABASE_ANON_KEY>"
 ```
 
 ---

@@ -1,3 +1,4 @@
+import os
 """
 Script de teste para criar imobiliária via API
 
@@ -8,10 +9,16 @@ import requests
 import json
 import sys
 
-PROJECT_ID = 'odcgnzfremrqnvtitpcc'
-PUBLIC_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
+SUPABASE_URL = os.environ.get('SUPABASE_URL') or os.environ.get('VITE_SUPABASE_URL')
+PUBLIC_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY') or os.environ.get('VITE_SUPABASE_ANON_KEY')
 
-BASE_URL = f'https://{PROJECT_ID}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a'
+if not SUPABASE_URL:
+    raise SystemExit('Missing env var SUPABASE_URL')
+
+if not PUBLIC_ANON_KEY:
+    raise SystemExit('Missing env var SUPABASE_ANON_KEY')
+
+BASE_URL = f"{SUPABASE_URL.rstrip('/')}/functions/v1/rendizy-server/make-server-67caf26a"
 
 def criar_imobiliaria():
     nome = 'Teste Imobiliária'

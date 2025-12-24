@@ -275,7 +275,7 @@ blocks.post('/', async (c) => {
     }
 
     // ✅ Criar block (usando interface Block do types.ts)
-    const blockId = `blk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const blockId = crypto.randomUUID();
     const now = new Date().toISOString();
     const nights = calculateNights(start_date, end_date);
 

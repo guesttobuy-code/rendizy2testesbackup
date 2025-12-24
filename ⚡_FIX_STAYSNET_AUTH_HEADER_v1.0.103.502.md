@@ -140,8 +140,8 @@ function extractTokenFromContext(c: Context): string | undefined {
 🔍 [useStaysNetConfig] Status da resposta: 200  ✅
 🔍 [useStaysNetConfig] Dados recebidos: {success: true, data: {...}}
 ✅ [useStaysNetConfig] Configuração aplicada: {
-  apiKey: 'a5146970',
-  apiSecret: 'bfcf4daf',
+  apiKey: '<STAYSNET_API_KEY>',
+  apiSecret: '<STAYSNET_API_SECRET>',
   baseUrl: 'https://bvm.stays.net/external/v1',
   accountName: 'Sua Casa Rende Mais'
 }
@@ -238,7 +238,7 @@ Após aplicar correção, verificar:
 - [ ] ⚠️ Recarregar página: `Ctrl+R` (HMR já aplicou mudança)
 - [ ] ✅ Acessar: `localhost:3001/settings` → StaysNet PMS
 - [ ] ✅ Console mostra: `Status da resposta: 200`
-- [ ] ✅ Campos preenchidos: API Key (`a5146970`), API Secret (`bfcf4daf`), etc.
+- [ ] ✅ Campos preenchidos: API Key (`<STAYSNET_API_KEY>`), API Secret (`<STAYSNET_API_SECRET>`), etc.
 - [ ] ✅ Nenhum erro 401 no console
 - [ ] ✅ Documentação atualizada: `⚠️_PROTECAO_STAYSNET_INTEGRACAO.md`
 

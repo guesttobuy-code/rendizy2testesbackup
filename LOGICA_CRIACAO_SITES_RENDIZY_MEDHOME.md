@@ -325,7 +325,7 @@ export const siteConfig = {
     projectId: "odcgnzfremrqnvtitpcc",
     baseUrl:
       "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server",
-    publicAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", // Chave pública Supabase
+    publicAnonKey: "<SUPABASE_ANON_KEY>", // Chave pública Supabase
   },
 };
 ```

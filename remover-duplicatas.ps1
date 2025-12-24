@@ -5,14 +5,18 @@ $testIds = @(
     "9f6cad48-42e9-4ed5-b766-82127a62dce2"  # Dona Rosa Botafogo ap 01
 )
 
-$env:URL = "https://odcgnzfremrqnvtitpcc.supabase.co"
-$env:KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
-$h = @{ "apikey" = $env:KEY; "Prefer" = "return=minimal" }
+$URL = $env:SUPABASE_URL
+$KEY = $env:SUPABASE_ANON_KEY
+
+if (-not $URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
+
+$h = @{ "apikey" = $KEY; "Prefer" = "return=minimal" }
 
 Write-Host "`n🔍 REMOVENDO DUPLICATAS DOS ANÚNCIOS DE TESTE`n" -ForegroundColor Cyan
 
 # Buscar todos os anúncios
-$todos = Invoke-RestMethod -Uri "$env:URL/rest/v1/anuncios_drafts?select=id,title,data" -Headers @{ "apikey" = $env:KEY }
+$todos = Invoke-RestMethod -Uri "$URL/rest/v1/anuncios_drafts?select=id,title,data" -Headers @{ "apikey" = $KEY }
 
 Write-Host "📊 Total antes: $($todos.Count)" -ForegroundColor White
 
@@ -59,7 +63,7 @@ foreach ($testId in $testIds) {
 }
 
 # Verificar total após remoção
-$todosDepois = Invoke-RestMethod -Uri "$env:URL/rest/v1/anuncios_drafts?select=id" -Headers @{ "apikey" = $env:KEY }
+$todosDepois = Invoke-RestMethod -Uri "$URL/rest/v1/anuncios_drafts?select=id" -Headers @{ "apikey" = $KEY }
 
 Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Gray
 Write-Host "📊 RESULTADO:" -ForegroundColor Cyan

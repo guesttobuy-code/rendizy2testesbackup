@@ -88,8 +88,8 @@ app.get("/make-server-67caf26a/staysnet/reservations/preview", staysnetRoutes.pr
 
 3. **Configurar:**
    - URL: `https://bvm.stays.net`
-   - Login: `a5146970`
-   - Senha: `bfcf4daf`
+   - Login: `<STAYSNET_API_KEY>`
+   - Senha: `<STAYSNET_API_SECRET>`
 
 4. **Testar:**
    - Salvar configuração

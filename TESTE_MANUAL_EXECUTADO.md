@@ -24,9 +24,9 @@ Script JavaScript executado no console do navegador (F12) na página `http://loc
   }
 
   const API_BASE_URL =
-    "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server";
+    "https://<PROJECT_REF>.supabase.co/functions/v1/rendizy-server";
   const publicAnonKey =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ";
+    "<SUPABASE_ANON_KEY>";
 
   const draftData = {
     status: "draft",

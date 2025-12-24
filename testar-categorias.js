@@ -1,5 +1,12 @@
 // Script para testar criação e listagem de categorias
-const API_BASE = 'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server';
+require('dotenv').config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+if (!SUPABASE_URL) throw new Error('Missing env var SUPABASE_URL');
+if (!SUPABASE_ANON_KEY) throw new Error('Missing env var SUPABASE_ANON_KEY');
+
+const API_BASE = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server`;
 const token = process.argv[2] || '';
 
 async function testarCategorias() {
@@ -7,7 +14,7 @@ async function testarCategorias() {
   console.log('📋 Listando categorias existentes...');
   const listRes = await fetch(`${API_BASE}/rendizy-server/make-server-67caf26a/financeiro/categorias`, {
     headers: {
-      'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0NzY4MDAsImV4cCI6MjA0ODA1MjgwMH0.7vJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJq`,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
       'X-Auth-Token': token
     }
@@ -21,7 +28,7 @@ async function testarCategorias() {
   const createRes = await fetch(`${API_BASE}/rendizy-server/make-server-67caf26a/financeiro/categorias`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0NzY4MDAsImV4cCI6MjA0ODA1MjgwMH0.7vJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJq`,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
       'X-Auth-Token': token
     },
@@ -40,7 +47,7 @@ async function testarCategorias() {
   console.log('\n📋 Listando categorias após criação...');
   const listRes2 = await fetch(`${API_BASE}/rendizy-server/make-server-67caf26a/financeiro/categorias`, {
     headers: {
-      'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0NzY4MDAsImV4cCI6MjA0ODA1MjgwMH0.7vJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJqJq`,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
       'X-Auth-Token': token
     }

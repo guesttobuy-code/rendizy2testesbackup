@@ -9,7 +9,7 @@
 
 ### **Pelos Logs do Supabase:**
 1. ❌ **CORS bloqueando login** - `credentials: 'include'` + `origin: '*'` não funciona
-2. ❌ **Tokens JWT sendo enviados** - Frontend está enviando tokens JWT (`eyJhbGciOiJIUzI1NiIs...`) que não existem na tabela `sessions`
+2. ❌ **Tokens JWT sendo enviados** - Frontend está enviando tokens JWT (`<JWT>`) que não existem na tabela `sessions`
 3. ❌ **Backend espera tokens simples** - Backend gera tokens de 128 chars hex (`458caaa88e3ab44a...`)
 
 ### **Causa Raiz:**

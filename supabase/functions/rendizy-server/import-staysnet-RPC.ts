@@ -9,12 +9,7 @@
 
 import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
-
-const STAYSNET_CONFIG = {
-  apiKey: 'a5146970',
-  apiSecret: 'bfcf4daf',
-  baseUrl: 'https://bvm.stays.net/external/v1'
-};
+import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 
 export async function importStaysNetRPC(c: Context) {
   console.log('🚀 [RPC] IMPORT STAYSNET → anuncios_ultimate - Usando save_anuncio_field');
@@ -31,11 +26,13 @@ export async function importStaysNetRPC(c: Context) {
     // STEP 1: BUSCAR DA API STAYSNET
     // ============================================================================
     console.log('📡 [FETCH] Buscando propriedades...');
+
+    const staysConfig = await loadStaysNetRuntimeConfigOrThrow(orgId);
     
-    const response = await fetch(`${STAYSNET_CONFIG.baseUrl}/content/listings`, {
+    const response = await fetch(`${staysConfig.baseUrl}/content/listings`, {
       headers: {
-        'x-api-key': STAYSNET_CONFIG.apiKey,
-        'x-api-secret': STAYSNET_CONFIG.apiSecret
+        'x-api-key': staysConfig.apiKey,
+        'x-api-secret': staysConfig.apiSecret
       }
     });
     

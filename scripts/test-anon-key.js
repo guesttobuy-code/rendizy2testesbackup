@@ -2,12 +2,12 @@
 require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 console.log("🔍 TESTING ANON KEY...");
 console.log(`URL: ${supabaseUrl}`);
-console.log(`Key: ${anonKey ? anonKey.substring(0, 15) + '...' : 'MISSING'}`);
+console.log(`Key: ${anonKey ? `EXISTS (len=${anonKey.length})` : 'MISSING'}`);
 
 if (!supabaseUrl || !anonKey) {
     console.error("❌ Missing variables!");

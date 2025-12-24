@@ -1,13 +1,17 @@
 # Script rápido para contar anúncios nas duas tabelas
-$env:SUPABASE_URL = "https://odcgnzfremrqnvtitpcc.supabase.co"
-$env:ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
-$h = @{ "apikey" = $env:ANON }
+$SUPABASE_URL = $env:SUPABASE_URL
+$ANON_KEY = $env:SUPABASE_ANON_KEY
+
+if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $ANON_KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
+
+$h = @{ "apikey" = $ANON_KEY }
 
 Write-Host "`n📊 CONTAGEM DE ANÚNCIOS" -ForegroundColor Cyan
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 
 try {
-    $drafts = Invoke-RestMethod -Uri "$env:SUPABASE_URL/rest/v1/anuncios_drafts?select=id" -Headers $h
+    $drafts = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_drafts?select=id" -Headers $h
     Write-Host "`n✅ anuncios_drafts: $($drafts.Count) registros" -ForegroundColor Green
     
     if ($drafts.Count -gt 0) {
@@ -19,7 +23,7 @@ try {
 }
 
 try {
-    $props = Invoke-RestMethod -Uri "$env:SUPABASE_URL/rest/v1/properties?select=id,name" -Headers $h
+    $props = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/properties?select=id,name" -Headers $h
     Write-Host "`n✅ properties: $($props.Count) registros" -ForegroundColor Yellow
     
     if ($props.Count -gt 0) {

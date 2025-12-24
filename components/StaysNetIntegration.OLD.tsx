@@ -740,7 +740,7 @@ export default function StaysNetIntegration() {
                       type={showApiKey ? 'text' : 'password'}
                       value={config.apiKey}
                       onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-                      placeholder="Ex: a5146970 ou sua API Key"
+                      placeholder="Ex: sua API Key"
                     />
                     <Button
                       variant="ghost"
@@ -771,7 +771,7 @@ export default function StaysNetIntegration() {
                       type={showApiKey ? 'text' : 'password'}
                       value={config.apiSecret || ''}
                       onChange={(e) => setConfig({ ...config, apiSecret: e.target.value })}
-                      placeholder="Ex: bfcf4daf (deixe vazio se não tiver)"
+                      placeholder="Ex: sua API Secret (deixe vazio se não tiver)"
                     />
                   </div>
                 </div>

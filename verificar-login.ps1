@@ -5,8 +5,10 @@ Write-Host "🔍 Verificando status de autenticação..." -ForegroundColor Cyan
 Write-Host ""
 
 # Ler configurações do projeto
-$projectId = "odcgnzfremrqnvtitpcc"
-$apiUrl = "https://$projectId.supabase.co/functions/v1/rendizy-server"
+$SUPABASE_URL = $env:SUPABASE_URL
+if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+
+$apiUrl = "$SUPABASE_URL/functions/v1/rendizy-server"
 
 Write-Host "📡 URL da API: $apiUrl" -ForegroundColor Yellow
 Write-Host ""
@@ -42,8 +44,19 @@ console.log('');
 const https = require('https');
 const url = require('url');
 
-const apiUrl = 'https://$projectId.supabase.co/functions/v1/rendizy-server/auth/me';
-const publicAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ';
+const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+const apiUrl = `${supabaseUrl}/functions/v1/rendizy-server/auth/me`;
+const publicAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl) {
+    console.log('❌ Missing env var SUPABASE_URL');
+    process.exit(1);
+}
+
+if (!publicAnonKey) {
+    console.log('❌ Missing env var SUPABASE_ANON_KEY');
+    process.exit(1);
+}
 
 const parsedUrl = url.parse(apiUrl);
 const options = {

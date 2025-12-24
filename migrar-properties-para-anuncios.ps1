@@ -13,8 +13,8 @@ Write-Host "⚡ MIGRATION: properties → anuncios_drafts" -ForegroundColor Yell
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 
 # Configuração
-$env:SUPABASE_URL = "https://odcgnzfremrqnvtitpcc.supabase.co"
-$env:SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
+if (-not $env:SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $env:SUPABASE_ANON_KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
 $org_id = "00000000-0000-0000-0000-000000000000"
 
 # Headers para API REST (sem autenticação de usuário - usa RLS com org_id)

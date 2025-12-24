@@ -1,5 +1,11 @@
 # Verificação rápida de duplicatas
-$r = Invoke-RestMethod -Uri "https://odcgnzfremrqnvtitpcc.supabase.co/rest/v1/anuncios_drafts?select=id,title" -Headers @{ "apikey" = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ" }
+$SUPABASE_URL = $env:SUPABASE_URL
+$ANON_KEY = $env:SUPABASE_ANON_KEY
+
+if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $ANON_KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
+
+$r = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_drafts?select=id,title" -Headers @{ "apikey" = $ANON_KEY }
 
 Write-Host "`nTotal: $($r.Count)"
 

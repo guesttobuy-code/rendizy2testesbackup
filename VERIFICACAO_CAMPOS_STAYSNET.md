@@ -55,8 +55,8 @@ interface StaysNetConfig {
 
 ```json
 {
-  "apiKey": "a5146970",
-  "apiSecret": "bfcf4daf",
+   "apiKey": "<STAYSNET_API_KEY>",
+   "apiSecret": "<STAYSNET_API_SECRET>",
   "baseUrl": "https://bvm.stays.net/external/v1",
   "accountName": "Sua Casa Rende Mais",
   "notificationWebhookUrl": "https://seu-dominio.com/webhook/staysnet",
@@ -73,8 +73,8 @@ interface StaysNetConfig {
 1. **Usuário preenche formulário:**
    - URL do sistema: `https://bvm.stays.net`
    - Nome da conta: `Sua Casa Rende Mais`
-   - Login: `a5146970`
-   - Senha: `bfcf4daf`
+   - Login: `<STAYSNET_API_KEY>`
+   - Senha: `<STAYSNET_API_SECRET>`
    - Link de notificações: (opcional)
    - Escopo: Global/Individual
 
@@ -82,8 +82,8 @@ interface StaysNetConfig {
    ```typescript
    POST /settings/staysnet
    {
-     apiKey: "a5146970",
-     apiSecret: "bfcf4daf",
+       apiKey: "<STAYSNET_API_KEY>",
+       apiSecret: "<STAYSNET_API_SECRET>",
      baseUrl: "https://bvm.stays.net/external/v1",
      accountName: "Sua Casa Rende Mais",
      notificationWebhookUrl: "...",

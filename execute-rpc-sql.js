@@ -1,8 +1,15 @@
-const fs = require('fs');
-const https = require('https');
+import fs from 'node:fs';
+import https from 'node:https';
+import dotenv from 'dotenv';
 
-const SUPABASE_URL = 'https://odcgnzfremrqnvtitpcc.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE';
+dotenv.config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  throw new Error('Missing SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY (configure in .env.local).');
+}
 
 const fixSql = fs.readFileSync('./FIX_RPC_MANUAL.sql', 'utf8');
 
@@ -24,7 +31,7 @@ async function executeRPC() {
       const reqBody = JSON.stringify(payload);
       
       const options = {
-        hostname: 'odcgnzfremrqnvtitpcc.supabase.co',
+        hostname: new URL(SUPABASE_URL).hostname,
         port: 443,
         path: '/rest/v1/rpc/exec_sql',
         method: 'POST',

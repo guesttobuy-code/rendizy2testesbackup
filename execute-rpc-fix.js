@@ -1,5 +1,13 @@
-const SUPABASE_URL = 'https://odcgnzfremrqnvtitpcc.supabase.co'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE'
+import dotenv from 'dotenv'
+
+dotenv.config({ path: '.env.local' })
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  throw new Error('Missing SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY (configure in .env.local).')
+}
 
 async function executeSQL(sql) {
   console.log('🔧 Executando SQL para corrigir RPC...\n')

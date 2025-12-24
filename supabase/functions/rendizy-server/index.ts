@@ -52,6 +52,7 @@ import { importStaysNetRPC } from "./import-staysnet-RPC.ts"; // ✅ Adicionado 
 import { importStaysNetProperties } from "./import-staysnet-properties.ts"; // ✅ MODULAR: Properties separadas
 import { importStaysNetReservations } from "./import-staysnet-reservations.ts"; // ✅ MODULAR: Reservations separadas
 import { importStaysNetGuests } from "./import-staysnet-guests.ts"; // ✅ MODULAR: Guests separados
+import { importStaysNetBlocks } from "./import-staysnet-blocks.ts"; // ✅ MODULAR: Blocks separadas
 
 const app = new Hono();
 
@@ -151,6 +152,7 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/import/RPC", importStays
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/properties", importStaysNetProperties); // 🏠 Properties → anuncios_ultimate
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/reservations", importStaysNetReservations); // 🏨 Reservations → reservations
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/guests", importStaysNetGuests); // 👤 Guests → guests
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/blocks", importStaysNetBlocks); // ⛔ Blocks → blocks
 // ============================================================================
 
 // ============================================================================

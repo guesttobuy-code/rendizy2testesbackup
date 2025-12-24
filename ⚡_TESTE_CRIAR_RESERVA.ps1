@@ -1,9 +1,13 @@
 # Script de Teste - Criação de Reserva via API
 # v1.0.103.352
 
-$SUPABASE_URL = "https://odcgnzfremrqnvtitpcc.supabase.co"
-$ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
-$SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE"
+$SUPABASE_URL = $env:SUPABASE_URL
+$ANON_KEY = $env:SUPABASE_ANON_KEY
+$SERVICE_ROLE_KEY = $env:SUPABASE_SERVICE_ROLE_KEY
+
+if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $ANON_KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
+if (-not $SERVICE_ROLE_KEY) { throw "Missing env var SUPABASE_SERVICE_ROLE_KEY" }
 
 Write-Host "🔍 TESTE DE CRIAÇÃO DE RESERVA" -ForegroundColor Cyan
 Write-Host "================================" -ForegroundColor Cyan

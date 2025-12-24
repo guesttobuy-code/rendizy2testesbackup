@@ -12,7 +12,7 @@
 
 curl -X POST "https://xqylmpglzcuxtjxxqmaa.supabase.co/functions/v1/make-server-67caf26a/reset/confirm" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxeWxtcGdsemN1eHRqeHhxbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjk4NjgxNjQsImV4cCI6MjA0NTQ0NDE2NH0.gSEWJDX4sPWGIglJNTpFEyO8uSTWzU_MgGOoVl6Y9Wg" \
+   -H "Authorization: Bearer <SUPABASE_ANON_KEY>" \
   -d '{
     "confirmation": "DELETE_ALL_DATA",
     "organizationId": "SEU_ORG_ID_AQUI"

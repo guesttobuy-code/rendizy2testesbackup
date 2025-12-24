@@ -1,7 +1,11 @@
 # Script para analisar os 161 anúncios e identificar os 2 extras
-$env:SUPABASE_URL = "https://odcgnzfremrqnvtitpcc.supabase.co"
-$env:ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ"
-$h = @{ "apikey" = $env:ANON }
+$SUPABASE_URL = $env:SUPABASE_URL
+$ANON_KEY = $env:SUPABASE_ANON_KEY
+
+if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $ANON_KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
+
+$h = @{ "apikey" = $ANON_KEY }
 
 Write-Host "`n🔍 ANALISANDO 161 ANÚNCIOS`n" -ForegroundColor Cyan
 
@@ -9,7 +13,7 @@ Write-Host "`n🔍 ANALISANDO 161 ANÚNCIOS`n" -ForegroundColor Cyan
 $testIds = @("3cabf06d-51c6-4e2b-b73e-520e018f1fce", "9f6cad48-42e9-4ed5-b766-82127a62dce2")
 
 Write-Host "📊 Buscando todos os anúncios..." -ForegroundColor Cyan
-$todos = Invoke-RestMethod -Uri "$env:SUPABASE_URL/rest/v1/anuncios_drafts?select=id,title,created_at,data" -Headers $h
+$todos = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_drafts?select=id,title,created_at,data" -Headers $h
 
 Write-Host "✅ Total: $($todos.Count) anúncios`n" -ForegroundColor White
 

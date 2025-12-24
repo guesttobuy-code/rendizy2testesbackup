@@ -42,8 +42,8 @@ Execute os seguintes passos e anote os resultados:
 ```powershell
 # PowerShell
 $headers = @{
-  'apikey' = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2NTI4NjksImV4cCI6MjA0NjIyODg2OX0.EvSgFe1lHxGmFAT3F8fJqc2-atJHFg9WUWMa9qfj6Ck'
-  'Authorization' = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2NTI4NjksImV4cCI6MjA0NjIyODg2OX0.EvSgFe1lHxGmFAT3F8fJqc2-atJHFg9WUWMa9qfj6Ck'
+  'apikey' = '<SUPABASE_ANON_KEY>'
+  'Authorization' = 'Bearer <SUPABASE_ANON_KEY>'
 }
 
 # Listar todos os bloqueios
@@ -296,7 +296,7 @@ Se `blocks?.length > 0` mas cards não aparecem:
 $token = Get-Content ".\token.txt" # Seu token SHA-512
 $headers = @{
   'X-Auth-Token' = $token
-  'apikey' = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2NTI4NjksImV4cCI6MjA0NjIyODg2OX0.EvSgFe1lHxGmFAT3F8fJqc2-atJHFg9WUWMa9qfj6Ck'
+  'apikey' = '<SUPABASE_ANON_KEY>'
 }
 
 Invoke-RestMethod -Uri "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/blocks?propertyIds=9f6cad48-42e9-4ed5-b766-82127a62dce2" -Headers $headers | ConvertTo-Json -Depth 10

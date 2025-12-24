@@ -4,10 +4,15 @@
  * Uso: node testar-criar-imobiliaria.js
  */
 
-const PROJECT_ID = 'odcgnzfremrqnvtitpcc';
-const PUBLIC_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+require('dotenv').config({ path: '.env.local' });
 
-const BASE_URL = `https://${PROJECT_ID}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a`;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const PUBLIC_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL) throw new Error('Missing env var SUPABASE_URL');
+if (!PUBLIC_ANON_KEY) throw new Error('Missing env var SUPABASE_ANON_KEY');
+
+const BASE_URL = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/make-server-67caf26a`;
 
 async function criarImobiliaria() {
   const nome = 'Teste Imobiliária';

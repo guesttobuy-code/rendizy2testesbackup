@@ -58,7 +58,7 @@ Se pedir autenticação:
 5. **Configurar Environment Variables:**
    ```
    VITE_SUPABASE_URL=https://gjphsheavnkdtmsrxmtl.supabase.co
-   VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqcGhzaGVhdm5rZHRtc3J4bXRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyODE1NzMsImV4cCI6MjA3OTg1NzU3M30.GH8_htMszSrylCd6rMXNXioZUKNE303T6QeTBrevAbs
+   VITE_SUPABASE_ANON_KEY=<SUPABASE_ANON_KEY>
    ```
 6. **Deploy!**
 

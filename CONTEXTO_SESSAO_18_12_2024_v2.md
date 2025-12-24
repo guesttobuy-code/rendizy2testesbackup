@@ -34,7 +34,7 @@ npx supabase functions logs rendizy-server --project-ref odcgnzfremrqnvtitpcc
 ### Supabase Project
 - **Project ID**: odcgnzfremrqnvtitpcc
 - **URL**: https://odcgnzfremrqnvtitpcc.supabase.co
-- **Anon Key**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2NTI4NjksImV4cCI6MjA0NjIyODg2OX0.EvSgFe1lHxGmFAT3F8fJqc2-atJHFg9WUWMa9qfj6Ck`
+- **Anon Key**: `<SUPABASE_ANON_KEY>`
 
 ### Usuário Admin
 - **Email**: admin@admin.com
@@ -47,8 +47,8 @@ npx supabase functions logs rendizy-server --project-ref odcgnzfremrqnvtitpcc
 ```powershell
 # Setup de headers para API
 $headers = @{
-  'apikey' = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2NTI4NjksImV4cCI6MjA0NjIyODg2OX0.EvSgFe1lHxGmFAT3F8fJqc2-atJHFg9WUWMa9qfj6Ck'
-  'Authorization' = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2NTI4NjksImV4cCI6MjA0NjIyODg2OX0.EvSgFe1lHxGmFAT3F8fJqc2-atJHFg9WUWMa9qfj6Ck'
+  'apikey' = '<SUPABASE_ANON_KEY>'
+  'Authorization' = 'Bearer <SUPABASE_ANON_KEY>'
 }
 
 # Testar API
@@ -404,8 +404,8 @@ npx supabase functions logs rendizy-server --project-ref odcgnzfremrqnvtitpcc
 
 # Testar API
 $headers = @{
-  'apikey' = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2NTI4NjksImV4cCI6MjA0NjIyODg2OX0.EvSgFe1lHxGmFAT3F8fJqc2-atJHFg9WUWMa9qfj6Ck'
-  'Authorization' = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA2NTI4NjksImV4cCI6MjA0NjIyODg2OX0.EvSgFe1lHxGmFAT3F8fJqc2-atJHFg9WUWMa9qfj6Ck'
+  'apikey' = '<SUPABASE_ANON_KEY>'
+  'Authorization' = 'Bearer <SUPABASE_ANON_KEY>'
 }
 Invoke-RestMethod -Uri "https://odcgnzfremrqnvtitpcc.supabase.co/rest/v1/anuncios_drafts?select=id,title,status&order=created_at.desc" -Headers $headers | ConvertTo-Json
 ```

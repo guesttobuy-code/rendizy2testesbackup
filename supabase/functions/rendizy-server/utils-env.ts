@@ -38,6 +38,24 @@ export const SUPABASE_PROJECT_REF = firstDefined(
   "Rendizy2producao"
 );
 
+// Stays.net
+// Preferência: config por organização no banco (`staysnet_config`).
+// Estas envs são apenas fallback/bootstrapping e para jobs técnicos.
+export const STAYSNET_BASE_URL = firstDefined(
+  ["STAYSNET_BASE_URL", "RENDIZY_STAYSNET_BASE_URL"],
+  "https://bvm.stays.net/external/v1"
+);
+
+export const STAYSNET_API_KEY = firstDefined(
+  ["STAYSNET_API_KEY", "RENDIZY_STAYSNET_API_KEY"],
+  ""
+);
+
+export const STAYSNET_API_SECRET = firstDefined(
+  ["STAYSNET_API_SECRET", "RENDIZY_STAYSNET_API_SECRET"],
+  ""
+);
+
 export const ENV_HELPERS = {
   firstDefined,
 };
@@ -48,3 +66,6 @@ console.log("[utils-env] SUPABASE_URL:", SUPABASE_URL ? "SET" : "NOT SET");
 console.log("[utils-env] SUPABASE_SERVICE_ROLE_KEY:", SUPABASE_SERVICE_ROLE_KEY ? "SET" : "NOT SET");
 console.log("[utils-env] SUPABASE_ANON_KEY:", SUPABASE_ANON_KEY ? "SET" : "NOT SET");
 console.log("[utils-env] SUPABASE_PROJECT_REF:", SUPABASE_PROJECT_REF);
+console.log("[utils-env] STAYSNET_BASE_URL:", STAYSNET_BASE_URL ? "SET" : "NOT SET");
+console.log("[utils-env] STAYSNET_API_KEY:", STAYSNET_API_KEY ? "SET" : "NOT SET");
+console.log("[utils-env] STAYSNET_API_SECRET:", STAYSNET_API_SECRET ? "SET" : "NOT SET");

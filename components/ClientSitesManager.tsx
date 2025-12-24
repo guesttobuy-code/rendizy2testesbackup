@@ -1315,7 +1315,7 @@ const siteConfig = {
 
 \`\`\`typescript
 const API_BASE = "https://uknccixtubkdkofyieie.supabase.co/functions/v1/rendizy-server";
-const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+const API_KEY = "<SUPABASE_ANON_KEY>";
 
 // Buscar propriedades
 const properties = await fetch(\`\${API_BASE}/properties?organizationId=\${organizationId}\`, {

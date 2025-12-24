@@ -54,8 +54,8 @@ O frontend vai rodar em: `http://localhost:3000`
 2. Vá em **Configurações → Integrações → Stays.net**
 3. Preencha os dados:
    - **URL:** `https://bvm.stays.net`
-   - **Login:** `a5146970`
-   - **Senha:** `bfcf4daf`
+    - **Login:** `<STAYSNET_API_KEY>`
+    - **Senha:** `<STAYSNET_API_SECRET>`
 4. Clique em **"Salvar Configuração"**
 5. Clique em **"Testar Conexão"**
 

@@ -1,8 +1,11 @@
 # 🎯 TESTE FINAL - Criar Reserva com SERVICE_ROLE_KEY
 # v1.0.103.353 - Bypass de autenticação
 
-$SUPABASE_URL = "https://odcgnzfremrqnvtitpcc.supabase.co"
-$SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE"
+$SUPABASE_URL = $env:SUPABASE_URL
+$SERVICE_ROLE_KEY = $env:SUPABASE_SERVICE_ROLE_KEY
+
+if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $SERVICE_ROLE_KEY) { throw "Missing env var SUPABASE_SERVICE_ROLE_KEY" }
 
 Write-Host ""
 Write-Host "🎯 TESTE FINAL - CRIAR RESERVA" -ForegroundColor Cyan

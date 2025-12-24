@@ -1,9 +1,13 @@
 # 🧪 Testar Rota de Organizações Diretamente
 # Simula requisição do frontend para ver resposta
 
-$projectId = "odcgnzfremrqnvtitpcc"
-$publicAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA0NzY4MDAsImV4cCI6MjA0NjA1MjgwMH0.placeholder"
-$url = "https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/organizations"
+$SUPABASE_URL = $env:SUPABASE_URL
+$publicAnonKey = $env:SUPABASE_ANON_KEY
+
+if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
+if (-not $publicAnonKey) { throw "Missing env var SUPABASE_ANON_KEY" }
+
+$url = "$SUPABASE_URL/functions/v1/rendizy-server/make-server-67caf26a/organizations"
 
 Write-Host "`n=== TESTE DIRETO: Rota de Organizações ===" -ForegroundColor Green
 Write-Host "📍 URL: $url" -ForegroundColor Cyan

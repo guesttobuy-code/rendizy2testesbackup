@@ -5,28 +5,38 @@
  */
 
 import https from 'https';
+import dotenv from 'dotenv';
 
-const PROJECT_ID = 'odcgnzfremrqnvtitpcc';
-const PUBLIC_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ';
-const BASE_URL_AUTH = `https://${PROJECT_ID}.supabase.co/functions/v1/rendizy-server/auth`;
-const BASE_URL_WITH_MAKE = `https://${PROJECT_ID}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a`;
+dotenv.config({ path: '.env.local' });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const PUBLIC_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !PUBLIC_ANON_KEY) {
+  throw new Error('Missing SUPABASE_URL/SUPABASE_ANON_KEY (configure in .env.local).');
+}
+
+const BASE_URL_AUTH = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/auth`;
+const BASE_URL_WITH_MAKE = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/rendizy-server/make-server-67caf26a`;
 
 // Credenciais de teste (Rendizy)
-const USERNAME = 'rppt';
-const PASSWORD = 'root';
+const USERNAME = process.env.RENDIZY_USERNAME || process.env.RENDIZY_DEBUG_USERNAME;
+const PASSWORD = process.env.RENDIZY_PASSWORD || process.env.RENDIZY_DEBUG_PASSWORD;
+
+if (!USERNAME || !PASSWORD) {
+  throw new Error('Missing RENDIZY_USERNAME/RENDIZY_PASSWORD (configure in .env.local).');
+}
 
 // ⚠️ NOTA: As credenciais da Stays.net devem estar configuradas no banco de dados
 // via interface de configuração (Configurações → Integrações → Stays.net)
-// Credenciais encontradas na documentação:
+// Credenciais devem estar configuradas no banco (Configurações → Integrações → Stays.net):
 // - Base URL: https://bvm.stays.net/external/v1
-// - API Key: a5146970
-// - API Secret: bfcf4daf
 // - Account Name: Sua Casa Rende Mais
 
 function makeRequest(path, method, body, token) {
   return new Promise((resolve, reject) => {
     const fullPath = path.startsWith('/') ? path : `/${path}`;
-    const url = new URL(`https://${PROJECT_ID}.supabase.co/functions/v1${fullPath}`);
+    const url = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1${fullPath}`);
     const data = body ? JSON.stringify(body) : null;
 
     const options = {

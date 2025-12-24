@@ -122,7 +122,7 @@ Via PowerShell:
 
 ```powershell
 $headers = @{
-  "Authorization" = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "Authorization" = "Bearer <SUPABASE_ANON_KEY>"
   "Content-Type" = "application/json"
 }
 

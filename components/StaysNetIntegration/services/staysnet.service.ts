@@ -165,7 +165,7 @@ export class StaysNetService {
     config: StaysNetConfig,
     options: { skip?: number; limit?: number } = {}
   ): Promise<FetchPropertiesResult> {
-    const { skip = 0, limit = 100 } = options;
+    const { skip = 0, limit = 20 } = options;
 
     staysnetLogger.properties.info(`Buscando propriedades (skip: ${skip}, limit: ${limit})`);
 
@@ -217,7 +217,7 @@ export class StaysNetService {
 
     const allProperties: StaysNetProperty[] = [];
     let skip = 0;
-    const limit = 100;
+    const limit = 20; // ✅ Stays.net: limit max 20
     let hasMore = true;
 
     while (hasMore) {
@@ -380,6 +380,45 @@ export class StaysNetService {
   }
 
   /**
+   * Import blocks (blocked/maintenance) -> tabela blocks
+   */
+  static async importBlocks(
+    config: StaysNetConfig,
+    options: ImportOptions
+  ): Promise<ImportResult> {
+    staysnetLogger.import.info('Iniciando importação de bloqueios', options);
+
+    try {
+      const response = await this.request<{ success: boolean; stats?: any; data?: any; error?: string }>(
+        '/rendizy-server/make-server-67caf26a/staysnet/import/blocks',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            apiKey: config.apiKey,
+            apiSecret: config.apiSecret,
+            baseUrl: config.baseUrl,
+            from: options.startDate,
+            to: options.endDate,
+            dateType: 'included',
+          }),
+        }
+      );
+
+      if (!response.success) {
+        throw new Error((response as any).data?.error || (response as any).error || 'Erro ao importar bloqueios');
+      }
+
+      const stats = (response as any).stats || (response as any).data?.stats || {};
+      staysnetLogger.import.success('Bloqueios importados com sucesso', stats);
+
+      return { success: true, stats };
+    } catch (error) {
+      staysnetLogger.import.error('Erro ao importar bloqueios', error);
+      throw error;
+    }
+  }
+
+  /**
    * Import all data (full sync)
    * ✅ CORRIGIDO v1.0.105: Usa endpoints modulares em sequência
    */
@@ -391,21 +430,26 @@ export class StaysNetService {
 
     try {
       // STEP 1: Importar Properties
-      staysnetLogger.import.info('🏠 STEP 1/3: Importando propriedades...');
+      staysnetLogger.import.info('🏠 STEP 1/4: Importando propriedades...');
       const propertiesResult = await this.importProperties(config, options);
       
       // STEP 2: Importar Reservations
-      staysnetLogger.import.info('📅 STEP 2/3: Importando reservas...');
+      staysnetLogger.import.info('📅 STEP 2/4: Importando reservas...');
       const reservationsResult = await this.importReservations(config, options);
+
+      // STEP 3: Importar Blocks
+      staysnetLogger.import.info('⛔ STEP 3/4: Importando bloqueios...');
+      const blocksResult = await this.importBlocks(config, options);
       
-      // STEP 3: Importar Guests
-      staysnetLogger.import.info('👤 STEP 3/3: Importando hóspedes...');
+      // STEP 4: Importar Guests
+      staysnetLogger.import.info('👤 STEP 4/4: Importando hóspedes...');
       const guestsResult = await this.importGuests(config);
 
       // Consolidar estatísticas
       const stats = {
         properties: propertiesResult.stats,
         reservations: reservationsResult.stats,
+        blocks: blocksResult.stats,
         guests: guestsResult.stats,
       };
 

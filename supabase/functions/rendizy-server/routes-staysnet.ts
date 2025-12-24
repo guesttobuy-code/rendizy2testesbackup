@@ -348,13 +348,15 @@ class StaysNetClient {
   }
   
   // ✅ NOVO: Buscar TODOS os listings (com paginação automática)
-  async getAllListings(): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  async getAllListings(params?: { maxPages?: number }): Promise<{ success: boolean; data?: any[]; error?: string }> {
     const allListings: any[] = [];
     let skip = 0;
-    const limit = 100; // Buscar 100 por vez
+    const limit = 20; // ✅ Stays.net: limit max 20
+    const maxPages = Math.max(1, Number(params?.maxPages ?? 500));
     let hasMore = true;
-    
-    while (hasMore) {
+
+    let pages = 0;
+    while (hasMore && pages < maxPages) {
       const result = await this.getListings({ limit, skip });
       
       if (!result.success) {
@@ -375,8 +377,13 @@ class StaysNetClient {
       // Se retornou menos que o limite, não há mais páginas
       hasMore = listings.length === limit;
       skip += limit;
+      pages++;
       
       console.log(`[StaysNet] 📥 Buscados ${allListings.length} listings até agora...`);
+    }
+
+    if (hasMore) {
+      console.warn(`[StaysNet] ⚠️ getAllListings atingiu maxPages=${maxPages} (limit=${limit}). Retornando parcial.`);
     }
     
     return { success: true, data: allListings };
@@ -460,13 +467,15 @@ class StaysNetClient {
   }
   
   // ✅ NOVO: Buscar TODAS as reservas (com paginação automática)
-  async getAllReservations(params?: { startDate?: string; endDate?: string; dateType?: string }): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  async getAllReservations(params?: { startDate?: string; endDate?: string; dateType?: string; maxPages?: number }): Promise<{ success: boolean; data?: any[]; error?: string }> {
     const allReservations: any[] = [];
     let skip = 0;
-    const limit = 100; // Buscar 100 por vez
+    const limit = 20; // ✅ Stays.net: limit max 20
+    const maxPages = Math.max(1, Number(params?.maxPages ?? 500));
     let hasMore = true;
     
-    while (hasMore) {
+    let pages = 0;
+    while (hasMore && pages < maxPages) {
       const result = await this.getReservations({ ...params, limit, skip });
       
       if (!result.success) {
@@ -487,8 +496,13 @@ class StaysNetClient {
       // Se retornou menos que o limite, não há mais páginas
       hasMore = reservations.length === limit;
       skip += limit;
+      pages++;
       
       console.log(`[StaysNet] 📥 Buscadas ${allReservations.length} reservas até agora...`);
+    }
+
+    if (hasMore) {
+      console.warn(`[StaysNet] ⚠️ getAllReservations atingiu maxPages=${maxPages} (limit=${limit}). Retornando parcial.`);
     }
     
     return { success: true, data: allReservations };
@@ -586,13 +600,15 @@ class StaysNetClient {
   }
   
   // ✅ NOVO: Buscar TODOS os clientes (com paginação automática)
-  async getAllClients(): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  async getAllClients(params?: { maxPages?: number }): Promise<{ success: boolean; data?: any[]; error?: string }> {
     const allClients: any[] = [];
     let skip = 0;
-    const limit = 100; // Buscar 100 por vez
+    const limit = 20; // ✅ Stays.net: limit max 20
+    const maxPages = Math.max(1, Number(params?.maxPages ?? 500));
     let hasMore = true;
     
-    while (hasMore) {
+    let pages = 0;
+    while (hasMore && pages < maxPages) {
       const result = await this.getClients({ limit, skip });
       
       if (!result.success) {
@@ -613,8 +629,13 @@ class StaysNetClient {
       // Se retornou menos que o limite, não há mais páginas
       hasMore = clients.length === limit;
       skip += limit;
+      pages++;
       
       console.log(`[StaysNet] 📥 Buscados ${allClients.length} hóspedes até agora...`);
+    }
+
+    if (hasMore) {
+      console.warn(`[StaysNet] ⚠️ getAllClients atingiu maxPages=${maxPages} (limit=${limit}). Retornando parcial.`);
     }
     
     return { success: true, data: allClients };

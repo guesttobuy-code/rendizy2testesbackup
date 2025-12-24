@@ -8,12 +8,7 @@
 
 import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
-
-const STAYSNET_CONFIG = {
-  apiKey: 'a5146970',
-  apiSecret: 'bfcf4daf',
-  baseUrl: 'https://bvm.stays.net/external/v1'
-};
+import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 
 export async function importStaysNetSimple(c: Context) {
   console.log('🚀 IMPORT SIMPLES - INICIANDO...');
@@ -24,10 +19,11 @@ export async function importStaysNetSimple(c: Context) {
   try {
     // 1. BUSCAR DA API
     console.log('📡 Buscando da API StaysNet...');
-    const response = await fetch(`${STAYSNET_CONFIG.baseUrl}/content/listings`, {
+    const staysConfig = await loadStaysNetRuntimeConfigOrThrow(orgId);
+    const response = await fetch(`${staysConfig.baseUrl}/content/listings`, {
       headers: {
-        'x-api-key': STAYSNET_CONFIG.apiKey,
-        'x-api-secret': STAYSNET_CONFIG.apiSecret
+        'x-api-key': staysConfig.apiKey,
+        'x-api-secret': staysConfig.apiSecret
       }
     });
     

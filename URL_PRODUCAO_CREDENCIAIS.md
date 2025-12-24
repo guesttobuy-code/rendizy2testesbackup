@@ -58,7 +58,7 @@ https://adorable-biscochitos-59023a.netlify.app/login
 
 **Project ID:** `odcgnzfremrqnvtitpcc`
 
-**Public Anon Key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTQxNzEsImV4cCI6MjA3NzkzMDE3MX0.aljqrK3mKwQ6T6EB_fDPfkbP7QC_hhiZwxUZbtnqVqQ`
+**Public Anon Key:** `<SUPABASE_ANON_KEY>`
 
 **Base URL API:**
 ```

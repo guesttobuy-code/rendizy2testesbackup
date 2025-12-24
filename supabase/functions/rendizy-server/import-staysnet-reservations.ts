@@ -15,15 +15,47 @@
 
 import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
+import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
+import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 
-// ============================================================================
-// CONFIGURAÇÃO
-// ============================================================================
-const STAYSNET_CONFIG = {
-  apiKey: 'a5146970',
-  apiSecret: 'bfcf4daf',
-  baseUrl: 'https://bvm.stays.net/external/v1'
-};
+async function resolveAnuncioDraftIdFromStaysId(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  organizationId: string,
+  staysId: string,
+): Promise<string | null> {
+  const lookups: Array<{ label: string; needle: any }> = [
+    // ✅ Forma atual encontrada no banco: data.externalIds.staysnet_property_id
+    { label: 'data.externalIds.staysnet_property_id', needle: { externalIds: { staysnet_property_id: staysId } } },
+    // ✅ Alguns setups salvam o código curto do listing
+    { label: 'data.externalIds.staysnet_listing_id', needle: { externalIds: { staysnet_listing_id: staysId } } },
+    // ✅ Raw listing também é persistido
+    { label: 'data.staysnet_raw._id', needle: { staysnet_raw: { _id: staysId } } },
+    { label: 'data.staysnet_raw.id', needle: { staysnet_raw: { id: staysId } } },
+    // ✅ Fallbacks comuns (quando "codigo" é usado como chave externa)
+    { label: 'data.codigo', needle: { codigo: staysId } },
+  ];
+
+  for (const l of lookups) {
+    const { data: row, error } = await supabase
+      .from('anuncios_drafts')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .contains('data', l.needle)
+      .maybeSingle();
+
+    if (error) {
+      console.warn(`   ⚠️ Erro ao buscar anuncios_drafts via ${l.label}: ${error.message}`);
+      continue;
+    }
+
+    if (row?.id) {
+      console.log(`   ✅ Property vinculado (anuncios_drafts via ${l.label}): ${row.id}`);
+      return row.id;
+    }
+  }
+
+  return null;
+}
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
@@ -35,8 +67,15 @@ const FALLBACK_PROPERTY_ID = '00000000-0000-0000-0000-000000000001'; // Property
 interface StaysNetReservation {
   _id: string;                    // ID único da reserva
   confirmationCode?: string;      // Código de confirmação
-  propertyId?: string;            // ID do imóvel (pode vir como _id_listing)
-  _id_listing?: string;           // ID do imóvel (campo alternativo)
+  propertyId?: string;            // ID do imóvel (pode vir como _id_listing/_idlisting)
+  _id_listing?: string;           // ID do imóvel (campo alternativo - snake)
+  _idlisting?: string;            // ✅ ID do imóvel (campo real visto no payload: _idlisting)
+  reservationUrl?: string;        // URL externa da reserva (quando fornecida)
+
+  // Origem / tipo
+  type?: string;                  // reservation | blocked | maintenance | ...
+  partner?: string;               // Ex: Airbnb, Booking...
+  partnerCode?: string;           // Código do parceiro
   
   // Datas
   checkInDate?: string;           // ISO 8601 date
@@ -122,14 +161,26 @@ function mapReservationStatus(staysStatus: string | undefined): string {
 // FUNÇÃO AUXILIAR: Mapear platform
 // ============================================================================
 function mapPlatform(staysPlatform: string | undefined, source: string | undefined): string {
-  if (!staysPlatform && !source) return 'direct';
+  return mapPlatformV2({ staysPlatform, source });
+}
+
+function mapPlatformV2(input: {
+  staysPlatform?: string;
+  source?: string;
+  partner?: string;
+  partnerCode?: string;
+}): string {
+  const raw = [input.staysPlatform, input.source, input.partner, input.partnerCode]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (!raw) return 'direct';
   
-  const platformStr = (staysPlatform || source || '').toLowerCase();
-  
-  if (platformStr.includes('airbnb')) return 'airbnb';
-  if (platformStr.includes('booking')) return 'booking';
-  if (platformStr.includes('decolar')) return 'decolar';
-  if (platformStr.includes('direct')) return 'direct';
+  if (raw.includes('airbnb')) return 'airbnb';
+  if (raw.includes('booking')) return 'booking';
+  if (raw.includes('decolar')) return 'decolar';
+  if (raw.includes('direct')) return 'direct';
   
   return 'other';
 }
@@ -140,6 +191,8 @@ function mapPlatform(staysPlatform: string | undefined, source: string | undefin
 export async function importStaysNetReservations(c: Context) {
   console.log('\n═══════════════════════════════════════════════════');
   console.log('⚡ IMPORT STAYSNET - RESERVATIONS (RESERVAS)');
+  const debug = c.req.query('debug') === '1';
+  const debugSample: Array<any> = [];
   console.log('═══════════════════════════════════════════════════');
   console.log('📍 API Endpoint: /booking/reservations');
   console.log('📍 Tabela Destino: reservations');
@@ -153,54 +206,92 @@ export async function importStaysNetReservations(c: Context) {
   const errorDetails: Array<{reservation: string, error: string}> = [];
 
   try {
+    // ✅ Preferir organization_id real do usuário (via sessions); fallback mantém compatibilidade com chamadas técnicas.
+    let organizationId = DEFAULT_ORG_ID;
+    try {
+      organizationId = await getOrganizationIdOrThrow(c);
+    } catch {
+      // sem sessão/token → mantém DEFAULT_ORG_ID
+    }
+
     // ========================================================================
     // STEP 1: BUSCAR RESERVATIONS DA API STAYSNET
     // ========================================================================
     console.log('📡 [FETCH] Buscando reservations de /booking/reservations...');
     
     // ✅ CORREÇÃO: API exige from, to, dateType (não startDate/endDate)
-    // Buscar reservas dos últimos 12 meses e próximos 12 meses
+    // Default: últimos 12 meses e próximos 12 meses (override via querystring ou body)
+    const body: any = await c.req.json().catch(() => ({}));
+
     const fromDate = new Date();
-    fromDate.setMonth(fromDate.getMonth() - 12); // 12 meses atrás
+    fromDate.setMonth(fromDate.getMonth() - 12);
     const toDate = new Date();
-    toDate.setMonth(toDate.getMonth() + 12); // +12 meses no futuro
-    
-    const from = fromDate.toISOString().split('T')[0]; // YYYY-MM-DD
-    const to = toDate.toISOString().split('T')[0];     // YYYY-MM-DD
-    
+    toDate.setMonth(toDate.getMonth() + 12);
+
+    const bodyFrom = body?.from || body?.startDate;
+    const bodyTo = body?.to || body?.endDate;
+
+    const from = String((c.req.query('from') || bodyFrom || fromDate.toISOString().split('T')[0]) ?? '').trim();
+    const to = String((c.req.query('to') || bodyTo || toDate.toISOString().split('T')[0]) ?? '').trim();
+    const dateType = String((c.req.query('dateType') || body?.dateType || 'creation') ?? '').trim();
+    const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20))); // ✅ max 20
+    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 500));
+
     console.log(`   📅 Período: ${from} até ${to}`);
-    console.log(`   📌 dateType: creation (todas as reservas criadas no período)`);
-    
-    // ✅ Basic Auth (não x-api-key)
-    const credentials = btoa(`${STAYSNET_CONFIG.apiKey}:${STAYSNET_CONFIG.apiSecret}`);
-    
-    const params = new URLSearchParams({
-      from: from,
-      to: to,
-      dateType: 'creation', // creation = busca por data de criação da reserva
-      limit: '100'          // Máximo por página
-    });
-    
-    const response = await fetch(
-      `${STAYSNET_CONFIG.baseUrl}/booking/reservations?${params}`,
-      {
+    console.log(`   📌 dateType: ${dateType}`);
+    console.log(`   📄 Paginação: limit=${limit}, maxPages=${maxPages}`);
+
+    // ✅ Carregar config Stays.net (DB → global → env)
+    const staysConfig = await loadStaysNetRuntimeConfigOrThrow(organizationId);
+    const credentials = btoa(`${staysConfig.apiKey}:${staysConfig.apiSecret}`);
+
+    const allReservations: StaysNetReservation[] = [];
+    let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
+    let pages = 0;
+
+    while (pages < maxPages) {
+      const params = new URLSearchParams({
+        from,
+        to,
+        dateType,
+        limit: String(limit),
+        skip: String(skip),
+      });
+
+      const response = await fetch(`${staysConfig.baseUrl}/booking/reservations?${params}`, {
         headers: {
           'Authorization': `Basic ${credentials}`,
           'Accept': 'application/json'
         }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`StaysNet API falhou: ${response.status} - ${errorText.substring(0, 200)}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`StaysNet API falhou: ${response.status} - ${errorText.substring(0, 200)}`);
+      const pageData: StaysNetReservation[] = await response.json();
+      if (!Array.isArray(pageData)) {
+        throw new Error(`Resposta da API não é um array. Tipo: ${typeof pageData}`);
+      }
+
+      allReservations.push(...pageData);
+
+      console.log(`   📥 Página ${pages + 1}: ${pageData.length} itens (total=${allReservations.length})`);
+
+      if (pageData.length < limit) {
+        break;
+      }
+
+      skip += limit;
+      pages++;
     }
 
-    const reservations: StaysNetReservation[] = await response.json();
-    
-    if (!Array.isArray(reservations)) {
-      throw new Error(`Resposta da API não é um array. Tipo: ${typeof reservations}`);
+    if (pages >= maxPages) {
+      console.warn(`   ⚠️ Paginação atingiu maxPages=${maxPages}. Retornando parcial.`);
     }
+
+    const reservations: StaysNetReservation[] = allReservations;
 
     fetched = reservations.length;
     console.log(`✅ [FETCH] ${fetched} reservations recebidas\n`);
@@ -223,12 +314,65 @@ export async function importStaysNetReservations(c: Context) {
       const res = reservations[i];
       const confirmationCode = res.confirmationCode || res._id || `RES-${i + 1}`;
 
+      if (debug && debugSample.length < 8) {
+        const keys = Object.keys(res || {});
+        const listingRelatedKeys = keys.filter((k) => /listing|property/i.test(k)).slice(0, 40);
+        const pick = (obj: any, k: string) => {
+          const v = obj?.[k];
+          if (v === null || v === undefined) return undefined;
+          if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v;
+          if (typeof v === 'object') {
+            return {
+              _id: v?._id,
+              id: v?.id,
+              keys: Object.keys(v || {}).slice(0, 15),
+            };
+          }
+          return String(v);
+        };
+
+        const sample: any = {
+          confirmationCode,
+          externalId: (res._id || res.confirmationCode || null) as any,
+          type: (res as any).type,
+          keys: keys.slice(0, 60),
+          listingRelatedKeys,
+          propertyId: (res as any).propertyId,
+          _id_listing: (res as any)._id_listing,
+          platform: (res as any).platform,
+          source: (res as any).source,
+          partner: (res as any).partner,
+          partnerCode: (res as any).partnerCode,
+          listingId: (res as any).listingId,
+          listing_id: (res as any).listing_id,
+          idListing: (res as any).idListing,
+          _idListing: (res as any)._idListing,
+          property: pick(res, 'property'),
+          listing: pick(res, 'listing'),
+        };
+
+        for (const k of listingRelatedKeys) {
+          if (sample[k] !== undefined) continue;
+          sample[k] = pick(res, k);
+        }
+
+        debugSample.push(sample);
+      }
+
       console.log(`\n[${i + 1}/${fetched}] 🏨 Processando: ${confirmationCode}`);
 
       try {
         // ====================================================================
         // 2.1: VALIDAR DADOS MÍNIMOS
         // ====================================================================
+        // Tipos que NÃO devem virar reservas: usar import específico de blocks
+        const typeLower = String((res as any).type || '').toLowerCase();
+        if (typeLower === 'blocked' || typeLower === 'maintenance') {
+          console.warn(`   ⛔ Tipo=${typeLower} (não é reserva) - SKIP`);
+          skipped++;
+          continue;
+        }
+
         if (!res.checkInDate || !res.checkOutDate) {
           console.warn(`   ⚠️ Sem datas de check-in/check-out - SKIP`);
           skipped++;
@@ -246,15 +390,72 @@ export async function importStaysNetReservations(c: Context) {
         }
 
         // ====================================================================
-        // 2.2: VERIFICAR SE JÁ EXISTE (deduplicação via external_id)
+        // 2.2: RESOLVER property_id (anuncios_drafts) ANTES DO DEDUP
+        // ====================================================================
+        // StaysNet envia o ID do imóvel/listing como _idlisting (principal). Mantemos compatibilidade com variantes.
+        const staysPropertyCandidates = [
+          (res as any)._idlisting,
+          res._id_listing,
+          res.propertyId,
+        ].filter(Boolean) as string[];
+        let propertyId: string | null = null;
+
+        for (const candidate of staysPropertyCandidates) {
+          propertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, candidate);
+          if (propertyId) break;
+        }
+
+        // Último fallback: criar um imóvel básico para não deixar reserva órfã
+        if (!propertyId && staysPropertyCandidates.length > 0) {
+          const primaryStaysId = staysPropertyCandidates[0];
+          console.warn(`   ⚠️ Property não encontrado para staysPropertyId=${primaryStaysId}. Criando placeholder em anuncios_drafts...`);
+
+          const { data: newDraft, error: createDraftError } = await supabase
+            .from('anuncios_drafts')
+            .insert({
+              organization_id: organizationId,
+              user_id: DEFAULT_USER_ID,
+              // manter compatível com schema real (title pode ser null)
+              title: null,
+              status: 'draft',
+              completion_percentage: 0,
+              step_completed: 0,
+              data: {
+                title: `Propriedade Stays.net ${primaryStaysId}`,
+                status: 'active',
+                ativo: true,
+                codigo: primaryStaysId,
+                externalIds: {
+                  staysnet_property_id: primaryStaysId,
+                },
+                staysnet_raw: {
+                  _id: primaryStaysId,
+                },
+              },
+            })
+            .select('id')
+            .single();
+
+          if (createDraftError) {
+            console.warn(`   ⚠️ Falha ao criar placeholder em anuncios_drafts: ${createDraftError.message}`);
+          } else {
+            propertyId = newDraft?.id || null;
+            if (propertyId) {
+              console.log(`   ✅ Placeholder criado e vinculado: ${propertyId}`);
+            }
+          }
+        }
+
+        // ====================================================================
+        // 2.3: VERIFICAR SE JÁ EXISTE (deduplicação via external_id)
         // ====================================================================
         const externalId = res._id || res.confirmationCode;
-        
+        const externalUrl = (res as any).reservationUrl || null;
+
         const { data: existing, error: checkError } = await supabase
           .from('reservations')
-          .select('id')
-          .eq('organization_id', DEFAULT_ORG_ID)
-          .eq('platform', mapPlatform(res.platform, res.source))
+          .select('id, property_id, external_url')
+          .eq('organization_id', organizationId)
           .eq('external_id', externalId)
           .maybeSingle();
 
@@ -263,46 +464,43 @@ export async function importStaysNetReservations(c: Context) {
         }
 
         if (existing) {
+          // Se a reserva já existe mas está com property_id fallback, corrigir vinculação para voltar a aparecer no calendário
+          const patch: Record<string, any> = {};
+
+          if (
+            existing.property_id === FALLBACK_PROPERTY_ID &&
+            propertyId &&
+            propertyId !== FALLBACK_PROPERTY_ID
+          ) {
+            patch.property_id = propertyId;
+          }
+
+          if (!existing.external_url && externalUrl) {
+            patch.external_url = externalUrl;
+          }
+
+          if (Object.keys(patch).length > 0) {
+            const { error: fixError } = await supabase
+              .from('reservations')
+              .update(patch)
+              .eq('organization_id', organizationId)
+              .eq('id', existing.id);
+
+            if (fixError) {
+              console.warn(`   ⚠️ Falha ao atualizar reservation existente: ${fixError.message}`);
+            } else {
+              if (patch.property_id) {
+                console.log(`   🛠️ property_id corrigido: ${existing.id} → ${propertyId}`);
+              }
+              if (patch.external_url) {
+                console.log(`   🔗 external_url preenchida: ${existing.id}`);
+              }
+            }
+          }
+
           console.log(`   ♻️ Reservation já existe: ${existing.id} - SKIP`);
           skipped++;
           continue;
-        }
-
-        // ====================================================================
-        // 2.3: BUSCAR property_id via externalIds.staysnet_property_id
-        // ====================================================================
-        let propertyId: string | null = null;
-        const staysPropertyId = res.propertyId || res._id_listing;
-
-        if (staysPropertyId) {
-          // ✅ Buscar em properties (não anuncios_ultimate)
-          // Tentar primeiro em properties, depois em anuncios_ultimate
-          const { data: property, error: propError } = await supabase
-            .from('properties')
-            .select('id')
-            .eq('organization_id', DEFAULT_ORG_ID)
-            .eq('external_id', staysPropertyId)
-            .maybeSingle();
-
-          if (property) {
-            propertyId = property.id;
-            console.log(`   ✅ Property vinculado: ${propertyId}`);
-          } else {
-            // Fallback: buscar em anuncios_ultimate
-            const { data: anuncio } = await supabase
-              .from('anuncios_ultimate')
-              .select('id')
-              .eq('organization_id', DEFAULT_ORG_ID)
-              .or(`external_ids->staysnet_property_id.eq.${staysPropertyId},staysnet_property_id.eq.${staysPropertyId}`)
-              .maybeSingle();
-            
-            if (anuncio) {
-              propertyId = anuncio.id;
-              console.log(`   ✅ Property vinculado (via anuncios): ${propertyId}`);
-            } else {
-              console.warn(`   ⚠️ Property não encontrado: ${staysPropertyId} - continuando sem property_id`);
-            }
-          }
         }
 
         // ====================================================================
@@ -328,7 +526,7 @@ export async function importStaysNetReservations(c: Context) {
         const reservationData = {
           // Identificadores (✅ id é TEXT na tabela, usar confirmationCode)
           id: confirmationCode, // TEXT PRIMARY KEY
-          organization_id: DEFAULT_ORG_ID,
+          organization_id: organizationId,
           property_id: propertyId || FALLBACK_PROPERTY_ID, // ✅ property_id é NOT NULL, usar fallback se não encontrar
           guest_id: null, // Será populado em import-staysnet-guests.ts
 
@@ -358,9 +556,14 @@ export async function importStaysNetReservations(c: Context) {
           status: mapReservationStatus(res.status),
 
           // Plataforma
-          platform: mapPlatform(res.platform, res.source),
+          platform: mapPlatformV2({
+            staysPlatform: res.platform,
+            source: res.source,
+            partner: (res as any).partner,
+            partnerCode: (res as any).partnerCode,
+          }),
           external_id: externalId,
-          external_url: null,
+          external_url: externalUrl,
 
           // Pagamento
           payment_status: res.paymentStatus || 'pending',
@@ -435,6 +638,7 @@ export async function importStaysNetReservations(c: Context) {
       table: 'reservations',
       stats: { fetched, saved, skipped, errors },
       errorDetails: errors > 0 ? errorDetails : undefined,
+      debugSample: debug ? debugSample : undefined,
       message: `Importados ${saved}/${fetched} reservations de StaysNet (skipped: ${skipped})`
     });
 
