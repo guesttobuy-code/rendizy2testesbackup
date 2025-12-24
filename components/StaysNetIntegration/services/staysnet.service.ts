@@ -16,6 +16,61 @@ import type {
   ImportPreview,
 } from '../types';
 
+type NormalizedSectionStats = { fetched: number; created: number; updated: number; failed: number };
+
+function numberOrZero(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeSectionStats(raw: any): NormalizedSectionStats {
+  if (!raw || typeof raw !== 'object') {
+    return { fetched: 0, created: 0, updated: 0, failed: 0 };
+  }
+
+  // Already normalized
+  if (
+    typeof raw.fetched === 'number' &&
+    typeof raw.created === 'number' &&
+    typeof raw.updated === 'number' &&
+    typeof raw.failed === 'number'
+  ) {
+    return {
+      fetched: numberOrZero(raw.fetched),
+      created: numberOrZero(raw.created),
+      updated: numberOrZero(raw.updated),
+      failed: numberOrZero(raw.failed),
+    };
+  }
+
+  // Newer backend: { fetched, saved, errors, skipped }
+  if (typeof raw.fetched === 'number' || typeof raw.saved === 'number' || typeof raw.errors === 'number') {
+    const fetched = numberOrZero(raw.fetched);
+    const saved = numberOrZero(raw.saved);
+    const errors = numberOrZero(raw.errors);
+    // "saved" pode incluir inserts+updates; mostramos como "created" por falta de granularidade.
+    return { fetched, created: saved, updated: 0, failed: errors };
+  }
+
+  // Older backend: { total, created, updated, errors }
+  if (typeof raw.total === 'number' || typeof raw.created === 'number' || typeof raw.updated === 'number') {
+    const created = numberOrZero(raw.created);
+    const updated = numberOrZero(raw.updated);
+    const total = numberOrZero(raw.total);
+    const errors = numberOrZero(raw.errors);
+    const fetched = total > 0 ? total : created + updated;
+    return { fetched, created, updated, failed: errors };
+  }
+
+  // Other variants
+  const inserted = numberOrZero(raw.inserted);
+  const upserted = numberOrZero(raw.upserted);
+  const updated = numberOrZero(raw.updated);
+  const errors = numberOrZero(raw.failed ?? raw.errors);
+  const fetched = numberOrZero(raw.fetched) || inserted + upserted + updated;
+  const created = inserted || upserted;
+  return { fetched, created, updated, failed: errors };
+}
+
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1`;
 
 interface RequestOptions extends RequestInit {
@@ -292,14 +347,10 @@ export class StaysNetService {
         throw new Error(response.data?.error || 'Erro ao importar propriedades');
       }
 
-      // ✅ CONTRATO PADRONIZADO: response.data.stats
-      const stats = response.data?.stats || { total: 0, created: 0, updated: 0, errors: 0 };
-      staysnetLogger.import.success('Propriedades importadas com sucesso', stats);
+      const section = normalizeSectionStats(response.data?.stats || response.data);
+      staysnetLogger.import.success('Propriedades importadas com sucesso', section);
 
-      return {
-        success: true,
-        stats,
-      };
+      return { success: true, stats: { properties: section } };
     } catch (error) {
       staysnetLogger.import.error('Erro ao importar propriedades', error);
       throw error;
@@ -322,6 +373,10 @@ export class StaysNetService {
           apiKey: config.apiKey,
           apiSecret: config.apiSecret,
           baseUrl: config.baseUrl,
+          // ✅ API StaysNet usa from/to/dateType; backend aceita também startDate/endDate
+          from: options.startDate,
+          to: options.endDate,
+          dateType: options.dateType || 'included',
           startDate: options.startDate,
           endDate: options.endDate,
         }),
@@ -331,13 +386,10 @@ export class StaysNetService {
         throw new Error(response.data?.error || 'Erro ao importar reservas');
       }
 
-      const stats = response.data.stats || {};
-      staysnetLogger.import.success('Reservas importadas com sucesso', stats);
+      const section = normalizeSectionStats(response.data?.stats || response.data);
+      staysnetLogger.import.success('Reservas importadas com sucesso', section);
 
-      return {
-        success: true,
-        stats,
-      };
+      return { success: true, stats: { reservations: section } };
     } catch (error) {
       staysnetLogger.import.error('Erro ao importar reservas', error);
       throw error;
@@ -366,13 +418,10 @@ export class StaysNetService {
         throw new Error(response.data?.error || 'Erro ao importar hóspedes');
       }
 
-      const stats = response.data.stats || {};
-      staysnetLogger.import.success('Hóspedes importados com sucesso', stats);
+      const section = normalizeSectionStats(response.data?.stats || response.data);
+      staysnetLogger.import.success('Hóspedes importados com sucesso', section);
 
-      return {
-        success: true,
-        stats,
-      };
+      return { success: true, stats: { guests: section } };
     } catch (error) {
       staysnetLogger.import.error('Erro ao importar hóspedes', error);
       throw error;
@@ -445,12 +494,11 @@ export class StaysNetService {
       staysnetLogger.import.info('👤 STEP 4/4: Importando hóspedes...');
       const guestsResult = await this.importGuests(config);
 
-      // Consolidar estatísticas
+      // Consolidar estatísticas (apenas o que a UI exibe)
       const stats = {
-        properties: propertiesResult.stats,
-        reservations: reservationsResult.stats,
-        blocks: blocksResult.stats,
-        guests: guestsResult.stats,
+        properties: propertiesResult.stats?.properties,
+        reservations: reservationsResult.stats?.reservations,
+        guests: guestsResult.stats?.guests,
       };
 
       staysnetLogger.import.success('✅ Importação completa finalizada (modular)', stats);

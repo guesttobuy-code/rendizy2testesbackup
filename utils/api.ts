@@ -652,6 +652,17 @@ export const reservationsApi = {
     return apiRequest<Reservation[]>(`/reservations${query ? '?' + query : ''}`);
   },
 
+  // KPIs do dia (check-in/out/in-house/novas hoje)
+  getKpis: async (): Promise<ApiResponse<{
+    date: string;
+    checkinsToday: number;
+    checkoutsToday: number;
+    inHouseToday: number;
+    newReservationsToday: number;
+  }>> => {
+    return apiRequest(`/reservations/kpis`);
+  },
+
   // Buscar reserva por ID
   get: async (id: string): Promise<ApiResponse<Reservation>> => {
     return apiRequest<Reservation>(`/reservations/${id}`);

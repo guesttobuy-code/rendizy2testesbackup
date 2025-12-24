@@ -186,6 +186,42 @@ function importReducer(state: ImportStateExtended, action: ImportAction): Import
 export function useStaysNetImport(): UseStaysNetImportReturn {
   const [state, dispatch] = useReducer(importReducer, initialState);
 
+  const startPseudoProgress = useCallback(
+    (step: keyof ImportProgressData, overallStart = 5, overallCap = 90) => {
+      let overall = overallStart;
+
+      // Init step progress
+      dispatch({
+        type: 'UPDATE_PROGRESS',
+        payload: {
+          progress: {
+            [step]: { total: 100, current: Math.max(0, Math.min(100, overallStart)), status: 'in-progress' },
+          },
+          overallProgress: overallStart,
+        },
+      });
+
+      const timer = window.setInterval(() => {
+        // Avança lentamente até ~90% para mostrar atividade enquanto a request roda.
+        overall = Math.min(overall + Math.random() * 7 + 1, overallCap);
+        const current = Math.max(0, Math.min(100, Math.round(overall)));
+
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: {
+            progress: {
+              [step]: { total: 100, current, status: 'in-progress' },
+            },
+            overallProgress: current,
+          },
+        });
+      }, 450);
+
+      return () => window.clearInterval(timer);
+    },
+    []
+  );
+
   /**
    * Fetch available properties
    */
@@ -303,6 +339,8 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
       staysnetLogger.import.info('Iniciando importação de reservas...');
       dispatch({ type: 'START_IMPORT', payload: 'reservations' });
 
+      let stop: (() => void) | null = null;
+
       try {
         // Validate
         const validation = validateImportOptions(options);
@@ -310,15 +348,41 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
           throw new Error(validation.message);
         }
 
+        stop = startPseudoProgress('reservations');
+
         const result = await StaysNetService.importReservations(config, options);
+
+        stop();
+        stop = null;
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: {
+            progress: {
+              reservations: { total: 100, current: 100, status: 'completed' },
+            },
+            overallProgress: 100,
+          },
+        });
+
         dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
       } catch (error) {
         const errorMessage = (error as Error).message;
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: {
+            progress: {
+              reservations: { total: 100, current: 100, status: 'error' },
+            },
+            overallProgress: Math.max(state.overallProgress, 0),
+          },
+        });
         dispatch({ type: 'IMPORT_ERROR', payload: errorMessage });
         throw error;
+      } finally {
+        if (stop) stop();
       }
     },
-    []
+    [startPseudoProgress, state.overallProgress]
   );
 
   /**
@@ -328,15 +392,42 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     staysnetLogger.import.info('Iniciando importação de hóspedes...');
     dispatch({ type: 'START_IMPORT', payload: 'guests' });
 
+    let stop: (() => void) | null = null;
+
     try {
+      stop = startPseudoProgress('guests');
       const result = await StaysNetService.importGuests(config);
+
+      stop();
+      stop = null;
+      dispatch({
+        type: 'UPDATE_PROGRESS',
+        payload: {
+          progress: {
+            guests: { total: 100, current: 100, status: 'completed' },
+          },
+          overallProgress: 100,
+        },
+      });
+
       dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
     } catch (error) {
       const errorMessage = (error as Error).message;
+      dispatch({
+        type: 'UPDATE_PROGRESS',
+        payload: {
+          progress: {
+            guests: { total: 100, current: 100, status: 'error' },
+          },
+          overallProgress: Math.max(state.overallProgress, 0),
+        },
+      });
       dispatch({ type: 'IMPORT_ERROR', payload: errorMessage });
       throw error;
+    } finally {
+      if (stop) stop();
     }
-  }, []);
+  }, [startPseudoProgress, state.overallProgress]);
 
   /**
    * Import all (full sync)
@@ -358,7 +449,79 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
           throw new Error(optionsValidation.message);
         }
 
-        const result = await StaysNetService.importAll(config, options);
+        // Progresso por etapas (properties -> reservations -> guests)
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: {
+            progress: {
+              properties: { total: 100, current: 0, status: 'pending' },
+              reservations: { total: 100, current: 0, status: 'pending' },
+              guests: { total: 100, current: 0, status: 'pending' },
+            },
+            overallProgress: 0,
+          },
+        });
+
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: {
+            progress: {
+              properties: { total: 100, current: 10, status: 'in-progress' },
+              reservations: { total: 100, current: 0, status: 'pending' },
+              guests: { total: 100, current: 0, status: 'pending' },
+            },
+            overallProgress: 5,
+          },
+        });
+
+        const propertiesResult = await StaysNetService.importProperties(config, options);
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: {
+            progress: {
+              properties: { total: 100, current: 100, status: 'completed' },
+              reservations: { total: 100, current: 10, status: 'in-progress' },
+              guests: { total: 100, current: 0, status: 'pending' },
+            },
+            overallProgress: 35,
+          },
+        });
+
+        const reservationsResult = await StaysNetService.importReservations(config, options);
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: {
+            progress: {
+              properties: { total: 100, current: 100, status: 'completed' },
+              reservations: { total: 100, current: 100, status: 'completed' },
+              guests: { total: 100, current: 10, status: 'in-progress' },
+            },
+            overallProgress: 70,
+          },
+        });
+
+        const guestsResult = await StaysNetService.importGuests(config);
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: {
+            progress: {
+              properties: { total: 100, current: 100, status: 'completed' },
+              reservations: { total: 100, current: 100, status: 'completed' },
+              guests: { total: 100, current: 100, status: 'completed' },
+            },
+            overallProgress: 100,
+          },
+        });
+
+        const result = {
+          success: true,
+          stats: {
+            ...(propertiesResult.stats || {}),
+            ...(reservationsResult.stats || {}),
+            ...(guestsResult.stats || {}),
+          },
+        };
+
         dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
       } catch (error) {
         const errorMessage = (error as Error).message;

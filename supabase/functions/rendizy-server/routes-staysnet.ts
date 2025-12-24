@@ -1,4 +1,4 @@
-import { Context } from 'npm:hono@4.6.14';
+import { Context } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { getSupabaseClient } from './kv_store.tsx';
 import { successResponse, errorResponse, logInfo, logError } from './utils.ts';

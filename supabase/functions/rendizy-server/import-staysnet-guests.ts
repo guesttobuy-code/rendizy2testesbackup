@@ -18,6 +18,7 @@
 import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
+import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -160,6 +161,14 @@ export async function importStaysNetGuests(c: Context) {
   try {
     const supabase = getSupabaseClient();
 
+    // ✅ Multi-tenant: pegar organization_id correto (fallback seguro)
+    let orgId = DEFAULT_ORG_ID;
+    try {
+      orgId = await getOrganizationIdOrThrow(c);
+    } catch {
+      orgId = DEFAULT_ORG_ID;
+    }
+
     // ========================================================================
     // STEP 1: BUSCAR RESERVATIONS DA API STAYSNET (para extrair guests)
     // ========================================================================
@@ -174,40 +183,71 @@ export async function importStaysNetGuests(c: Context) {
     const from = fromDate.toISOString().split('T')[0]; // YYYY-MM-DD
     const to = toDate.toISOString().split('T')[0];     // YYYY-MM-DD
     
-    console.log(`   📅 Período: ${from} até ${to}`);
-    console.log(`   📌 dateType: creation`);
+    // Permitir override via body/query
+    const body = await c.req.json().catch(() => null as any);
+    const bodyFrom = body?.from || body?.startDate;
+    const bodyTo = body?.to || body?.endDate;
+    const fromFinal = String((c.req.query('from') || bodyFrom || from) ?? '').trim();
+    const toFinal = String((c.req.query('to') || bodyTo || to) ?? '').trim();
+    const dateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();
+    const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
+    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 500));
+    let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
+
+    console.log(`   🧾 organization_id: ${orgId}`);
+    console.log(`   📅 Período: ${fromFinal} até ${toFinal}`);
+    console.log(`   📌 dateType: ${dateType}`);
+    console.log(`   📄 Paginação: limit=${limit}, maxPages=${maxPages}, skip=${skip}`);
     
     // ✅ Basic Auth (não x-api-key)
     const staysConfig = await loadStaysNetRuntimeConfigOrThrow(orgId);
     const credentials = btoa(`${staysConfig.apiKey}:${staysConfig.apiSecret}`);
     
-    const params = new URLSearchParams({
-      from: from,
-      to: to,
-      dateType: 'creation',
-      limit: '100'
-    });
-    
-    const response = await fetch(
-      `${staysConfig.baseUrl}/booking/reservations?${params}`,
-      {
+    const allReservations: StaysNetReservation[] = [];
+    let pages = 0;
+
+    while (pages < maxPages) {
+      const params = new URLSearchParams({
+        from: fromFinal,
+        to: toFinal,
+        dateType,
+        limit: String(limit),
+        skip: String(skip),
+      });
+
+      const response = await fetch(`${staysConfig.baseUrl}/booking/reservations?${params}`, {
         headers: {
           'Authorization': `Basic ${credentials}`,
           'Accept': 'application/json'
         }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`StaysNet API falhou: ${response.status} - ${errorText.substring(0, 200)}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`StaysNet API falhou: ${response.status} - ${errorText.substring(0, 200)}`);
+      const pageData: StaysNetReservation[] = await response.json();
+      if (!Array.isArray(pageData)) {
+        throw new Error(`Resposta da API não é um array. Tipo: ${typeof pageData}`);
+      }
+
+      allReservations.push(...pageData);
+      console.log(`   📥 Página ${pages + 1}: ${pageData.length} itens (total=${allReservations.length})`);
+
+      if (pageData.length < limit) {
+        break;
+      }
+
+      skip += limit;
+      pages++;
     }
 
-    const reservations: StaysNetReservation[] = await response.json();
-    
-    if (!Array.isArray(reservations)) {
-      throw new Error(`Resposta da API não é um array. Tipo: ${typeof reservations}`);
+    if (pages >= maxPages) {
+      console.warn(`   ⚠️ Paginação atingiu maxPages=${maxPages}. Retornando parcial.`);
     }
+
+    const reservations: StaysNetReservation[] = allReservations;
 
     fetched = reservations.length;
     console.log(`✅ [FETCH] ${fetched} reservations recebidas\n`);
@@ -253,7 +293,7 @@ export async function importStaysNetGuests(c: Context) {
         const { data: reservation, error: resError } = await supabase
           .from('reservations')
           .select('id, guest_id')
-          .eq('organization_id', DEFAULT_ORG_ID)
+          .eq('organization_id', orgId)
           .eq('external_id', externalId)
           .maybeSingle();
 
@@ -275,7 +315,7 @@ export async function importStaysNetGuests(c: Context) {
         const { data: existingGuest, error: checkError } = await supabase
           .from('guests')
           .select('id')
-          .eq('organization_id', DEFAULT_ORG_ID)
+          .eq('organization_id', orgId)
           .eq('email', guestData.email)
           .maybeSingle();
 
@@ -295,7 +335,7 @@ export async function importStaysNetGuests(c: Context) {
           console.log(`   ➕ Criando novo guest...`);
           
           const newGuestData = {
-            organization_id: DEFAULT_ORG_ID,
+            organization_id: orgId,
             first_name: guestData.firstName,
             last_name: guestData.lastName,
             email: guestData.email,
@@ -335,7 +375,8 @@ export async function importStaysNetGuests(c: Context) {
           const { error: linkError } = await supabase
             .from('reservations')
             .update({ guest_id: guestId })
-            .eq('id', reservation.id);
+            .eq('id', reservation.id)
+            .eq('organization_id', orgId);
 
           if (linkError) {
             console.error(`   ❌ Erro ao vincular guest à reservation:`, linkError.message);

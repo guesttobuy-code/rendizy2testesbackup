@@ -56,6 +56,25 @@ interface ClientSite {
   isActive: boolean;
 }
 
+function getEdgeHeaders(contentType?: string): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
+
+  const headers: Record<string, string> = {
+    apikey: publicAnonKey,
+    Authorization: `Bearer ${publicAnonKey}`,
+  };
+
+  if (token) {
+    headers['X-Auth-Token'] = token;
+  }
+
+  if (contentType) {
+    headers['Content-Type'] = contentType;
+  }
+
+  return headers;
+}
+
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
@@ -99,8 +118,7 @@ export function ClientSitesManager() {
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           }
         }
       );
@@ -127,8 +145,7 @@ export function ClientSitesManager() {
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           }
         }
       );
@@ -176,7 +193,11 @@ export function ClientSitesManager() {
   };
 
   const getSiteUrl = (site: ClientSite) => {
-    return site.domain || `https://${site.subdomain}.rendizy.app`;
+    if (site.domain) {
+      return site.domain.startsWith('http') ? site.domain : `https://${site.domain}`;
+    }
+    // Preview estável sem depender de wildcard DNS
+    return `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/serve/${site.subdomain}`;
   };
 
   if (loading) {
@@ -1109,8 +1130,10 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
 }) {
   const [loading, setLoading] = useState(false);
   const [siteCode, setSiteCode] = useState(site.siteCode || '');
+  const [archiveFile, setArchiveFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState<'zip' | 'code'>('zip');
 
-  const handleSubmit = async () => {
+  const handleSubmitCode = async () => {
     try {
       setLoading(true);
 
@@ -1119,8 +1142,7 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           },
           body: JSON.stringify({ siteCode })
         }
@@ -1142,29 +1164,91 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
     }
   };
 
+  const handleSubmitZip = async () => {
+    try {
+      if (!archiveFile) {
+        toast.error('Selecione um arquivo .zip');
+        return;
+      }
+
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append('file', archiveFile);
+      formData.append('source', 'custom');
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/${site.organizationId}/upload-archive`,
+        {
+          method: 'POST',
+          headers: {
+            ...getEdgeHeaders()
+          },
+          body: formData
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message || 'Arquivo enviado com sucesso');
+        onSuccess();
+      } else {
+        toast.error(data.error || 'Erro ao enviar arquivo');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar arquivo:', error);
+      toast.error('Erro ao enviar arquivo');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Upload Código do Site</DialogTitle>
           <DialogDescription>
-            Cole aqui o código React/HTML gerado por v0.dev, Bolt.ai, Figma Make, etc
+            Envie o build compilado (ZIP com dist/) ou cole o código HTML/React
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <Textarea
-            value={siteCode}
-            onChange={(e) => setSiteCode(e.target.value)}
-            placeholder="Cole o código do site aqui..."
-            className="min-h-[400px] font-mono text-sm"
-          />
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+            <TabsList>
+              <TabsTrigger value="zip">ZIP (dist/)</TabsTrigger>
+              <TabsTrigger value="code">Código</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="zip" className="space-y-3">
+              <div className="space-y-2">
+                <Label>Arquivo .zip *</Label>
+                <Input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => setArchiveFile(e.target.files?.[0] || null)}
+                />
+                <p className="text-sm text-gray-600">
+                  O ZIP precisa conter <strong>dist/index.html</strong> (build de produção).
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="code" className="space-y-3">
+              <Textarea
+                value={siteCode}
+                onChange={(e) => setSiteCode(e.target.value)}
+                placeholder="Cole o código do site aqui..."
+                className="min-h-[400px] font-mono text-sm"
+              />
+            </TabsContent>
+          </Tabs>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">💡 Dica:</h4>
             <p className="text-sm text-blue-800">
-              O código será automaticamente integrado ao backend do RENDIZY.
-              Dados de imóveis, reservas e calendário virão da API RENDIZY.
+              Para produção, prefira o ZIP (dist/) para servir assets com Content-Type correto.
             </p>
           </div>
         </div>
@@ -1173,8 +1257,11 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading || !siteCode}>
-            {loading ? 'Enviando...' : 'Enviar Código'}
+          <Button
+            onClick={activeTab === 'zip' ? handleSubmitZip : handleSubmitCode}
+            disabled={loading || (activeTab === 'zip' ? !archiveFile : !siteCode)}
+          >
+            {loading ? 'Enviando...' : activeTab === 'zip' ? 'Enviar ZIP' : 'Enviar Código'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1313,29 +1400,17 @@ const siteConfig = {
 
 ### Integração com API RENDIZY
 
-\`\`\`typescript
-const API_BASE = "https://uknccixtubkdkofyieie.supabase.co/functions/v1/rendizy-server";
-const API_KEY = "<SUPABASE_ANON_KEY>";
+Quando o site é servido pelo RENDIZY (\`/client-sites/serve/:subdomain\`), o backend injeta automaticamente:
+- \`window.RENDIZY_CONFIG\` (API_BASE_URL, ORGANIZATION_ID, SUBDOMAIN)
+- Helpers como \`window.RENDIZY.getProperties()\`
 
-// Buscar propriedades
-const properties = await fetch(\`\${API_BASE}/properties?organizationId=\${organizationId}\`, {
-  headers: { 'Authorization': \`Bearer \${API_KEY}\` }
-});
+Exemplo:
 
-// Buscar disponibilidade
-const availability = await fetch(\`\${API_BASE}/calendar?propertyId=\${propertyId}&start=\${startDate}&end=\${endDate}\`, {
-  headers: { 'Authorization': \`Bearer \${API_KEY}\` }
-});
-
-// Criar reserva
-const reservation = await fetch(\`\${API_BASE}/reservations\`, {
-  method: 'POST',
-  headers: {
-    'Authorization': \`Bearer \${API_KEY}\`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify(reservationData)
-});
+\`\`\`ts
+const result = await window.RENDIZY.getProperties();
+if (result.success) {
+  console.log(result.data);
+}
 \`\`\`
 
 ### Design Guidelines
@@ -1514,6 +1589,8 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
 }) {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
+  const [importTab, setImportTab] = useState<'code' | 'zip'>('code');
+  const [archiveFile, setArchiveFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     organizationId: '',
     siteName: '',
@@ -1536,8 +1613,12 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
       return;
     }
 
-    if (!formData.siteCode) {
+    if (importTab === 'code' && !formData.siteCode) {
       toast.error('Cole o código do site');
+      return;
+    }
+    if (importTab === 'zip' && !archiveFile) {
+      toast.error('Selecione um arquivo .zip');
       return;
     }
 
@@ -1550,8 +1631,7 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           },
           body: JSON.stringify({
             organizationId: formData.organizationId,
@@ -1580,26 +1660,44 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
         return;
       }
 
-      // 2. Fazer upload do código
-      const uploadResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/${formData.organizationId}/upload-code`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ siteCode: formData.siteCode })
-        }
-      );
+      // 2. Fazer upload do código OU ZIP
+      let uploadData: any = null;
 
-      const uploadData = await uploadResponse.json();
+      if (importTab === 'code') {
+        const uploadResponse = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/${formData.organizationId}/upload-code`,
+          {
+            method: 'POST',
+            headers: {
+              ...getEdgeHeaders('application/json')
+            },
+            body: JSON.stringify({ siteCode: formData.siteCode })
+          }
+        );
+        uploadData = await uploadResponse.json();
+      } else {
+        const fd = new FormData();
+        fd.append('file', archiveFile as File);
+        fd.append('source', formData.source);
 
-      if (uploadData.success) {
+        const uploadResponse = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/${formData.organizationId}/upload-archive`,
+          {
+            method: 'POST',
+            headers: {
+              ...getEdgeHeaders()
+            },
+            body: fd
+          }
+        );
+        uploadData = await uploadResponse.json();
+      }
+
+      if (uploadData?.success) {
         toast.success('✅ Site importado com sucesso!');
         onSuccess();
       } else {
-        toast.error(uploadData.error || 'Erro ao importar código');
+        toast.error(uploadData?.error || 'Erro ao importar');
       }
     } catch (error) {
       console.error('Erro ao importar site:', error);
@@ -1732,19 +1830,38 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
               <Sparkles className="h-4 w-4" />
               <AlertTitle>Cole o código gerado pela IA</AlertTitle>
               <AlertDescription>
-                Copie todo o código React/TypeScript gerado e cole abaixo
+                Você pode colar o código ou enviar o ZIP (dist/) compilado
               </AlertDescription>
             </Alert>
 
-            <div className="space-y-2">
-              <Label>Código do Site</Label>
-              <Textarea
-                value={formData.siteCode}
-                onChange={(e) => setFormData({ ...formData, siteCode: e.target.value })}
-                placeholder="Cole o código completo aqui..."
-                className="min-h-[400px] font-mono text-xs"
-              />
-            </div>
+            <Tabs value={importTab} onValueChange={(v) => setImportTab(v as any)}>
+              <TabsList>
+                <TabsTrigger value="code">Código</TabsTrigger>
+                <TabsTrigger value="zip">ZIP (dist/)</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="code" className="space-y-2">
+                <Label>Código do Site</Label>
+                <Textarea
+                  value={formData.siteCode}
+                  onChange={(e) => setFormData({ ...formData, siteCode: e.target.value })}
+                  placeholder="Cole o código completo aqui..."
+                  className="min-h-[400px] font-mono text-xs"
+                />
+              </TabsContent>
+
+              <TabsContent value="zip" className="space-y-2">
+                <Label>Arquivo .zip</Label>
+                <Input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => setArchiveFile(e.target.files?.[0] || null)}
+                />
+                <p className="text-sm text-gray-600">
+                  Envie um ZIP com <strong>dist/index.html</strong>.
+                </p>
+              </TabsContent>
+            </Tabs>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">

@@ -17,8 +17,10 @@ import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
+const ANON_KEY = publicAnonKey;
 
 interface AnuncioUltimate {
   id: string;

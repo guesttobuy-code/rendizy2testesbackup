@@ -14,7 +14,7 @@
  * - GET /properties/wizard/:id/step/:stepId - Obter dados de um step
  */
 
-import { Hono } from "npm:hono@4.0.2";
+import { Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
 
 const app = new Hono();

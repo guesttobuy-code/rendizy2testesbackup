@@ -76,8 +76,18 @@ export default function StaysNetIntegration() {
 
   // Date range for reservations
   const [importDateRange, setImportDateRange] = useState({
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    startDate: (() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 12);
+      return d.toISOString().split('T')[0];
+    })(),
+    endDate: (() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 12);
+      return d.toISOString().split('T')[0];
+    })(),
+    // ✅ Prioridade de negócio: não perder check-in/check-out → usar overlap
+    dateType: 'included' as 'creation' | 'checkin' | 'checkout' | 'included',
   });
 
   // Handlers
@@ -133,6 +143,7 @@ export default function StaysNetIntegration() {
         selectedPropertyIds,
         startDate: importDateRange.startDate,
         endDate: importDateRange.endDate,
+        dateType: importDateRange.dateType,
       });
     } catch (error) {
       // Error is already logged by the hook
@@ -153,6 +164,7 @@ export default function StaysNetIntegration() {
         selectedPropertyIds,
         startDate: importDateRange.startDate,
         endDate: importDateRange.endDate,
+        dateType: importDateRange.dateType,
       });
     } catch (error) {
       // Error is already logged by the hook
@@ -169,6 +181,10 @@ export default function StaysNetIntegration() {
 
   const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
     setImportDateRange((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDateTypeChange = (value: 'creation' | 'checkin' | 'checkout' | 'included') => {
+    setImportDateRange((prev) => ({ ...prev, dateType: value }));
   };
 
   return (
@@ -236,6 +252,8 @@ export default function StaysNetIntegration() {
             startDate={importDateRange.startDate}
             endDate={importDateRange.endDate}
             onDateChange={handleDateChange}
+            dateType={importDateRange.dateType}
+            onDateTypeChange={handleDateTypeChange}
             importProgress={importProgress}
             overallProgress={overallProgress}
           />

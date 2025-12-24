@@ -55,9 +55,10 @@ import { CancelReservationModal } from './CancelReservationModal';
 import { ConflictsDetectionDashboard } from './ConflictsDetectionDashboard';
 import { CreateReservationWizard } from './CreateReservationWizard';
 import { toast } from 'sonner';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { reservationsApi, propertiesApi, guestsApi, Property, Reservation, Guest } from '../utils/api';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
-import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, endOfDay, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface ReservationsManagementProps {
@@ -92,6 +93,9 @@ export function ReservationsManagement({
     from: startOfMonth(new Date()),
     to: endOfMonth(addMonths(new Date(), 1))
   });
+
+  // ✅ Filtro por tipo de data (conceito objetivo: criação vs check-in vs check-out)
+  const [dateFilterField, setDateFilterField] = useState<'created' | 'checkin' | 'checkout'>('checkin');
   
   // Filtro de APIs de entrada (múltipla seleção) - ✅ v1.0.103.356 - Incluído 'direct'
   const [selectedApis, setSelectedApis] = useState<string[]>(['airbnb', 'booking', 'decolar', 'stays', 'direct']);
@@ -175,8 +179,8 @@ export function ReservationsManagement({
   const loadProperties = async () => {
     try {
       // ✅ v1.0.103.356 - Buscar de anuncios_drafts (Anúncios Ultimate)
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
+      const ANON_KEY = publicAnonKey;
       
       const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
         headers: {
@@ -269,7 +273,35 @@ export function ReservationsManagement({
       searchQuery
     });
     
+    const rangeStart = startOfDay(dateRange.from);
+    const rangeEnd = endOfDay(dateRange.to);
+
+    const getComparableDate = (value: unknown): Date | null => {
+      if (!value) return null;
+      if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+      if (typeof value === 'string' || typeof value === 'number') {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      return null;
+    };
+
     const filtered = reservations.filter(reservation => {
+      // Filter by date range + date field
+      const dateCandidate = (() => {
+        if (dateFilterField === 'created') {
+          // Preferir data de criação da plataforma (quando disponível), senão createdAt do sistema
+          return getComparableDate((reservation as any).sourceCreatedAt || reservation.createdAt);
+        }
+        if (dateFilterField === 'checkout') {
+          return getComparableDate(reservation.checkOut);
+        }
+        return getComparableDate(reservation.checkIn);
+      })();
+
+      if (!dateCandidate) return false;
+      if (dateCandidate < rangeStart || dateCandidate > rangeEnd) return false;
+
       // Filter by selected properties
       // NOTE: não excluir reservas cujo propertyId não existe na lista carregada de propriedades
       // (ex: reservas importadas com property_id apontando para tabela/ID diferente).
@@ -317,7 +349,7 @@ export function ReservationsManagement({
     
     console.log(`✅ [ReservationsManagement] Filtro aplicado: ${filtered.length} de ${reservations.length} reservas`);
     return filtered;
-  }, [reservations, selectedProperties, selectedApis, searchQuery, guestsMap, propertiesMap]);
+  }, [reservations, selectedProperties, selectedApis, searchQuery, guestsMap, propertiesMap, dateRange.from, dateRange.to, dateFilterField]);
 
   // Get property name - OTIMIZADO: Usa Map O(1)
   const getPropertyName = (propertyId: string) => {
@@ -494,6 +526,21 @@ export function ReservationsManagement({
         {/* Header - Fixo */}
         <div className={`p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 ${isSidebarCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <h2 className="text-gray-900 dark:text-gray-100 mb-3">Reservas</h2>
+
+          {/* Date Field Selector */}
+          <div className="mb-3">
+            <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1.5 block">Tipo de data</Label>
+            <Select value={dateFilterField} onValueChange={(v) => setDateFilterField(v as any)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created">Criação</SelectItem>
+                <SelectItem value="checkin">Check-in</SelectItem>
+                <SelectItem value="checkout">Check-out</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           
           {/* Date Range Picker */}
           <div className="mb-3">

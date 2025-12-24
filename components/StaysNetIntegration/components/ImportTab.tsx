@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Label } from '../../ui/label';
 import { Input } from '../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { Progress } from '../../ui/progress';
 import { LoadingButton } from './LoadingButton';
 import { PropertySelector } from './PropertySelector';
 import { ImportStats } from './ImportStats';
@@ -43,6 +45,8 @@ interface ImportTabProps {
   startDate: string;
   endDate: string;
   onDateChange: (field: 'startDate' | 'endDate', value: string) => void;
+  dateType: 'creation' | 'checkin' | 'checkout' | 'included';
+  onDateTypeChange: (value: 'creation' | 'checkin' | 'checkout' | 'included') => void;
   // Progress tracking
   importProgress?: ImportProgressData;
   overallProgress?: number;
@@ -73,6 +77,8 @@ export function ImportTab({
   startDate,
   endDate,
   onDateChange,
+  dateType,
+  onDateTypeChange,
   importProgress,
   overallProgress = 0,
 }: ImportTabProps) {
@@ -239,6 +245,22 @@ export function ImportTab({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Date type */}
+          <div className="space-y-2">
+            <Label>Tipo de data (StaysNet)</Label>
+            <Select value={dateType} onValueChange={(v) => onDateTypeChange(v as any)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="creation">Criação da reserva</SelectItem>
+                <SelectItem value="checkin">Check-in</SelectItem>
+                <SelectItem value="checkout">Check-out</SelectItem>
+                <SelectItem value="included">Incluídas no período (overlap)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Date range */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -272,6 +294,15 @@ export function ImportTab({
           >
             Confirmar e Importar Reservas
           </LoadingButton>
+
+          {isImporting && importType === 'reservations' && (
+            <div className="space-y-2">
+              <Progress value={overallProgress} className="h-2" />
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Importando reservas... {overallProgress.toFixed(0)}%
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -286,7 +317,7 @@ export function ImportTab({
             Importe todos os hóspedes cadastrados
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <LoadingButton
             onClick={onImportGuests}
             isLoading={isImporting && importType === 'guests'}
@@ -297,6 +328,15 @@ export function ImportTab({
           >
             Confirmar e Importar Hóspedes
           </LoadingButton>
+
+          {isImporting && importType === 'guests' && (
+            <div className="space-y-2">
+              <Progress value={overallProgress} className="h-2" />
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Importando hóspedes... {overallProgress.toFixed(0)}%
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -108,6 +108,13 @@ export function validateAndFixUrl(url: string): ValidationResult {
 export function validateImportOptions(options: Partial<ImportOptions>): ValidationResult {
   const errors: string[] = [];
 
+  if (options.dateType) {
+    const allowed = new Set(['creation', 'checkin', 'checkout', 'included']);
+    if (!allowed.has(String(options.dateType))) {
+      errors.push('Tipo de data inválido (dateType)');
+    }
+  }
+
   // Date validation
   if (options.startDate && options.endDate) {
     const start = new Date(options.startDate);

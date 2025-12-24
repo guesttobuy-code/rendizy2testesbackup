@@ -79,6 +79,133 @@ interface ClientSiteConfig {
 // HELPERS
 // ============================================================
 
+type ClientSitesAuthContext = {
+  token: string;
+  session: any;
+  user: any;
+  organizationId: string | null;
+  isSuperAdmin: boolean;
+};
+
+function parseCookies(cookieHeader: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .forEach((cookie) => {
+      const [key, ...rest] = cookie.split("=");
+      if (!key || rest.length === 0) return;
+      cookies[key] = decodeURIComponent(rest.join("="));
+    });
+  return cookies;
+}
+
+function extractUserTokenFromRequest(c: any): string | undefined {
+  // ✅ PRIORIDADE 1: Header customizado usado no frontend (AuthContext)
+  const tokenFromHeader = c.req.header("X-Auth-Token");
+  if (tokenFromHeader) return tokenFromHeader;
+
+  // ✅ PRIORIDADE 2: Cookie HttpOnly (quando aplicável)
+  const cookieHeader = c.req.header("Cookie") || "";
+  const cookies = parseCookies(cookieHeader);
+  const tokenFromCookie = cookies["rendizy-token"];
+  if (tokenFromCookie) return tokenFromCookie;
+
+  // ⚠️ NÃO usar Authorization aqui (normalmente contém o anonKey do Supabase)
+  return undefined;
+}
+
+async function requireSqlAuth(c: any): Promise<ClientSitesAuthContext | Response> {
+  const token = extractUserTokenFromRequest(c);
+  if (!token) {
+    return c.json({ success: false, error: "Token ausente" }, 401);
+  }
+
+  const supabase = getSupabaseClient();
+
+  // Buscar sessão (OAuth2: access_token; legacy: token)
+  const { data: byAccessToken, error: errAccess } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("access_token", token)
+    .maybeSingle();
+
+  let session = byAccessToken;
+  let sessionError = errAccess;
+
+  if (!session) {
+    const { data: byToken, error: errToken } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("token", token)
+      .maybeSingle();
+    session = byToken;
+    sessionError = errToken;
+  }
+
+  if (sessionError || !session) {
+    return c.json({ success: false, error: "Sessão inválida ou expirada" }, 401);
+  }
+
+  // Verificar expiração (se disponível)
+  if (session.expires_at) {
+    const expiresAt = new Date(session.expires_at);
+    if (Date.now() > expiresAt.getTime()) {
+      return c.json({ success: false, error: "Sessão expirada" }, 401);
+    }
+  }
+
+  const userId = session.user_id;
+  if (!userId) {
+    return c.json({ success: false, error: "Sessão sem user_id" }, 401);
+  }
+
+  const { data: user, error: userError } = await supabase
+    .from("users")
+    .select("id, type, organization_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (userError || !user) {
+    return c.json({ success: false, error: "Usuário não encontrado" }, 401);
+  }
+
+  const isSuperAdmin = user.type === "superadmin";
+  const organizationId = session.organization_id || user.organization_id || null;
+
+  return {
+    token,
+    session,
+    user,
+    organizationId,
+    isSuperAdmin,
+  };
+}
+
+async function requireOrganizationAccess(
+  c: any,
+  targetOrganizationId: string
+): Promise<ClientSitesAuthContext | Response> {
+  const auth = await requireSqlAuth(c);
+  if (auth instanceof Response) return auth;
+
+  if (auth.isSuperAdmin) return auth;
+
+  if (!auth.organizationId) {
+    return c.json({ success: false, error: "Usuário sem organization_id" }, 403);
+  }
+
+  if (auth.organizationId !== targetOrganizationId) {
+    return c.json(
+      { success: false, error: "Acesso negado para esta organização" },
+      403
+    );
+  }
+
+  return auth;
+}
+
 function generateSubdomain(organizationName: string): string {
   return organizationName
     .toLowerCase()
@@ -735,7 +862,10 @@ app.get("/serve/*", async (c) => {
 
           // ✅ UNIVERSAL: Injetar configuração do RENDIZY no HTML
           // Isso permite que QUALQUER site se conecte automaticamente ao backend
-          const apiBaseUrl = `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/client-sites`;
+          const supabaseUrl =
+            SUPABASE_URL ||
+            "https://odcgnzfremrqnvtitpcc.supabase.co";
+          const apiBaseUrl = `${supabaseUrl}/functions/v1/rendizy-server/client-sites`;
           const rendizyConfig = {
             API_BASE_URL: apiBaseUrl,
             SUBDOMAIN: site.subdomain,
@@ -756,27 +886,6 @@ app.get("/serve/*", async (c) => {
         getProperties: async () => {
           const response = await fetch(
             \`\${window.RENDIZY_CONFIG.API_BASE_URL}/api/\${window.RENDIZY_CONFIG.SUBDOMAIN}/properties\`
-          );
-          return await response.json();
-        },
-        
-        // Verificar disponibilidade de um imóvel
-        checkAvailability: async (propertyId, startDate, endDate) => {
-          const response = await fetch(
-            \`\${window.RENDIZY_CONFIG.API_BASE_URL}/api/\${window.RENDIZY_CONFIG.SUBDOMAIN}/availability?propertyId=\${propertyId}&startDate=\${startDate}&endDate=\${endDate}\`
-          );
-          return await response.json();
-        },
-        
-        // Criar reserva
-        createBooking: async (bookingData) => {
-          const response = await fetch(
-            \`\${window.RENDIZY_CONFIG.API_BASE_URL}/api/\${window.RENDIZY_CONFIG.SUBDOMAIN}/bookings\`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(bookingData)
-            }
           );
           return await response.json();
         }
@@ -986,6 +1095,9 @@ ${errorStack ? `Stack: ${errorStack}` : ""}</pre>
 // Lista todos os sites ou busca por organizationId
 app.get("/", async (c) => {
   try {
+    const auth = await requireSqlAuth(c);
+    if (auth instanceof Response) return auth;
+
     const supabase = getSupabaseClient();
 
     // ✅ CORRIGIDO: Verificar query param primeiro antes de usar getOrganizationIdOrThrow
@@ -996,6 +1108,13 @@ app.get("/", async (c) => {
       console.log(
         `[CLIENT-SITES] Buscando site para organization_id do query: ${orgIdFromQuery}`
       );
+
+      if (!auth.isSuperAdmin && auth.organizationId !== orgIdFromQuery) {
+        return c.json(
+          { success: false, error: "Acesso negado para esta organização" },
+          403
+        );
+      }
 
       // Buscar site específico do SQL
       const { data: sqlSite, error: sqlError } = await supabase
@@ -1018,15 +1137,26 @@ app.get("/", async (c) => {
       return c.json({ success: true, data: site });
     }
 
-    // ✅ Se não há organization_id no query, listar TODOS os sites
-    console.log(
-      `[CLIENT-SITES] Listando todos os sites (sem filtro de organization_id)`
-    );
-
-    const { data: sqlSites, error: sqlError } = await supabase
+    // ✅ Se não há organization_id no query:
+    // - Superadmin pode listar tudo
+    // - Usuário normal lista apenas o próprio site
+    const query = supabase
       .from("client_sites")
       .select("*")
       .order("created_at", { ascending: false });
+
+    if (!auth.isSuperAdmin) {
+      if (!auth.organizationId) {
+        return c.json({ success: false, error: "Usuário sem organization_id" }, 403);
+      }
+      query.eq("organization_id", auth.organizationId);
+    } else {
+      console.log(
+        `[CLIENT-SITES] Superadmin - listando todos os sites (sem filtro de organization_id)`
+      );
+    }
+
+    const { data: sqlSites, error: sqlError } = await query;
 
     if (sqlError) {
       throw sqlError;
@@ -1067,6 +1197,9 @@ app.post("/", async (c) => {
       siteConfig,
       features,
     } = body;
+
+    const auth = await requireOrganizationAccess(c, organizationId);
+    if (auth instanceof Response) return auth;
 
     // Validações
     if (!organizationId) {
@@ -1189,6 +1322,9 @@ app.put("/:organizationId", async (c) => {
     const { organizationId } = c.req.param();
     const updates = await c.req.json();
 
+    const auth = await requireOrganizationAccess(c, organizationId);
+    if (auth instanceof Response) return auth;
+
     const supabase = getSupabaseClient();
 
     // Buscar site existente do SQL
@@ -1253,6 +1389,9 @@ app.post("/:organizationId/upload-code", async (c) => {
   try {
     const { organizationId } = c.req.param();
     const { siteCode } = await c.req.json();
+
+    const auth = await requireOrganizationAccess(c, organizationId);
+    if (auth instanceof Response) return auth;
 
     if (!siteCode) {
       return c.json(
@@ -1327,6 +1466,9 @@ app.post("/:organizationId/upload-code", async (c) => {
 app.post("/:organizationId/upload-archive", async (c) => {
   try {
     const { organizationId } = c.req.param();
+
+    const auth = await requireOrganizationAccess(c, organizationId);
+    if (auth instanceof Response) return auth;
 
     const supabase = getSupabaseClient();
 
@@ -1726,6 +1868,10 @@ app.post("/:organizationId/upload-archive", async (c) => {
 app.post("/:organizationId/upload-archive-from-url", async (c) => {
   try {
     const { organizationId } = c.req.param();
+
+    const auth = await requireOrganizationAccess(c, organizationId);
+    if (auth instanceof Response) return auth;
+
     const body = await c.req.json();
     const url = (body?.url as string | undefined)?.trim();
     const source = (body?.source as string | undefined) || "custom";
@@ -1908,6 +2054,9 @@ app.post("/:organizationId/upload-archive-from-url", async (c) => {
 // Buscar site por subdomain (para visualização pública em localhost/produção)
 app.get("/by-subdomain/:subdomain", async (c) => {
   try {
+    const auth = await requireSqlAuth(c);
+    if (auth instanceof Response) return auth;
+
     const subdomain = c.req.param("subdomain");
 
     console.log(`[CLIENT-SITES] Buscando site por subdomain: ${subdomain}`);
@@ -1989,6 +2138,16 @@ app.get("/by-subdomain/:subdomain", async (c) => {
       );
     }
 
+    // 🔒 Proteção: usuário normal só pode ver o próprio site
+    if (!auth.isSuperAdmin) {
+      if (!auth.organizationId) {
+        return c.json({ success: false, error: "Usuário sem organization_id" }, 403);
+      }
+      if (site.organizationId !== auth.organizationId) {
+        return c.json({ success: false, error: "Acesso negado para este site" }, 403);
+      }
+    }
+
     console.log(
       `[CLIENT-SITES] Site encontrado: ${site.siteName} (${site.organizationId})`
     );
@@ -2040,6 +2199,9 @@ app.get("/by-domain/:domain", async (c) => {
   try {
     const { domain } = c.req.param();
 
+    const auth = await requireSqlAuth(c);
+    if (auth instanceof Response) return auth;
+
     const supabase = getSupabaseClient();
 
     // Buscar site por domínio do SQL
@@ -2066,6 +2228,16 @@ app.get("/by-domain/:domain", async (c) => {
     }
 
     const site = sqlToClientSiteConfig(sqlSite);
+
+    // 🔒 Proteção: usuário normal só pode ver o próprio site
+    if (!auth.isSuperAdmin) {
+      if (!auth.organizationId) {
+        return c.json({ success: false, error: "Usuário sem organization_id" }, 403);
+      }
+      if (site.organizationId !== auth.organizationId) {
+        return c.json({ success: false, error: "Acesso negado para este site" }, 403);
+      }
+    }
     return c.json({ success: true, data: site });
   } catch (error) {
     console.error("[CLIENT-SITES] Erro ao buscar site por domínio:", error);
@@ -2084,6 +2256,9 @@ app.get("/by-domain/:domain", async (c) => {
 app.delete("/:organizationId", async (c) => {
   try {
     const { organizationId } = c.req.param();
+
+    const auth = await requireOrganizationAccess(c, organizationId);
+    if (auth instanceof Response) return auth;
 
     const supabase = getSupabaseClient();
 
@@ -2574,10 +2749,22 @@ app.options("/api/:subdomain/properties", async (c) => {
 // POST /make-server-67caf26a/client-sites/migrate-kv-to-sql
 app.post("/migrate-kv-to-sql", async (c) => {
   try {
+    const auth = await requireSqlAuth(c);
+    if (auth instanceof Response) return auth;
+    if (!auth.isSuperAdmin) {
+      return c.json({ success: false, error: "Acesso negado" }, 403);
+    }
+
     const supabase = getSupabaseClient();
     const body = await c.req.json();
-    const organizationId =
-      body.organizationId || "e78c7bb9-7823-44b8-9aee-95c9b073e7b7"; // Medhome por padrão
+    const organizationId = body.organizationId;
+
+    if (!organizationId || typeof organizationId !== "string") {
+      return c.json(
+        { success: false, error: "organizationId é obrigatório" },
+        400
+      );
+    }
 
     // Buscar do KV Store usando a tabela SQL diretamente (já que kv_store.tsx usa SQL)
     const { data: kvData } = await supabase

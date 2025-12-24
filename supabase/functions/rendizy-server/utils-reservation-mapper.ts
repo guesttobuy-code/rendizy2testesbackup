@@ -89,6 +89,7 @@ export function reservationToSql(reservation: Reservation, organizationId: strin
     
     // Metadata
     created_at: reservation.createdAt || new Date().toISOString(),
+    source_created_at: reservation.sourceCreatedAt || null,
     updated_at: reservation.updatedAt || new Date().toISOString(),
     // ✅ Garantir que created_by seja UUID válido (não 'system')
     created_by: (reservation.createdBy && reservation.createdBy !== 'system' && reservation.createdBy.length === 36)
@@ -180,6 +181,7 @@ export function sqlToReservation(row: any): Reservation {
     
     // Metadata
     createdAt: row.created_at || new Date().toISOString(),
+    sourceCreatedAt: row.source_created_at || undefined,
     updatedAt: row.updated_at || new Date().toISOString(),
     createdBy: row.created_by || 'system',
     confirmedAt: row.confirmed_at || undefined,

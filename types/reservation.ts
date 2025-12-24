@@ -76,6 +76,8 @@ export interface Reservation {
   
   // Metadata
   createdAt: string;
+  // Data de criação na plataforma de origem (ex: StaysNet) quando disponível
+  sourceCreatedAt?: string;
   updatedAt: string;
   createdBy: string;
   confirmedAt?: string;

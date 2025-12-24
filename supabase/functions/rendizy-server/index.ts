@@ -41,6 +41,7 @@ import { logger } from "npm:hono/logger";
 // ============================================================================
 import authApp from "./routes-auth.ts";
 import anunciosApp from "./routes-anuncios.ts";
+import clientSitesApp from "./routes-client-sites.ts";
 import * as reservationsRoutes from "./routes-reservations.ts";
 import * as calendarRoutes from "./routes-calendar.ts";
 import blocksApp from "./routes-blocks.ts";
@@ -54,8 +55,15 @@ import { importStaysNetProperties } from "./import-staysnet-properties.ts"; // �
 import { importStaysNetReservations } from "./import-staysnet-reservations.ts"; // ✅ MODULAR: Reservations separadas
 import { importStaysNetGuests } from "./import-staysnet-guests.ts"; // ✅ MODULAR: Guests separados
 import { importStaysNetBlocks } from "./import-staysnet-blocks.ts"; // ✅ MODULAR: Blocks separadas
+import chatApp from "./routes-chat.ts";
+import { whatsappEvolutionRoutes } from "./routes-whatsapp-evolution.ts";
 
 const app = new Hono();
+
+// ============================================================================
+// HEALTH CHECK (frontend usa: GET /health)
+// ============================================================================
+app.get("/health", (c) => c.json({ ok: true }));
 
 // ============================================================================
 // 🛡️ CAMADA 1: CORS PROTECTION (CRÍTICO - NÃO MODIFICAR)
@@ -112,9 +120,16 @@ app.route("/rendizy-server/auth", authApp); // Compatibility
 app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
 
 // ============================================================================
+// CLIENT SITES (Sites dos Clientes)
+// ============================================================================
+app.route("/rendizy-server/client-sites", clientSitesApp);
+app.route("/rendizy-server/make-server-67caf26a/client-sites", clientSitesApp); // compat
+
+// ============================================================================
 // RESERVATIONS
 // ============================================================================
 app.get("/rendizy-server/reservations", tenancyMiddleware, reservationsRoutes.listReservations);
+app.get("/rendizy-server/reservations/kpis", tenancyMiddleware, reservationsRoutes.getReservationsKpis);
 app.get("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRoutes.getReservation);
 app.post("/rendizy-server/reservations", tenancyMiddleware, reservationsRoutes.createReservation);
 app.put("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRoutes.updateReservation);
@@ -137,6 +152,65 @@ app.route("/rendizy-server/blocks", blocksApp);
 // ============================================================================
 app.route("/rendizy-server/ical", icalApp);
 app.route("/rendizy-server/make-server-67caf26a/ical", icalApp); // compat com prefix usado no frontend
+
+// ============================================================================
+// CHAT / CHANNELS (WhatsApp Evolution + outros canais)
+// ============================================================================
+// Frontend atual usa: /chat/channels/*
+// Mantemos também /rendizy-server/chat/* por compatibilidade com docs/legado.
+app.route("/chat", chatApp);
+app.route("/rendizy-server/chat", chatApp);
+app.route("/rendizy-server/make-server-67caf26a/chat", chatApp);
+
+// ============================================================================
+// WHATSAPP EVOLUTION API (contrato legado + aliases estáveis)
+// ============================================================================
+// Registra o contrato legado (não modificar aqui; está em routes-whatsapp-evolution.ts)
+whatsappEvolutionRoutes(app as any);
+
+// Alias estável: frontend novo usa /whatsapp/*
+// Reescreve para o prefixo legado sem duplicar handlers.
+const LEGACY_WHATSAPP_PREFIX = "/rendizy-server/make-server-67caf26a/whatsapp";
+
+function mapWhatsAppAliasPath(pathname: string): string {
+  if (pathname === "/whatsapp") return LEGACY_WHATSAPP_PREFIX;
+  if (pathname.startsWith("/whatsapp/")) {
+    return `${LEGACY_WHATSAPP_PREFIX}${pathname.slice("/whatsapp".length)}`;
+  }
+  if (pathname === "/rendizy-server/whatsapp") return LEGACY_WHATSAPP_PREFIX;
+  if (pathname.startsWith("/rendizy-server/whatsapp/")) {
+    return `${LEGACY_WHATSAPP_PREFIX}${pathname.slice("/rendizy-server/whatsapp".length)}`;
+  }
+  return pathname;
+}
+
+app.all("/whatsapp/*", async (c) => {
+  const raw = c.req.raw;
+  const url = new URL(raw.url);
+  url.pathname = mapWhatsAppAliasPath(url.pathname);
+
+  const forwardedReq = new Request(url.toString(), {
+    method: raw.method,
+    headers: raw.headers,
+    body: raw.body,
+  });
+
+  return app.fetch(forwardedReq);
+});
+
+app.all("/rendizy-server/whatsapp/*", async (c) => {
+  const raw = c.req.raw;
+  const url = new URL(raw.url);
+  url.pathname = mapWhatsAppAliasPath(url.pathname);
+
+  const forwardedReq = new Request(url.toString(), {
+    method: raw.method,
+    headers: raw.headers,
+    body: raw.body,
+  });
+
+  return app.fetch(forwardedReq);
+});
 
 // ============================================================================
 // STAYS.NET INTEGRAÇÃO
@@ -178,6 +252,17 @@ app.notFound((c) => c.json({ message: "Not Found" }, 404));
 
 app.onError((err, c) => {
   console.error("Unhandled error:", err);
+  const anyErr = err as any;
+  const status = typeof anyErr?.status === 'number' ? anyErr.status : undefined;
+  if (status && status >= 400 && status < 600) {
+    return c.json(
+      {
+        error: anyErr?.message || 'Error',
+        ...(anyErr?.details ? { details: anyErr.details } : {}),
+      },
+      status
+    );
+  }
   return c.json({ error: "Internal Server Error" }, 500);
 });
 

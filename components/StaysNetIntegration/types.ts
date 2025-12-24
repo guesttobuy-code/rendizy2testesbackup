@@ -69,6 +69,7 @@ export interface ImportOptions {
   selectedPropertyIds: string[];
   startDate?: string;
   endDate?: string;
+  dateType?: 'creation' | 'checkin' | 'checkout' | 'included';
 }
 
 export type ImportType = 'all' | 'properties' | 'reservations' | 'guests' | 'test';

@@ -10,7 +10,7 @@
  * - Bloqueios não devem virar registros em `reservations`
  */
 
-import { Context } from 'npm:hono@4.6.14';
+import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
 import { blockToSql } from './utils-block-mapper.ts';
 import type { Block, BlockSubtype } from './types.ts';

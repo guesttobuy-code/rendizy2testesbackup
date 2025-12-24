@@ -136,6 +136,14 @@ function safeInt(value: any, defaultValue: number = 0): number {
   return Math.round(num); // ✅ FIX: Arredondar decimais para INTEGER
 }
 
+function parseOptionalDateToIso(value: any): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 // ============================================================================
 // FUNÇÃO AUXILIAR: Mapear status StaysNet → Rendizy
 // ============================================================================
@@ -233,7 +241,7 @@ export async function importStaysNetReservations(c: Context) {
 
     const from = String((c.req.query('from') || bodyFrom || fromDate.toISOString().split('T')[0]) ?? '').trim();
     const to = String((c.req.query('to') || bodyTo || toDate.toISOString().split('T')[0]) ?? '').trim();
-    const dateType = String((c.req.query('dateType') || body?.dateType || 'creation') ?? '').trim();
+    const dateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();
     const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20))); // ✅ max 20
     const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 500));
 
@@ -314,6 +322,22 @@ export async function importStaysNetReservations(c: Context) {
       const res = reservations[i];
       const confirmationCode = res.confirmationCode || res._id || `RES-${i + 1}`;
 
+      // Candidate fields for "created" timestamps in StaysNet payloads
+      const sourceCreatedAtRaw =
+        (res as any).createdAt ??
+        (res as any).created_at ??
+        (res as any).bookingDate ??
+        (res as any).booking_date ??
+        (res as any).reservationDate ??
+        (res as any).reservation_date ??
+        (res as any).dateCreated ??
+        (res as any).date_created ??
+        (res as any).createdOn ??
+        (res as any).created_on ??
+        (res as any).created;
+
+      const sourceCreatedAtIso = parseOptionalDateToIso(sourceCreatedAtRaw);
+
       if (debug && debugSample.length < 8) {
         const keys = Object.keys(res || {});
         const listingRelatedKeys = keys.filter((k) => /listing|property/i.test(k)).slice(0, 40);
@@ -335,6 +359,8 @@ export async function importStaysNetReservations(c: Context) {
           confirmationCode,
           externalId: (res._id || res.confirmationCode || null) as any,
           type: (res as any).type,
+          sourceCreatedAtRaw,
+          sourceCreatedAtIso,
           keys: keys.slice(0, 60),
           listingRelatedKeys,
           propertyId: (res as any).propertyId,
@@ -582,25 +608,39 @@ export async function importStaysNetReservations(c: Context) {
 
           // Metadata
           created_by: DEFAULT_USER_ID,
+          source_created_at: sourceCreatedAtIso,
           confirmed_at: res.status === 'confirmed' ? new Date().toISOString() : null
         };
 
         // ====================================================================
-        // 2.5: INSERIR NA TABELA reservations
+        // 2.5: UPSERT NA TABELA reservations (idempotente)
         // ====================================================================
-        console.log(`   ➕ Inserindo reservation (property_id: ${propertyId || 'NULL'})...`);
-        
-        const { data: insertedReservation, error: insertError } = await supabase
+        console.log(`   ♻️ Upsert reservation (property_id: ${propertyId || 'NULL'})...`);
+
+        let { data: upsertedReservation, error: upsertError } = await supabase
           .from('reservations')
-          .insert(reservationData)
+          .upsert(reservationData, { onConflict: 'id' })
           .select('id')
           .single();
 
-        if (insertError) {
-          throw new Error(`Falha ao inserir reservation: ${insertError.message}`);
+        // Compat: se a migration ainda não foi aplicada, não quebrar o import inteiro.
+        if (upsertError && /source_created_at/i.test(upsertError.message) && /does not exist/i.test(upsertError.message)) {
+          console.warn('⚠️ Coluna source_created_at não existe. Rode a migration; import seguirá sem esse campo por enquanto.');
+          const { source_created_at: _ignored, ...reservationDataWithoutSourceCreatedAt } = reservationData as any;
+          const retry = await supabase
+            .from('reservations')
+            .upsert(reservationDataWithoutSourceCreatedAt, { onConflict: 'id' })
+            .select('id')
+            .single();
+          upsertedReservation = retry.data as any;
+          upsertError = retry.error as any;
         }
 
-        console.log(`   ✅ Reservation salva: ${insertedReservation.id}`);
+        if (upsertError) {
+          throw new Error(`Falha ao upsert reservation: ${upsertError.message}`);
+        }
+
+        console.log(`   ✅ Reservation salva: ${upsertedReservation.id}`);
         saved++;
 
       } catch (err: any) {

@@ -8,9 +8,12 @@
  * @date 2025-11-03
  */
 
+import { useEffect, useState } from 'react';
+
 import { Calendar, Home, Plus, DollarSign, Users, MessageSquare, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
+import { reservationsApi } from '../utils/api';
 
 interface DashboardInicialSimpleProps {
   conflicts?: any[];
@@ -30,6 +33,40 @@ export function DashboardInicialSimple({
   
   console.log('✅ DashboardInicialSimple renderizado');
 
+  const [kpis, setKpis] = useState<{
+    date: string;
+    checkinsToday: number;
+    checkoutsToday: number;
+    inHouseToday: number;
+    newReservationsToday: number;
+  } | null>(null);
+  const [kpisLoading, setKpisLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setKpisLoading(true);
+
+    reservationsApi
+      .getKpis()
+      .then((res) => {
+        if (!alive) return;
+        if (res?.success && res.data) {
+          setKpis(res.data);
+        }
+      })
+      .catch(() => {
+        // silencioso: dashboard segue renderizando
+      })
+      .finally(() => {
+        if (!alive) return;
+        setKpisLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <div className="flex-1 overflow-auto p-8 bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -44,58 +81,58 @@ export function DashboardInicialSimple({
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Propriedades */}
+        {/* Check-ins hoje */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Propriedades</CardTitle>
-            <Home className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl">{properties.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Total de imóveis cadastrados
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Reservas */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reservas</CardTitle>
+            <CardTitle className="text-sm font-medium">Check-ins hoje</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{reservations.length}</div>
+            <div className="text-2xl">{kpis ? kpis.checkinsToday : kpisLoading ? '—' : 0}</div>
             <p className="text-xs text-muted-foreground">
-              Reservas ativas/futuras
+              Entradas no dia
             </p>
           </CardContent>
         </Card>
 
-        {/* Conflitos */}
+        {/* Check-outs hoje */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conflitos</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Check-outs hoje</CardTitle>
+            <Home className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{conflicts.length}</div>
+            <div className="text-2xl">{kpis ? kpis.checkoutsToday : kpisLoading ? '—' : 0}</div>
             <p className="text-xs text-muted-foreground">
-              Alertas pendentes
+              Saídas no dia
             </p>
           </CardContent>
         </Card>
 
-        {/* Taxa de Ocupação */}
+        {/* In-house hoje */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ocupação</CardTitle>
+            <CardTitle className="text-sm font-medium">In-house hoje</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl">{kpis ? kpis.inHouseToday : kpisLoading ? '—' : 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Hóspedes hospedados hoje
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Reservas novas hoje */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Reservas novas hoje</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">0%</div>
+            <div className="text-2xl">{kpis ? kpis.newReservationsToday : kpisLoading ? '—' : 0}</div>
             <p className="text-xs text-muted-foreground">
-              Próximos 30 dias
+              Criação na plataforma (fonte)
             </p>
           </CardContent>
         </Card>

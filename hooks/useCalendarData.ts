@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { propertiesApi, reservationsApi, calendarApi } from '../utils/api';
 import { toast } from 'sonner';
 import type { Property } from '../App';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 // ============================================
 // PROPERTIES
@@ -25,8 +26,8 @@ export function useProperties() {
     queryFn: async () => {
       console.log('🔄 [useProperties] Carregando imóveis de Anúncios Ultimate...');
       
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
+      const ANON_KEY = publicAnonKey;
       
       const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
         headers: {

@@ -162,6 +162,141 @@ export async function listReservations(c: Context) {
 }
 
 // ============================================================================
+// KPI - RESERVAS (CHECKIN/OUT/INHOUSE/NOVAS HOJE)
+// ============================================================================
+
+function formatDateSaoPaulo(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const year = parts.find((p) => p.type === 'year')?.value;
+  const month = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+
+  return `${year}-${month}-${day}`;
+}
+
+export async function getReservationsKpis(c: Context) {
+  try {
+    const tenant = getTenant(c);
+    const client = getSupabaseClient();
+
+    logInfo(`Calculating reservations KPIs for tenant: ${tenant.username} (${tenant.type})`);
+
+    const organizationId = await getOrganizationIdForRequest(c);
+    const orgIdFinal = organizationId || RENDIZY_MASTER_ORG_ID;
+    logInfo(`✅ [getReservationsKpis] Filtering reservations by organization_id: ${orgIdFinal}`);
+
+    const today = formatDateSaoPaulo(new Date());
+    const startOfDay = `${today}T00:00:00-03:00`;
+    const endOfDay = `${today}T23:59:59.999-03:00`;
+    const statusNotIn = '("cancelled","no_show")';
+
+    const qCheckins = client
+      .from('reservations')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgIdFinal)
+      .eq('check_in', today)
+      .not('status', 'in', statusNotIn);
+
+    const qCheckouts = client
+      .from('reservations')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgIdFinal)
+      .eq('check_out', today)
+      .not('status', 'in', statusNotIn);
+
+    const qInHouse = client
+      .from('reservations')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgIdFinal)
+      .lte('check_in', today)
+      .gt('check_out', today)
+      .not('status', 'in', statusNotIn);
+
+    const qNewTodayBySource = client
+      .from('reservations')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgIdFinal)
+      .gte('source_created_at', startOfDay)
+      .lte('source_created_at', endOfDay)
+      .not('status', 'in', statusNotIn);
+
+    const qNewTodayByFallback = client
+      .from('reservations')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgIdFinal)
+      .is('source_created_at', null)
+      .gte('created_at', startOfDay)
+      .lte('created_at', endOfDay)
+      .not('status', 'in', statusNotIn);
+
+    const [rCheckins, rCheckouts, rInHouse, rNewSource, rNewFallback] = await Promise.all([
+      qCheckins,
+      qCheckouts,
+      qInHouse,
+      qNewTodayBySource,
+      qNewTodayByFallback,
+    ]);
+
+    const firstError = rCheckins.error || rCheckouts.error || rInHouse.error || rNewSource.error || rNewFallback.error;
+    const sourceCreatedAtMissing =
+      !!(rNewSource.error || rNewFallback.error) &&
+      /source_created_at/i.test((rNewSource.error || rNewFallback.error)?.message || '') &&
+      /does not exist/i.test((rNewSource.error || rNewFallback.error)?.message || '');
+
+    if (firstError && !sourceCreatedAtMissing) {
+      console.error('❌ [getReservationsKpis] SQL error:', firstError);
+      return c.json(errorResponse('Erro ao calcular KPIs de reservas', { details: firstError.message }), 500);
+    }
+
+    const checkinsToday = rCheckins.count ?? 0;
+    const checkoutsToday = rCheckouts.count ?? 0;
+    const inHouseToday = rInHouse.count ?? 0;
+
+    let newReservationsToday = (rNewSource.count ?? 0) + (rNewFallback.count ?? 0);
+    if (sourceCreatedAtMissing) {
+      // Fallback seguro antes da migration: usa apenas created_at
+      const qNewTodayByCreatedAtOnly = client
+        .from('reservations')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgIdFinal)
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay)
+        .not('status', 'in', statusNotIn);
+      const rCreatedOnly = await qNewTodayByCreatedAtOnly;
+      if (rCreatedOnly.error) {
+        console.error('❌ [getReservationsKpis] SQL error fallback created_at:', rCreatedOnly.error);
+        return c.json(errorResponse('Erro ao calcular KPIs de reservas', { details: rCreatedOnly.error.message }), 500);
+      }
+      newReservationsToday = rCreatedOnly.count ?? 0;
+    }
+
+    return c.json(
+      successResponse({
+        date: today,
+        checkinsToday,
+        checkoutsToday,
+        inHouseToday,
+        newReservationsToday,
+      })
+    );
+  } catch (error: any) {
+    console.error('❌ [getReservationsKpis] ERRO COMPLETO:', error);
+    return c.json(
+      errorResponse('Failed to calculate reservations KPIs', {
+        details: error?.message || String(error),
+      }),
+      500
+    );
+  }
+}
+
+// ============================================================================
 // BUSCAR RESERVA POR ID
 // ============================================================================
 

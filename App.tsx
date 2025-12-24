@@ -93,6 +93,7 @@ import { ListaAnuncios } from './components/anuncio-ultimate/ListaAnuncios';
 import FormularioAnuncio from './components/anuncio-ultimate/FormularioAnuncio';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
+import { projectId, publicAnonKey } from './utils/supabase/info';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -588,8 +589,8 @@ function App() {
       console.log('🔄 Carregando imóveis de Anúncios Ultimate...');
 
       try {
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-        const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
+        const ANON_KEY = publicAnonKey;
         
         const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
           headers: {

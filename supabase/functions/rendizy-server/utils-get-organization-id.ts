@@ -19,6 +19,18 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getSupabaseClient } from './kv_store.tsx';
 import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, SUPABASE_PROJECT_REF } from './utils-env.ts';
 
+class HttpStatusError extends Error {
+  status: number;
+  details?: unknown;
+
+  constructor(status: number, message: string, details?: unknown) {
+    super(message);
+    this.name = 'HttpStatusError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
 /**
  * Helper para parsear cookies
  */
@@ -228,13 +240,16 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
       // Query vazia, continuar
     }
     
-    // 0.1. PRIORIDADE 0.1: Verificar se organization_id foi passado no body (só tenta se query não encontrou)
-    // Nota: Isso pode consumir o body, então só tentamos se não encontramos no query
+    // 0.1. PRIORIDADE 0.1: Verificar se organization_id foi passado no body (somente se Content-Type for JSON)
+    // Nota: Ler body pode consumir stream e quebrar multipart/form-data, então protegemos pelo Content-Type
     try {
-      const body = await c.req.json().catch(() => ({}));
-      if (body && typeof body === 'object' && body.organization_id && typeof body.organization_id === 'string') {
-        console.log(`✅ [getOrganizationIdOrThrow] organization_id encontrado no body: ${body.organization_id}`);
-        return body.organization_id;
+      const contentType = (c.req.header('Content-Type') || '').toLowerCase();
+      if (contentType.includes('application/json')) {
+        const body = await c.req.json().catch(() => ({}));
+        if (body && typeof body === 'object' && (body as any).organization_id && typeof (body as any).organization_id === 'string') {
+          console.log(`✅ [getOrganizationIdOrThrow] organization_id encontrado no body: ${(body as any).organization_id}`);
+          return (body as any).organization_id;
+        }
       }
     } catch {
       // Body vazio, não-JSON ou já foi consumido, continuar
@@ -250,11 +265,9 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
     const token = extractTokenFromContext(c);
     
     if (!token) {
-      console.error('❌ [getOrganizationIdOrThrow] Token ausente no header Authorization');
+      console.error('❌ [getOrganizationIdOrThrow] Token ausente');
       console.error('❌ Headers disponíveis:', Object.keys(c.req.raw.headers));
-      // Fallback: tentar usar UUID fixo se não houver token
-      console.warn('⚠️ [getOrganizationIdOrThrow] Usando UUID fixo como fallback (sem token)');
-      return '00000000-0000-0000-0000-000000000001';
+      throw new HttpStatusError(401, 'Unauthorized: token ausente');
     }
 
     // 2. PRIORIDADE 1: Tentar buscar da tabela sessions do SQL (ARQUITETURA SQL)
@@ -368,19 +381,21 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
       }
     }
     
-    // Se não encontrou sessão no SQL, retornar erro (não mais fallback para KV Store)
+    // Se não encontrou sessão no SQL, retornar erro (sem fallback)
     console.error(`❌ [getOrganizationIdOrThrow] Sessão não encontrada na tabela SQL - usuário não autenticado`);
     console.error(`❌ [getOrganizationIdOrThrow] Token: ${token ? `${token.substring(0, 20)}...` : 'NONE'}`);
     console.error(`❌ [getOrganizationIdOrThrow] SessionError:`, sessionError?.code || 'NONE');
-    
-    // Usar UUID fixo como fallback apenas se for absolutamente necessário
-    // (pode indicar problema de autenticação)
-    console.warn('⚠️ [getOrganizationIdOrThrow] Usando UUID fixo como fallback (sessão não encontrada no SQL)');
-    return '00000000-0000-0000-0000-000000000001';
+
+    throw new HttpStatusError(401, 'Unauthorized: sessão inválida ou expirada', {
+      code: sessionError?.code,
+      message: sessionError?.message,
+    });
   } catch (error) {
-    console.error('❌ [getOrganizationIdOrThrow] Erro ao obter organization_id, usando fallback:', error);
-    // Retornar UUID fixo ao invés de lançar erro
-    return '00000000-0000-0000-0000-000000000001';
+    if (error instanceof HttpStatusError) {
+      throw error;
+    }
+    console.error('❌ [getOrganizationIdOrThrow] Erro ao obter organization_id:', error);
+    throw new HttpStatusError(500, 'Internal Error: falha ao resolver organization_id');
   }
 }
 

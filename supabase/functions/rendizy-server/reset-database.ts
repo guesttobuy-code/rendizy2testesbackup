@@ -10,7 +10,7 @@
  * @date 2025-11-03
  */
 
-import { Hono } from 'npm:hono@4';
+import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 
 export const resetRoutes = new Hono();

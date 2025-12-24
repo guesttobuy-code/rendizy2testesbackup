@@ -14,8 +14,10 @@
  * @date 2025-12-13
  */
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { projectId, publicAnonKey } from '../utils/supabase/info';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
+const ANON_KEY = publicAnonKey;
 
 interface PendingChange {
   field: string;

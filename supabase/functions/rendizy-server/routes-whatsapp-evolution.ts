@@ -72,10 +72,10 @@
  */
 
 // @ts-ignore - Deno runtime suporta npm: protocol
-import { Hono } from 'npm:hono@4.0.2';
+import { Hono } from 'npm:hono';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { getSupabaseClient } from './kv_store.tsx';
-import { monitorWhatsAppConnection, heartbeat } from './services/whatsapp-monitor.ts';
+import { monitorWhatsAppConnection } from './services/whatsapp-monitor.ts';
 
 // ============================================================================
 // TYPES
@@ -236,7 +236,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[WhatsApp] [${organizationId}] Erro ao enviar mensagem:`, errorText);
-        return c.json({ error: 'Erro ao enviar mensagem', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao enviar mensagem', details: errorText }, response.status as any);
       }
 
       const data = await response.json();
@@ -352,7 +352,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[WhatsApp] [${organizationId}] Erro ao enviar mídia:`, errorText);
-        return c.json({ error: 'Erro ao enviar mídia', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao enviar mídia', details: errorText }, response.status as any);
       }
 
       const data = await response.json();
@@ -470,7 +470,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[WhatsApp] [${organizationId}] Erro ao buscar mensagens:`, errorText);
-        return c.json({ error: 'Erro ao buscar mensagens', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao buscar mensagens', details: errorText }, response.status as any);
       }
 
       const responseData = await response.json();
@@ -716,7 +716,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
       );
 
       if (!response.ok) {
-        return c.json({ error: 'Erro ao buscar informações' }, response.status);
+        return c.json({ error: 'Erro ao buscar informações' }, response.status as any);
       }
 
       const instances = await response.json();
@@ -771,7 +771,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[WhatsApp] [${organizationId}] Erro ao obter QR Code:`, errorText);
-        return c.json({ error: 'Erro ao obter QR Code', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao obter QR Code', details: errorText }, response.status as any);
       }
 
       const data = await response.json();
@@ -886,7 +886,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
       );
 
       if (!response.ok) {
-        return c.json({ error: 'Erro ao desconectar' }, response.status);
+        return c.json({ error: 'Erro ao desconectar' }, response.status as any);
       }
 
       return c.json({ success: true, message: 'Desconectado com sucesso' });
@@ -920,7 +920,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
       );
 
       if (!response.ok) {
-        return c.json({ error: 'Erro ao reconectar' }, response.status);
+        return c.json({ error: 'Erro ao reconectar' }, response.status as any);
       }
 
       return c.json({ success: true, message: 'Reconectado com sucesso' });
@@ -1409,7 +1409,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
   app.post('/rendizy-server/make-server-67caf26a/whatsapp/webhook', async (c) => {
     try {
       const payload = await c.req.json();
-      const { event, instance, data } = payload;
+      const { event, data } = payload;
 
       console.log('[WhatsApp Webhook] 📨 Recebido evento:', event);
 
@@ -1612,7 +1612,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        return c.json({ error: 'Erro ao enviar lista', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao enviar lista', details: errorText }, response.status as any);
       }
 
       const data = await response.json();
@@ -1655,7 +1655,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        return c.json({ error: 'Erro ao enviar localização', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao enviar localização', details: errorText }, response.status as any);
       }
 
       const data = await response.json();
@@ -1698,7 +1698,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        return c.json({ error: 'Erro ao enviar enquete', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao enviar enquete', details: errorText }, response.status as any);
       }
 
       const data = await response.json();
@@ -1741,7 +1741,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        return c.json({ error: 'Erro ao marcar como lido', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao marcar como lido', details: errorText }, response.status as any);
       }
 
       const data = await response.json();
@@ -1782,7 +1782,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        return c.json({ error: 'Erro ao atualizar configurações', details: errorText }, response.status);
+        return c.json({ error: 'Erro ao atualizar configurações', details: errorText }, response.status as any);
       }
 
       const data = await response.json();

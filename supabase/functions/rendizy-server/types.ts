@@ -543,6 +543,7 @@ export interface Reservation {
 
   // Metadata
   createdAt: string; // ISO date
+  sourceCreatedAt?: string; // ISO datetime (criação na plataforma, quando disponível)
   updatedAt: string; // ISO date
   createdBy: string; // ID do usuário que criou
   confirmedAt?: string; // ISO date

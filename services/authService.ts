@@ -16,6 +16,65 @@ console.log(`[AuthService] Anon Key: ${publicAnonKey ? '✅ Configurada' : '❌ 
 const API_BASE = API_BASE_URL;
 const STORAGE_KEY = 'rendizy-token';
 
+function normalizeSupabaseAnonKey(key: string): string {
+  return (key || '').trim().replace(/^Bearer\s+/i, '');
+}
+
+function isProbablyJwt(token: string): boolean {
+  // Supabase anon/service keys are JWT-like: <header>.<payload>.<signature>
+  const parts = token.split('.');
+  return parts.length === 3 && parts.every((p) => p.length > 0);
+}
+
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const payloadB64 = token.split('.')[1];
+    if (!payloadB64) return null;
+
+    const normalized = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function getSupabaseGatewayHeaders(): Record<string, string> {
+  const anonKey = normalizeSupabaseAnonKey(publicAnonKey);
+
+  if (!anonKey) {
+    throw new Error(
+      'VITE_SUPABASE_ANON_KEY não configurada. Configure a anon key do projeto odcgnzfremrqnvtitpcc.'
+    );
+  }
+
+  if (/^<.*>$/.test(anonKey)) {
+    throw new Error(
+      'VITE_SUPABASE_ANON_KEY está com placeholder (ex.: <SUPABASE_ANON_KEY>). Substitua pelo valor real do Supabase (Settings → API → anon public key).'
+    );
+  }
+
+  if (!isProbablyJwt(anonKey)) {
+    const dotCount = (anonKey.match(/\./g) || []).length;
+    throw new Error(
+      `VITE_SUPABASE_ANON_KEY inválida (não parece um JWT). Dica: ela deve ser um token no formato aaa.bbb.ccc (dots=${dotCount}). Cole a anon public key do Supabase (Settings → API) do projeto odcgnzfremrqnvtitpcc.`
+    );
+  }
+
+  const payload = decodeJwtPayload(anonKey);
+  if (payload?.role === 'service_role') {
+    throw new Error(
+      'Você colou uma SERVICE_ROLE_KEY no frontend. Isso é inseguro. Use a anon public key no VITE_SUPABASE_ANON_KEY e deixe a service role apenas em Supabase secrets (Edge Functions) ou ambiente de backend.'
+    );
+  }
+
+  return {
+    apikey: anonKey,
+    Authorization: `Bearer ${anonKey}`,
+  };
+}
+
 export interface LoginResponse {
   success: boolean;
   accessToken?: string;
@@ -89,12 +148,12 @@ function normalizeLogin(data: any): LoginResponse {
 export async function login(username: string, password: string): Promise<LoginResponse> {
   console.log('🔐 [authService.login] Iniciando login...', { username, API_BASE });
   try {
+    const gatewayHeaders = getSupabaseGatewayHeaders();
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: publicAnonKey,
-        Authorization: `Bearer ${publicAnonKey}`,
+        ...gatewayHeaders,
       },
       body: JSON.stringify({ username, password }),
     });
@@ -137,9 +196,13 @@ export async function login(username: string, password: string): Promise<LoginRe
  */
 export async function refreshToken(): Promise<RefreshResponse> {
   try {
+    const gatewayHeaders = getSupabaseGatewayHeaders();
     const response = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...gatewayHeaders,
+      },
     });
     const data = await response.json();
 
@@ -172,6 +235,7 @@ export async function refreshToken(): Promise<RefreshResponse> {
  */
 export async function getCurrentUser(): Promise<UserResponse> {
   try {
+    const gatewayHeaders = getSupabaseGatewayHeaders();
     const token = localStorage.getItem(STORAGE_KEY);
     if (!token) {
       return { success: false, error: 'Token não encontrado' };
@@ -181,8 +245,7 @@ export async function getCurrentUser(): Promise<UserResponse> {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        apikey: publicAnonKey,
-        Authorization: `Bearer ${publicAnonKey}`,
+        ...gatewayHeaders,
         'X-Auth-Token': token,
       },
     });
@@ -195,8 +258,7 @@ export async function getCurrentUser(): Promise<UserResponse> {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            apikey: publicAnonKey,
-            Authorization: `Bearer ${publicAnonKey}`,
+            ...gatewayHeaders,
             'X-Auth-Token': newToken || '',
           },
         });

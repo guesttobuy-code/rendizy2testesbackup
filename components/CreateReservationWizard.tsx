@@ -12,6 +12,7 @@ import { Calendar, ChevronLeft, ChevronRight, Search, Plus, Star, Loader2, Users
 import { Property } from '../App';
 import { guestsApi, reservationsApi, propertiesApi, calendarApi } from '../utils/api';
 import { toast } from 'sonner';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -226,11 +227,13 @@ export function CreateReservationWizard({
     console.log('🏠 Carregando imóvel:', propertyId);
     try {
       // ✅ FIX: Usar endpoint correto /anuncios-ultimate/:id ao invés de /properties/:id
-      const API_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rendizy-server`;
-      const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
+      const API_BASE = `${SUPABASE_URL}/functions/v1/rendizy-server`;
+      const ANON_KEY = publicAnonKey;
       
       const response = await fetch(`${API_BASE}/anuncios-ultimate/${propertyId}`, {
         headers: {
+          'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
           'Content-Type': 'application/json'
         }
