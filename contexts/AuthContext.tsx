@@ -8,6 +8,19 @@
 // Mantemos este arquivo apenas como re-export para compatibilidade de imports antigos.
 
 export * from '../src/contexts/AuthContext';
+
+/*
+ * =============================================================
+ * LEGADO (NÃO USAR)
+ * -------------------------------------------------------------
+ * O restante deste arquivo continha uma implementação duplicada
+ * do AuthContext, que causava estados divergentes (logout/UI).
+ * Mantido apenas para referência histórica enquanto removemos
+ * imports antigos; está intencionalmente comentado.
+ * =============================================================
+ */
+
+/*
             // Isso dá tempo para o ProtectedRoute aguardar a validação
             setTimeout(() => {
               if (isMounted) {
@@ -610,3 +623,5 @@ export function useAuth() {
   }
   return context;
 }
+
+*/
