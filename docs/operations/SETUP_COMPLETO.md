@@ -1097,10 +1097,10 @@ export function PricingModule() {
 #### 🎯 **REGRA DE OURO:**
 > **"WhatsApp está funcionando - NÃO REGREDIR!"**  
 > **"Conexão persistente + Atualização automática = FUNCIONA PERFEITAMENTE"**  
-> **"X-Auth-Token = Solução que funciona - NÃO VOLTAR PARA Authorization: Bearer"**
+> **"X-Auth-Token = token de sessão do usuário; nunca colocar o token do usuário no Authorization. Para Supabase Edge, Authorization: Bearer deve ser o ANON KEY."**
 
 #### ❌ **NUNCA FAZER:**
-- ❌ Voltar para `Authorization: Bearer` com token do usuário (causa erro JWT)
+- ❌ Colocar token do usuário em `Authorization: Bearer` (causa erro JWT)
 - ❌ Remover `X-Auth-Token` (é a solução que funciona)
 - ❌ Remover verificação automática de status (é essencial)
 - ❌ Remover polling automático (é essencial para atualização)

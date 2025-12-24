@@ -99,15 +99,18 @@ components/StaysNetIntegration.tsx (1469 linhas - monolito)
 
 ### **2. Autenticação StaysNet**
 ```typescript
-// ✅ CORRETO: X-Auth-Token (não Bearer!)
+// ✅ CORRETO (Supabase Edge + sessão do app):
+// - Authorization/apikey: ANON KEY (JWT do Supabase Gateway)
+// - X-Auth-Token: token de sessão real do usuário (Rendizy)
 headers: {
-  'X-Auth-Token': config.apiKey,
-  'X-Account-Name': config.accountName
+  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+  'apikey': SUPABASE_ANON_KEY,
+  'X-Auth-Token': sessionToken
 }
 
-// ❌ ERRADO: Authorization Bearer causa 401
+// ❌ ERRADO: colocar token do usuário no Authorization (gateway tenta validar como JWT)
 headers: {
-  'Authorization': `Bearer ${config.apiKey}` // NÃO USAR!
+  'Authorization': `Bearer ${sessionToken}` // NÃO USAR!
 }
 ```
 
