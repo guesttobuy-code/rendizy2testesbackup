@@ -76,6 +76,23 @@ function extractTokenFromContext(c: Context): string | undefined {
   return authHeader.split(' ')[1];
 }
 
+function isServiceRoleRequest(c: Context): boolean {
+  const serviceRoleKey = SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) return false;
+
+  const apiKeyHeader = c.req.header('apikey');
+  if (apiKeyHeader && apiKeyHeader === serviceRoleKey) {
+    return true;
+  }
+
+  const authHeader = c.req.header('Authorization');
+  if (authHeader && authHeader === `Bearer ${serviceRoleKey}`) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Converte imobiliariaId (KV Store) → organizationId (UUID SQL)
  * 
@@ -229,32 +246,17 @@ export async function getOrganizationIdFromSupabaseAuth(token: string): Promise<
  */
 export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
   try {
-    // 0. PRIORIDADE 0: Verificar se organization_id foi passado explicitamente no query (não consome body)
+    // 0. Capturar override (mas NÃO retornar antes de autenticar)
+    let orgIdOverride: string | undefined;
     try {
       const orgIdFromQuery = c.req.query('organization_id');
       if (orgIdFromQuery && typeof orgIdFromQuery === 'string') {
-        console.log(`✅ [getOrganizationIdOrThrow] organization_id encontrado no query: ${orgIdFromQuery}`);
-        return orgIdFromQuery;
+        orgIdOverride = orgIdFromQuery;
       }
     } catch {
       // Query vazia, continuar
     }
-    
-    // 0.1. PRIORIDADE 0.1: Verificar se organization_id foi passado no body (somente se Content-Type for JSON)
-    // Nota: Ler body pode consumir stream e quebrar multipart/form-data, então protegemos pelo Content-Type
-    try {
-      const contentType = (c.req.header('Content-Type') || '').toLowerCase();
-      if (contentType.includes('application/json')) {
-        const body = await c.req.json().catch(() => ({}));
-        if (body && typeof body === 'object' && (body as any).organization_id && typeof (body as any).organization_id === 'string') {
-          console.log(`✅ [getOrganizationIdOrThrow] organization_id encontrado no body: ${(body as any).organization_id}`);
-          return (body as any).organization_id;
-        }
-      }
-    } catch {
-      // Body vazio, não-JSON ou já foi consumido, continuar
-    }
-    
+
     // 1. Extrair token do header Authorization
     console.log('🔍 [getOrganizationIdOrThrow] Headers recebidos:', {
       'X-Auth-Token': c.req.header('X-Auth-Token')?.substring(0, 20) + '...',
@@ -263,6 +265,33 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
     });
     
     const token = extractTokenFromContext(c);
+
+    // 1.1. Se for request service-role, pode usar override sem token
+    const serviceRole = isServiceRoleRequest(c);
+    if (serviceRole) {
+      // 0.1: Permitir override via body apenas em requests internas (service role)
+      try {
+        const contentType = (c.req.header('Content-Type') || '').toLowerCase();
+        if (!orgIdOverride && contentType.includes('application/json')) {
+          const body = await c.req.json().catch(() => ({}));
+          if (
+            body &&
+            typeof body === 'object' &&
+            (body as any).organization_id &&
+            typeof (body as any).organization_id === 'string'
+          ) {
+            orgIdOverride = (body as any).organization_id;
+          }
+        }
+      } catch {
+        // Body vazio, não-JSON ou já foi consumido, continuar
+      }
+
+      if (orgIdOverride) {
+        console.log(`✅ [getOrganizationIdOrThrow] override interno (service role) organization_id: ${orgIdOverride}`);
+        return orgIdOverride;
+      }
+    }
     
     if (!token) {
       console.error('❌ [getOrganizationIdOrThrow] Token ausente');
@@ -364,6 +393,12 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
         .maybeSingle();
       
       if (user?.type === 'superadmin') {
+        // Superadmin pode operar em uma organization_id específica quando explicitamente fornecida
+        if (orgIdOverride && typeof orgIdOverride === 'string') {
+          console.log(`✅ [getOrganizationIdOrThrow] Superadmin override organization_id: ${orgIdOverride}`);
+          return orgIdOverride;
+        }
+
         // Superadmin sempre usa organização Rendizy (master)
         const rendizyOrgId = '00000000-0000-0000-0000-000000000000';
         console.log(`✅ [getOrganizationIdOrThrow] Superadmin detectado - usando organização Rendizy: ${rendizyOrgId}`);
