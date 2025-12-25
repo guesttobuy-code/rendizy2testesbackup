@@ -1,4 +1,4 @@
-# RENDIZY PMS
+# RENDIZY PMS,
 
 > **Sistema de Gestão de Propriedades para Aluguel por Temporada**
 > 
