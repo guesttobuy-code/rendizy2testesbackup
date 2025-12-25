@@ -1006,8 +1006,6 @@ function mapPaymentStatus(raw: string | undefined, fallback: string = 'pending')
     partially_paid: 'partial',
     refunded: 'refunded',
     refund: 'refunded',
-    cancelled: 'cancelled',
-    canceled: 'cancelled',
   };
   return map[v] || fallback;
 }
@@ -1167,7 +1165,7 @@ function mapStaysReservationToSql(input: any, organizationId: string, resolvedPr
     platform: 'other',
     external_id: externalId,
     external_url: externalUrl,
-    payment_status: mapPaymentStatus(input?.paymentStatus, derivedStatus === 'cancelled' ? 'cancelled' : 'pending'),
+    payment_status: mapPaymentStatus(input?.paymentStatus, 'pending'),
     payment_method: input?.paymentMethod || null,
     notes: input?.notes || null,
     special_requests: input?.specialRequests || null,

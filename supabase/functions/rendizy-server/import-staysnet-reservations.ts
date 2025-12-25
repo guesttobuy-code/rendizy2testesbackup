@@ -290,8 +290,6 @@ function mapPaymentStatus(raw: string | undefined, fallback: string = 'pending')
     partially_paid: 'partial',
     refunded: 'refunded',
     refund: 'refunded',
-    cancelled: 'cancelled',
-    canceled: 'cancelled',
   };
   return map[v] || fallback;
 }
@@ -785,7 +783,7 @@ export async function importStaysNetReservations(c: Context) {
           external_url: finalExternalUrl,
 
           // Pagamento
-          payment_status: mapPaymentStatus(res.paymentStatus, derivedStatus === 'cancelled' ? 'cancelled' : 'pending'),
+          payment_status: mapPaymentStatus(res.paymentStatus, 'pending'),
           payment_method: res.paymentMethod || null,
 
           // Comunicação
