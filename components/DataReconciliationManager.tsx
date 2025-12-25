@@ -451,7 +451,8 @@ export function DataReconciliationManager() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('airbnb');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [rendizySearchQuery, setRendizySearchQuery] = useState('');
+  const [platformSearchQuery, setPlatformSearchQuery] = useState('');
   const [mappings, setMappings] = useState<FieldMapping[]>([]);
   const [selectedRendizyField, setSelectedRendizyField] = useState<string | null>(null);
   const [selectedPlatformField, setSelectedPlatformField] = useState<string | null>(null);
@@ -476,8 +477,12 @@ export function DataReconciliationManager() {
   // Filtrar campos RENDIZY
   const filteredRendizyFields = RENDIZY_FIELDS.filter(field => {
     const matchesCategory = selectedCategory === 'all' || field.category === selectedCategory;
-    const matchesSearch = field.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         field.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = rendizySearchQuery.trim().toLowerCase();
+    const matchesSearch =
+      query.length === 0 ||
+      field.label.toLowerCase().includes(query) ||
+      field.name.toLowerCase().includes(query) ||
+      (field.description ?? '').toLowerCase().includes(query);
     return matchesCategory && matchesSearch;
   });
 
@@ -486,8 +491,13 @@ export function DataReconciliationManager() {
     ? platformFieldsWithRealData 
     : (PLATFORM_FIELDS[selectedPlatform] || []);
   const filteredPlatformFields = platformFields.filter(field => {
-    return field.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           field.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = platformSearchQuery.trim().toLowerCase();
+    return (
+      query.length === 0 ||
+      field.label.toLowerCase().includes(query) ||
+      field.name.toLowerCase().includes(query) ||
+      (field.description ?? '').toLowerCase().includes(query)
+    );
   });
 
   // Criar mapeamento
@@ -885,7 +895,7 @@ export function DataReconciliationManager() {
   };
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-12rem)]">
+    <div className="flex gap-6">
       {/* Sidebar com Filtros */}
       <div 
         className={`
@@ -934,8 +944,7 @@ export function DataReconciliationManager() {
 
         {/* Filters Content */}
         {!isSidebarCollapsed && showAdvancedFilters && (
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-4">
+          <div className="flex-1 p-4 space-y-4">
               {/* Plataforma */}
               <div>
                 <Label className="text-xs text-gray-600 dark:text-gray-400 mb-2 block">Plataforma</Label>
@@ -995,23 +1004,7 @@ export function DataReconciliationManager() {
               </div>
 
               <Separator />
-
-              {/* Busca */}
-              <div>
-                <Label className="text-xs text-gray-600 dark:text-gray-400 mb-2 block">Buscar Campos</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="Digite para buscar..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
+          </div>
         )}
       </div>
 
@@ -1066,7 +1059,7 @@ export function DataReconciliationManager() {
         </div>
 
         {/* Mapping Grid */}
-        <div className="grid grid-cols-2 gap-6 flex-1 overflow-hidden">
+        <div className="grid grid-cols-2 gap-6">
           {/* RENDIZY Fields - Left */}
           <Card>
             <CardHeader className="pb-3">
@@ -1081,8 +1074,19 @@ export function DataReconciliationManager() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[calc(100vh-28rem)]">
-                <div className="space-y-2 pr-4">
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar campo do RENDIZY..."
+                    value={rendizySearchQuery}
+                    onChange={(e) => setRendizySearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 pr-4">
                   {filteredRendizyFields.map(field => {
                     const isMapped = mappings.some(m => m.rendizyField === field.name);
                     const isSelected = selectedRendizyField === field.id;
@@ -1133,8 +1137,7 @@ export function DataReconciliationManager() {
                       </button>
                     );
                   })}
-                </div>
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
 
@@ -1152,8 +1155,19 @@ export function DataReconciliationManager() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[calc(100vh-28rem)]">
-                <div className="space-y-2 pr-4">
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar campo da plataforma..."
+                    value={platformSearchQuery}
+                    onChange={(e) => setPlatformSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 pr-4">
                   {filteredPlatformFields.map(field => {
                     const isMapped = mappings.some(m => m.platformField === field.name);
                     const isSelected = selectedPlatformField === field.id;
@@ -1201,8 +1215,7 @@ export function DataReconciliationManager() {
                       </button>
                     );
                   })}
-                </div>
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
         </div>
