@@ -82,7 +82,7 @@
     "dev": "vite",
     "dev:5173": "vite --port 5173",
     "dev:force": "vite --port 5173",
-    "build": "node -e \"console.log('Node:', process.version); const fs=require('fs'); const files=fs.readdirSync('.').filter(f=>f.startsWith('postcss.config')); console.log('postcss configs:', files);\" && node --require ./scripts/setup-crypto.js node_modules/vite/bin/vite.js build",
+    "build": "node -e \"console.log('Node:', process.version); const fs=require('fs'); const files=fs.readdirSync('.').filter(f=>f.startsWith('postcss.config')); console.log('postcss configs:', files);\" && node --import ./scripts/setup-crypto.js node_modules/vite/bin/vite.js build",
     "check-duplicates": "node ./scripts/check-duplicate-filenames.js"
   }
 }
