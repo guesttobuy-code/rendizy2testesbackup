@@ -768,6 +768,35 @@ export function MainSidebar({
     const { user, logout, isSuperAdmin } = useAuth();
     const navigate = useNavigate();
     const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const closeTimerRef = React.useRef<number | null>(null);
+    const hoveringRef = React.useRef(false);
+
+    const clearCloseTimer = () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+
+    const scheduleClose = (delayMs: number = 200) => {
+      clearCloseTimer();
+      closeTimerRef.current = window.setTimeout(() => {
+        hoveringRef.current = false;
+        setMenuOpen(false);
+      }, delayMs);
+    };
+
+    const handleMouseEnter = () => {
+      hoveringRef.current = true;
+      clearCloseTimer();
+      setMenuOpen(true);
+    };
+
+    const handleMouseLeave = () => {
+      hoveringRef.current = false;
+      scheduleClose(200);
+    };
 
     const handleLogout = async () => {
       try {
@@ -795,12 +824,23 @@ export function MainSidebar({
     const userEmail = user?.email || user?.username || '';
     const userInitials = getInitials(userName);
 
+    React.useEffect(() => {
+      return () => clearCloseTimer();
+    }, []);
+
     return (
       <div className={cn(
         "p-4 flex justify-center",
         isDark ? "border-t border-gray-700" : "border-t border-gray-200"
       )}>
-        <DropdownMenu>
+        <DropdownMenu
+          open={menuOpen}
+          onOpenChange={(nextOpen) => {
+            clearCloseTimer();
+            if (!nextOpen && hoveringRef.current) return;
+            setMenuOpen(nextOpen);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <TooltipProvider>
               <Tooltip>
@@ -811,7 +851,10 @@ export function MainSidebar({
                       ? "from-purple-500 to-pink-600" 
                       : "from-blue-500 to-purple-600",
                     isDark ? "ring-gray-700" : "ring-white"
-                  )}>
+                  )}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  >
                     {isSuperAdmin ? (
                       <Crown className="h-5 w-5 text-white" />
                     ) : (
@@ -834,6 +877,8 @@ export function MainSidebar({
               "w-56",
               isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
             )}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           >
             <DropdownMenuLabel className={cn(
               isDark ? "text-gray-200" : "text-gray-900"
@@ -861,7 +906,7 @@ export function MainSidebar({
             <DropdownMenuSeparator className={isDark ? "bg-gray-700" : "bg-gray-200"} />
             
             <DropdownMenuItem
-              onClick={() => navigate('/settings')}
+              onSelect={() => navigate('/settings')}
               className={cn(
                 isDark 
                   ? "text-gray-200 focus:bg-gray-700 focus:text-white" 
@@ -873,7 +918,7 @@ export function MainSidebar({
             </DropdownMenuItem>
             
             <DropdownMenuItem
-              onClick={() => navigate('/minha-conta')}
+              onSelect={() => navigate('/minha-conta')}
               className={cn(
                 isDark 
                   ? "text-gray-200 focus:bg-gray-700 focus:text-white" 
@@ -887,7 +932,7 @@ export function MainSidebar({
             <DropdownMenuSeparator className={isDark ? "bg-gray-700" : "bg-gray-200"} />
             
             <DropdownMenuItem
-              onClick={handleLogout}
+              onSelect={handleLogout}
               disabled={isLoggingOut}
               className={cn(
                 "text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-900/20 focus:text-red-700 dark:focus:text-red-300",
@@ -908,6 +953,35 @@ export function MainSidebar({
     const { user, logout, isSuperAdmin } = useAuth();
     const navigate = useNavigate();
     const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+    const [menuOpen, setMenuOpen] = React.useState(false);
+    const closeTimerRef = React.useRef<number | null>(null);
+    const hoveringRef = React.useRef(false);
+
+    const clearCloseTimer = () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+
+    const scheduleClose = (delayMs: number = 200) => {
+      clearCloseTimer();
+      closeTimerRef.current = window.setTimeout(() => {
+        hoveringRef.current = false;
+        setMenuOpen(false);
+      }, delayMs);
+    };
+
+    const handleMouseEnter = () => {
+      hoveringRef.current = true;
+      clearCloseTimer();
+      setMenuOpen(true);
+    };
+
+    const handleMouseLeave = () => {
+      hoveringRef.current = false;
+      scheduleClose(200);
+    };
 
     const handleLogout = async () => {
       try {
@@ -945,17 +1019,31 @@ export function MainSidebar({
     const userInitials = getInitials(userName);
     const userType = isSuperAdmin ? 'SuperAdmin' : 'Usuário';
 
+    React.useEffect(() => {
+      return () => clearCloseTimer();
+    }, []);
+
     return (
       <div className={cn(
         "p-4",
         isDark ? "border-t border-gray-700" : "border-t border-gray-200"
       )}>
-        <DropdownMenu>
+        <DropdownMenu
+          open={menuOpen}
+          onOpenChange={(nextOpen) => {
+            clearCloseTimer();
+            if (!nextOpen && hoveringRef.current) return;
+            setMenuOpen(nextOpen);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <button className={cn(
               "w-full flex items-center gap-3 p-2 rounded-lg transition-colors",
               isDark ? "hover:bg-gray-700" : "hover:bg-gray-100"
-            )}>
+            )}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            >
               <div className={cn(
                 "h-10 w-10 rounded-full bg-gradient-to-br flex items-center justify-center ring-2 flex-shrink-0",
                 isSuperAdmin 
@@ -997,6 +1085,8 @@ export function MainSidebar({
               "w-56",
               isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
             )}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           >
             <DropdownMenuLabel className={cn(
               isDark ? "text-gray-200" : "text-gray-900"
@@ -1032,7 +1122,7 @@ export function MainSidebar({
             <DropdownMenuSeparator className={isDark ? "bg-gray-700" : "bg-gray-200"} />
             
             <DropdownMenuItem
-              onClick={() => navigate('/settings')}
+              onSelect={() => navigate('/settings')}
               className={cn(
                 isDark 
                   ? "text-gray-200 focus:bg-gray-700 focus:text-white" 
@@ -1044,7 +1134,7 @@ export function MainSidebar({
             </DropdownMenuItem>
             
             <DropdownMenuItem
-              onClick={() => navigate('/minha-conta')}
+              onSelect={() => navigate('/minha-conta')}
               className={cn(
                 isDark 
                   ? "text-gray-200 focus:bg-gray-700 focus:text-white" 
@@ -1058,7 +1148,7 @@ export function MainSidebar({
             <DropdownMenuSeparator className={isDark ? "bg-gray-700" : "bg-gray-200"} />
             
             <DropdownMenuItem
-              onClick={handleLogout}
+              onSelect={handleLogout}
               disabled={isLoggingOut}
               className={cn(
                 "text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-900/20 focus:text-red-700 dark:focus:text-red-300",
