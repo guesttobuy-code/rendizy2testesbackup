@@ -513,20 +513,31 @@ export function MainSidebar({
   // Handler para seleção de resultado
   const handleSelectResult = async (result: SearchResult) => {
     console.log('🎯 Resultado selecionado:', result);
+    const queryAtSelection = searchQuery;
     
     if (result.type === 'reservation' && result.data) {
       // Buscar reserva usando a função existente
       if (onSearchReservation) {
-        await onSearchReservation(result.data.id);
+        await onSearchReservation(result.data.id || result.id);
       }
     } else if (result.type === 'property' && result.data) {
-      // Navegar para o calendário com a propriedade selecionada
-      onModuleChange('calendario');
-      // TODO: Implementar seleção da propriedade
+      // Abrir anúncio/Imóvel (Anúncios Ultimate)
+      const propertyId = result.data.id || result.id;
+      if (propertyId) {
+        onModuleChange('anuncio-ultimate');
+        try {
+          navigate(`/anuncios-ultimate/${propertyId}/edit`);
+        } catch (e) {
+          window.location.href = `/anuncios-ultimate/${propertyId}/edit`;
+        }
+      }
     } else if (result.type === 'guest' && result.data) {
-      // Abrir reserva do hóspede
-      if (onSearchReservation) {
-        await onSearchReservation(result.data.id);
+      // Ir para lista de hóspedes com busca aplicada
+      onModuleChange('hospedes');
+      try {
+        navigate(`/guests?search=${encodeURIComponent(queryAtSelection.trim())}`);
+      } catch (e) {
+        window.location.href = `/guests?search=${encodeURIComponent(queryAtSelection.trim())}`;
       }
     }
     
@@ -538,10 +549,9 @@ export function MainSidebar({
   // Handler para Enter no campo de busca
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!showSearchDropdown || searchResults.length === 0) {
-      // Se não há dropdown, fazer busca simples por código
+      // Se não há dropdown, tentar busca simples (ex: código de reserva)
       if (e.key === 'Enter' && onSearchReservation) {
-        const reservationCodePattern = /^RSV-[A-Z0-9]{6}$/i;
-        if (reservationCodePattern.test(searchQuery.trim())) {
+        if (searchQuery.trim().length >= 2) {
           handleSearch(searchQuery);
         }
       }
@@ -571,18 +581,14 @@ export function MainSidebar({
   // Handler para busca - detecta códigos de reserva
   const handleSearch = async (query: string) => {
     const trimmedQuery = query.trim();
-    
-    // Verificar se é um código de reserva (RSV-XXXXXX)
-    const reservationCodePattern = /^RSV-[A-Z0-9]{6}$/i;
-    
-    if (reservationCodePattern.test(trimmedQuery) && onSearchReservation) {
-      // Tentar buscar a reserva
-      const found = await onSearchReservation(trimmedQuery);
-      if (found) {
-        // Limpar busca se encontrou
-        setSearchQuery('');
-        setShowSearchDropdown(false);
-      }
+
+    if (!onSearchReservation || trimmedQuery.length < 2) return;
+
+    // Tentar buscar a reserva (suporta RSV-XXXXXX e códigos externos como ES28J)
+    const found = await onSearchReservation(trimmedQuery);
+    if (found) {
+      setSearchQuery('');
+      setShowSearchDropdown(false);
     }
   };
 

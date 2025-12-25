@@ -5,6 +5,7 @@ import { successResponse, errorResponse, logInfo, logError } from './utils.ts';
 import * as staysnetDB from './staysnet-db.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
+import { resolveOrCreateGuestIdFromStaysReservation } from './utils-staysnet-guest-link.ts';
 
 // ============================================================================
 // TYPES
@@ -958,6 +959,23 @@ function parseMoney(value: any, fallback = 0): number {
   return fallback;
 }
 
+function parseMoneyInt(value: any, fallback = 0): number {
+  const n = parseMoney(value, Number.NaN);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.round(n);
+}
+
+function pickMoneyFromObject(obj: any, keys: string[], fallback = Number.NaN): number {
+  if (!obj || typeof obj !== 'object') return fallback;
+  for (const k of keys) {
+    if (k in obj) {
+      const n = parseMoney((obj as any)[k], Number.NaN);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return fallback;
+}
+
 function mapReservationStatus(staysStatus: string | undefined): string {
   if (!staysStatus) return 'pending';
   const v = String(staysStatus).trim().toLowerCase();
@@ -1068,7 +1086,15 @@ function extractReservationIdFromPayload(payload: any): string | null {
   return String(candidates[0]);
 }
 
-function mapStaysReservationToSql(input: any, organizationId: string, resolvedPropertyId: string | null, existing?: any) {
+const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
+
+function mapStaysReservationToSql(
+  input: any,
+  organizationId: string,
+  resolvedPropertyId: string | null,
+  resolvedGuestId: string | null,
+  existing?: any,
+) {
   const checkInDate = input?.checkInDate || input?.checkIn || input?.check_in;
   const checkOutDate = input?.checkOutDate || input?.checkOut || input?.check_out;
   if (!checkInDate || !checkOutDate) {
@@ -1080,7 +1106,10 @@ function mapStaysReservationToSql(input: any, organizationId: string, resolvedPr
   const nights = safeInt(input?.nights, Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
   if (nights < 1) throw new Error('Nights inválido');
 
-  const id = String(input?.confirmationCode || input?._id || input?.id || input?.partnerCode);
+  // No nosso schema, `reservations.id` é o código curto (ex: ES28J / EN41J), não o `_id` interno do Stays.
+  // IMPORTANTE: em backfill/reprocessamento queremos atualizar o registro existente,
+  // evitando criar duplicatas quando um import antigo gravou `id` como `_id`.
+  const id = String(existing?.id || input?.confirmationCode || input?.id || input?.partnerCode || input?._id);
   if (!id) throw new Error('Reservation sem id');
 
   const priceObj = input?.price || {};
@@ -1088,9 +1117,69 @@ function mapStaysReservationToSql(input: any, organizationId: string, resolvedPr
 
   const hostingDetails = priceObj?.hostingDetails || priceObj?.hosting_details || {};
 
-  const pricePerNight = parseMoney(input?.pricePerNight ?? hostingDetails?._f_nightPrice ?? hostingDetails?.nightPrice, 0);
-  const baseTotal = parseMoney(priceObj?._f_total ?? input?.price ?? input?.total, Number.NaN);
-  const resolvedBaseTotal = Number.isFinite(baseTotal) ? baseTotal : pricePerNight * nights;
+  const hostingFees: unknown[] = Array.isArray((hostingDetails as any)?.fees) ? ((hostingDetails as any).fees as unknown[]) : [];
+  const hostingFeesTotal = parseMoneyInt(
+    hostingFees.reduce((acc, fee) => {
+      if (!fee || typeof fee !== 'object') return acc;
+      const v = pickMoneyFromObject(fee as any, ['_f_val', 'value', 'val', 'amount', 'price'], Number.NaN);
+      const n = parseMoney(v, Number.NaN);
+      return Number.isFinite(n) ? acc + n : acc;
+    }, 0),
+    0,
+  );
+
+  // OBS: em produção, os campos pricing_* são INTEGER. O Stays pode enviar decimais ("813.38"),
+  // então normalizamos para inteiro (arredondado) para evitar erro de cast no Postgres.
+  const pricePerNight = parseMoneyInt(
+    input?.pricePerNight ??
+      pickMoneyFromObject(hostingDetails, ['_f_nightPrice', 'nightPrice', 'pricePerNight', 'perNight', 'per_night'], Number.NaN) ??
+      pickMoneyFromObject(priceObj, ['pricePerNight', 'price_per_night', 'perNight', 'per_night', '_f_nightPrice'], Number.NaN),
+    0,
+  );
+
+  // `price._f_total` costuma vir como TOTAL final (inclui taxas). Para base/accommodation, preferimos `_f_expected`.
+  const accommodationTotal = parseMoney(
+    pickMoneyFromObject(priceObj, ['_f_expected', 'expected', 'expectedTotal', 'expected_total', 'accommodation', 'accommodationTotal', 'accommodation_total', 'subtotal', 'sub_total'], Number.NaN) ??
+      pickMoneyFromObject(hostingDetails, ['_f_nightPrice', 'nightPrice', 'pricePerNight', 'perNight', 'per_night'], Number.NaN),
+    Number.NaN,
+  );
+
+  const baseTotal = parseMoney(
+    pickMoneyFromObject(priceObj, ['baseTotal', 'base_total', 'accommodation', 'accommodationTotal', 'accommodation_total', 'subtotal', 'sub_total'], Number.NaN) ??
+      input?.price ??
+      input?.baseTotal,
+    Number.NaN,
+  );
+
+  const cleaningFeeFromFields = parseMoneyInt(
+    input?.cleaningFee ??
+      pickMoneyFromObject(priceObj, ['cleaningFee', 'cleaning_fee', 'cleaning'], Number.NaN),
+    0,
+  );
+  const serviceFee = parseMoneyInt(
+    input?.serviceFee ??
+      pickMoneyFromObject(priceObj, ['serviceFee', 'service_fee', 'service'], Number.NaN),
+    0,
+  );
+  const taxes = parseMoneyInt(
+    input?.taxes ??
+      pickMoneyFromObject(priceObj, ['taxes', 'tax', 'vat'], Number.NaN),
+    0,
+  );
+  const discount = parseMoneyInt(
+    input?.discount ??
+      pickMoneyFromObject(priceObj, ['discount', 'discounts', 'coupon', 'promotion'], Number.NaN),
+    0,
+  );
+
+  const resolvedBaseTotal = Number.isFinite(accommodationTotal)
+    ? Math.round(accommodationTotal)
+    : Number.isFinite(baseTotal)
+      ? Math.round(baseTotal)
+      : pricePerNight * nights;
+
+  // Se não veio taxa explícita, tenta somar fees do hostingDetails.
+  const cleaningFee = cleaningFeeFromFields > 0 ? cleaningFeeFromFields : hostingFeesTotal;
 
   const rawType = input?.type ?? input?.reservationType ?? input?.typeReservation ?? input?.tipo ?? input?.tipoReserva ?? null;
   const rawStatus =
@@ -1124,27 +1213,32 @@ function mapStaysReservationToSql(input: any, organizationId: string, resolvedPr
   const guestsPets = safeInt(guestsDetails?.pets ?? input?.guests?.pets, 0);
   const guestsTotal = safeInt(guestsDetails?.total ?? input?.guests?.total, guestsAdults);
 
-  const externalId = String(input?._id || input?.id || id);
+  // Guardar o id interno do Stays em `external_id` (para fetch/update via API), e o código curto em `id`.
+  const externalId = String(input?._id || input?.reservationId || input?.reserveId || input?.id || id);
   const externalUrl = input?.reservationUrl || input?.externalUrl || input?.external_url || null;
 
   // Mantém vínculos existentes se não conseguimos resolver
   const finalPropertyId = resolvedPropertyId || existing?.property_id || null;
-  const finalGuestId = existing?.guest_id || null;
+  const finalGuestId = resolvedGuestId || existing?.guest_id || null;
 
   const sourceCreatedAtIso = parseOptionalDateToIso(input?.creationDate ?? input?.createdAt ?? input?.created_at);
 
-  // Totais extras básicos (se vierem)
-  const taxes = parseMoney(input?.taxes ?? priceObj?.taxes, 0);
-  const serviceFee = parseMoney(input?.serviceFee ?? priceObj?.serviceFee, 0);
-  const cleaningFee = parseMoney(input?.cleaningFee ?? priceObj?.cleaningFee, 0);
-  const discount = parseMoney(input?.discount ?? priceObj?.discount, 0);
-  const total = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
+  // Total final: preferir total explícito se vier (alguns payloads já trazem com taxas/fees)
+  const explicitTotal = parseMoney(
+    pickMoneyFromObject(priceObj, ['total', 'grandTotal', 'grand_total', '_f_total', 'amount', 'value', 'price'], Number.NaN) ??
+      pickMoneyFromObject(hostingDetails, ['_f_total'], Number.NaN) ??
+      input?.total,
+    Number.NaN,
+  );
+  const computedTotal = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
+  const total = Number.isFinite(explicitTotal) ? Math.round(explicitTotal) : computedTotal;
 
   return {
     id,
     organization_id: organizationId,
     property_id: finalPropertyId,
     guest_id: finalGuestId,
+    created_by: existing?.created_by || DEFAULT_USER_ID,
     check_in: checkIn.toISOString().split('T')[0],
     check_out: checkOut.toISOString().split('T')[0],
     nights,
@@ -1191,120 +1285,243 @@ export async function processStaysNetWebhooks(c: Context) {
     if (!organizationId) return c.json(errorResponse('organizationId is required'), 400);
 
     const limit = Math.max(1, Math.min(200, Number(c.req.query('limit') || 25)));
-    const pending = await staysnetDB.listPendingWebhooksDB(organizationId, limit);
-    if (!pending.success) return c.json(errorResponse(pending.error || 'Failed to list webhooks'), 500);
+    const result = await processPendingStaysNetWebhooksForOrg(organizationId, limit);
+    return c.json(successResponse(result));
+  } catch (error) {
+    logError('Error processing Stays.net webhooks', error);
+    return c.json(errorResponse('Failed to process webhooks'), 500);
+  }
+}
 
-    const rows = pending.data || [];
-    if (rows.length === 0) {
-      return c.json(successResponse({ processed: 0, updated: 0, skipped: 0, errors: 0 }));
-    }
+/**
+ * POST /staysnet/backfill/guests/:organizationId
+ * Backfill: cria/vincula guests para reservas que ainda estão com guest_id = null.
+ *
+ * Útil para corrigir histórico após ativar webhooks/rotinas antigas.
+ */
+export async function backfillStaysNetReservationGuests(c: Context) {
+  try {
+    const { organizationId } = c.req.param();
+    if (!organizationId) return c.json(errorResponse('organizationId is required'), 400);
 
-    const staysConfig = await loadStaysNetRuntimeConfigOrThrow(organizationId);
-    const client = new StaysNetClient(staysConfig.apiKey, staysConfig.baseUrl, staysConfig.apiSecret);
+    const limit = Math.max(1, Math.min(500, Number(c.req.query('limit') || 200)));
+
     const supabase = getSupabaseClient();
 
-    let processed = 0;
+    const { data: rows, error } = await supabase
+      .from('reservations')
+      .select('id, external_id, guest_id, staysnet_raw')
+      .eq('organization_id', organizationId)
+      .not('staysnet_raw', 'is', null)
+      .limit(limit);
+
+    if (error) return c.json(errorResponse('Failed to list reservations', { details: error.message }), 500);
+
+    let scanned = 0;
     let updated = 0;
+    let createdOrFound = 0;
     let skipped = 0;
     let errors = 0;
 
-    for (const hook of rows) {
-      processed++;
+    for (const r of rows || []) {
+      scanned++;
       try {
-        const action = String(hook.action || '').trim();
-
-        if (!action.startsWith('reservation.')) {
+        const raw = (r as any).staysnet_raw;
+        if (!raw) {
           skipped++;
-          await staysnetDB.markWebhookProcessedDB(hook.id);
           continue;
         }
-
-        const reservationId = extractReservationIdFromPayload(hook.payload);
-
-        // Para deleted, pode não existir mais na API. Tentamos atualizar no SQL direto.
-        if (action === 'reservation.deleted') {
-          if (reservationId) {
-            const { error: updErr } = await supabase
-              .from('reservations')
-              .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-              .eq('id', reservationId);
-            if (updErr) console.warn('[StaysNet Webhook] delete→update falhou:', updErr.message);
-          }
-          updated++;
-          await staysnetDB.markWebhookProcessedDB(hook.id);
-          continue;
-        }
-
-        if (!reservationId) {
-          throw new Error('Não foi possível extrair reservationId do webhook');
-        }
-
-        const detail = await client.request(`/booking/reservations/${reservationId}`, 'GET');
-        if (!detail.success) {
-          // Se falhar ao buscar detalhes e for canceled, ainda dá pra marcar cancelada
-          if (action === 'reservation.canceled' || action === 'reservation.cancelled') {
-            const { error: updErr } = await supabase
-              .from('reservations')
-              .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-              .eq('id', reservationId);
-            if (updErr) throw new Error(`Falha ao marcar cancelada: ${updErr.message}`);
-            updated++;
-            await staysnetDB.markWebhookProcessedDB(hook.id);
-            continue;
-          }
-          throw new Error(detail.error || 'Falha ao buscar detalhes da reserva');
-        }
-
-        const staysReservation = detail.data;
 
         // Resolver property se possível
         const listingCandidate =
-          staysReservation?._idlisting ||
-          staysReservation?._id_listing ||
-          staysReservation?.propertyId ||
-          staysReservation?.listingId ||
-          staysReservation?.listing_id ||
-          null;
-
-        let existing: any = null;
-        const idCandidate = String(
-          staysReservation?.confirmationCode || staysReservation?._id || staysReservation?.id || reservationId,
-        );
-        if (idCandidate) {
-          const ex = await supabase
-            .from('reservations')
-            .select('id, property_id, guest_id')
-            .eq('id', idCandidate)
-            .maybeSingle();
-          if (!ex.error) existing = ex.data;
-        }
-
+          raw?._idlisting || raw?._id_listing || raw?.propertyId || raw?.listingId || raw?.listing_id || null;
         let resolvedPropertyId: string | null = null;
         if (listingCandidate) {
           resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
         }
 
-        const sqlData = mapStaysReservationToSql(staysReservation, organizationId, resolvedPropertyId, existing);
+        // Resolver/criar guest
+        const existingGuestId = (r as any).guest_id || null;
+        const resolvedGuestId = existingGuestId || (await resolveOrCreateGuestIdFromStaysReservation(supabase, organizationId, raw));
+        if (resolvedGuestId) createdOrFound++;
 
-        const { error: upErr } = await supabase
-          .from('reservations')
-          .upsert(sqlData, { onConflict: 'id' });
+        // Recalcular SQL completo com mapper (inclui pricing_*)
+        const sqlData = mapStaysReservationToSql(raw, organizationId, resolvedPropertyId, resolvedGuestId, {
+          id: (r as any).id,
+          property_id: resolvedPropertyId,
+          guest_id: existingGuestId,
+          created_by: null,
+        });
 
-        if (upErr) throw new Error(`Upsert failed: ${upErr.message}`);
+        const { error: upErr } = await supabase.from('reservations').upsert(sqlData, { onConflict: 'id' });
+        if (upErr) {
+          errors++;
+          continue;
+        }
 
         updated++;
-        await staysnetDB.markWebhookProcessedDB(hook.id);
-      } catch (err: any) {
+      } catch {
         errors++;
-        await staysnetDB.markWebhookProcessedDB(hook.id, err?.message || 'Unknown error');
       }
     }
 
-    return c.json(successResponse({ processed, updated, skipped, errors }));
+    return c.json(
+      successResponse({
+        scanned,
+        createdOrFound,
+        updated,
+        skipped,
+        errors,
+      }),
+    );
   } catch (error) {
-    logError('Error processing Stays.net webhooks', error);
-    return c.json(errorResponse('Failed to process webhooks'), 500);
+    logError('Error backfilling Stays.net reservation guests', error);
+    return c.json(errorResponse('Failed to backfill reservation guests'), 500);
   }
+}
+
+/**
+ * Processa webhooks pendentes e aplica alterações no SQL (helper reutilizável).
+ *
+ * Importante: NÃO depende de Context/Hono, para permitir uso em cron/worker.
+ */
+export async function processPendingStaysNetWebhooksForOrg(
+  organizationId: string,
+  limit: number = 25,
+): Promise<{ processed: number; updated: number; skipped: number; errors: number }> {
+  const safeLimit = Math.max(1, Math.min(200, Number(limit) || 25));
+  const pending = await staysnetDB.listPendingWebhooksDB(organizationId, safeLimit);
+  if (!pending.success) {
+    throw new Error(pending.error || 'Failed to list webhooks');
+  }
+
+  const rows = pending.data || [];
+  if (rows.length === 0) {
+    return { processed: 0, updated: 0, skipped: 0, errors: 0 };
+  }
+
+  const staysConfig = await loadStaysNetRuntimeConfigOrThrow(organizationId);
+  const client = new StaysNetClient(staysConfig.apiKey, staysConfig.baseUrl, staysConfig.apiSecret);
+  const supabase = getSupabaseClient();
+
+  let processed = 0;
+  let updated = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (const hook of rows) {
+    processed++;
+    try {
+      const action = String(hook.action || '').trim();
+
+      if (!action.startsWith('reservation.')) {
+        skipped++;
+        await staysnetDB.markWebhookProcessedDB(hook.id);
+        continue;
+      }
+
+      const reservationId = extractReservationIdFromPayload(hook.payload);
+
+      // Para deleted, pode não existir mais na API. Tentamos atualizar no SQL direto.
+      if (action === 'reservation.deleted') {
+        if (reservationId) {
+          const { error: updErr } = await supabase
+            .from('reservations')
+            .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+            .or(`id.eq.${reservationId},external_id.eq.${reservationId}`);
+          if (updErr) console.warn('[StaysNet Webhook] delete→update falhou:', updErr.message);
+        }
+        updated++;
+        await staysnetDB.markWebhookProcessedDB(hook.id);
+        continue;
+      }
+
+      if (!reservationId) {
+        throw new Error('Não foi possível extrair reservationId do webhook');
+      }
+
+      const detail = await client.request(`/booking/reservations/${reservationId}`, 'GET');
+      if (!detail.success) {
+        // Se falhar ao buscar detalhes e for canceled, ainda dá pra marcar cancelada
+        if (action === 'reservation.canceled' || action === 'reservation.cancelled') {
+          const { error: updErr } = await supabase
+            .from('reservations')
+            .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+            .or(`id.eq.${reservationId},external_id.eq.${reservationId}`);
+          if (updErr) throw new Error(`Falha ao marcar cancelada: ${updErr.message}`);
+          updated++;
+          await staysnetDB.markWebhookProcessedDB(hook.id);
+          continue;
+        }
+        throw new Error(detail.error || 'Falha ao buscar detalhes da reserva');
+      }
+
+      const staysReservation = detail.data;
+
+      // Resolver property se possível
+      const listingCandidate =
+        staysReservation?._idlisting ||
+        staysReservation?._id_listing ||
+        staysReservation?.propertyId ||
+        staysReservation?.listingId ||
+        staysReservation?.listing_id ||
+        null;
+
+      let existing: any = null;
+
+      const idCandidate = String(
+        staysReservation?.confirmationCode || staysReservation?.id || staysReservation?.partnerCode || staysReservation?._id || reservationId,
+      );
+
+      const externalIdCandidate = String(staysReservation?._id || reservationId);
+
+      if (idCandidate) {
+        const ex = await supabase
+          .from('reservations')
+          .select('id, property_id, guest_id, created_by')
+          .eq('id', idCandidate)
+          .maybeSingle();
+        if (!ex.error && ex.data) existing = ex.data;
+      }
+
+      // Fallback: se a reserva já existe (criada por import), é comum estar com external_id = _id interno do Stays.
+      if (!existing && externalIdCandidate) {
+        const ex = await supabase
+          .from('reservations')
+          .select('id, property_id, guest_id, created_by')
+          .eq('external_id', externalIdCandidate)
+          .maybeSingle();
+        if (!ex.error && ex.data) existing = ex.data;
+      }
+
+      let resolvedPropertyId: string | null = null;
+      if (listingCandidate) {
+        resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
+      }
+
+      // ✅ Resolver/criar guest automaticamente (se ainda não vinculado)
+      let resolvedGuestId: string | null = existing?.guest_id || null;
+      if (!resolvedGuestId) {
+        resolvedGuestId = await resolveOrCreateGuestIdFromStaysReservation(supabase, organizationId, staysReservation);
+      }
+
+      const sqlData = mapStaysReservationToSql(staysReservation, organizationId, resolvedPropertyId, resolvedGuestId, existing);
+
+      const { error: upErr } = await supabase
+        .from('reservations')
+        .upsert(sqlData, { onConflict: 'id' });
+
+      if (upErr) throw new Error(`Upsert failed: ${upErr.message}`);
+
+      updated++;
+      await staysnetDB.markWebhookProcessedDB(hook.id);
+    } catch (err: any) {
+      errors++;
+      await staysnetDB.markWebhookProcessedDB(hook.id, err?.message || 'Unknown error');
+    }
+  }
+
+  return { processed, updated, skipped, errors };
 }
 
 /**

@@ -183,6 +183,7 @@ function App() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [guests, setGuests] = useState<any[]>([]);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loadingProperties, setLoadingProperties] = useState(false);
@@ -702,11 +703,12 @@ function App() {
         ]);
 
         if (reservationsResponse.success && reservationsResponse.data) {
-          const guests = guestsResponse.data || [];
+          const loadedGuests = guestsResponse.data || [];
+          setGuests(loadedGuests);
 
           // Convert API reservations to App Reservation format
           const apiReservations = reservationsResponse.data.map((r: any) => {
-            const guest = guests.find((g: any) => g.id === r.guestId);
+            const guest = loadedGuests.find((g: any) => g.id === r.guestId);
 
             // Parse dates properly to avoid timezone issues
             const [ciYear, ciMonth, ciDay] = r.checkIn.split('-').map(Number);
@@ -715,11 +717,14 @@ function App() {
             return {
               id: r.id,
               propertyId: r.propertyId,
+              guestId: r.guestId,
               guestName: guest ? guest.fullName : 'Hóspede',
               checkIn: new Date(ciYear, ciMonth - 1, ciDay),
               checkOut: new Date(coYear, coMonth - 1, coDay),
               status: r.status,
               platform: r.platform,
+              externalId: r.externalId,
+              externalUrl: r.externalUrl,
               price: r.pricing.total, // ✅ CORREÇÃO v1.0.103.401: API já retorna em reais, não centavos
               nights: r.nights
             };
@@ -849,50 +854,58 @@ function App() {
 
   // Função para buscar reserva por código e navegar até ela
   const handleSearchReservation = async (searchQuery: string) => {
-    // Detectar se é um código de reserva (RSV-XXXXXX)
-    const reservationCodePattern = /^RSV-[A-Z0-9]{6}$/i;
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 2) return false;
 
-    if (reservationCodePattern.test(searchQuery.trim())) {
-      console.log('🔍 Buscando reserva:', searchQuery);
+    console.log('🔍 Buscando reserva:', trimmed);
 
-      // Buscar a reserva nos dados carregados
-      const reservation = reservations.find(r =>
-        r.id.toUpperCase() === searchQuery.trim().toUpperCase()
-      );
+    const normalized = trimmed.toUpperCase();
 
-      if (reservation) {
-        console.log('✅ Reserva encontrada:', reservation);
+    // Buscar a reserva nos dados carregados (por ID exato)
+    const reservation = reservations.find(r => (r as any)?.id?.toUpperCase?.() === normalized);
 
-        // 1. Navegar para o calendário
-        setActiveModule('calendario');
+    if (reservation) {
+      console.log('✅ Reserva encontrada:', reservation);
 
-        // 2. Ajustar mês para o check-in da reserva
-        const checkInMonth = new Date(reservation.checkIn);
-        setCurrentMonth(new Date(checkInMonth.getFullYear(), checkInMonth.getMonth(), 1));
+      // 1. Navegar para o calendário
+      setActiveModule('calendario');
 
-        // 3. Selecionar a propriedade da reserva
-        if (!selectedProperties.includes(reservation.propertyId)) {
-          setSelectedProperties(prev => [...prev, reservation.propertyId]);
-        }
+      // 2. Ajustar mês para o check-in da reserva
+      const checkInMonth = new Date((reservation as any).checkIn);
+      setCurrentMonth(new Date(checkInMonth.getFullYear(), checkInMonth.getMonth(), 1));
 
-        // 4. Mostrar preview da reserva após navegação
-        setTimeout(() => {
-          setReservationPreviewModal({
-            open: true,
-            reservation
-          });
-        }, 300);
-
-        toast.success(`Reserva ${reservation.id} encontrada!`);
-        return true;
-      } else {
-        console.log('❌ Reserva não encontrada:', searchQuery);
-        toast.error(`Reserva ${searchQuery} não encontrada`);
-        return false;
+      // 3. Selecionar a propriedade da reserva
+      const propertyId = (reservation as any).propertyId;
+      if (propertyId && !selectedProperties.includes(propertyId)) {
+        setSelectedProperties(prev => [...prev, propertyId]);
       }
+
+      // 4. Mostrar preview da reserva após navegação
+      setTimeout(() => {
+        setReservationPreviewModal({
+          open: true,
+          reservation
+        });
+      }, 300);
+
+      toast.success(`Reserva ${(reservation as any).id} encontrada!`);
+      return true;
     }
 
-    return false; // Não é um código de reserva
+    // Fallback: tentar encontrar por externalId/externalUrl (se existir no payload)
+    const reservationByExternal = reservations.find(r => {
+      const extId = String((r as any).externalId || '').toUpperCase();
+      const extUrl = String((r as any).externalUrl || '').toUpperCase();
+      return extId.includes(normalized) || extUrl.includes(normalized);
+    });
+
+    if (reservationByExternal) {
+      console.log('✅ Reserva encontrada (external):', reservationByExternal);
+      return await handleSearchReservation((reservationByExternal as any).id);
+    }
+
+    console.log('❌ Reserva não encontrada:', trimmed);
+    return false;
   };
 
   // Função de busca avançada (busca em tudo)
@@ -902,40 +915,74 @@ function App() {
     }
 
     const normalizedQuery = query.toLowerCase().trim();
+    const normalizedDigits = query.replace(/\D/g, '').trim();
     const results: any[] = [];
 
-    // 1. Buscar em RESERVAS por código
-    const reservationCodePattern = /^RSV-[A-Z0-9]{6}$/i;
-    if (reservationCodePattern.test(query.trim())) {
-      const matchingReservations = reservations.filter(r =>
-        r.id.toUpperCase().includes(query.trim().toUpperCase())
-      );
-      matchingReservations.forEach(r => {
-        const property = properties.find(p => p.id === r.propertyId);
-        results.push({
-          type: 'reservation',
-          id: r.id,
-          title: r.id,
-          subtitle: `${r.guestName} • ${property?.name || 'Imóvel'} • ${r.nights} noites`,
-          icon: 'Calendar' as const,
-          data: r
-        });
-      });
-    }
+    // 1. Buscar em RESERVAS (código, hóspede, links externos)
+    const upperQuery = query.trim().toUpperCase();
+    const matchingReservations = reservations.filter(r => {
+      const id = String((r as any).id || '').toUpperCase();
+      const guestName = String((r as any).guestName || '').toLowerCase();
+      const extId = String((r as any).externalId || '').toUpperCase();
+      const extUrl = String((r as any).externalUrl || '').toLowerCase();
 
-    // 2. Buscar em HÓSPEDES por nome
-    const matchingGuests = reservations.filter(r =>
-      r.guestName.toLowerCase().includes(normalizedQuery)
-    );
-    matchingGuests.forEach(r => {
-      const property = properties.find(p => p.id === r.propertyId);
+      return (
+        id.includes(upperQuery) ||
+        guestName.includes(normalizedQuery) ||
+        extId.includes(upperQuery) ||
+        extUrl.includes(normalizedQuery)
+      );
+    });
+
+    matchingReservations.slice(0, 5).forEach(r => {
+      const property = properties.find(p => p.id === (r as any).propertyId);
+      results.push({
+        type: 'reservation',
+        id: (r as any).id,
+        title: (r as any).id,
+        subtitle: `${(r as any).guestName || 'Hóspede'} • ${property?.name || 'Imóvel'} • ${(r as any).nights || 0} noites`,
+        icon: 'Calendar' as const,
+        data: r
+      });
+    });
+
+    // 2. Buscar em HÓSPEDES (nome, email, telefone, documentos)
+    const matchingGuests = (guests || []).filter(g => {
+      const name = String(g.fullName || '').toLowerCase();
+      const email = String(g.email || '').toLowerCase();
+      const phone = String(g.phone || '');
+      const cpf = String(g.cpf || '');
+      const rg = String(g.rg || '');
+      const passport = String(g.passport || '').toLowerCase();
+      const id = String(g.id || '').toLowerCase();
+
+      const cpfDigits = cpf.replace(/\D/g, '');
+      const rgDigits = rg.replace(/\D/g, '');
+      const phoneDigits = phone.replace(/\D/g, '');
+
+      const matchesText =
+        name.includes(normalizedQuery) ||
+        email.includes(normalizedQuery) ||
+        passport.includes(normalizedQuery) ||
+        id.includes(normalizedQuery);
+
+      const matchesDigits =
+        (normalizedDigits && cpfDigits.includes(normalizedDigits)) ||
+        (normalizedDigits && rgDigits.includes(normalizedDigits)) ||
+        (normalizedDigits && phoneDigits.includes(normalizedDigits));
+
+      return matchesText || matchesDigits;
+    });
+
+    matchingGuests.slice(0, 5).forEach(g => {
+      const idLabel = g.cpf || g.passport || g.rg || g.email || g.phone || g.id;
       results.push({
         type: 'guest',
-        id: `guest-${r.id}`,
-        title: r.guestName,
-        subtitle: `${r.id} • ${property?.name || 'Imóvel'} • ${new Date(r.checkIn).toLocaleDateString('pt-BR')}`,
+        id: g.id,
+        title: g.fullName || 'Hóspede',
+        subtitle: idLabel,
         icon: 'User' as const,
-        data: r
+        data: g
       });
     });
 

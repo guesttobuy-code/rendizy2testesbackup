@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   User,
   Search,
@@ -478,6 +479,7 @@ const GuestFormModal: React.FC<GuestFormModalProps> = ({ open, onClose, guest, o
 
 export function GuestsManager() {
   const { t } = useLanguage();
+  const location = useLocation();
   
   // State
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -493,6 +495,15 @@ export function GuestsManager() {
   useEffect(() => {
     loadGuests();
   }, []);
+
+  // Permite deep-link do campo global: /guests?search=...
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const initialSearch = params.get('search');
+    if (initialSearch && initialSearch.trim()) {
+      setSearchQuery(initialSearch);
+    }
+  }, [location.search]);
 
   const loadGuests = async () => {
     setIsLoading(true);
@@ -519,11 +530,22 @@ export function GuestsManager() {
   // Filtros
   const filteredGuests = guests.filter(guest => {
     const searchLower = debouncedSearchQuery.toLowerCase();
+    const digits = debouncedSearchQuery.replace(/\D/g, '');
+    const cpfDigits = (guest.cpf || '').replace(/\D/g, '');
+    const rgDigits = (guest.rg || '').replace(/\D/g, '');
+    const phoneDigits = (guest.phone || '').replace(/\D/g, '');
+
     return (
+      guest.id.toLowerCase().includes(searchLower) ||
       guest.fullName.toLowerCase().includes(searchLower) ||
       guest.email.toLowerCase().includes(searchLower) ||
       guest.phone.includes(debouncedSearchQuery) ||
+      (digits ? phoneDigits.includes(digits) : false) ||
       guest.cpf?.includes(debouncedSearchQuery) ||
+      (digits ? cpfDigits.includes(digits) : false) ||
+      guest.passport?.toLowerCase().includes(searchLower) ||
+      guest.rg?.includes(debouncedSearchQuery) ||
+      (digits ? rgDigits.includes(digits) : false) ||
       guest.address?.city?.toLowerCase().includes(searchLower)
     );
   });

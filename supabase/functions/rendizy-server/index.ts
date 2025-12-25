@@ -241,6 +241,8 @@ app.post("/staysnet/webhook/:organizationId", staysnetRoutes.receiveStaysNetWebh
 app.post("/rendizy-server/staysnet/webhook/:organizationId", staysnetRoutes.receiveStaysNetWebhook);
 app.post("/staysnet/webhooks/process/:organizationId", staysnetRoutes.processStaysNetWebhooks);
 app.post("/rendizy-server/staysnet/webhooks/process/:organizationId", staysnetRoutes.processStaysNetWebhooks);
+app.post("/staysnet/backfill/guests/:organizationId", staysnetRoutes.backfillStaysNetReservationGuests);
+app.post("/rendizy-server/staysnet/backfill/guests/:organizationId", staysnetRoutes.backfillStaysNetReservationGuests);
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade
 // ============================================================================

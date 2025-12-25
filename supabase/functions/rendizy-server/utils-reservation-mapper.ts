@@ -115,14 +115,24 @@ export function sqlToReservation(row: any): Reservation {
     return Math.floor(n);
   };
 
-  // ✅ Extrair guest name do JOIN (se disponível)
+  // ✅ Extrair guest name do JOIN (se disponível). Se não estiver vinculado, tentar fallback do staysnet_raw.
   const guestData = row.guests;
-  const guestName = guestData?.full_name 
-    || (guestData?.first_name && guestData?.last_name 
-        ? `${guestData.first_name} ${guestData.last_name}` 
-        : undefined)
-    || guestData?.email 
-    || 'Hóspede';
+  const staysRaw = row.staysnet_raw;
+  const rawGuestName =
+    staysRaw?.guestName ||
+    staysRaw?.guest?.name ||
+    (staysRaw?.guestFirstName && staysRaw?.guestLastName ? `${staysRaw.guestFirstName} ${staysRaw.guestLastName}` : undefined) ||
+    (staysRaw?.guest?.firstName && staysRaw?.guest?.lastName ? `${staysRaw.guest.firstName} ${staysRaw.guest.lastName}` : undefined) ||
+    undefined;
+
+  const guestName =
+    guestData?.full_name ||
+    (guestData?.first_name && guestData?.last_name ? `${guestData.first_name} ${guestData.last_name}` : undefined) ||
+    rawGuestName ||
+    guestData?.email ||
+    staysRaw?.guestEmail ||
+    staysRaw?.guest?.email ||
+    'Hóspede';
   
   return {
     id: row.id,

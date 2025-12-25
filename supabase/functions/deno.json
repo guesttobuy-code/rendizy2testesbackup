@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@std/http/server": "https://deno.land/std@0.201.0/http/server.ts",
     "openai": "./rendizy-server/third_party/openai-stub.ts",
     "https://esm.sh/openai@6.9.1": "./rendizy-server/third_party/openai-stub.ts",
     "https://esm.sh/openai@6.9.1/internal/types.d.mts": "./rendizy-server/third_party/undici-types/index.d.ts",

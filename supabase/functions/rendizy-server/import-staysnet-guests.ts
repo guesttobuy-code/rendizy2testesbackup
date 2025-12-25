@@ -28,6 +28,9 @@ const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 interface StaysNetReservation {
   _id: string;
   confirmationCode?: string;
+
+  // Alguns payloads vêm apenas com o id do cliente no Stays.
+  _idclient?: string;
   
   // Dados do hóspede (pode vir em diferentes formatos)
   guestName?: string;
@@ -119,7 +122,7 @@ function extractGuestData(res: StaysNetReservation): ExtractedGuest {
 
   const cpf = (res.guestCpf || res.guest?.cpf || undefined)?.trim();
   const passport = (res.guestPassport || res.guest?.passport || undefined)?.trim();
-  const phone = (res.guestPhone || res.guest?.phone || undefined)?.trim();
+  const phoneRaw = (res.guestPhone || res.guest?.phone || undefined)?.trim();
 
   // Se não tiver email real, gerar um email sintético estável para:
   // - permitir insert sem quebrar frontend (guest.email é string)
@@ -128,10 +131,12 @@ function extractGuestData(res: StaysNetReservation): ExtractedGuest {
     if (payloadEmail && payloadEmail.includes('@')) return payloadEmail;
 
     const dedupeSeed = [
+      res._idclient ? `client:${res._idclient}` : null,
       cpf ? `cpf:${sanitizeDigits(cpf)}` : null,
       passport ? `passport:${passport}` : null,
-      phone ? `phone:${sanitizeDigits(phone)}` : null,
+      phoneRaw ? `phone:${sanitizeDigits(phoneRaw)}` : null,
       `name:${firstName} ${lastName}`,
+      // Fallback final para evitar seed vazio
       `res:${res._id || res.confirmationCode || ''}`,
     ]
       .filter(Boolean)
@@ -139,6 +144,15 @@ function extractGuestData(res: StaysNetReservation): ExtractedGuest {
 
     const h = hash32Hex(dedupeSeed);
     return `noemail-${h}@staysnet.local`;
+  })();
+
+  // Banco exige phone NOT NULL. Se não vier, gerar um telefone sintético estável.
+  const phone = (() => {
+    if (phoneRaw) return phoneRaw;
+    const seed = [res._idclient ? `client:${res._idclient}` : null, `email:${email}`].filter(Boolean).join('|');
+    const h = hash32Hex(seed);
+    const n = parseInt(h.slice(0, 8), 16) % 100000000; // 8 dígitos
+    return `119${String(n).padStart(8, '0')}`; // 11 dígitos (BR)
   })();
 
   return {
@@ -223,7 +237,10 @@ export async function importStaysNetGuests(c: Context) {
     const fromFinal = String((c.req.query('from') || bodyFrom || from) ?? '').trim();
     const toFinal = String((c.req.query('to') || bodyTo || to) ?? '').trim();
     const dateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();
-    const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
+    // A API da StaysNet tende a falhar com `limit` muito alto.
+    // Permitimos um aumento moderado (até 50) para reduzir batches, e o controle de volume
+    // continua via `maxPages` + timeouts do caller.
+    const limit = Math.min(50, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
     // ✅ Segurança anti-timeout: default de poucas páginas. O caller pode continuar via `next.skip`.
     const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
     let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
@@ -368,6 +385,7 @@ export async function importStaysNetGuests(c: Context) {
           console.log(`   ➕ Criando novo guest...`);
           
           const newGuestData = {
+            id: crypto.randomUUID(),
             organization_id: orgId,
             first_name: guestData.firstName,
             last_name: guestData.lastName,

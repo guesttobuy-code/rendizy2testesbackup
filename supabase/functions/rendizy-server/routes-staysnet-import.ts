@@ -412,7 +412,7 @@ export async function importReservations(c: any) {
           guests_adults: staysReservation.adults || 1,
           guests_children: staysReservation.children || 0,
           guests_total: (staysReservation.adults || 1) + (staysReservation.children || 0),
-          pricing_total: staysReservation.total || 0,
+          pricing_total: Math.round(Number(staysReservation.total || 0)) || 0,
           pricing_currency: staysReservation.currency || 'BRL',
           status: mapStaysNetStatus(staysReservation.status),
           platform: 'stays.net',

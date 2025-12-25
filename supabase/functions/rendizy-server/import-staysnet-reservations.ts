@@ -17,6 +17,7 @@ import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
+import { resolveOrCreateGuestIdFromStaysReservation } from './utils-staysnet-guest-link.ts';
 
 async function resolveAnuncioDraftIdFromStaysId(
   supabase: ReturnType<typeof getSupabaseClient>,
@@ -184,6 +185,12 @@ function parseMoney(value: any, fallback = 0): number {
   // fallback genérico
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function parseMoneyInt(value: any, fallback = 0): number {
+  const n = parseMoney(value, Number.NaN);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.round(n);
 }
 
 function pickMoneyFromObject(obj: any, keys: string[], fallback = 0): number {
@@ -374,7 +381,10 @@ export async function importStaysNetReservations(c: Context) {
     const to = String((c.req.query('to') || bodyTo || toDate.toISOString().split('T')[0]) ?? '').trim();
     const rawDateType = String((c.req.query('dateType') || body?.dateType || 'checkin') ?? '').trim();
     const dateType = normalizeStaysDateType(rawDateType);
-    const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20))); // ✅ max 20
+    // A API da StaysNet tende a falhar com `limit` muito alto.
+    // Permitimos um aumento moderado (até 50) para reduzir batches, e o controle de volume
+    // continua via `maxPages` + timeouts do caller.
+    const limit = Math.min(50, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
     // ✅ Segurança anti-timeout: default de poucas páginas. O caller pode continuar via `next.skip`.
     const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
 
@@ -652,7 +662,12 @@ export async function importStaysNetReservations(c: Context) {
         const reservationId = existing?.id || confirmationCode;
         const finalPropertyId = propertyId || existing?.property_id || FALLBACK_PROPERTY_ID;
         const finalExternalUrl = externalUrl || existing?.external_url || null;
-        const finalGuestId = existing?.guest_id || null;
+
+        // ✅ Vincular guest automaticamente quando possível
+        let finalGuestId = existing?.guest_id || null;
+        if (!finalGuestId) {
+          finalGuestId = await resolveOrCreateGuestIdFromStaysReservation(supabase, organizationId, res);
+        }
 
         // ====================================================================
         // 2.4: PREPARAR DADOS (flat structure)
@@ -668,7 +683,9 @@ export async function importStaysNetReservations(c: Context) {
 
         const priceObj = (res as any).price;
 
-        const pricePerNight = parseMoney(
+        // OBS: em produção, os campos pricing_* são INTEGER. O Stays pode enviar decimais ("813.38"),
+        // então normalizamos para inteiro (arredondado) para evitar erro de cast no Postgres.
+        const pricePerNight = parseMoneyInt(
           res.pricePerNight ?? pickMoneyFromObject(priceObj, ['pricePerNight', 'price_per_night', 'perNight', 'per_night'], 0),
           0,
         );
@@ -678,27 +695,27 @@ export async function importStaysNetReservations(c: Context) {
           Number.NaN,
         );
 
-        const cleaningFee = parseMoney(
+        const cleaningFee = parseMoneyInt(
           res.cleaningFee ?? pickMoneyFromObject(priceObj, ['cleaningFee', 'cleaning_fee', 'cleaning'], 0),
           0,
         );
 
-        const serviceFee = parseMoney(
+        const serviceFee = parseMoneyInt(
           res.serviceFee ?? pickMoneyFromObject(priceObj, ['serviceFee', 'service_fee', 'service'], 0),
           0,
         );
 
-        const taxes = parseMoney(
+        const taxes = parseMoneyInt(
           res.taxes ?? pickMoneyFromObject(priceObj, ['taxes', 'tax', 'vat'], 0),
           0,
         );
 
-        const discount = parseMoney(
+        const discount = parseMoneyInt(
           res.discount ?? pickMoneyFromObject(priceObj, ['discount', 'discounts', 'coupon', 'promotion'], 0),
           0,
         );
 
-        const resolvedBaseTotal = Number.isFinite(baseTotal) ? baseTotal : pricePerNight * nights;
+        const resolvedBaseTotal = Number.isFinite(baseTotal) ? Math.round(baseTotal) : pricePerNight * nights;
         const total = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
 
         const rawType =

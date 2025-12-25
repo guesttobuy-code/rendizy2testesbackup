@@ -126,7 +126,10 @@ export async function importStaysNetBlocks(c: Context) {
     const from = String((c.req.query('from') || bodyFrom || fromDate.toISOString().split('T')[0]) ?? '').trim();
     const to = String((c.req.query('to') || bodyTo || toDate.toISOString().split('T')[0]) ?? '').trim();
     const dateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();
-    const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
+    // A API da StaysNet tende a falhar com `limit` muito alto.
+    // Permitimos um aumento moderado (até 50) para reduzir batches, e o controle de volume
+    // continua via `maxPages` + timeouts do caller.
+    const limit = Math.min(50, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
     const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 500));
 
     console.log(`📅 Período: ${from} até ${to}`);
