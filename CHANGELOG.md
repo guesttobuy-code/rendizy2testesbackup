@@ -38,6 +38,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - `utils/supabase/info.tsx`: adiciona guard com erro explícito quando a key não está configurada
   - `services/authService.ts`: remove log que imprimia a chave completa; mantém only status configurada/faltando
   - Evita crash "supabaseKey is required" e protege a key nos consoles de produção
+
+- 🔴 **Vercel build: erro `resolveSync() method is not implemented` / falha ao carregar `vite.config.ts`**
+  - Causa raiz: script `build` fazia preload via `node --require ./scripts/setup-crypto.js`, mas o arquivo é ESM (usa `import`), disparando caminho CJS→ESM que quebra no Node 22
+  - Corrigido: preload ESM agora usa `node --import ./scripts/setup-crypto.js`
+  - Tailwind v4: removido `postcss.config.*` e migração para plugin `@tailwindcss/vite` no Vite (evita carregamento de PostCSS config no build)
+  - Lockfile atualizado para garantir instalação de `@tailwindcss/vite` no Vercel
 - 🔴 **Issue #42**: Calendário com datas hardcoded (outubro→dezembro)
   - `contexts/CalendarContext.tsx` linhas 81-84
   - `dateRange.from` agora usa `new Date()` (data atual)
