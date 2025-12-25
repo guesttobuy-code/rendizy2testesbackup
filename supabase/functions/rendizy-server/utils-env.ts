@@ -56,6 +56,19 @@ export const STAYSNET_API_SECRET = firstDefined(
   ""
 );
 
+// Stays.net webhooks
+// Observação: a doc menciona `x-stays-signature` mas o algoritmo pode variar.
+// Estes envs habilitam verificação opcional (default: desligado).
+export const STAYSNET_WEBHOOK_SECRET = firstDefined(
+  ["STAYSNET_WEBHOOK_SECRET", "RENDIZY_STAYSNET_WEBHOOK_SECRET"],
+  ""
+);
+
+export const STAYSNET_WEBHOOK_VERIFY_SIGNATURE = firstDefined(
+  ["STAYSNET_WEBHOOK_VERIFY_SIGNATURE", "RENDIZY_STAYSNET_WEBHOOK_VERIFY_SIGNATURE"],
+  "false"
+);
+
 export const ENV_HELPERS = {
   firstDefined,
 };
@@ -69,3 +82,8 @@ console.log("[utils-env] SUPABASE_PROJECT_REF:", SUPABASE_PROJECT_REF);
 console.log("[utils-env] STAYSNET_BASE_URL:", STAYSNET_BASE_URL ? "SET" : "NOT SET");
 console.log("[utils-env] STAYSNET_API_KEY:", STAYSNET_API_KEY ? "SET" : "NOT SET");
 console.log("[utils-env] STAYSNET_API_SECRET:", STAYSNET_API_SECRET ? "SET" : "NOT SET");
+console.log("[utils-env] STAYSNET_WEBHOOK_SECRET:", STAYSNET_WEBHOOK_SECRET ? "SET" : "NOT SET");
+console.log(
+  "[utils-env] STAYSNET_WEBHOOK_VERIFY_SIGNATURE:",
+  STAYSNET_WEBHOOK_VERIFY_SIGNATURE ? String(STAYSNET_WEBHOOK_VERIFY_SIGNATURE).trim() : "(default)"
+);

@@ -530,7 +530,15 @@ export function ReservationsManagement({
 
       // Filter by selected APIs (fonte da reserva)
       if (selectedApis.length > 0) {
-        const source = reservation.source || reservation.platform || 'direct';
+        // NOTE: o tipo Reservation não expõe `source` oficialmente.
+        // Em dados importados do StaysNet, a coluna `platform` costuma vir como 'other'.
+        // Para que o filtro "API Stays.net" funcione, detectamos pelo domínio da externalUrl.
+        const externalUrl = (reservation as any).externalUrl as unknown;
+        const inferredSource =
+          typeof externalUrl === 'string' && externalUrl.toLowerCase().includes('stays.net')
+            ? 'stays'
+            : (reservation.platform || 'direct');
+        const source = String(inferredSource);
         const apiMap: Record<string, string[]> = {
           'airbnb': ['airbnb'],
           'booking': ['booking', 'booking.com'],
@@ -539,9 +547,8 @@ export function ReservationsManagement({
           'direct': ['direct', 'direto', 'manual']
         };
         
-        const matchesApi = selectedApis.some(api => 
-          apiMap[api]?.some(variant => source.toLowerCase().includes(variant))
-        );
+        const sourceLower = source.toLowerCase();
+        const matchesApi = selectedApis.some(api => apiMap[api]?.some(variant => sourceLower.includes(variant)));
         
         if (!matchesApi) {
           return false;

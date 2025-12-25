@@ -753,16 +753,43 @@ export async function receiveStaysNetWebhook(c: Context) {
     const clientId = c.req.header('x-stays-client-id') || null;
     const signature = c.req.header('x-stays-signature') || null;
 
-    let body: any;
+    // Sempre capturar o body RAW como texto para permitir verificação de assinatura.
+    // (Hono/Deno Request body é consumível 1x)
+    const rawText = await c.req.text();
+
+    let body: any = rawText;
     try {
-      body = await c.req.json();
+      body = JSON.parse(rawText);
     } catch {
-      body = await c.req.text();
+      // manter como string
     }
 
     const action = typeof body === 'object' && body ? String(body.action || 'unknown') : 'unknown';
     const payload = typeof body === 'object' && body ? (body.payload ?? body) : body;
     const dt = typeof body === 'object' && body ? (body._dt ?? null) : null;
+
+    const verifyEnabled = String(Deno.env.get('STAYSNET_WEBHOOK_VERIFY_SIGNATURE') || '').trim().toLowerCase() === 'true';
+    const webhookSecret = String(Deno.env.get('STAYSNET_WEBHOOK_SECRET') || '').trim();
+
+    let signatureVerified: boolean | null = null;
+    let signatureReason: string | null = null;
+    if (verifyEnabled) {
+      if (!webhookSecret) {
+        signatureVerified = null;
+        signatureReason = 'verify_enabled_but_secret_missing';
+      } else if (!signature) {
+        signatureVerified = false;
+        signatureReason = 'missing_signature_header';
+      } else {
+        try {
+          signatureVerified = await verifyStaysNetWebhookSignature(signature, webhookSecret, rawText);
+          signatureReason = signatureVerified ? 'ok' : 'mismatch';
+        } catch (e: any) {
+          signatureVerified = false;
+          signatureReason = e?.message || 'verification_error';
+        }
+      }
+    }
 
     const save = await staysnetDB.saveStaysNetWebhookDB(
       organizationId,
@@ -775,6 +802,11 @@ export async function receiveStaysNetWebhook(c: Context) {
           'x-stays-signature': signature,
           'user-agent': c.req.header('user-agent') || null,
         },
+        signature_verification: {
+          enabled: verifyEnabled,
+          verified: signatureVerified,
+          reason: signatureReason,
+        },
       },
     );
 
@@ -782,11 +814,99 @@ export async function receiveStaysNetWebhook(c: Context) {
       return c.json(errorResponse(save.error || 'Failed to save webhook'), 500);
     }
 
+    // Se verificação estiver habilitada e falhar, marcar como processado e retornar erro.
+    if (verifyEnabled) {
+      if (!webhookSecret) {
+        await staysnetDB.markWebhookProcessedDB(save.id!, 'Signature verify enabled but secret missing');
+        return c.json(errorResponse('Webhook signature verification misconfigured'), 500);
+      }
+
+      if (!signature) {
+        await staysnetDB.markWebhookProcessedDB(save.id!, 'Missing x-stays-signature');
+        return c.json(errorResponse('Missing webhook signature'), 401);
+      }
+
+      if (signatureVerified === false) {
+        await staysnetDB.markWebhookProcessedDB(save.id!, 'Invalid webhook signature');
+        return c.json(errorResponse('Invalid webhook signature'), 401);
+      }
+    }
+
     return c.json(successResponse({ id: save.id, received: true }));
   } catch (error) {
     logError('Error receiving Stays.net webhook', error);
     return c.json(errorResponse('Failed to receive webhook'), 500);
   }
+}
+
+function isHexString(value: string): boolean {
+  return /^[0-9a-f]+$/i.test(value);
+}
+
+function base64FromBytes(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+function bytesFromHex(hex: string): Uint8Array {
+  const clean = hex.trim().toLowerCase();
+  if (clean.length % 2 !== 0) throw new Error('Invalid hex length');
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function bytesFromBase64(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+async function hmacSha256(secret: string, message: string): Promise<Uint8Array> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  return new Uint8Array(sig);
+}
+
+async function verifyStaysNetWebhookSignature(provided: string, secret: string, rawBodyText: string): Promise<boolean> {
+  const raw = String(provided || '').trim();
+  if (!raw) throw new Error('empty_signature');
+
+  // Aceitar formatos comuns: "sha256=<hex>", "hmac-sha256=<hex/base64>", ou apenas valor.
+  const cleaned = raw
+    .replace(/^sha256=/i, '')
+    .replace(/^hmac-sha256=/i, '')
+    .trim();
+
+  const computed = await hmacSha256(secret, rawBodyText);
+
+  // Comparar como hex ou base64 conforme input.
+  if (isHexString(cleaned)) {
+    const expected = bytesFromHex(cleaned);
+    return constantTimeEqual(expected, computed);
+  }
+
+  // Base64 (ou outro formato): tentar base64 estrito.
+  const expectedB64 = bytesFromBase64(cleaned);
+  return constantTimeEqual(expectedB64, computed);
 }
 
 function safeInt(value: any, fallback = 0): number {
@@ -849,6 +969,9 @@ function mapReservationStatus(staysStatus: string | undefined): string {
     checked_out: 'checked_out',
     cancelled: 'cancelled',
     canceled: 'cancelled',
+    // PT-BR (UI Stays)
+    cancelada: 'cancelled',
+    cancelado: 'cancelled',
     declined: 'cancelled',
     expired: 'cancelled',
     no_show: 'no_show',
@@ -858,13 +981,16 @@ function mapReservationStatus(staysStatus: string | undefined): string {
 
 function deriveReservationStatus(input: { type?: string; status?: string }): string {
   const typeLower = String(input.type || '').trim().toLowerCase();
-  if (typeLower === 'canceled' || typeLower === 'cancelled') return 'cancelled';
+  if (typeLower === 'canceled' || typeLower === 'cancelled' || typeLower === 'cancelada' || typeLower === 'cancelado') return 'cancelled';
   if (typeLower === 'no_show') return 'no_show';
 
   const fromStatus = mapReservationStatus(input.status);
   if (fromStatus === 'pending') {
     if (typeLower === 'booked' || typeLower === 'contract') return 'confirmed';
     if (typeLower === 'reserved') return 'pending';
+    // PT-BR (UI Stays)
+    if (typeLower === 'reserva' || typeLower === 'contrato') return 'confirmed';
+    if (typeLower === 'pré-reserva' || typeLower === 'pre-reserva' || typeLower === 'prereserva') return 'pending';
   }
   return fromStatus;
 }
@@ -968,7 +1094,17 @@ function mapStaysReservationToSql(input: any, organizationId: string, resolvedPr
   const baseTotal = parseMoney(priceObj?._f_total ?? input?.price ?? input?.total, Number.NaN);
   const resolvedBaseTotal = Number.isFinite(baseTotal) ? baseTotal : pricePerNight * nights;
 
-  const derivedStatus = deriveReservationStatus({ type: input?.type, status: input?.status });
+  const rawType = input?.type ?? input?.reservationType ?? input?.typeReservation ?? input?.tipo ?? input?.tipoReserva ?? null;
+  const rawStatus =
+    input?.status ??
+    input?.reservationStatus ??
+    input?.statusReservation ??
+    input?.bookingStatus ??
+    input?.status_reservation ??
+    input?.reservation_status ??
+    null;
+
+  const derivedStatus = deriveReservationStatus({ type: rawType, status: rawStatus });
 
   const cancelledAtIso =
     parseOptionalDateToIso(
@@ -1041,6 +1177,9 @@ function mapStaysReservationToSql(input: any, organizationId: string, resolvedPr
     cancellation_reason: cancellationReason,
     source_created_at: sourceCreatedAtIso,
     confirmed_at: derivedStatus === 'confirmed' ? new Date().toISOString() : null,
+
+    // 🔒 Persistência completa do payload de origem (audit/debug)
+    staysnet_raw: input,
   };
 }
 

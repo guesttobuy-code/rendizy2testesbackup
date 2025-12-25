@@ -224,8 +224,11 @@ export async function importStaysNetGuests(c: Context) {
     const toFinal = String((c.req.query('to') || bodyTo || to) ?? '').trim();
     const dateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();
     const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
-    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 500));
+    // ✅ Segurança anti-timeout: default de poucas páginas. O caller pode continuar via `next.skip`.
+    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
     let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
+    const startSkip = skip;
+    let hasMore = false;
 
     console.log(`   🧾 organization_id: ${orgId}`);
     console.log(`   📅 Período: ${fromFinal} até ${toFinal}`);
@@ -269,15 +272,18 @@ export async function importStaysNetGuests(c: Context) {
       console.log(`   📥 Página ${pages + 1}: ${pageData.length} itens (total=${allReservations.length})`);
 
       if (pageData.length < limit) {
+        hasMore = false;
         break;
       }
 
       skip += limit;
       pages++;
+      hasMore = pages < maxPages;
     }
 
     if (pages >= maxPages) {
-      console.warn(`   ⚠️ Paginação atingiu maxPages=${maxPages}. Retornando parcial.`);
+      hasMore = true;
+      console.warn(`   ⚠️ Paginação atingiu maxPages=${maxPages}. Retornando parcial (use next.skip para continuar).`);
     }
 
     const reservations: StaysNetReservation[] = allReservations;
@@ -290,6 +296,7 @@ export async function importStaysNetGuests(c: Context) {
         success: true,
         method: 'import-guests',
         stats: { fetched: 0, processed: 0, created: 0, linked: 0, skipped: 0, errors: 0 },
+        next: { skip: startSkip, hasMore: false },
         message: 'Nenhuma reservation encontrada na API StaysNet'
       });
     }
@@ -450,6 +457,7 @@ export async function importStaysNetGuests(c: Context) {
       method: 'import-guests',
       table: 'guests',
       stats: { fetched, processed, created, linked, skipped, errors },
+      next: { skip, hasMore },
       errorDetails: errors > 0 ? errorDetails : undefined,
       message: `Importados ${created} guests de StaysNet, ${linked} vinculados a reservations (skipped: ${skipped})`
     });
@@ -463,7 +471,8 @@ export async function importStaysNetGuests(c: Context) {
       success: false,
       method: 'import-guests',
       error: error.message,
-      stats: { fetched, processed, created, linked, skipped, errors }
+      stats: { fetched, processed, created, linked, skipped, errors },
+      next: { skip, hasMore: false }
     }, 500);
   }
 }

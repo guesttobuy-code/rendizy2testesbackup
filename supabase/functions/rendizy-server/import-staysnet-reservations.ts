@@ -242,7 +242,11 @@ function mapReservationStatus(staysStatus: string | undefined): string {
     'pending': 'pending',
     'confirmed': 'confirmed',
     'inquiry': 'pending',
+    'canceled': 'cancelled',
     'cancelled': 'cancelled',
+    // PT-BR (UI Stays)
+    'cancelada': 'cancelled',
+    'cancelado': 'cancelled',
     'declined': 'cancelled',
     'expired': 'cancelled',
     'checked_in': 'checked_in',
@@ -257,15 +261,19 @@ function deriveReservationStatus(input: { type?: string; status?: string }): str
   const typeLower = String(input.type || '').trim().toLowerCase();
 
   // StaysNet usa `type=canceled` (1 L) como filtro oficial.
-  if (typeLower === 'canceled' || typeLower === 'cancelled') return 'cancelled';
+  if (typeLower === 'canceled' || typeLower === 'cancelled' || typeLower === 'cancelada' || typeLower === 'cancelado') return 'cancelled';
   if (typeLower === 'no_show') return 'no_show';
 
   const fromStatus = mapReservationStatus(input.status);
 
   // Se o payload não trouxer `status`, inferir um default razoável por `type`.
   if (fromStatus === 'pending') {
+    // EN
     if (typeLower === 'booked' || typeLower === 'contract') return 'confirmed';
     if (typeLower === 'reserved') return 'pending';
+    // PT-BR (UI Stays)
+    if (typeLower === 'reserva' || typeLower === 'contrato') return 'confirmed';
+    if (typeLower === 'pré-reserva' || typeLower === 'pre-reserva' || typeLower === 'prereserva') return 'pending';
   }
 
   return fromStatus;
@@ -369,7 +377,8 @@ export async function importStaysNetReservations(c: Context) {
     const rawDateType = String((c.req.query('dateType') || body?.dateType || 'checkin') ?? '').trim();
     const dateType = normalizeStaysDateType(rawDateType);
     const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20))); // ✅ max 20
-    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 500));
+    // ✅ Segurança anti-timeout: default de poucas páginas. O caller pode continuar via `next.skip`.
+    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
 
     // ✅ IMPORTAR todos os tipos “em vigor” por padrão.
     // No Stays, o filtro “Em vigor” normalmente inclui reserved/booked/contract.
@@ -390,7 +399,9 @@ export async function importStaysNetReservations(c: Context) {
 
     const allReservations: StaysNetReservation[] = [];
     let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
+    const startSkip = skip;
     let pages = 0;
+    let hasMore = false;
 
     while (pages < maxPages) {
       const params = new URLSearchParams({
@@ -427,15 +438,18 @@ export async function importStaysNetReservations(c: Context) {
       console.log(`   📥 Página ${pages + 1}: ${pageData.length} itens (total=${allReservations.length})`);
 
       if (pageData.length < limit) {
+        hasMore = false;
         break;
       }
 
       skip += limit;
       pages++;
+      hasMore = pages < maxPages;
     }
 
     if (pages >= maxPages) {
-      console.warn(`   ⚠️ Paginação atingiu maxPages=${maxPages}. Retornando parcial.`);
+      hasMore = true;
+      console.warn(`   ⚠️ Paginação atingiu maxPages=${maxPages}. Retornando parcial (use next.skip para continuar).`);
     }
 
     const reservations: StaysNetReservation[] = allReservations;
@@ -448,6 +462,7 @@ export async function importStaysNetReservations(c: Context) {
         success: true,
         method: 'import-reservations',
         stats: { fetched: 0, saved: 0, errors: 0, skipped: 0 },
+        next: { skip: startSkip, hasMore: false },
         message: 'Nenhuma reservation encontrada na API StaysNet'
       });
     }
@@ -531,8 +546,14 @@ export async function importStaysNetReservations(c: Context) {
         // 2.1: VALIDAR DADOS MÍNIMOS
         // ====================================================================
         // Tipos que NÃO devem virar reservas: usar import específico de blocks
-        const typeLower = String((res as any).type || '').toLowerCase();
-        if (typeLower === 'blocked' || typeLower === 'maintenance') {
+        const typeLower = String((res as any).type || '').trim().toLowerCase();
+        if (
+          typeLower === 'blocked' ||
+          typeLower === 'bloqueado' ||
+          typeLower === 'maintenance' ||
+          typeLower === 'manutenção' ||
+          typeLower === 'manutencao'
+        ) {
           console.warn(`   ⛔ Tipo=${typeLower} (não é reserva) - SKIP`);
           skipped++;
           continue;
@@ -682,9 +703,26 @@ export async function importStaysNetReservations(c: Context) {
         const resolvedBaseTotal = Number.isFinite(baseTotal) ? baseTotal : pricePerNight * nights;
         const total = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
 
+        const rawType =
+          (res as any).type ??
+          (res as any).reservationType ??
+          (res as any).typeReservation ??
+          (res as any).tipo ??
+          (res as any).tipoReserva ??
+          null;
+
+        const rawStatus =
+          (res as any).status ??
+          (res as any).reservationStatus ??
+          (res as any).statusReservation ??
+          (res as any).bookingStatus ??
+          (res as any).status_reservation ??
+          (res as any).reservation_status ??
+          null;
+
         const derivedStatus = deriveReservationStatus({
-          type: (res as any).type,
-          status: res.status,
+          type: rawType,
+          status: rawStatus,
         });
 
         const cancellationAtIso =
@@ -762,6 +800,9 @@ export async function importStaysNetReservations(c: Context) {
           cancelled_at: cancellationAtIso,
           cancellation_reason: cancellationReason,
 
+          // 🔒 Persistência completa do payload de origem (audit/debug)
+          staysnet_raw: res,
+
           // Metadata
           created_by: DEFAULT_USER_ID,
           source_created_at: sourceCreatedAtIso,
@@ -779,17 +820,29 @@ export async function importStaysNetReservations(c: Context) {
           .select('id')
           .single();
 
-        // Compat: se a migration ainda não foi aplicada, não quebrar o import inteiro.
-        if (upsertError && /source_created_at/i.test(upsertError.message) && /does not exist/i.test(upsertError.message)) {
-          console.warn('⚠️ Coluna source_created_at não existe. Rode a migration; import seguirá sem esse campo por enquanto.');
-          const { source_created_at: _ignored, ...reservationDataWithoutSourceCreatedAt } = reservationData as any;
-          const retry = await supabase
-            .from('reservations')
-            .upsert(reservationDataWithoutSourceCreatedAt, { onConflict: 'id' })
-            .select('id')
-            .single();
-          upsertedReservation = retry.data as any;
-          upsertError = retry.error as any;
+        // Compat: se migrations ainda não foram aplicadas, não quebrar o import inteiro.
+        if (upsertError && /does not exist/i.test(upsertError.message)) {
+          const msg = String(upsertError.message || '');
+          const shouldDropSourceCreatedAt = /source_created_at/i.test(msg);
+          const shouldDropStaysRaw = /staysnet_raw/i.test(msg);
+
+          if (shouldDropSourceCreatedAt || shouldDropStaysRaw) {
+            if (shouldDropSourceCreatedAt) {
+              console.warn('⚠️ Coluna source_created_at não existe. Rode a migration; import seguirá sem esse campo por enquanto.');
+            }
+            if (shouldDropStaysRaw) {
+              console.warn('⚠️ Coluna staysnet_raw não existe. Rode a migration; import seguirá sem esse campo por enquanto.');
+            }
+
+            const { source_created_at: _ignored1, staysnet_raw: _ignored2, ...reservationDataCompat } = reservationData as any;
+            const retry = await supabase
+              .from('reservations')
+              .upsert(reservationDataCompat, { onConflict: 'id' })
+              .select('id')
+              .single();
+            upsertedReservation = retry.data as any;
+            upsertError = retry.error as any;
+          }
         }
 
         if (upsertError) {
@@ -838,6 +891,7 @@ export async function importStaysNetReservations(c: Context) {
       method: 'import-reservations',
       table: 'reservations',
       stats: { fetched, saved, created, updated, skipped, errors },
+      next: { skip, hasMore },
       errorDetails: errors > 0 ? errorDetails : undefined,
       debugSample: debug ? debugSample : undefined,
       message: `Importados ${saved}/${fetched} reservations de StaysNet (skipped: ${skipped})`
@@ -852,7 +906,8 @@ export async function importStaysNetReservations(c: Context) {
       success: false,
       method: 'import-reservations',
       error: error.message,
-      stats: { fetched, saved, skipped, errors }
+      stats: { fetched, saved, skipped, errors },
+      next: { skip, hasMore: false }
     }, 500);
   }
 }
