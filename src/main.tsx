@@ -2,7 +2,6 @@ import React from 'react';
 // @codex@ Backend Wizard v1.0.103.264 - 03 NOV 2025 - 200+ campos implementados
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import App from '../App';
 import { AuthProvider } from './contexts/AuthContext';
 import { queryClient } from '../lib/queryClient';
@@ -23,7 +22,6 @@ if (!root) {
         <AuthProvider>
           <App />
         </AuthProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </React.StrictMode>
   );

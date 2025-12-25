@@ -540,6 +540,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // 3. Limpar especificamente os tokens conhecidos
       localStorage.removeItem('rendizy-token');
+      localStorage.removeItem('rendizy-user');
       localStorage.removeItem('sb-odcgnzfremrqnvtitpcc-auth-token');
       localStorage.removeItem('sb-odcgnzfremrqnvtitpcc-auth-token-code-verifier');
       
@@ -653,14 +654,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-      return {
+  if (!context) {
+    const error = new Error('useAuth deve ser usado dentro de um <AuthProvider />');
+
+    // Em DEV, falhar rápido para não mascarar import errado/árvore fora do Provider.
+    // Em PROD, retornamos um shim seguro (sem crash), mas sem nunca retornar undefined.
+    try {
+      // import.meta.env existe em Vite; o try evita quebra em tooling diferente.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isDev = !!(import.meta as any)?.env?.DEV;
+      if (isDev) throw error;
+    } catch {
+      // ignore
+    }
+
+    console.error('❌ [AuthContext] useAuth usado fora do AuthProvider', error);
+
+    const shim: AuthContextType = {
       user: null,
       organization: null,
       isAuthenticated: false,
       isLoading: false,
       hasToken: false,
-      login: async () => {},
+      login: async () => ({
+        success: false,
+        error: 'AuthProvider não encontrado. Verifique se a aplicação está envolvida pelo <AuthProvider />.'
+      }),
       logout: async () => {},
       switchOrganization: async () => {},
       hasPermission: () => false,
@@ -673,6 +692,9 @@ export function useAuth() {
       isAdmin: false,
       isManager: false,
     };
+
+    return shim;
   }
+
   return context;
 }
