@@ -77,11 +77,115 @@ export function ReservationsManagement({
   onCancelReservation,
   onCreateReservation,
 }: ReservationsManagementProps) {
+  const PAGE_SIZE = 20;
+  const [paginationMode, setPaginationMode] = useState<'server' | 'client'>('server');
+
+  const toNumber = (value: unknown, fallback = 0): number => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+    if (typeof value === 'string') {
+      // aceita "1234.56", "1.234,56", "R$ 1.234,56"
+      const cleaned = value
+        .replace(/\s/g, '')
+        .replace('R$', '')
+        .replace(/\.(?=\d{3}(\D|$))/g, '')
+        .replace(',', '.')
+        .replace(/[^0-9.-]/g, '');
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : fallback;
+    }
+    return fallback;
+  };
+
+  const normalizeReservation = (raw: any): any => {
+    if (!raw || typeof raw !== 'object') return raw;
+
+    const pricingFromRaw = raw.pricing && typeof raw.pricing === 'object' ? raw.pricing : {};
+
+    const accommodation =
+      toNumber(
+        pricingFromRaw.accommodation ??
+          pricingFromRaw.baseTotal ??
+          pricingFromRaw.base_total ??
+          raw.pricing_accommodation ??
+          raw.pricing_base_total,
+        0
+      );
+
+    const fees =
+      toNumber(
+        pricingFromRaw.fees ??
+          raw.pricing_fees ??
+          pricingFromRaw.cleaningFee ??
+          pricingFromRaw.cleaning_fee ??
+          0,
+        0
+      ) +
+      toNumber(pricingFromRaw.serviceFee ?? pricingFromRaw.service_fee ?? 0, 0) +
+      toNumber(pricingFromRaw.taxes ?? 0, 0);
+
+    const discounts = toNumber(
+      pricingFromRaw.discounts ?? pricingFromRaw.discount ?? raw.pricing_discounts ?? raw.pricing_discount ?? 0,
+      0
+    );
+
+    const total = toNumber(
+      pricingFromRaw.total ?? raw.pricing_total ?? raw.total ?? raw.price ?? raw.amount ?? 0,
+      0
+    );
+
+    const currency =
+      String(
+        pricingFromRaw.currency ??
+          raw.pricing_currency ??
+          pricingFromRaw.currencyCode ??
+          pricingFromRaw.currency_code ??
+          'BRL'
+      ) || 'BRL';
+
+    const normalized = {
+      ...raw,
+      pricing: {
+        ...pricingFromRaw,
+        accommodation,
+        fees,
+        discounts,
+        total,
+        currency,
+      },
+    };
+
+    if (normalized.price == null) {
+      normalized.price = total;
+    }
+
+    // Alguns retornos legados vêm com guests fora do objeto guests
+    if (!normalized.guests || typeof normalized.guests !== 'object') {
+      const adults = toNumber(raw.adults ?? raw.guests_adults ?? 0, 0);
+      const children = toNumber(raw.children ?? raw.guests_children ?? 0, 0);
+      const infants = toNumber(raw.infants ?? raw.guests_infants ?? 0, 0);
+      const pets = toNumber(raw.pets ?? raw.guests_pets ?? 0, 0);
+      normalized.guests = {
+        adults,
+        children,
+        infants,
+        pets,
+        total: adults + children + infants,
+      };
+    }
+
+    return normalized;
+  };
+
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [summary, setSummary] = useState<{ total: number; confirmed: number; pending: number; revenue: number } | null>(null);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -118,10 +222,50 @@ export function ReservationsManagement({
 
   // Load data
   useEffect(() => {
-    loadReservations();
     loadProperties();
     loadGuests();
   }, [organizationId]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [
+    organizationId,
+    statusFilter,
+    platformFilter,
+    dateRange.from,
+    dateRange.to,
+    dateFilterField,
+    selectedProperties,
+  ]);
+
+  const reservationsQueryKey = useMemo(
+    () =>
+      JSON.stringify({
+        organizationId,
+        statusFilter,
+        platformFilter,
+        dateFrom: dateRange.from?.toISOString?.() || String(dateRange.from),
+        dateTo: dateRange.to?.toISOString?.() || String(dateRange.to),
+        dateFilterField,
+        selectedProperties,
+      }),
+    [organizationId, statusFilter, platformFilter, dateRange.from, dateRange.to, dateFilterField, selectedProperties]
+  );
+
+  // Load reservations + summary when filters change
+  useEffect(() => {
+    setPage(1);
+    loadReservations(1);
+    loadSummary();
+  }, [reservationsQueryKey]);
+
+  // Load reservations when page changes (server pagination only)
+  useEffect(() => {
+    if (paginationMode === 'server') {
+      loadReservations(page);
+    }
+  }, [page, paginationMode]);
 
   // Initialize selected properties when properties load
   useEffect(() => {
@@ -137,7 +281,7 @@ export function ReservationsManagement({
     }
   }, [autoOpenCreate, onCreateReservation]);
 
-  const loadReservations = async () => {
+  const loadReservations = async (targetPage: number = page) => {
     console.log('🔄 [ReservationsManagement] loadReservations() chamado');
     setLoading(true);
     try {
@@ -156,13 +300,53 @@ export function ReservationsManagement({
       // Não filtrar por propriedade no backend, faremos isso no frontend
       // para permitir múltiplas seleções
 
-      const response = await reservationsApi.list(filters);
+      // Aplicar filtros no backend para a paginação ser correta
+      const dateFrom = format(dateRange.from, 'yyyy-MM-dd');
+      const dateTo = format(dateRange.to, 'yyyy-MM-dd');
+
+      // Só mandar propertyIds se estiver filtrando (para não excluir reservas com propertyId desconhecido)
+      const shouldFilterProperties = properties.length > 0 && selectedProperties.length > 0 && selectedProperties.length < properties.length;
+      const propertyIds = shouldFilterProperties ? selectedProperties : undefined;
+
+      const response = await reservationsApi.listPaged({
+        ...filters,
+        propertyIds,
+        dateField: dateFilterField,
+        dateFrom,
+        dateTo,
+        page: targetPage,
+        limit: PAGE_SIZE,
+      });
       
       console.log('📦 [ReservationsManagement] Resposta da API:', response);
       
       if (response.success && response.data) {
-        console.log(`✅ [ReservationsManagement] ${response.data.length} reservas carregadas`);
-        setReservations(response.data);
+        const payload: any = response.data as any;
+
+        // ✅ Compat: alguns deploys ainda retornam array direto (sem paginação)
+        if (Array.isArray(payload)) {
+          setPaginationMode('client');
+          setReservations(payload.map(normalizeReservation));
+          console.log(`✅ [ReservationsManagement] ${payload.length} reservas carregadas (legacy array)`);
+          return;
+        }
+
+        const list = Array.isArray(payload?.data) ? payload.data : [];
+        const pagination = payload?.pagination;
+
+        if (pagination) {
+          setPaginationMode('server');
+          setReservations(list.map(normalizeReservation));
+          setTotalPages(pagination.totalPages || 1);
+          setTotalCount(pagination.total || 0);
+          console.log(`✅ [ReservationsManagement] ${list.length} reservas carregadas (page=${targetPage})`);
+          return;
+        }
+
+        // ✅ Fallback: payload inesperado
+        setPaginationMode('client');
+        setReservations(list.map(normalizeReservation));
+        console.log(`✅ [ReservationsManagement] ${list.length} reservas carregadas (fallback)`);
       } else {
         console.error('❌ [ReservationsManagement] Erro ao carregar reservas:', response.error);
         toast.error('Erro ao carregar reservas');
@@ -172,6 +356,49 @@ export function ReservationsManagement({
       toast.error('Erro ao carregar reservas');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSummary = async () => {
+    try {
+      // Se o backend não tem /summary (ainda), não bloquear a tela.
+      // Em modo client-side, os cards serão derivados do filtro local.
+      if (paginationMode === 'client') {
+        setSummary(null);
+        return;
+      }
+
+      const filters: any = {};
+      if (statusFilter !== 'all') {
+        filters.status = [statusFilter];
+      }
+      if (platformFilter !== 'all') {
+        filters.platform = [platformFilter];
+      }
+
+      const dateFrom = format(dateRange.from, 'yyyy-MM-dd');
+      const dateTo = format(dateRange.to, 'yyyy-MM-dd');
+      const shouldFilterProperties = properties.length > 0 && selectedProperties.length > 0 && selectedProperties.length < properties.length;
+      const propertyIds = shouldFilterProperties ? selectedProperties : undefined;
+
+      const response = await reservationsApi.getSummary({
+        ...filters,
+        propertyIds,
+        dateField: dateFilterField,
+        dateFrom,
+        dateTo,
+      });
+
+      if (response.success && response.data) {
+        setSummary(response.data);
+        // Se a paginação ainda não carregou count, usar o total do summary como fallback
+        if (totalCount === 0 && typeof response.data.total === 'number') {
+          setTotalCount(response.data.total);
+          setTotalPages(Math.max(1, Math.ceil(response.data.total / PAGE_SIZE)));
+        }
+      }
+    } catch (err) {
+      console.error('❌ [ReservationsManagement] Erro ao carregar summary:', err);
     }
   };
 
@@ -241,16 +468,6 @@ export function ReservationsManagement({
       console.error('Erro ao carregar hóspedes:', error);
     }
   };
-
-  // Stats calculations - OTIMIZADO: Memoizado para evitar recálculo em cada render
-  const stats = useMemo(() => ({
-    total: reservations.length,
-    confirmed: reservations.filter(r => r.status === 'confirmed').length,
-    pending: reservations.filter(r => r.status === 'pending').length,
-    revenue: reservations
-      .filter(r => ['confirmed', 'checked_in', 'checked_out', 'completed'].includes(r.status))
-      .reduce((sum, r) => sum + r.pricing.total, 0),
-  }), [reservations]);
 
   // OTIMIZADO: Maps para lookups O(1) em vez de O(n)
   const guestsMap = useMemo(() => 
@@ -340,15 +557,45 @@ export function ReservationsManagement({
       
       return (
         reservation.id.toLowerCase().includes(query) ||
-        guest?.fullName.toLowerCase().includes(query) ||
-        guest?.email.toLowerCase().includes(query) ||
-        property?.name.toLowerCase().includes(query)
+        guest?.fullName?.toLowerCase().includes(query) ||
+        guest?.email?.toLowerCase().includes(query) ||
+        property?.name?.toLowerCase().includes(query)
       );
     });
     
     console.log(`✅ [ReservationsManagement] Filtro aplicado: ${filtered.length} de ${reservations.length} reservas`);
     return filtered;
   }, [reservations, selectedProperties, selectedApis, searchQuery, guestsMap, propertiesMap, dateRange.from, dateRange.to, dateFilterField]);
+
+  const effectiveTotalPages = useMemo(() => {
+    if (paginationMode === 'server') return totalPages;
+    return Math.max(1, Math.ceil(filteredReservations.length / PAGE_SIZE));
+  }, [paginationMode, totalPages, filteredReservations.length]);
+
+  const effectiveTotalCount = useMemo(() => {
+    if (paginationMode === 'server') return totalCount;
+    return filteredReservations.length;
+  }, [paginationMode, totalCount, filteredReservations.length]);
+
+  const pagedReservations = useMemo(() => {
+    if (paginationMode === 'server') return filteredReservations;
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredReservations.slice(start, start + PAGE_SIZE);
+  }, [paginationMode, filteredReservations, page]);
+
+  // Stats (preferir backend summary quando disponível; fallback para o conjunto filtrado no frontend)
+  const stats = useMemo(() => {
+    if (summary && paginationMode === 'server') return summary;
+    const base = filteredReservations;
+    return {
+      total: base.length,
+      confirmed: base.filter(r => r.status === 'confirmed').length,
+      pending: base.filter(r => r.status === 'pending').length,
+      revenue: base
+        .filter(r => ['confirmed', 'checked_in', 'checked_out', 'completed'].includes(r.status))
+        .reduce((sum, r) => sum + (Number(r.pricing?.total) || 0), 0),
+    };
+  }, [summary, paginationMode, filteredReservations]);
 
   // Get property name - OTIMIZADO: Usa Map O(1)
   const getPropertyName = (propertyId: string) => {
@@ -950,14 +1197,14 @@ export function ReservationsManagement({
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
             </div>
-          ) : filteredReservations.length === 0 ? (
+          ) : pagedReservations.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p>Nenhuma reserva encontrada</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredReservations.map(reservation => {
+              {pagedReservations.map(reservation => {
                 const guest = guestsMap.get(reservation.guestId); // OTIMIZADO: O(1) lookup
                 const property = propertiesMap.get(reservation.propertyId); // OTIMIZADO: O(1) lookup
                 
@@ -975,7 +1222,7 @@ export function ReservationsManagement({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                              {guest?.fullName || 'Hóspede não encontrado'}
+                              {guest?.fullName || reservation.guestName || 'Hóspede'}
                             </p>
                             <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
                               #{reservation.id.slice(0, 8)}
@@ -1098,6 +1345,31 @@ export function ReservationsManagement({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && effectiveTotalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Anterior
+              </Button>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Página {page} de {effectiveTotalPages} • {effectiveTotalCount} reservas
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setPage(p => Math.min(effectiveTotalPages, p + 1))}
+                disabled={page >= effectiveTotalPages}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
             </div>
           )}
         </CardContent>

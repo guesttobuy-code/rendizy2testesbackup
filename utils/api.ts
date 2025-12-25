@@ -652,6 +652,89 @@ export const reservationsApi = {
     return apiRequest<Reservation[]>(`/reservations${query ? '?' + query : ''}`);
   },
 
+  // Listar reservas paginadas (v2 opt-in no backend)
+  listPaged: async (filters?: {
+    propertyId?: string;
+    propertyIds?: string[];
+    guestId?: string;
+    status?: string[];
+    platform?: string[];
+    checkInFrom?: string;
+    checkInTo?: string;
+    checkOutFrom?: string;
+    checkOutTo?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    dateField?: 'checkin' | 'checkout' | 'created';
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<
+    ApiResponse<{
+      data: Reservation[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>
+  > => {
+    const params = new URLSearchParams();
+    if (filters?.propertyId) params.set('propertyId', filters.propertyId);
+    if (filters?.propertyIds?.length) params.set('propertyIds', filters.propertyIds.join(','));
+    if (filters?.guestId) params.set('guestId', filters.guestId);
+    if (filters?.status?.length) params.set('status', filters.status.join(','));
+    if (filters?.platform?.length) params.set('platform', filters.platform.join(','));
+    if (filters?.checkInFrom) params.set('checkInFrom', filters.checkInFrom);
+    if (filters?.checkInTo) params.set('checkInTo', filters.checkInTo);
+    if (filters?.checkOutFrom) params.set('checkOutFrom', filters.checkOutFrom);
+    if (filters?.checkOutTo) params.set('checkOutTo', filters.checkOutTo);
+    if (filters?.createdFrom) params.set('createdFrom', filters.createdFrom);
+    if (filters?.createdTo) params.set('createdTo', filters.createdTo);
+    if (filters?.dateField) params.set('dateField', filters.dateField);
+    if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters?.page) params.set('page', String(filters.page));
+    if (filters?.limit) params.set('limit', String(filters.limit));
+
+    const query = params.toString();
+    return apiRequest(`/reservations${query ? '?' + query : ''}`);
+  },
+
+  // Resumo para cards (total/confirmadas/pendentes/receita)
+  getSummary: async (filters?: {
+    propertyId?: string;
+    propertyIds?: string[];
+    guestId?: string;
+    status?: string[];
+    platform?: string[];
+    checkInFrom?: string;
+    checkInTo?: string;
+    checkOutFrom?: string;
+    checkOutTo?: string;
+    createdFrom?: string;
+    createdTo?: string;
+    dateField?: 'checkin' | 'checkout' | 'created';
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<ApiResponse<{ total: number; confirmed: number; pending: number; revenue: number }>> => {
+    const params = new URLSearchParams();
+    if (filters?.propertyId) params.set('propertyId', filters.propertyId);
+    if (filters?.propertyIds?.length) params.set('propertyIds', filters.propertyIds.join(','));
+    if (filters?.guestId) params.set('guestId', filters.guestId);
+    if (filters?.status?.length) params.set('status', filters.status.join(','));
+    if (filters?.platform?.length) params.set('platform', filters.platform.join(','));
+    if (filters?.checkInFrom) params.set('checkInFrom', filters.checkInFrom);
+    if (filters?.checkInTo) params.set('checkInTo', filters.checkInTo);
+    if (filters?.checkOutFrom) params.set('checkOutFrom', filters.checkOutFrom);
+    if (filters?.checkOutTo) params.set('checkOutTo', filters.checkOutTo);
+    if (filters?.createdFrom) params.set('createdFrom', filters.createdFrom);
+    if (filters?.createdTo) params.set('createdTo', filters.createdTo);
+    if (filters?.dateField) params.set('dateField', filters.dateField);
+    if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.set('dateTo', filters.dateTo);
+
+    const query = params.toString();
+    return apiRequest(`/reservations/summary${query ? '?' + query : ''}`);
+  },
+
   // KPIs do dia (check-in/out/in-house/novas hoje)
   getKpis: async (): Promise<ApiResponse<{
     date: string;

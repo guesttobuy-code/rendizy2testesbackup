@@ -73,13 +73,22 @@ interface ExtractedGuest {
 // ============================================================================
 // FUNÇÃO AUXILIAR: Extrair dados do guest de diferentes estruturas
 // ============================================================================
-function extractGuestData(res: StaysNetReservation): ExtractedGuest | null {
-  // Email é obrigatório para deduplica e identificação
-  const email = res.guestEmail || res.guest?.email;
-  
-  if (!email || !email.includes('@')) {
-    return null; // Sem email válido, não pode criar guest
+function hash32Hex(input: string): string {
+  // djb2
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash << 5) + hash) ^ input.charCodeAt(i);
   }
+  // unsigned 32-bit
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function sanitizeDigits(input: string): string {
+  return String(input || '').replace(/\D+/g, '');
+}
+
+function extractGuestData(res: StaysNetReservation): ExtractedGuest {
+  const payloadEmail = (res.guestEmail || res.guest?.email || '').trim();
 
   // Nome pode vir em diferentes formatos
   let firstName = res.guestFirstName || res.guest?.firstName || '';
@@ -101,20 +110,44 @@ function extractGuestData(res: StaysNetReservation): ExtractedGuest | null {
 
   // Se ainda não tem nome, usa email como fallback
   if (!firstName) {
-    firstName = email.split('@')[0];
+    firstName = payloadEmail ? payloadEmail.split('@')[0] : 'Hóspede';
   }
 
   // Determinar source/platform
   const source = res.platform || res.source || 'staysnet';
   const mappedSource = mapSource(source);
 
+  const cpf = (res.guestCpf || res.guest?.cpf || undefined)?.trim();
+  const passport = (res.guestPassport || res.guest?.passport || undefined)?.trim();
+  const phone = (res.guestPhone || res.guest?.phone || undefined)?.trim();
+
+  // Se não tiver email real, gerar um email sintético estável para:
+  // - permitir insert sem quebrar frontend (guest.email é string)
+  // - permitir dedupe com base em cpf/passport/phone/nome
+  const email = (() => {
+    if (payloadEmail && payloadEmail.includes('@')) return payloadEmail;
+
+    const dedupeSeed = [
+      cpf ? `cpf:${sanitizeDigits(cpf)}` : null,
+      passport ? `passport:${passport}` : null,
+      phone ? `phone:${sanitizeDigits(phone)}` : null,
+      `name:${firstName} ${lastName}`,
+      `res:${res._id || res.confirmationCode || ''}`,
+    ]
+      .filter(Boolean)
+      .join('|');
+
+    const h = hash32Hex(dedupeSeed);
+    return `noemail-${h}@staysnet.local`;
+  })();
+
   return {
     firstName: firstName,
     lastName: lastName,
     email: email,
-    phone: res.guestPhone || res.guest?.phone || undefined,
-    cpf: res.guestCpf || res.guest?.cpf || undefined,
-    passport: res.guestPassport || res.guest?.passport || undefined,
+    phone,
+    cpf,
+    passport,
     birthDate: res.guest?.birthDate || undefined,
     nationality: res.guest?.nationality || undefined,
     language: res.guest?.language || 'pt-BR',
@@ -276,14 +309,7 @@ export async function importStaysNetGuests(c: Context) {
         // 2.1: EXTRAIR DADOS DO GUEST
         // ====================================================================
         const guestData = extractGuestData(res);
-        
-        if (!guestData) {
-          console.warn(`   ⚠️ Sem email válido - SKIP`);
-          skipped++;
-          continue;
-        }
-
-        console.log(`   📧 Email: ${guestData.email}`);
+        console.log(`   📧 Email: ${guestData.email}${guestData.email.endsWith('@staysnet.local') ? ' (sintético)' : ''}`);
 
         // ====================================================================
         // 2.2: BUSCAR RESERVATION NO BANCO (para vincular depois)

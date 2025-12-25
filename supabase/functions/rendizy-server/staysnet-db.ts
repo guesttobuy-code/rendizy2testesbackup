@@ -208,6 +208,47 @@ export async function markWebhookProcessedDB(
   }
 }
 
+export interface StaysNetWebhookRow {
+  id: string;
+  organization_id: string;
+  action: string;
+  payload: any;
+  metadata?: any;
+  received_at: string;
+  processed: boolean;
+}
+
+/**
+ * Lista webhooks pendentes (processed=false), em ordem de chegada.
+ */
+export async function listPendingWebhooksDB(
+  organizationId: string,
+  limit: number = 25,
+): Promise<{ success: boolean; data?: StaysNetWebhookRow[]; error?: string }> {
+  try {
+    const supabase = getSupabaseClient();
+
+    const safeLimit = Math.max(1, Math.min(200, Number(limit) || 25));
+    const { data, error } = await supabase
+      .from('staysnet_webhooks')
+      .select('id, organization_id, action, payload, metadata, received_at, processed')
+      .eq('organization_id', organizationId)
+      .eq('processed', false)
+      .order('received_at', { ascending: true })
+      .limit(safeLimit);
+
+    if (error) {
+      console.error('[StaysNet DB] ❌ Erro ao listar webhooks pendentes:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: (data || []) as any };
+  } catch (error) {
+    console.error('[StaysNet DB] ❌ Erro ao listar webhooks pendentes:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 // ============================================================================
 // SYNC LOG FUNCTIONS
 // ============================================================================

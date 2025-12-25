@@ -104,6 +104,17 @@ export function reservationToSql(reservation: Reservation, organizationId: strin
  * ✅ CORREÇÃO v1.0.103.401: Extrair guestName do JOIN com tabela guests
  */
 export function sqlToReservation(row: any): Reservation {
+  const toNumber = (value: any, fallback = 0): number => {
+    if (value === null || value === undefined || value === '') return fallback;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  const toInt = (value: any, fallback = 0): number => {
+    const n = toNumber(value, fallback);
+    return Math.floor(n);
+  };
+
   // ✅ Extrair guest name do JOIN (se disponível)
   const guestData = row.guests;
   const guestName = guestData?.full_name 
@@ -115,33 +126,33 @@ export function sqlToReservation(row: any): Reservation {
   
   return {
     id: row.id,
-    propertyId: row.property_id,
-    guestId: row.guest_id,
+    propertyId: row.property_id || '',
+    guestId: row.guest_id || '',
     guestName: guestName,  // ✅ Agora incluído do JOIN
     
     // Datas
     checkIn: row.check_in,
     checkOut: row.check_out,
-    nights: row.nights,
+    nights: toInt(row.nights, 0),
     
     // Hóspedes (aninhado)
     guests: {
-      adults: row.guests_adults || 1,
-      children: row.guests_children || 0,
-      infants: row.guests_infants || 0,
-      pets: row.guests_pets || 0,
-      total: row.guests_total || row.guests_adults || 1,
+      adults: toInt(row.guests_adults, 1) || 1,
+      children: toInt(row.guests_children, 0),
+      infants: toInt(row.guests_infants, 0),
+      pets: toInt(row.guests_pets, 0),
+      total: toInt(row.guests_total, 0) || toInt(row.guests_adults, 1) || 1,
     },
     
     // Precificação (aninhado)
     pricing: {
-      pricePerNight: row.pricing_price_per_night || 0,
-      baseTotal: row.pricing_base_total || 0,
-      cleaningFee: row.pricing_cleaning_fee || 0,
-      serviceFee: row.pricing_service_fee || 0,
-      taxes: row.pricing_taxes || 0,
-      discount: row.pricing_discount || 0,
-      total: row.pricing_total || 0,
+      pricePerNight: toNumber(row.pricing_price_per_night, 0),
+      baseTotal: toNumber(row.pricing_base_total, 0),
+      cleaningFee: toNumber(row.pricing_cleaning_fee, 0),
+      serviceFee: toNumber(row.pricing_service_fee, 0),
+      taxes: toNumber(row.pricing_taxes, 0),
+      discount: toNumber(row.pricing_discount, 0),
+      total: toNumber(row.pricing_total, 0),
       currency: row.pricing_currency || 'BRL',
       appliedTier: row.pricing_applied_tier || undefined,
     },

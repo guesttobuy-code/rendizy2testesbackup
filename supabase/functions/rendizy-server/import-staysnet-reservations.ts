@@ -98,12 +98,14 @@ interface StaysNetReservation {
   _i_maxGuests?: number;          // Capacidade máxima (pode vir como decimal)
   
   // Preços
-  price?: number;                 // Preço total
-  pricePerNight?: number;         // Preço por noite
-  cleaningFee?: number;           // Taxa de limpeza
-  serviceFee?: number;            // Taxa de serviço
-  taxes?: number;                 // Impostos
-  discount?: number;              // Desconto
+  // Observação: em payloads reais esses campos podem vir como string ("R$ 1.234,56")
+  // ou como objeto com breakdown. Por isso usamos `any` e normalizamos.
+  price?: any;                    // Preço total (ou objeto)
+  pricePerNight?: any;            // Preço por noite
+  cleaningFee?: any;              // Taxa de limpeza
+  serviceFee?: any;               // Taxa de serviço
+  taxes?: any;                    // Impostos
+  discount?: any;                 // Desconto
   currency?: string;              // Moeda (BRL, USD, etc)
   
   // Status
@@ -134,6 +136,64 @@ function safeInt(value: any, defaultValue: number = 0): number {
   const num = Number(value);
   if (isNaN(num)) return defaultValue;
   return Math.round(num); // ✅ FIX: Arredondar decimais para INTEGER
+}
+
+function parseMoney(value: any, fallback = 0): number {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+
+  // Alguns payloads retornam objeto (ex: { total: 123, cleaningFee: 10, ... })
+  if (typeof value === 'object') {
+    const candidates = [
+      (value as any).total,
+      (value as any).amount,
+      (value as any).value,
+      (value as any).price,
+      (value as any).baseTotal,
+      (value as any).base_total,
+      (value as any).grandTotal,
+      (value as any).grand_total,
+    ];
+    for (const c of candidates) {
+      const n = parseMoney(c, Number.NaN);
+      if (Number.isFinite(n)) return n;
+    }
+    return fallback;
+  }
+
+  // Strings: aceita "R$ 1.234,56"; "1,234.56"; "1234,56"; "1234.56"
+  if (typeof value === 'string') {
+    let s = value.trim();
+    if (!s) return fallback;
+    // remover moeda e espaços
+    s = s.replace(/[^0-9,.-]/g, '');
+    if (!s) return fallback;
+
+    // Heurística PT-BR: se tem vírgula e ponto, assume ponto = milhar, vírgula = decimal
+    if (s.includes(',') && s.includes('.')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else if (s.includes(',')) {
+      // só vírgula: assumir decimal
+      s = s.replace(',', '.');
+    }
+
+    const n = Number(s);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  // fallback genérico
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function pickMoneyFromObject(obj: any, keys: string[], fallback = 0): number {
+  if (!obj || typeof obj !== 'object') return fallback;
+  for (const k of keys) {
+    if (obj[k] !== undefined && obj[k] !== null) {
+      return parseMoney(obj[k], fallback);
+    }
+  }
+  return fallback;
 }
 
 function parseOptionalDateToIso(value: any): string | null {
@@ -191,6 +251,41 @@ function mapReservationStatus(staysStatus: string | undefined): string {
   };
   
   return statusMap[staysStatus.toLowerCase()] || 'pending';
+}
+
+function deriveReservationStatus(input: { type?: string; status?: string }): string {
+  const typeLower = String(input.type || '').trim().toLowerCase();
+
+  // StaysNet usa `type=canceled` (1 L) como filtro oficial.
+  if (typeLower === 'canceled' || typeLower === 'cancelled') return 'cancelled';
+  if (typeLower === 'no_show') return 'no_show';
+
+  const fromStatus = mapReservationStatus(input.status);
+
+  // Se o payload não trouxer `status`, inferir um default razoável por `type`.
+  if (fromStatus === 'pending') {
+    if (typeLower === 'booked' || typeLower === 'contract') return 'confirmed';
+    if (typeLower === 'reserved') return 'pending';
+  }
+
+  return fromStatus;
+}
+
+function mapPaymentStatus(raw: string | undefined, fallback: string = 'pending'): string {
+  if (!raw) return fallback;
+  const v = String(raw).trim().toLowerCase();
+  const map: Record<string, string> = {
+    pending: 'pending',
+    paid: 'paid',
+    completed: 'paid',
+    partial: 'partial',
+    partially_paid: 'partial',
+    refunded: 'refunded',
+    refund: 'refunded',
+    cancelled: 'cancelled',
+    canceled: 'cancelled',
+  };
+  return map[v] || fallback;
 }
 
 // ============================================================================
@@ -552,13 +647,62 @@ export async function importStaysNetReservations(c: Context) {
         const guestsPets = safeInt(res.guests?.pets, 0);
         const guestsTotal = safeInt(res.guests?.total || guestsAdults, 1);
 
-        const pricePerNight = Number(res.pricePerNight || 0);
-        const baseTotal = Number(res.price || pricePerNight * nights);
-        const cleaningFee = Number(res.cleaningFee || 0);
-        const serviceFee = Number(res.serviceFee || 0);
-        const taxes = Number(res.taxes || 0);
-        const discount = Number(res.discount || 0);
-        const total = baseTotal + cleaningFee + serviceFee + taxes - discount;
+        const priceObj = (res as any).price;
+
+        const pricePerNight = parseMoney(
+          res.pricePerNight ?? pickMoneyFromObject(priceObj, ['pricePerNight', 'price_per_night', 'perNight', 'per_night'], 0),
+          0,
+        );
+
+        const baseTotal = parseMoney(
+          res.price ?? pickMoneyFromObject(priceObj, ['baseTotal', 'base_total', 'base', 'accommodation', 'accommodationTotal', 'accommodation_total', 'total'], Number.NaN),
+          Number.NaN,
+        );
+
+        const cleaningFee = parseMoney(
+          res.cleaningFee ?? pickMoneyFromObject(priceObj, ['cleaningFee', 'cleaning_fee', 'cleaning'], 0),
+          0,
+        );
+
+        const serviceFee = parseMoney(
+          res.serviceFee ?? pickMoneyFromObject(priceObj, ['serviceFee', 'service_fee', 'service'], 0),
+          0,
+        );
+
+        const taxes = parseMoney(
+          res.taxes ?? pickMoneyFromObject(priceObj, ['taxes', 'tax', 'vat'], 0),
+          0,
+        );
+
+        const discount = parseMoney(
+          res.discount ?? pickMoneyFromObject(priceObj, ['discount', 'discounts', 'coupon', 'promotion'], 0),
+          0,
+        );
+
+        const resolvedBaseTotal = Number.isFinite(baseTotal) ? baseTotal : pricePerNight * nights;
+        const total = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
+
+        const derivedStatus = deriveReservationStatus({
+          type: (res as any).type,
+          status: res.status,
+        });
+
+        const cancellationAtIso =
+          parseOptionalDateToIso(
+            res.cancelledAt ??
+              (res as any).cancellationDate ??
+              (res as any).cancelDate ??
+              (res as any).cancelled_at ??
+              (res as any).canceledAt ??
+              (res as any).cancellation_at,
+          ) ?? (derivedStatus === 'cancelled' ? new Date().toISOString() : null);
+
+        const cancellationReason =
+          (res as any).cancellationReason ??
+          (res as any).cancellation_reason ??
+          (res as any).cancelReason ??
+          (res as any).cancel_reason ??
+          null;
 
         const reservationData = {
           // Identificadores (✅ id é TEXT na tabela, usar confirmationCode)
@@ -581,7 +725,7 @@ export async function importStaysNetReservations(c: Context) {
 
           // Precificação (flat structure)
           pricing_price_per_night: pricePerNight,
-          pricing_base_total: baseTotal,
+          pricing_base_total: resolvedBaseTotal,
           pricing_cleaning_fee: cleaningFee,
           pricing_service_fee: serviceFee,
           pricing_taxes: taxes,
@@ -590,7 +734,7 @@ export async function importStaysNetReservations(c: Context) {
           pricing_currency: res.currency || 'BRL',
 
           // Status
-          status: mapReservationStatus(res.status),
+          status: derivedStatus,
 
           // Plataforma
           platform: mapPlatformV2({
@@ -603,7 +747,7 @@ export async function importStaysNetReservations(c: Context) {
           external_url: finalExternalUrl,
 
           // Pagamento
-          payment_status: res.paymentStatus || 'pending',
+          payment_status: mapPaymentStatus(res.paymentStatus, derivedStatus === 'cancelled' ? 'cancelled' : 'pending'),
           payment_method: res.paymentMethod || null,
 
           // Comunicação
@@ -615,12 +759,13 @@ export async function importStaysNetReservations(c: Context) {
           check_out_time: res.checkOutTime || null,
 
           // Cancelamento
-          cancelled_at: res.cancelledAt ? new Date(res.cancelledAt).toISOString() : null,
+          cancelled_at: cancellationAtIso,
+          cancellation_reason: cancellationReason,
 
           // Metadata
           created_by: DEFAULT_USER_ID,
           source_created_at: sourceCreatedAtIso,
-          confirmed_at: res.status === 'confirmed' ? new Date().toISOString() : null
+          confirmed_at: derivedStatus === 'confirmed' ? new Date().toISOString() : null
         };
 
         // ====================================================================

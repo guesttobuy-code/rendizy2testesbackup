@@ -4,6 +4,7 @@ import { getSupabaseClient } from './kv_store.tsx';
 import { successResponse, errorResponse, logInfo, logError } from './utils.ts';
 import * as staysnetDB from './staysnet-db.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
+import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 
 // ============================================================================
 // TYPES
@@ -731,6 +732,441 @@ export async function saveStaysNetConfig(c: Context) {
   } catch (error) {
     logError('Error saving Stays.net config', error);
     return c.json(errorResponse('Failed to save config'), 500);
+  }
+}
+
+/**
+ * POST /staysnet/webhook/:organizationId
+ * Receiver simples para notificações do Stays.net.
+ *
+ * Observação: a documentação menciona `x-stays-signature`, porém não define
+ * aqui o algoritmo de verificação. Por segurança, persistimos headers + payload
+ * para posterior validação/processing.
+ */
+export async function receiveStaysNetWebhook(c: Context) {
+  try {
+    const { organizationId } = c.req.param();
+    if (!organizationId) {
+      return c.json(errorResponse('organizationId is required'), 400);
+    }
+
+    const clientId = c.req.header('x-stays-client-id') || null;
+    const signature = c.req.header('x-stays-signature') || null;
+
+    let body: any;
+    try {
+      body = await c.req.json();
+    } catch {
+      body = await c.req.text();
+    }
+
+    const action = typeof body === 'object' && body ? String(body.action || 'unknown') : 'unknown';
+    const payload = typeof body === 'object' && body ? (body.payload ?? body) : body;
+    const dt = typeof body === 'object' && body ? (body._dt ?? null) : null;
+
+    const save = await staysnetDB.saveStaysNetWebhookDB(
+      organizationId,
+      action,
+      payload,
+      {
+        received_dt: dt,
+        headers: {
+          'x-stays-client-id': clientId,
+          'x-stays-signature': signature,
+          'user-agent': c.req.header('user-agent') || null,
+        },
+      },
+    );
+
+    if (!save.success) {
+      return c.json(errorResponse(save.error || 'Failed to save webhook'), 500);
+    }
+
+    return c.json(successResponse({ id: save.id, received: true }));
+  } catch (error) {
+    logError('Error receiving Stays.net webhook', error);
+    return c.json(errorResponse('Failed to receive webhook'), 500);
+  }
+}
+
+function safeInt(value: any, fallback = 0): number {
+  if (value === null || value === undefined) return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.round(n);
+}
+
+function parseMoney(value: any, fallback = 0): number {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+
+  if (typeof value === 'object') {
+    const candidates = [
+      (value as any)._f_total,
+      (value as any)._f_val,
+      (value as any).total,
+      (value as any).amount,
+      (value as any).value,
+      (value as any).price,
+      (value as any).grandTotal,
+      (value as any).grand_total,
+    ];
+    for (const c of candidates) {
+      const n = parseMoney(c, Number.NaN);
+      if (Number.isFinite(n)) return n;
+    }
+    return fallback;
+  }
+
+  if (typeof value === 'string') {
+    let s = value.trim();
+    if (!s) return fallback;
+    s = s.replace(/[^0-9,.-]/g, '');
+    if (!s) return fallback;
+    const lastComma = s.lastIndexOf(',');
+    const lastDot = s.lastIndexOf('.');
+    const decimalSep = lastComma > lastDot ? ',' : '.';
+    if (decimalSep === ',') {
+      s = s.replace(/\./g, '').replace(/,/g, '.');
+    } else {
+      s = s.replace(/,/g, '');
+    }
+    const n = Number(s);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  return fallback;
+}
+
+function mapReservationStatus(staysStatus: string | undefined): string {
+  if (!staysStatus) return 'pending';
+  const v = String(staysStatus).trim().toLowerCase();
+  const map: Record<string, string> = {
+    pending: 'pending',
+    inquiry: 'pending',
+    confirmed: 'confirmed',
+    checked_in: 'checked_in',
+    checked_out: 'checked_out',
+    cancelled: 'cancelled',
+    canceled: 'cancelled',
+    declined: 'cancelled',
+    expired: 'cancelled',
+    no_show: 'no_show',
+  };
+  return map[v] || 'pending';
+}
+
+function deriveReservationStatus(input: { type?: string; status?: string }): string {
+  const typeLower = String(input.type || '').trim().toLowerCase();
+  if (typeLower === 'canceled' || typeLower === 'cancelled') return 'cancelled';
+  if (typeLower === 'no_show') return 'no_show';
+
+  const fromStatus = mapReservationStatus(input.status);
+  if (fromStatus === 'pending') {
+    if (typeLower === 'booked' || typeLower === 'contract') return 'confirmed';
+    if (typeLower === 'reserved') return 'pending';
+  }
+  return fromStatus;
+}
+
+function mapPaymentStatus(raw: string | undefined, fallback: string = 'pending'): string {
+  if (!raw) return fallback;
+  const v = String(raw).trim().toLowerCase();
+  const map: Record<string, string> = {
+    pending: 'pending',
+    paid: 'paid',
+    completed: 'paid',
+    partial: 'partial',
+    partially_paid: 'partial',
+    refunded: 'refunded',
+    refund: 'refunded',
+    cancelled: 'cancelled',
+    canceled: 'cancelled',
+  };
+  return map[v] || fallback;
+}
+
+function parseOptionalDateToIso(value: any): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+async function resolveAnuncioDraftIdFromStaysId(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  organizationId: string,
+  staysId: string,
+): Promise<string | null> {
+  const lookups: Array<{ label: string; needle: any }> = [
+    { label: 'data.externalIds.staysnet_property_id', needle: { externalIds: { staysnet_property_id: staysId } } },
+    { label: 'data.externalIds.staysnet_listing_id', needle: { externalIds: { staysnet_listing_id: staysId } } },
+    { label: 'data.staysnet_raw._id', needle: { staysnet_raw: { _id: staysId } } },
+    { label: 'data.staysnet_raw.id', needle: { staysnet_raw: { id: staysId } } },
+    { label: 'data.codigo', needle: { codigo: staysId } },
+  ];
+
+  for (const l of lookups) {
+    const { data: row, error } = await supabase
+      .from('anuncios_drafts')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .contains('data', l.needle)
+      .maybeSingle();
+
+    if (error) {
+      console.warn(`⚠️ [StaysNet Webhook] Erro ao buscar anuncios_drafts via ${l.label}: ${error.message}`);
+      continue;
+    }
+
+    if (row?.id) return row.id;
+  }
+
+  return null;
+}
+
+function extractReservationIdFromPayload(payload: any): string | null {
+  const p = payload?.payload ?? payload;
+  const candidates = [
+    p?._id,
+    p?.reservationId,
+    p?.reserveId,
+    p?.id,
+    p?.confirmationCode,
+    p?.partnerCode,
+    p?.reservation?._id,
+    p?.reservation?.id,
+    p?.reservation?.confirmationCode,
+  ].filter(Boolean);
+
+  if (candidates.length === 0) return null;
+  return String(candidates[0]);
+}
+
+function mapStaysReservationToSql(input: any, organizationId: string, resolvedPropertyId: string | null, existing?: any) {
+  const checkInDate = input?.checkInDate || input?.checkIn || input?.check_in;
+  const checkOutDate = input?.checkOutDate || input?.checkOut || input?.check_out;
+  if (!checkInDate || !checkOutDate) {
+    throw new Error('Reservation sem checkIn/checkOut');
+  }
+
+  const checkIn = new Date(checkInDate);
+  const checkOut = new Date(checkOutDate);
+  const nights = safeInt(input?.nights, Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
+  if (nights < 1) throw new Error('Nights inválido');
+
+  const id = String(input?.confirmationCode || input?._id || input?.id || input?.partnerCode);
+  if (!id) throw new Error('Reservation sem id');
+
+  const priceObj = input?.price || {};
+  const currency = input?.currency || priceObj?.currency || 'BRL';
+
+  const hostingDetails = priceObj?.hostingDetails || priceObj?.hosting_details || {};
+
+  const pricePerNight = parseMoney(input?.pricePerNight ?? hostingDetails?._f_nightPrice ?? hostingDetails?.nightPrice, 0);
+  const baseTotal = parseMoney(priceObj?._f_total ?? input?.price ?? input?.total, Number.NaN);
+  const resolvedBaseTotal = Number.isFinite(baseTotal) ? baseTotal : pricePerNight * nights;
+
+  const derivedStatus = deriveReservationStatus({ type: input?.type, status: input?.status });
+
+  const cancelledAtIso =
+    parseOptionalDateToIso(
+      input?.cancelledAt ??
+        input?.canceledAt ??
+        input?.cancellationDate ??
+        input?.cancelDate ??
+        input?.cancelled_at,
+    ) ?? (derivedStatus === 'cancelled' ? new Date().toISOString() : null);
+
+  const cancellationReason =
+    input?.cancellationReason ?? input?.cancellation_reason ?? input?.cancelReason ?? input?.cancel_reason ?? null;
+
+  // Guests
+  const guestsDetails = input?.guestsDetails || input?.guests_details || input?.guests || {};
+  const guestsAdults = safeInt(guestsDetails?.adults ?? input?.guests?.adults, 1) || 1;
+  const guestsChildren = safeInt(guestsDetails?.children ?? input?.guests?.children, 0);
+  const guestsInfants = safeInt(guestsDetails?.infants ?? input?.guests?.infants, 0);
+  const guestsPets = safeInt(guestsDetails?.pets ?? input?.guests?.pets, 0);
+  const guestsTotal = safeInt(guestsDetails?.total ?? input?.guests?.total, guestsAdults);
+
+  const externalId = String(input?._id || input?.id || id);
+  const externalUrl = input?.reservationUrl || input?.externalUrl || input?.external_url || null;
+
+  // Mantém vínculos existentes se não conseguimos resolver
+  const finalPropertyId = resolvedPropertyId || existing?.property_id || null;
+  const finalGuestId = existing?.guest_id || null;
+
+  const sourceCreatedAtIso = parseOptionalDateToIso(input?.creationDate ?? input?.createdAt ?? input?.created_at);
+
+  // Totais extras básicos (se vierem)
+  const taxes = parseMoney(input?.taxes ?? priceObj?.taxes, 0);
+  const serviceFee = parseMoney(input?.serviceFee ?? priceObj?.serviceFee, 0);
+  const cleaningFee = parseMoney(input?.cleaningFee ?? priceObj?.cleaningFee, 0);
+  const discount = parseMoney(input?.discount ?? priceObj?.discount, 0);
+  const total = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
+
+  return {
+    id,
+    organization_id: organizationId,
+    property_id: finalPropertyId,
+    guest_id: finalGuestId,
+    check_in: checkIn.toISOString().split('T')[0],
+    check_out: checkOut.toISOString().split('T')[0],
+    nights,
+    guests_adults: guestsAdults,
+    guests_children: guestsChildren,
+    guests_infants: guestsInfants,
+    guests_pets: guestsPets,
+    guests_total: guestsTotal,
+    pricing_price_per_night: pricePerNight,
+    pricing_base_total: resolvedBaseTotal,
+    pricing_cleaning_fee: cleaningFee,
+    pricing_service_fee: serviceFee,
+    pricing_taxes: taxes,
+    pricing_discount: discount,
+    pricing_total: total,
+    pricing_currency: currency,
+    status: derivedStatus,
+    platform: 'other',
+    external_id: externalId,
+    external_url: externalUrl,
+    payment_status: mapPaymentStatus(input?.paymentStatus, derivedStatus === 'cancelled' ? 'cancelled' : 'pending'),
+    payment_method: input?.paymentMethod || null,
+    notes: input?.notes || null,
+    special_requests: input?.specialRequests || null,
+    check_in_time: input?.checkInTime || null,
+    check_out_time: input?.checkOutTime || null,
+    cancelled_at: cancelledAtIso,
+    cancellation_reason: cancellationReason,
+    source_created_at: sourceCreatedAtIso,
+    confirmed_at: derivedStatus === 'confirmed' ? new Date().toISOString() : null,
+  };
+}
+
+/**
+ * POST /staysnet/webhooks/process/:organizationId
+ * Processa webhooks pendentes e aplica alterações no SQL.
+ */
+export async function processStaysNetWebhooks(c: Context) {
+  try {
+    const { organizationId } = c.req.param();
+    if (!organizationId) return c.json(errorResponse('organizationId is required'), 400);
+
+    const limit = Math.max(1, Math.min(200, Number(c.req.query('limit') || 25)));
+    const pending = await staysnetDB.listPendingWebhooksDB(organizationId, limit);
+    if (!pending.success) return c.json(errorResponse(pending.error || 'Failed to list webhooks'), 500);
+
+    const rows = pending.data || [];
+    if (rows.length === 0) {
+      return c.json(successResponse({ processed: 0, updated: 0, skipped: 0, errors: 0 }));
+    }
+
+    const staysConfig = await loadStaysNetRuntimeConfigOrThrow(organizationId);
+    const client = new StaysNetClient(staysConfig.apiKey, staysConfig.baseUrl, staysConfig.apiSecret);
+    const supabase = getSupabaseClient();
+
+    let processed = 0;
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const hook of rows) {
+      processed++;
+      try {
+        const action = String(hook.action || '').trim();
+
+        if (!action.startsWith('reservation.')) {
+          skipped++;
+          await staysnetDB.markWebhookProcessedDB(hook.id);
+          continue;
+        }
+
+        const reservationId = extractReservationIdFromPayload(hook.payload);
+
+        // Para deleted, pode não existir mais na API. Tentamos atualizar no SQL direto.
+        if (action === 'reservation.deleted') {
+          if (reservationId) {
+            const { error: updErr } = await supabase
+              .from('reservations')
+              .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+              .eq('id', reservationId);
+            if (updErr) console.warn('[StaysNet Webhook] delete→update falhou:', updErr.message);
+          }
+          updated++;
+          await staysnetDB.markWebhookProcessedDB(hook.id);
+          continue;
+        }
+
+        if (!reservationId) {
+          throw new Error('Não foi possível extrair reservationId do webhook');
+        }
+
+        const detail = await client.request(`/booking/reservations/${reservationId}`, 'GET');
+        if (!detail.success) {
+          // Se falhar ao buscar detalhes e for canceled, ainda dá pra marcar cancelada
+          if (action === 'reservation.canceled' || action === 'reservation.cancelled') {
+            const { error: updErr } = await supabase
+              .from('reservations')
+              .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+              .eq('id', reservationId);
+            if (updErr) throw new Error(`Falha ao marcar cancelada: ${updErr.message}`);
+            updated++;
+            await staysnetDB.markWebhookProcessedDB(hook.id);
+            continue;
+          }
+          throw new Error(detail.error || 'Falha ao buscar detalhes da reserva');
+        }
+
+        const staysReservation = detail.data;
+
+        // Resolver property se possível
+        const listingCandidate =
+          staysReservation?._idlisting ||
+          staysReservation?._id_listing ||
+          staysReservation?.propertyId ||
+          staysReservation?.listingId ||
+          staysReservation?.listing_id ||
+          null;
+
+        let existing: any = null;
+        const idCandidate = String(
+          staysReservation?.confirmationCode || staysReservation?._id || staysReservation?.id || reservationId,
+        );
+        if (idCandidate) {
+          const ex = await supabase
+            .from('reservations')
+            .select('id, property_id, guest_id')
+            .eq('id', idCandidate)
+            .maybeSingle();
+          if (!ex.error) existing = ex.data;
+        }
+
+        let resolvedPropertyId: string | null = null;
+        if (listingCandidate) {
+          resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
+        }
+
+        const sqlData = mapStaysReservationToSql(staysReservation, organizationId, resolvedPropertyId, existing);
+
+        const { error: upErr } = await supabase
+          .from('reservations')
+          .upsert(sqlData, { onConflict: 'id' });
+
+        if (upErr) throw new Error(`Upsert failed: ${upErr.message}`);
+
+        updated++;
+        await staysnetDB.markWebhookProcessedDB(hook.id);
+      } catch (err: any) {
+        errors++;
+        await staysnetDB.markWebhookProcessedDB(hook.id, err?.message || 'Unknown error');
+      }
+    }
+
+    return c.json(successResponse({ processed, updated, skipped, errors }));
+  } catch (error) {
+    logError('Error processing Stays.net webhooks', error);
+    return c.json(errorResponse('Failed to process webhooks'), 500);
   }
 }
 

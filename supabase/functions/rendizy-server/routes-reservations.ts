@@ -91,10 +91,27 @@ export async function listReservations(c: Context) {
     
     logInfo(`Listing reservations for tenant: ${tenant.username} (${tenant.type})`);
 
+    const parsePositiveInt = (raw: string | undefined | null, fallback: number): number => {
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return fallback;
+      const int = Math.floor(n);
+      return int > 0 ? int : fallback;
+    };
+
+    // Paginação (mantém compatibilidade: só ativa se page/limit forem enviados)
+    const pageParam = c.req.query('page');
+    const limitParam = c.req.query('limit');
+    const wantsPagination = pageParam !== undefined || limitParam !== undefined;
+    const page = parsePositiveInt(pageParam, 1);
+    const limit = Math.min(200, parsePositiveInt(limitParam, 20));
+    const rangeFrom = (page - 1) * limit;
+    const rangeTo = rangeFrom + limit - 1;
+
     // ✅ MIGRAÇÃO: Buscar do SQL ao invés de KV Store
+    // Compat: se não pedir paginação, devolve o mesmo contrato (array).
     let query = client
       .from('reservations')
-      .select(RESERVATION_SELECT_FIELDS);
+      .select(RESERVATION_SELECT_FIELDS, wantsPagination ? { count: 'exact' } : undefined);
     
     // ✅ REGRA MESTRE: Filtrar por organization_id (superadmin = Rendizy master, outros = sua organização)
     const organizationId = await getOrganizationIdForRequest(c);
@@ -104,14 +121,32 @@ export async function listReservations(c: Context) {
     
     // Aplicar filtros de query params
     const propertyIdFilter = c.req.query('propertyId');
+    const propertyIdsFilter = c.req.query('propertyIds');
     const guestIdFilter = c.req.query('guestId');
     const statusFilter = c.req.query('status');
     const platformFilter = c.req.query('platform');
     const checkInFromFilter = c.req.query('checkInFrom');
     const checkInToFilter = c.req.query('checkInTo');
+    const checkOutFromFilter = c.req.query('checkOutFrom');
+    const checkOutToFilter = c.req.query('checkOutTo');
+    const createdFromFilter = c.req.query('createdFrom');
+    const createdToFilter = c.req.query('createdTo');
+    const dateFieldFilter = c.req.query('dateField');
+    const dateFromFilter = c.req.query('dateFrom');
+    const dateToFilter = c.req.query('dateTo');
     
     if (propertyIdFilter) {
       query = query.eq('property_id', propertyIdFilter);
+    }
+
+    if (propertyIdsFilter) {
+      const ids = propertyIdsFilter
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+      if (ids.length > 0) {
+        query = query.in('property_id', ids);
+      }
     }
     
     if (guestIdFilter) {
@@ -133,11 +168,71 @@ export async function listReservations(c: Context) {
     if (checkInToFilter) {
       query = query.lte('check_in', checkInToFilter);
     }
+
+    if (checkOutFromFilter) {
+      query = query.gte('check_out', checkOutFromFilter);
+    }
+
+    if (checkOutToFilter) {
+      query = query.lte('check_out', checkOutToFilter);
+    }
+
+    // Filtro por criação (plataforma vs fallback created_at)
+    if (createdFromFilter || createdToFilter) {
+      const createdFromIso = createdFromFilter ? `${createdFromFilter}T00:00:00-03:00` : undefined;
+      const createdToIso = createdToFilter ? `${createdToFilter}T23:59:59.999-03:00` : undefined;
+      const bySource = [
+        createdFromIso ? `source_created_at.gte.${createdFromIso}` : null,
+        createdToIso ? `source_created_at.lte.${createdToIso}` : null,
+      ].filter(Boolean);
+      const byFallback = [
+        'source_created_at.is.null',
+        createdFromIso ? `created_at.gte.${createdFromIso}` : null,
+        createdToIso ? `created_at.lte.${createdToIso}` : null,
+      ].filter(Boolean);
+      const orParts = [] as string[];
+      if (bySource.length > 0) orParts.push(`and(${bySource.join(',')})`);
+      orParts.push(`and(${byFallback.join(',')})`);
+      query = query.or(orParts.join(','));
+    }
+
+    // Novo: dateField/dateFrom/dateTo (para alinhar com UI)
+    if (dateFieldFilter && (dateFromFilter || dateToFilter)) {
+      const field = String(dateFieldFilter).toLowerCase();
+      if (field === 'checkout') {
+        if (dateFromFilter) query = query.gte('check_out', dateFromFilter);
+        if (dateToFilter) query = query.lte('check_out', dateToFilter);
+      } else if (field === 'created') {
+        const df = dateFromFilter ? `${dateFromFilter}T00:00:00-03:00` : undefined;
+        const dt = dateToFilter ? `${dateToFilter}T23:59:59.999-03:00` : undefined;
+        const bySource = [
+          df ? `source_created_at.gte.${df}` : null,
+          dt ? `source_created_at.lte.${dt}` : null,
+        ].filter(Boolean);
+        const byFallback = [
+          'source_created_at.is.null',
+          df ? `created_at.gte.${df}` : null,
+          dt ? `created_at.lte.${dt}` : null,
+        ].filter(Boolean);
+        const orParts = [] as string[];
+        if (bySource.length > 0) orParts.push(`and(${bySource.join(',')})`);
+        orParts.push(`and(${byFallback.join(',')})`);
+        query = query.or(orParts.join(','));
+      } else {
+        // default: checkin
+        if (dateFromFilter) query = query.gte('check_in', dateFromFilter);
+        if (dateToFilter) query = query.lte('check_in', dateToFilter);
+      }
+    }
     
     // Ordenar por check_in DESC (mais recente primeiro)
     query = query.order('check_in', { ascending: false });
+
+    if (wantsPagination) {
+      query = query.range(rangeFrom, rangeTo);
+    }
     
-    const { data: rows, error } = await query;
+    const { data: rows, error, count } = await query;
     
     if (error) {
       console.error('❌ [listReservations] SQL error:', error);
@@ -149,7 +244,23 @@ export async function listReservations(c: Context) {
 
     logInfo(`Found ${reservations.length} reservations`);
 
-    return c.json(successResponse(reservations));
+    if (!wantsPagination) {
+      return c.json(successResponse(reservations));
+    }
+
+    const total = count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    return c.json(
+      successResponse({
+        data: reservations,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      })
+    );
   } catch (error) {
     console.error('❌ [listReservations] ERRO COMPLETO:', error);
     console.error('❌ [listReservations] Stack:', error?.stack);
@@ -289,6 +400,169 @@ export async function getReservationsKpis(c: Context) {
     console.error('❌ [getReservationsKpis] ERRO COMPLETO:', error);
     return c.json(
       errorResponse('Failed to calculate reservations KPIs', {
+        details: error?.message || String(error),
+      }),
+      500
+    );
+  }
+}
+
+// ============================================================================
+// SUMMARY - RESERVAS (TOTAL/CONFIRMADAS/PENDENTES/RECEITA)
+// ============================================================================
+
+export async function getReservationsSummary(c: Context) {
+  try {
+    const tenant = getTenant(c);
+    const client = getSupabaseClient();
+
+    logInfo(`Calculating reservations summary for tenant: ${tenant.username} (${tenant.type})`);
+
+    const organizationId = await getOrganizationIdForRequest(c);
+    const orgIdFinal = organizationId || RENDIZY_MASTER_ORG_ID;
+
+    // Filtros (mesmos parâmetros do listReservations)
+    const propertyIdFilter = c.req.query('propertyId');
+    const propertyIdsFilter = c.req.query('propertyIds');
+    const guestIdFilter = c.req.query('guestId');
+    const statusFilter = c.req.query('status');
+    const platformFilter = c.req.query('platform');
+    const checkInFromFilter = c.req.query('checkInFrom');
+    const checkInToFilter = c.req.query('checkInTo');
+    const checkOutFromFilter = c.req.query('checkOutFrom');
+    const checkOutToFilter = c.req.query('checkOutTo');
+    const createdFromFilter = c.req.query('createdFrom');
+    const createdToFilter = c.req.query('createdTo');
+    const dateFieldFilter = c.req.query('dateField');
+    const dateFromFilter = c.req.query('dateFrom');
+    const dateToFilter = c.req.query('dateTo');
+
+    const applyFilters = (q: any) => {
+      q = q.eq('organization_id', orgIdFinal);
+
+      if (propertyIdFilter) q = q.eq('property_id', propertyIdFilter);
+      if (propertyIdsFilter) {
+        const ids = propertyIdsFilter
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean);
+        if (ids.length > 0) q = q.in('property_id', ids);
+      }
+
+      if (guestIdFilter) q = q.eq('guest_id', guestIdFilter);
+      if (statusFilter) q = q.in('status', statusFilter.split(','));
+      if (platformFilter) q = q.in('platform', platformFilter.split(','));
+      if (checkInFromFilter) q = q.gte('check_in', checkInFromFilter);
+      if (checkInToFilter) q = q.lte('check_in', checkInToFilter);
+      if (checkOutFromFilter) q = q.gte('check_out', checkOutFromFilter);
+      if (checkOutToFilter) q = q.lte('check_out', checkOutToFilter);
+
+      if (createdFromFilter || createdToFilter) {
+        const createdFromIso = createdFromFilter ? `${createdFromFilter}T00:00:00-03:00` : undefined;
+        const createdToIso = createdToFilter ? `${createdToFilter}T23:59:59.999-03:00` : undefined;
+        const bySource = [
+          createdFromIso ? `source_created_at.gte.${createdFromIso}` : null,
+          createdToIso ? `source_created_at.lte.${createdToIso}` : null,
+        ].filter(Boolean);
+        const byFallback = [
+          'source_created_at.is.null',
+          createdFromIso ? `created_at.gte.${createdFromIso}` : null,
+          createdToIso ? `created_at.lte.${createdToIso}` : null,
+        ].filter(Boolean);
+        const orParts = [] as string[];
+        if (bySource.length > 0) orParts.push(`and(${bySource.join(',')})`);
+        orParts.push(`and(${byFallback.join(',')})`);
+        q = q.or(orParts.join(','));
+      }
+
+      if (dateFieldFilter && (dateFromFilter || dateToFilter)) {
+        const field = String(dateFieldFilter).toLowerCase();
+        if (field === 'checkout') {
+          if (dateFromFilter) q = q.gte('check_out', dateFromFilter);
+          if (dateToFilter) q = q.lte('check_out', dateToFilter);
+        } else if (field === 'created') {
+          const df = dateFromFilter ? `${dateFromFilter}T00:00:00-03:00` : undefined;
+          const dt = dateToFilter ? `${dateToFilter}T23:59:59.999-03:00` : undefined;
+          const bySource = [
+            df ? `source_created_at.gte.${df}` : null,
+            dt ? `source_created_at.lte.${dt}` : null,
+          ].filter(Boolean);
+          const byFallback = [
+            'source_created_at.is.null',
+            df ? `created_at.gte.${df}` : null,
+            dt ? `created_at.lte.${dt}` : null,
+          ].filter(Boolean);
+          const orParts = [] as string[];
+          if (bySource.length > 0) orParts.push(`and(${bySource.join(',')})`);
+          orParts.push(`and(${byFallback.join(',')})`);
+          q = q.or(orParts.join(','));
+        } else {
+          if (dateFromFilter) q = q.gte('check_in', dateFromFilter);
+          if (dateToFilter) q = q.lte('check_in', dateToFilter);
+        }
+      }
+
+      return q;
+    };
+
+    // Total / Confirmed / Pending counts
+    const qTotal = applyFilters(
+      client.from('reservations').select('id', { count: 'exact', head: true })
+    );
+
+    const qConfirmed = applyFilters(
+      client
+        .from('reservations')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'confirmed')
+    );
+
+    const qPending = applyFilters(
+      client
+        .from('reservations')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending')
+    );
+
+    // Revenue: soma de pricing_total para status "ativos/realizados" (mesma regra do frontend)
+    const qRevenueRows = applyFilters(
+      client
+        .from('reservations')
+        .select('pricing_total')
+        .in('status', ['confirmed', 'checked_in', 'checked_out', 'completed'])
+    );
+
+    const [rTotal, rConfirmed, rPending, rRevenue] = await Promise.all([
+      qTotal,
+      qConfirmed,
+      qPending,
+      qRevenueRows,
+    ]);
+
+    const firstError = rTotal.error || rConfirmed.error || rPending.error || rRevenue.error;
+    if (firstError) {
+      console.error('❌ [getReservationsSummary] SQL error:', firstError);
+      return c.json(errorResponse('Erro ao calcular resumo de reservas', { details: firstError.message }), 500);
+    }
+
+    const revenue = (rRevenue.data || []).reduce((sum: number, row: any) => {
+      const v = row?.pricing_total;
+      const n = Number(v);
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+
+    return c.json(
+      successResponse({
+        total: rTotal.count ?? 0,
+        confirmed: rConfirmed.count ?? 0,
+        pending: rPending.count ?? 0,
+        revenue,
+      })
+    );
+  } catch (error: any) {
+    console.error('❌ [getReservationsSummary] ERRO COMPLETO:', error);
+    return c.json(
+      errorResponse('Failed to calculate reservations summary', {
         details: error?.message || String(error),
       }),
       500

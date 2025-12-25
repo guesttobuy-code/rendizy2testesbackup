@@ -128,6 +128,7 @@ app.route("/rendizy-server/make-server-67caf26a/client-sites", clientSitesApp); 
 // RESERVATIONS
 // ============================================================================
 app.get("/rendizy-server/reservations", tenancyMiddleware, reservationsRoutes.listReservations);
+app.get("/rendizy-server/reservations/summary", tenancyMiddleware, reservationsRoutes.getReservationsSummary);
 app.get("/rendizy-server/reservations/kpis", tenancyMiddleware, reservationsRoutes.getReservationsKpis);
 app.get("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRoutes.getReservation);
 app.post("/rendizy-server/reservations", tenancyMiddleware, reservationsRoutes.createReservation);
@@ -137,6 +138,7 @@ app.delete("/rendizy-server/reservations/:id", tenancyMiddleware, reservationsRo
 // Alias sem prefixo: alguns pontos do frontend chamam diretamente `/reservations/*`
 // (base: /functions/v1/rendizy-server). Mantemos as duas formas para estabilidade.
 app.get("/reservations", tenancyMiddleware, reservationsRoutes.listReservations);
+app.get("/reservations/summary", tenancyMiddleware, reservationsRoutes.getReservationsSummary);
 app.get("/reservations/kpis", tenancyMiddleware, reservationsRoutes.getReservationsKpis);
 app.get("/reservations/:id", tenancyMiddleware, reservationsRoutes.getReservation);
 app.post("/reservations", tenancyMiddleware, reservationsRoutes.createReservation);
@@ -235,6 +237,10 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetRo
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/debug", staysnetRoutes.debugRawStaysNet); // 🧪 DEBUG
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/SIMPLE", importStaysNetSimple); // ⚡ SIMPLES - INSERT direto
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/RPC", importStaysNetRPC); // ✅ USA RPC (igual FormularioAnuncio) - LEGACY
+app.post("/staysnet/webhook/:organizationId", staysnetRoutes.receiveStaysNetWebhook);
+app.post("/rendizy-server/staysnet/webhook/:organizationId", staysnetRoutes.receiveStaysNetWebhook);
+app.post("/staysnet/webhooks/process/:organizationId", staysnetRoutes.processStaysNetWebhooks);
+app.post("/rendizy-server/staysnet/webhooks/process/:organizationId", staysnetRoutes.processStaysNetWebhooks);
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade
 // ============================================================================
