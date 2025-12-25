@@ -22,6 +22,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - `calendarApi.getBlocks()` - Busca bloqueios do backend
 - Hook `useCalendarData` agora carrega bloqueios reais do banco
 - Campo `external_ids` (JSONB) na tabela `properties` para rastreamento de IDs externos
+- StaysNet: persistência do payload bruto da reserva em `reservations.staysnet_raw` (auditoria e reprocessamento)
+- StaysNet: automação via webhook público + fila + processador/cron (sem depender de import manual)
+- StaysNet: endpoint de backfill para recalcular/vincular dados de reservas antigas (pricing e dados de hóspede)
+- Sidebar: busca global expandida para reservas/hóspedes/imóveis com deep-link
 
 ### Fixed
 - 🔒 **Sites dos Clientes: encapsulamento do módulo em cápsula**
@@ -100,6 +104,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Resposta mudou: `data` array → `response.anuncios` array
   - Agora retorna TODOS os anúncios da organização (159+ registros)
   - Documento: `⚡_FIX_LISTA_ANUNCIOS_VIA_BACKEND_v1.0.103.404.md`
+
+- 🔴 **StaysNet: cards de reservas com valores R$0,00 e hóspede genérico**
+  - Causa raiz: `pricing_*` zerado por parsing incompleto do payload Stays + `guest_id` sem vínculo
+  - Backend agora extrai totais via `staysnet_raw.price._f_total` e base via `staysnet_raw.price._f_expected` (com fallbacks)
+  - Fees/taxas somadas a partir de `staysnet_raw.price.hostingDetails.fees[]` quando necessário
+  - Backfill atualiza reservas existentes sem criar duplicatas
 
 ### Changed
 - Nada ainda

@@ -11,6 +11,7 @@
 docs/
 ├── README_DOCUMENTACAO.md (ESTE ARQUIVO - Índice principal)
 ├── dev-logs/ (Logs diários de desenvolvimento)
+├── implementacoes/ (Implementações e post-mortems)
 ├── operations/ (Setup, deploy, troubleshooting)
 ├── architecture/ (Arquitetura do sistema)
 ├── 04-modules/ (Documentação por módulo)
@@ -35,6 +36,14 @@ docs/
 | 2024-12-19 | [dev-logs/2024-12-19_staysnet-fix.md](dev-logs/2024-12-19_staysnet-fix.md) | StaysNet 401 corrigido | ✅ |
 | 2024-12-18 | [dev-logs/2024-12-18_reservas-uuid.md](dev-logs/2024-12-18_reservas-uuid.md) | UUID e FK constraints | ✅ |
 | 2024-12-16 | [dev-logs/2024-12-16_calendario-v2.md](dev-logs/2024-12-16_calendario-v2.md) | Refatoração React Query | ⚠️ Incompleto |
+
+---
+
+## 🧪 IMPLEMENTAÇÕES (Como foi feito)
+
+| Data | Arquivo | Resumo | Status |
+|------|---------|--------|--------|
+| 2025-12-25 | [implementacoes/IMPLEMENTACAO_STAYSNET_RESERVAS_PRICING_GUEST_BACKFILL_2025-12-25.md](implementacoes/IMPLEMENTACAO_STAYSNET_RESERVAS_PRICING_GUEST_BACKFILL_2025-12-25.md) | Pricing real + guest linkage + backfill StaysNet | ✅ |
 
 ---
 
