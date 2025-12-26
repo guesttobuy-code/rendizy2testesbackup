@@ -16,7 +16,7 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 // ============================================
 
 /**
- * Hook para carregar propriedades de anuncios_drafts
+ * Hook para carregar propriedades de anuncios_ultimate
  * Cache: 5 minutos
  * Refetch: ao focar janela
  */
@@ -46,7 +46,7 @@ export function useProperties() {
       }
 
       if (!anuncios || anuncios.length === 0) {
-        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?select=*`, {
+        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,

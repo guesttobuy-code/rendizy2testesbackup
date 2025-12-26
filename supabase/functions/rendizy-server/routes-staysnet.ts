@@ -1051,14 +1051,14 @@ async function resolveAnuncioDraftIdFromStaysId(
 
   for (const l of lookups) {
     const { data: row, error } = await supabase
-      .from('anuncios_drafts')
+      .from('anuncios_ultimate')
       .select('id')
       .eq('organization_id', organizationId)
       .contains('data', l.needle)
       .maybeSingle();
 
     if (error) {
-      console.warn(`⚠️ [StaysNet Webhook] Erro ao buscar anuncios_drafts via ${l.label}: ${error.message}`);
+      console.warn(`⚠️ [StaysNet Webhook] Erro ao buscar anuncios_ultimate via ${l.label}: ${error.message}`);
       continue;
     }
 
@@ -1825,11 +1825,28 @@ export async function previewStaysNetImport(c: Context) {
       const data = row?.data || {};
       const extIds = data?.externalIds || {};
 
-      // ✅ CAMPO PRINCIPAL usado pelo import-staysnet-properties.ts
-      const staysnetId = extIds.staysnet_property_id;
-      if (staysnetId) {
-        addIfString(staysnetId);
-        console.log(`[Preview] ✅ Encontrado: ${data?.title || 'sem título'} → ID: ${staysnetId}`);
+      // ✅ Campos principais usados pelo import-staysnet-properties.ts
+      // - staysnet_listing_id (ID do listing)
+      // - staysnet_property_id (ID do property por trás do listing, quando disponível)
+      const staysnetListingId = extIds.staysnet_listing_id;
+      const staysnetPropertyId = extIds.staysnet_property_id;
+      const staysnetListingCode = extIds.staysnet_listing_code;
+
+      if (staysnetListingId) {
+        addIfString(staysnetListingId);
+      }
+      if (staysnetPropertyId) {
+        addIfString(staysnetPropertyId);
+      }
+      if (staysnetListingCode) {
+        addIfString(staysnetListingCode);
+      }
+
+      if (staysnetListingId || staysnetPropertyId || staysnetListingCode) {
+        console.log(
+          `[Preview] ✅ Encontrado: ${data?.title || data?.nome_interno || 'sem título'} → ` +
+            `listing_id=${staysnetListingId || '∅'} property_id=${staysnetPropertyId || '∅'} code=${staysnetListingCode || '∅'}`
+        );
       }
 
       // Variantes para compatibilidade com imports antigos (mais raros)

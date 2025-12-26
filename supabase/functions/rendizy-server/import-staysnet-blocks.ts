@@ -35,7 +35,7 @@ interface StaysNetReservationLike {
   [key: string]: any;
 }
 
-async function resolveAnuncioDraftIdFromStaysId(
+async function resolveAnuncioUltimateIdFromStaysId(
   supabase: ReturnType<typeof getSupabaseClient>,
   organizationId: string,
   staysId: string,
@@ -50,14 +50,14 @@ async function resolveAnuncioDraftIdFromStaysId(
 
   for (const l of lookups) {
     const { data: row, error } = await supabase
-      .from('anuncios_drafts')
+      .from('anuncios_ultimate')
       .select('id')
       .eq('organization_id', organizationId)
       .contains('data', l.needle)
       .maybeSingle();
 
     if (error) {
-      console.warn(`   ⚠️ Erro ao buscar anuncios_drafts via ${l.label}: ${error.message}`);
+      console.warn(`   ⚠️ Erro ao buscar anuncios_ultimate via ${l.label}: ${error.message}`);
       continue;
     }
 
@@ -215,7 +215,7 @@ export async function importStaysNetBlocks(c: Context) {
 
         let propertyId: string | null = null;
         for (const candidate of staysListingCandidates) {
-          propertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, candidate);
+          propertyId = await resolveAnuncioUltimateIdFromStaysId(supabase, organizationId, candidate);
           if (propertyId) break;
         }
 

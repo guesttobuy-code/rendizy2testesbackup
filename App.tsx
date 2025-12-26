@@ -617,7 +617,7 @@ function App() {
 
         // Fallback REST direto se função devolver vazio (ambiente ainda não deployado)
         if (!anuncios || anuncios.length === 0) {
-          const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?select=*`, {
+          const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*`, {
             headers: {
               'apikey': ANON_KEY,
               'Authorization': `Bearer ${ANON_KEY}`,

@@ -2,7 +2,7 @@
  * RENDIZY - Lista de Anúncios Ultimate
  * 
  * Tela de listagem e gerenciamento de anúncios criados campo-por-campo
- * com persistência SQL garantida via anuncios_drafts table (V2)
+ * com persistência SQL garantida via anuncios_ultimate table (V2)
  * 
  * @version 1.0.1
  * @date 2025-12-16

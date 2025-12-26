@@ -404,7 +404,7 @@ export function ReservationsManagement({
 
   const loadProperties = async () => {
     try {
-      // ✅ v1.0.103.356 - Buscar de anuncios_drafts (Anúncios Ultimate)
+      // ✅ Buscar de anuncios_ultimate (Anúncios Ultimate)
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
       const ANON_KEY = publicAnonKey;
       
@@ -425,7 +425,7 @@ export function ReservationsManagement({
       }
 
       if (!anuncios || anuncios.length === 0) {
-        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?select=*`, {
+        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,

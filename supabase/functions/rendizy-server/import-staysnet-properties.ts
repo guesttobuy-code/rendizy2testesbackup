@@ -26,8 +26,9 @@
 
 import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
-import { loadStaysNetConfigDB } from './staysnet-db.ts';
 import { importPropertyPricing } from './import-staysnet-pricing.ts';
+import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
+import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
@@ -133,6 +134,7 @@ export async function importStaysNetProperties(c: Context) {
 
   let fetched = 0;
   let saved = 0;
+  let updated = 0;
   let errors = 0;
   const errorDetails: Array<{property: string, error: string}> = [];
 
@@ -152,45 +154,50 @@ export async function importStaysNetProperties(c: Context) {
     }
 
     // ========================================================================
-    // STEP 1: BUSCAR CONFIGURAÇÃO DO BANCO DE DADOS
+    // STEP 1: RESOLVER ORG + CARREGAR CONFIG (runtime)
     // ========================================================================
-    console.log('🔧 [CONFIG] Carregando configuração da StaysNet do banco...');
-    console.log('🔧 [CONFIG] Organization ID:', DEFAULT_ORG_ID);
-    
-    const configResult = await loadStaysNetConfigDB(DEFAULT_ORG_ID);
-    
-    console.log('🔧 [CONFIG] Resultado da busca:', JSON.stringify(configResult, null, 2));
-    
-    if (!configResult.success || !configResult.data) {
-      console.error('❌ [CONFIG] Configuração não encontrada ou erro ao carregar');
-      console.error('❌ [CONFIG] Result:', configResult);
-      throw new Error('Configuração da StaysNet não encontrada no banco de dados. Configure primeiro em /settings');
+    console.log('🔧 [CONFIG] Carregando configuração StaysNet (runtime)...');
+
+    // ✅ Preferir organization_id real do usuário; fallback mantém compatibilidade
+    // com chamadas técnicas/sem sessão.
+    let organizationId = DEFAULT_ORG_ID;
+    try {
+      organizationId = await getOrganizationIdOrThrow(c);
+    } catch {
+      // sem token/sessão → mantém DEFAULT_ORG_ID
     }
 
-    const config = configResult.data;
-    
-    if (!config.enabled) {
-      console.error('❌ [CONFIG] Integração desabilitada');
-      throw new Error('Integração StaysNet está desabilitada. Habilite em /settings');
-    }
+    console.log('🔧 [CONFIG] Organization ID:', organizationId);
+
+    const config = await loadStaysNetRuntimeConfigOrThrow(organizationId);
 
     console.log('✅ [CONFIG] Configuração carregada com sucesso:');
     console.log('  - Base URL:', config.baseUrl);
     console.log('  - API Key:', config.apiKey?.substring(0, 4) + '****');
     console.log('  - API Secret:', config.apiSecret ? 'presente' : 'ausente');
-    console.log('  - Account Name:', config.accountName || 'N/A');
-    console.log('  - Enabled:', config.enabled);
 
     // ========================================================================
     // STEP 2: BUSCAR TODAS AS PROPERTIES DA API STAYSNET (COM PAGINAÇÃO)
     // ========================================================================
     console.log('📡 [FETCH] Buscando TODAS as properties com paginação automática...');
     
-    // Buscar todas as properties com paginação manual
+    // Paginação (opcional): permite import modular para evitar timeout (502)
+    // - Se maxPages > 0, roda em modo batch e retorna `next`.
+    // - Caso contrário, mantém o comportamento antigo (buscar tudo).
+    const reqLimitRaw = Number(c.req.query('limit') || body?.limit || 100);
+    const reqLimit = Math.min(100, Math.max(1, Number.isFinite(reqLimitRaw) ? reqLimitRaw : 100));
+    const reqSkipRaw = Number(c.req.query('skip') || body?.skip || 0);
+    const reqSkip = Math.max(0, Number.isFinite(reqSkipRaw) ? reqSkipRaw : 0);
+    const reqMaxPagesRaw = Number(c.req.query('maxPages') || body?.maxPages || 0);
+    const reqMaxPages = Math.max(0, Number.isFinite(reqMaxPagesRaw) ? reqMaxPagesRaw : 0);
+    const isBatchMode = reqMaxPages > 0;
+
+    // Buscar properties com paginação manual
     let allProperties: StaysNetProperty[] = [];
-    let skip = 0;
-    const limit = 100;
+    let skip = reqSkip;
+    const limit = reqLimit;
     let hasMore = true;
+    let pagesFetched = 0;
     
     // Criar Basic Auth
     const credentials = btoa(`${config.apiKey}:${config.apiSecret || ''}`);
@@ -221,12 +228,33 @@ export async function importStaysNetProperties(c: Context) {
       allProperties.push(...pageProperties);
       hasMore = pageProperties.length === limit;
       skip += limit;
+      pagesFetched++;
+
+      if (isBatchMode && pagesFetched >= reqMaxPages) {
+        break;
+      }
       
       console.log(`📥 [FETCH] ${pageProperties.length} properties nesta página. Total: ${allProperties.length}`);
     }
     
-    let properties: StaysNetProperty[] = allProperties;
-    console.log(`✅ [FETCH] ${properties.length} properties disponíveis na API (todas as páginas)`);
+    // ========================================================================
+    // STEP 2.5: FILTRO PADRÃO (EVITAR INATIVOS)
+    // ========================================================================
+    // Segurança: por padrão NÃO importar imóveis inativos.
+    // A API pode representar isso como:
+    // - status: 'active' | 'hidden' | 'inactive'...
+    // - active/published: boolean
+    let properties: StaysNetProperty[] = allProperties.filter((p: any) => {
+      const status = typeof p?.status === 'string' ? p.status.toLowerCase() : null;
+      if (status) {
+        return status === 'active' || status === 'hidden';
+      }
+      if (typeof p?.active === 'boolean' && p.active === false) return false;
+      if (typeof p?.published === 'boolean' && p.published === false) return false;
+      return true;
+    });
+
+    console.log(`✅ [FETCH] ${properties.length} properties elegíveis após filtro (anti-inativos)`);
 
     // ========================================================================
     // STEP 3: FILTRAR APENAS AS PROPERTIES SELECIONADAS
@@ -288,7 +316,6 @@ export async function importStaysNetProperties(c: Context) {
     // STEP 4: SALVAR CADA PROPERTY EM anuncios_ultimate
     // ========================================================================
     const supabase = getSupabaseClient();
-    let updated = 0;
 
     for (let i = 0; i < properties.length; i++) {
       const prop = properties[i];
@@ -319,7 +346,7 @@ export async function importStaysNetProperties(c: Context) {
           const res = await supabase
             .from('anuncios_ultimate')
             .select('id, data')
-            .eq('organization_id', DEFAULT_ORG_ID)
+            .eq('organization_id', organizationId)
             .contains('data', candidate.needle)
             .maybeSingle();
 
@@ -351,7 +378,9 @@ export async function importStaysNetProperties(c: Context) {
           // ================================================================
           console.log(`   ➕ Criando novo anúncio...`);
           
-          const idempotencyKey = `staysnet-property-${prop._id}-${Date.now()}`;
+          // ⚠️ CRÍTICO: idempotency_key precisa ser ESTÁVEL.
+          // Se usar timestamp, toda execução cria um anúncio novo quando o dedupe falha.
+          const idempotencyKey = `staysnet-property-create-${prop._id}`;
           
           const { data: createResult, error: createError } = await supabase
             .rpc('save_anuncio_field', {
@@ -359,7 +388,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'title',
               p_value: prop._mstitle?.pt_BR || prop._mstitle?.en_US || prop.internalName || `Property ${prop._id}`,
               p_idempotency_key: idempotencyKey,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
 
@@ -390,7 +419,7 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'internalId',
             p_value: prop.internalName || prop._id,
             p_idempotency_key: `internal-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
           if (internalIdError) {
@@ -431,7 +460,7 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'externalIds',
             p_value: externalIdsObj,
             p_idempotency_key: `externalIds-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
           if (externalIdsError) {
@@ -457,7 +486,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'tipoPropriedade',
               p_value: prop._t_propertyTypeMeta._mstitle.pt_BR || prop._t_propertyTypeMeta._mstitle.en_US,
               p_idempotency_key: `tipoPropriedade-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
             if (tipoError) {
@@ -484,7 +513,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'tipoAcomodacao',
               p_value: prop.subtype,
               p_idempotency_key: `tipoAcomodacao-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
             if (tipoAcomodacaoError) {
@@ -508,7 +537,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'tipoLocal',
               p_value: prop.category,
               p_idempotency_key: `tipoLocal-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
             if (tipoLocalError) {
@@ -532,7 +561,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'listingType',
               p_value: prop.listingType,
               p_idempotency_key: `listingType-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
             if (listingTypeError) {
@@ -557,7 +586,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'quartos',
               p_value: String(prop._i_rooms),
               p_idempotency_key: `quartos-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
             if (quartosError) {
@@ -581,7 +610,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'banheiros',
               p_value: String(prop._f_bathrooms),
               p_idempotency_key: `banheiros-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
             if (banheirosError) {
@@ -605,7 +634,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'camas',
               p_value: String(prop._i_beds),
               p_idempotency_key: `camas-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
             if (camasError) {
@@ -629,7 +658,7 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'capacidade',
             p_value: String(capacity),
             p_idempotency_key: `capacidade-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
           if (capacidadeError) {
@@ -648,7 +677,7 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'bedroomCounts',
             p_value: prop.bedroomCounts,
             p_idempotency_key: `bedroomCounts-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
         }
@@ -669,7 +698,7 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'endereco',
             p_value: addressData,
             p_idempotency_key: `endereco-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
 
@@ -680,7 +709,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'cidade',
               p_value: prop.address.city,
               p_idempotency_key: `cidade-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
           }
@@ -691,7 +720,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'estado',
               p_value: prop.address.stateCode || prop.address.state,
               p_idempotency_key: `estado-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
           }
@@ -707,7 +736,7 @@ export async function importStaysNetProperties(c: Context) {
               lng: prop.latLng._f_lng
             },
             p_idempotency_key: `coordinates-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
         }
@@ -720,7 +749,7 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'fotoPrincipal',
             p_value: prop._t_mainImageMeta.url,
             p_idempotency_key: `fotoPrincipal-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
         }
@@ -738,7 +767,7 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'fotos',
             p_value: photosData,
             p_idempotency_key: `fotos-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
         }
@@ -756,7 +785,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'comodidades',
               p_value: amenitiesNames,
               p_idempotency_key: `comodidades-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
           }
@@ -776,7 +805,7 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'descricao',
             p_value: descricaoLimpa,
             p_idempotency_key: `descricao-${prop._id}`,
-            p_organization_id: DEFAULT_ORG_ID,
+            p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
         }
@@ -797,7 +826,7 @@ export async function importStaysNetProperties(c: Context) {
               p_field: 'publicDescription',
               p_value: publicDesc,
               p_idempotency_key: `publicDescription-${prop._id}`,
-              p_organization_id: DEFAULT_ORG_ID,
+              p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
           }
@@ -812,7 +841,7 @@ export async function importStaysNetProperties(c: Context) {
           p_field: 'status',
           p_value: prop.status || 'inactive',
           p_idempotency_key: `status-${prop._id}`,
-          p_organization_id: DEFAULT_ORG_ID,
+          p_organization_id: organizationId,
           p_user_id: DEFAULT_USER_ID
         });
 
@@ -822,7 +851,7 @@ export async function importStaysNetProperties(c: Context) {
           p_field: 'ativo',
           p_value: String(isActive),
           p_idempotency_key: `ativo-${prop._id}`,
-          p_organization_id: DEFAULT_ORG_ID,
+          p_organization_id: organizationId,
           p_user_id: DEFAULT_USER_ID
         });
 
@@ -866,7 +895,7 @@ export async function importStaysNetProperties(c: Context) {
           p_field: 'staysnet_raw',
           p_value: prop,
           p_idempotency_key: `staysnet_raw-${prop._id}`,
-          p_organization_id: DEFAULT_ORG_ID,
+          p_organization_id: organizationId,
           p_user_id: DEFAULT_USER_ID
         });
 
@@ -902,21 +931,49 @@ export async function importStaysNetProperties(c: Context) {
       });
     }
 
-    // ✅ CONTRATO PADRONIZADO: Sempre retornar { success, data: { stats, ... } }
+    const created = saved - updated;
+    const message = `Importados ${saved}/${fetched} properties: ${created} criadas, ${updated} atualizadas`;
+
+    // Modo batch: se atingiu o limite de páginas e a última página estava cheia,
+    // assumimos que ainda há mais para buscar.
+    const hasMoreBatched = isBatchMode && pagesFetched >= reqMaxPages && hasMore;
+    const next = isBatchMode
+      ? {
+          skip: reqSkip + pagesFetched * limit,
+          limit,
+          hasMore: hasMoreBatched,
+        }
+      : undefined;
+
+    // ✅ Compatibilidade:
+    // - Scripts (ps1) esperam `stats`/`message` no topo
+    // - Alguns consumidores antigos usam `{ success, data: { stats } }`
     return c.json({
-      success: errors < fetched, // success = true se pelo menos 1 salvou
+      success: errors < fetched,
+      method: 'import-properties',
+      table: 'anuncios_ultimate',
+      stats: {
+        fetched,
+        saved,
+        created,
+        updated,
+        errors,
+      },
+      message,
+      errorDetails: errors > 0 ? errorDetails : undefined,
+      next,
       data: {
-        stats: { 
+        stats: {
           total: fetched,
-          created: saved - updated,
-          updated: updated, 
-          errors: errors 
+          created,
+          updated,
+          errors,
         },
         method: 'import-properties',
         table: 'anuncios_ultimate',
         errorDetails: errors > 0 ? errorDetails : undefined,
-        message: `Importados ${saved}/${fetched} properties: ${saved - updated} criadas, ${updated} atualizadas`
-      }
+        message,
+      },
     });
 
   } catch (error: any) {
@@ -924,18 +981,31 @@ export async function importStaysNetProperties(c: Context) {
     console.error('Erro:', error.message);
     console.error('Stack:', error.stack);
     
-    // ✅ CONTRATO PADRONIZADO: Mesmo em erro, manter estrutura { success, data }
-    return c.json({
-      success: false,
-      data: {
-        stats: { 
-          total: fetched,
-          created: saved - (updated || 0),
+    const created = saved - (updated || 0);
+    return c.json(
+      {
+        success: false,
+        method: 'import-properties',
+        table: 'anuncios_ultimate',
+        stats: {
+          fetched,
+          saved,
+          created,
           updated: updated || 0,
-          errors: errors 
+          errors,
         },
-        error: error.message
-      }
-    }, 500);
+        error: error.message,
+        data: {
+          stats: {
+            total: fetched,
+            created,
+            updated: updated || 0,
+            errors,
+          },
+          error: error.message,
+        },
+      },
+      500,
+    );
   }
 }

@@ -19,7 +19,7 @@ import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 import { resolveOrCreateGuestIdFromStaysReservation } from './utils-staysnet-guest-link.ts';
 
-async function resolveAnuncioDraftIdFromStaysId(
+async function resolveAnuncioUltimateIdFromStaysId(
   supabase: ReturnType<typeof getSupabaseClient>,
   organizationId: string,
   staysId: string,
@@ -38,19 +38,19 @@ async function resolveAnuncioDraftIdFromStaysId(
 
   for (const l of lookups) {
     const { data: row, error } = await supabase
-      .from('anuncios_drafts')
+      .from('anuncios_ultimate')
       .select('id')
       .eq('organization_id', organizationId)
       .contains('data', l.needle)
       .maybeSingle();
 
     if (error) {
-      console.warn(`   ⚠️ Erro ao buscar anuncios_drafts via ${l.label}: ${error.message}`);
+      console.warn(`   ⚠️ Erro ao buscar anuncios_ultimate via ${l.label}: ${error.message}`);
       continue;
     }
 
     if (row?.id) {
-      console.log(`   ✅ Property vinculado (anuncios_drafts via ${l.label}): ${row.id}`);
+      console.log(`   ✅ Property vinculado (anuncios_ultimate via ${l.label}): ${row.id}`);
       return row.id;
     }
   }
@@ -595,8 +595,9 @@ export async function importStaysNetReservations(c: Context) {
         }
 
         // ====================================================================
-        // 2.2: RESOLVER property_id (anuncios_drafts) ANTES DO DEDUP
+        // 2.2: RESOLVER property_id (anuncios_ultimate) ANTES DO DEDUP
         // ====================================================================
+        // 2.2: RESOLVER property_id (anuncios_ultimate) ANTES DO DEDUP
         // StaysNet envia o ID do imóvel/listing como _idlisting (principal). Mantemos compatibilidade com variantes.
         const staysPropertyCandidates = [
           (res as any)._idlisting,
@@ -606,25 +607,21 @@ export async function importStaysNetReservations(c: Context) {
         let propertyId: string | null = null;
 
         for (const candidate of staysPropertyCandidates) {
-          propertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, candidate);
+          propertyId = await resolveAnuncioUltimateIdFromStaysId(supabase, organizationId, candidate);
           if (propertyId) break;
         }
 
         // Último fallback: criar um imóvel básico para não deixar reserva órfã
         if (!propertyId && staysPropertyCandidates.length > 0) {
           const primaryStaysId = staysPropertyCandidates[0];
-          console.warn(`   ⚠️ Property não encontrado para staysPropertyId=${primaryStaysId}. Criando placeholder em anuncios_drafts...`);
+          console.warn(`   ⚠️ Property não encontrado para staysPropertyId=${primaryStaysId}. Criando placeholder em anuncios_ultimate...`);
 
-          const { data: newDraft, error: createDraftError } = await supabase
-            .from('anuncios_drafts')
+          const { data: newUltimate, error: createUltimateError } = await supabase
+            .from('anuncios_ultimate')
             .insert({
               organization_id: organizationId,
               user_id: DEFAULT_USER_ID,
-              // manter compatível com schema real (title pode ser null)
-              title: null,
-              status: 'draft',
-              completion_percentage: 0,
-              step_completed: 0,
+              status: 'created',
               data: {
                 title: `Propriedade Stays.net ${primaryStaysId}`,
                 status: 'active',
@@ -641,10 +638,10 @@ export async function importStaysNetReservations(c: Context) {
             .select('id')
             .single();
 
-          if (createDraftError) {
-            console.warn(`   ⚠️ Falha ao criar placeholder em anuncios_drafts: ${createDraftError.message}`);
+          if (createUltimateError) {
+            console.warn(`   ⚠️ Falha ao criar placeholder em anuncios_ultimate: ${createUltimateError.message}`);
           } else {
-            propertyId = newDraft?.id || null;
+            propertyId = newUltimate?.id || null;
             if (propertyId) {
               console.log(`   ✅ Placeholder criado e vinculado: ${propertyId}`);
             }
@@ -654,15 +651,37 @@ export async function importStaysNetReservations(c: Context) {
         // ====================================================================
         // 2.3: VERIFICAR SE JÁ EXISTE (deduplicação via external_id)
         // ====================================================================
-        const externalId = res._id || res.confirmationCode;
+        // ====================================================================
+        // 2.3: VERIFICAR SE JÁ EXISTE (dedupe)
+        // ====================================================================
+        // Histórico: versões antigas salvaram `external_id` como confirmationCode,
+        // enquanto versões novas preferem `res._id`. Para evitar duplicar no switch,
+        // checamos ambos.
+        const externalIdCandidates = Array.from(
+          new Set(
+            [asTextOrNull(res._id), asTextOrNull(res.confirmationCode)]
+              .filter(Boolean)
+              .map((x) => String(x))
+          )
+        );
+
+        const externalId = externalIdCandidates[0] || null;
         const externalUrl = (res as any).reservationUrl || null;
 
-        const { data: existing, error: checkError } = await supabase
-          .from('reservations')
-          .select('id, property_id, external_url, guest_id')
-          .eq('organization_id', organizationId)
-          .eq('external_id', externalId)
-          .maybeSingle();
+        let existing: any = null;
+        let checkError: any = null;
+        if (externalIdCandidates.length > 0) {
+          const resExisting = await supabase
+            .from('reservations')
+            .select('id, property_id, external_url, guest_id, external_id')
+            .eq('organization_id', organizationId)
+            .in('external_id', externalIdCandidates)
+            .limit(1)
+            .maybeSingle();
+
+          existing = resExisting.data;
+          checkError = resExisting.error;
+        }
 
         if (checkError) {
           console.error(`   ❌ Erro ao verificar duplicação:`, checkError.message);
@@ -670,7 +689,9 @@ export async function importStaysNetReservations(c: Context) {
 
         // ✅ Idempotência: se já existe (por external_id), atualizar ao invés de pular.
         // Importações repetidas precisam refletir mudanças de status/datas/preços.
-        const reservationId = existing?.id || confirmationCode;
+        // Se já existir (por qualquer external_id candidato), atualiza a linha existente.
+        // Se não existir, cria com um id estável (preferindo res._id quando possível).
+        const reservationId = existing?.id || externalId || confirmationCode;
         const finalPropertyId = propertyId || existing?.property_id || FALLBACK_PROPERTY_ID;
         const finalExternalUrl = externalUrl || existing?.external_url || null;
 
