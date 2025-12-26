@@ -38,9 +38,17 @@ const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
 interface StaysNetProperty {
   // === IDENTIFICADORES ===
   _id: string;                    // ID único do imóvel (ex: "PY02H")
+  id?: string;                    // Outro identificador (usado em alguns endpoints/integrações)
   internalName: string;           // Nome interno
   name?: string;                  // Nome público
   listingCode?: string;           // Código do listing
+
+  // Meta (quando presente): referencia do "property" por trás do listing
+  _t_propertyMeta?: {
+    _id?: string;
+    id?: string;
+    [key: string]: any;
+  };
   
   // === TIPO DO IMÓVEL ===
   propertyType?: string;          // Tipo de propriedade (Building, House, etc.) → tipoPropriedade
@@ -290,14 +298,41 @@ export async function importStaysNetProperties(c: Context) {
 
       try {
         // ====================================================================
-        // 2.1: VERIFICAR SE JÁ EXISTE (deduplicação via staysnet_property_id)
+        // 2.1: VERIFICAR SE JÁ EXISTE (deduplicação via externalIds staysnet_*)
         // ====================================================================
-        const { data: existing, error: checkError } = await supabase
-          .from('anuncios_ultimate')
-          .select('id, data')
-          .eq('organization_id', DEFAULT_ORG_ID)
-          .contains('data', { externalIds: { staysnet_property_id: prop._id } })
-          .maybeSingle();
+        const staysnetListingId = prop._id;
+        const staysnetPropertyId = prop._t_propertyMeta?._id || prop._t_propertyMeta?.id || null;
+
+        const dedupeCandidates: Array<{ label: string; needle: Record<string, any> }> = [
+          { label: 'data.externalIds.staysnet_listing_id', needle: { externalIds: { staysnet_listing_id: staysnetListingId } } },
+          ...(staysnetPropertyId && staysnetPropertyId !== staysnetListingId
+            ? [{ label: 'data.externalIds.staysnet_property_id (meta)', needle: { externalIds: { staysnet_property_id: staysnetPropertyId } } }]
+            : []),
+          // legado: em alguns imports antigos, staysnet_property_id foi gravado com o listingId
+          { label: 'data.externalIds.staysnet_property_id (legacy)', needle: { externalIds: { staysnet_property_id: staysnetListingId } } },
+        ];
+
+        let existing: any = null;
+        let checkError: any = null;
+
+        for (const candidate of dedupeCandidates) {
+          const res = await supabase
+            .from('anuncios_ultimate')
+            .select('id, data')
+            .eq('organization_id', DEFAULT_ORG_ID)
+            .contains('data', candidate.needle)
+            .maybeSingle();
+
+          if (res.error) {
+            checkError = res.error;
+            continue;
+          }
+          if (res.data) {
+            existing = res.data;
+            console.log(`   🔎 Dedup match: ${candidate.label}`);
+            break;
+          }
+        }
 
         if (checkError) {
           console.error(`   ❌ Erro ao verificar duplicação:`, checkError.message);
@@ -368,19 +403,33 @@ export async function importStaysNetProperties(c: Context) {
           console.error(`      Stack:`, e.stack);
         }
 
-        // Campo: externalIds (tracking e deduplicação) - Objeto direto (Supabase serializa automaticamente)
+        // Campo: externalIds (tracking e deduplicação)
         console.log(`   🔧 [SAVE CAMPO #2] Salvando externalIds...`);
         try {
-          const externalIdsValue = JSON.stringify({
-            staysnet_property_id: prop._id,
-            staysnet_synced_at: new Date().toISOString()
-          });
-          console.log(`      📋 Valor: ${externalIdsValue}`);
+          const externalIdsObj: Record<string, unknown> = {
+            staysnet_listing_id: staysnetListingId,
+            staysnet_synced_at: new Date().toISOString(),
+          };
+
+          // Código curto do listing (ex.: PY02H) quando existir
+          if (prop.id && prop.id !== staysnetListingId) {
+            externalIdsObj.staysnet_listing_code = prop.id;
+          }
+
+          // Se o meta vier, preferir como staysnet_property_id
+          if (staysnetPropertyId) {
+            externalIdsObj.staysnet_property_id = staysnetPropertyId;
+          } else {
+            // fallback para manter compatibilidade com dedupe/consumo legado
+            externalIdsObj.staysnet_property_id = staysnetListingId;
+          }
+
+          console.log(`      📋 Valor: ${JSON.stringify(externalIdsObj)}`);
           
           const { error: externalIdsError } = await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'externalIds',
-            p_value: externalIdsValue,
+            p_value: externalIdsObj,
             p_idempotency_key: `externalIds-${prop._id}`,
             p_organization_id: DEFAULT_ORG_ID,
             p_user_id: DEFAULT_USER_ID
@@ -597,7 +646,7 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'bedroomCounts',
-            p_value: JSON.stringify(prop.bedroomCounts),
+            p_value: prop.bedroomCounts,
             p_idempotency_key: `bedroomCounts-${prop._id}`,
             p_organization_id: DEFAULT_ORG_ID,
             p_user_id: DEFAULT_USER_ID
@@ -618,7 +667,7 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'endereco',
-            p_value: JSON.stringify(addressData),
+            p_value: addressData,
             p_idempotency_key: `endereco-${prop._id}`,
             p_organization_id: DEFAULT_ORG_ID,
             p_user_id: DEFAULT_USER_ID
@@ -653,10 +702,10 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'coordinates',
-            p_value: JSON.stringify({
+            p_value: {
               lat: prop.latLng._f_lat,
               lng: prop.latLng._f_lng
-            }),
+            },
             p_idempotency_key: `coordinates-${prop._id}`,
             p_organization_id: DEFAULT_ORG_ID,
             p_user_id: DEFAULT_USER_ID
@@ -687,7 +736,7 @@ export async function importStaysNetProperties(c: Context) {
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'fotos',
-            p_value: JSON.stringify(photosData),
+            p_value: photosData,
             p_idempotency_key: `fotos-${prop._id}`,
             p_organization_id: DEFAULT_ORG_ID,
             p_user_id: DEFAULT_USER_ID
@@ -705,7 +754,7 @@ export async function importStaysNetProperties(c: Context) {
             await supabase.rpc('save_anuncio_field', {
               p_anuncio_id: anuncioId,
               p_field: 'comodidades',
-              p_value: JSON.stringify(amenitiesNames),
+              p_value: amenitiesNames,
               p_idempotency_key: `comodidades-${prop._id}`,
               p_organization_id: DEFAULT_ORG_ID,
               p_user_id: DEFAULT_USER_ID
@@ -746,7 +795,7 @@ export async function importStaysNetProperties(c: Context) {
             await supabase.rpc('save_anuncio_field', {
               p_anuncio_id: anuncioId,
               p_field: 'publicDescription',
-              p_value: JSON.stringify(publicDesc),
+              p_value: publicDesc,
               p_idempotency_key: `publicDescription-${prop._id}`,
               p_organization_id: DEFAULT_ORG_ID,
               p_user_id: DEFAULT_USER_ID

@@ -62,8 +62,10 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Deploy concluído com sucesso!" -ForegroundColor Green
     Write-Host "   A rota /chat/channels/config agora está disponível em produção" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "🔗 URL da função:" -ForegroundColor Cyan
-    Write-Host "   https://$projectRef.supabase.co/functions/v1/rendizy-server/chat/channels/config" -ForegroundColor White
+    Write-Host "🔗 URLs úteis (produção):" -ForegroundColor Cyan
+    Write-Host "   Health: https://$projectRef.supabase.co/functions/v1/rendizy-server/health" -ForegroundColor White
+    Write-Host "   Data Reconciliation (alias): https://$projectRef.supabase.co/functions/v1/rendizy-server/data-reconciliation/stays/properties" -ForegroundColor White
+    Write-Host "   Data Reconciliation (compat): https://$projectRef.supabase.co/functions/v1/rendizy-server/rendizy-server/data-reconciliation/stays/properties" -ForegroundColor DarkGray
 } else {
     Write-Host ""
     Write-Host "❌ Erro no deploy" -ForegroundColor Red

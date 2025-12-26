@@ -20,6 +20,8 @@ pnpm-debug.log*
 lerna-debug.log*
 outputs.txt
 tmp_*
+_tmp_*
+_stays_*.md
 *.tmp
 *.temp
 .tmp/
@@ -91,3 +93,6 @@ scripts/ps/
 staysnet-raw-sample.json
 ✅_CORRECOES_HOSPEDES_v1.0.103.600.md
 *.jwt
+
+# --- Local exports (PII / auditoria) ---
+_reports/

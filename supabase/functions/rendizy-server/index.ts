@@ -47,6 +47,7 @@ import blocksApp from "./routes-blocks.ts";
 import icalApp from "./routes-ical.ts";
 import * as guestsRoutes from "./routes-guests.ts";
 import * as staysnetRoutes from "./routes-staysnet.ts";
+import * as dataReconciliationRoutes from "./routes-data-reconciliation.ts";
 import { tenancyMiddleware } from "./utils-tenancy.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
 import { importStaysNetRPC } from "./import-staysnet-RPC.ts"; // ✅ Adicionado 23/12/2025
@@ -251,6 +252,38 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/import/reservations", im
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/guests", importStaysNetGuests); // 👤 Guests → guests
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/blocks", importStaysNetBlocks); // ⛔ Blocks → blocks
 // ============================================================================
+
+// ============================================================================
+// DATA RECONCILIATION (Campos reais para conciliação)
+// ============================================================================
+app.get(
+  "/rendizy-server/make-server-67caf26a/data-reconciliation/stays/properties",
+  dataReconciliationRoutes.getStaysProperties
+);
+app.post(
+  "/rendizy-server/make-server-67caf26a/data-reconciliation/real-samples",
+  dataReconciliationRoutes.getRealSamplesForReconciliation
+);
+
+// Compatibility (sem prefixo make-server)
+app.get(
+  "/rendizy-server/data-reconciliation/stays/properties",
+  dataReconciliationRoutes.getStaysProperties
+);
+app.post(
+  "/rendizy-server/data-reconciliation/real-samples",
+  dataReconciliationRoutes.getRealSamplesForReconciliation
+);
+
+// Alias sem prefixo /rendizy-server (evita URL duplicada no client)
+app.get(
+  "/data-reconciliation/stays/properties",
+  dataReconciliationRoutes.getStaysProperties
+);
+app.post(
+  "/data-reconciliation/real-samples",
+  dataReconciliationRoutes.getRealSamplesForReconciliation
+);
 
 // ============================================================================
 // GUESTS (mínimo necessário para reservas)

@@ -146,6 +146,9 @@ function parseMoney(value: any, fallback = 0): number {
   // Alguns payloads retornam objeto (ex: { total: 123, cleaningFee: 10, ... })
   if (typeof value === 'object') {
     const candidates = [
+      (value as any)._f_total,
+      (value as any)._f_expected,
+      (value as any)._f_val,
       (value as any).total,
       (value as any).amount,
       (value as any).value,
@@ -201,6 +204,12 @@ function pickMoneyFromObject(obj: any, keys: string[], fallback = 0): number {
     }
   }
   return fallback;
+}
+
+function asTextOrNull(v: any): string | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s ? s : null;
 }
 
 function parseOptionalDateToIso(value: any): string | null {
@@ -349,6 +358,8 @@ export async function importStaysNetReservations(c: Context) {
   let updated = 0;
   let errors = 0;
   let skipped = 0;
+  let skip = 0;
+  let hasMore = false;
   const errorDetails: Array<{reservation: string, error: string}> = [];
 
   try {
@@ -406,10 +417,10 @@ export async function importStaysNetReservations(c: Context) {
     const credentials = btoa(`${staysConfig.apiKey}:${staysConfig.apiSecret}`);
 
     const allReservations: StaysNetReservation[] = [];
-    let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
+    skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
     const startSkip = skip;
     let pages = 0;
-    let hasMore = false;
+    hasMore = false;
 
     while (pages < maxPages) {
       const params = new URLSearchParams({
@@ -666,7 +677,7 @@ export async function importStaysNetReservations(c: Context) {
         // ✅ Vincular guest automaticamente quando possível
         let finalGuestId = existing?.guest_id || null;
         if (!finalGuestId) {
-          finalGuestId = await resolveOrCreateGuestIdFromStaysReservation(supabase, organizationId, res);
+          finalGuestId = await resolveOrCreateGuestIdFromStaysReservation(supabase as any, organizationId, res);
         }
 
         // ====================================================================
@@ -674,24 +685,47 @@ export async function importStaysNetReservations(c: Context) {
         // ====================================================================
         // ✅ FIX: Não gerar ID customizado - Postgres auto-gera UUID
         
-        // ✅ FIX: Usar safeInt() para evitar erro "28.2005"
-        const guestsAdults = safeInt(res.guests?.adults || res._i_maxGuests, 1);
-        const guestsChildren = safeInt(res.guests?.children, 0);
-        const guestsInfants = safeInt(res.guests?.infants, 0);
-        const guestsPets = safeInt(res.guests?.pets, 0);
-        const guestsTotal = safeInt(res.guests?.total || guestsAdults, 1);
+        // ✅ FIX: Stays pode enviar:
+        // - guests: number (total)
+        // - guestsDetails: {adults,children,infants,pets}
+        // - guests: {adults,children,...}
+        const guestsDetails = (res as any).guestsDetails || (res as any).guests_details || null;
+        const guestsTotalFromNumber = typeof (res as any).guests === 'number' ? Number((res as any).guests) : Number.NaN;
+
+        const guestsAdults = safeInt(
+          guestsDetails?.adults ?? res.guests?.adults ?? (Number.isFinite(guestsTotalFromNumber) ? guestsTotalFromNumber : undefined) ?? 1,
+          1,
+        );
+        const guestsChildren = safeInt(guestsDetails?.children ?? res.guests?.children, 0);
+        const guestsInfants = safeInt(guestsDetails?.infants ?? res.guests?.infants, 0);
+        const guestsPets = safeInt(guestsDetails?.pets ?? res.guests?.pets, 0);
+        const guestsTotal = safeInt(
+          guestsDetails?.total ?? res.guests?.total ?? (Number.isFinite(guestsTotalFromNumber) ? guestsTotalFromNumber : guestsAdults),
+          1,
+        );
 
         const priceObj = (res as any).price;
 
         // OBS: em produção, os campos pricing_* são INTEGER. O Stays pode enviar decimais ("813.38"),
         // então normalizamos para inteiro (arredondado) para evitar erro de cast no Postgres.
+        const hostingDetails = priceObj && typeof priceObj === 'object' ? (priceObj as any).hostingDetails : null;
         const pricePerNight = parseMoneyInt(
-          res.pricePerNight ?? pickMoneyFromObject(priceObj, ['pricePerNight', 'price_per_night', 'perNight', 'per_night'], 0),
+          res.pricePerNight ??
+            pickMoneyFromObject(hostingDetails, ['_f_nightPrice', '_f_night_price', 'nightPrice', 'night_price', 'pricePerNight', 'price_per_night'], Number.NaN) ??
+            pickMoneyFromObject(priceObj, ['pricePerNight', 'price_per_night', 'perNight', 'per_night'], 0),
           0,
         );
 
-        const baseTotal = parseMoney(
-          res.price ?? pickMoneyFromObject(priceObj, ['baseTotal', 'base_total', 'base', 'accommodation', 'accommodationTotal', 'accommodation_total', 'total'], Number.NaN),
+        // No payload real observado:
+        // - price._f_expected = base/expected total
+        // - price._f_total = total final
+        const expectedTotal = parseMoney(
+          pickMoneyFromObject(priceObj, ['_f_expected', 'expected', 'expectedTotal', 'expected_total', 'baseTotal', 'base_total', 'base', 'accommodation', 'accommodationTotal', 'accommodation_total'], Number.NaN),
+          Number.NaN,
+        );
+
+        const totalFromStays = parseMoney(
+          pickMoneyFromObject(priceObj, ['_f_total', 'total', 'grandTotal', 'grand_total'], Number.NaN),
           Number.NaN,
         );
 
@@ -715,8 +749,12 @@ export async function importStaysNetReservations(c: Context) {
           0,
         );
 
-        const resolvedBaseTotal = Number.isFinite(baseTotal) ? Math.round(baseTotal) : pricePerNight * nights;
-        const total = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
+        const resolvedBaseTotal = Number.isFinite(expectedTotal)
+          ? Math.round(expectedTotal)
+          : pricePerNight * nights;
+
+        const computedTotal = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
+        const total = Number.isFinite(totalFromStays) ? Math.round(totalFromStays) : computedTotal;
 
         const rawType =
           (res as any).type ??
@@ -725,6 +763,15 @@ export async function importStaysNetReservations(c: Context) {
           (res as any).tipo ??
           (res as any).tipoReserva ??
           null;
+
+        const partnerObj = (res as any).partner && typeof (res as any).partner === 'object' ? (res as any).partner : null;
+        const staysPartnerId = asTextOrNull(partnerObj?._id);
+        const staysPartnerName = asTextOrNull(partnerObj?.name ?? (res as any).partner);
+
+        const staysReservationCode = asTextOrNull((res as any).id ?? (res as any).reservationId ?? (res as any).confirmationCode);
+        const staysPartnerCode = asTextOrNull((res as any).partnerCode);
+        const staysClientId = asTextOrNull((res as any)._idclient);
+        const staysListingId = asTextOrNull((res as any)._idlisting ?? (res as any)._id_listing ?? (res as any).propertyId);
 
         const rawStatus =
           (res as any).status ??
@@ -784,7 +831,7 @@ export async function importStaysNetReservations(c: Context) {
           pricing_taxes: taxes,
           pricing_discount: discount,
           pricing_total: total,
-          pricing_currency: res.currency || 'BRL',
+          pricing_currency: (res.currency || (priceObj && typeof priceObj === 'object' ? (priceObj as any).currency : null) || 'BRL') as any,
 
           // Status
           status: derivedStatus,
@@ -798,6 +845,15 @@ export async function importStaysNetReservations(c: Context) {
           }),
           external_id: externalId,
           external_url: finalExternalUrl,
+
+          // Stays derivado (facilita conciliação sem depender de JSONB)
+          staysnet_listing_id: staysListingId,
+          staysnet_client_id: staysClientId,
+          staysnet_reservation_code: staysReservationCode,
+          staysnet_partner_code: staysPartnerCode,
+          staysnet_partner_id: staysPartnerId,
+          staysnet_partner_name: staysPartnerName,
+          staysnet_type: asTextOrNull(rawType),
 
           // Pagamento
           payment_status: mapPaymentStatus(res.paymentStatus, 'pending'),
@@ -838,18 +894,29 @@ export async function importStaysNetReservations(c: Context) {
         // Compat: se migrations ainda não foram aplicadas, não quebrar o import inteiro.
         if (upsertError && /does not exist/i.test(upsertError.message)) {
           const msg = String(upsertError.message || '');
-          const shouldDropSourceCreatedAt = /source_created_at/i.test(msg);
-          const shouldDropStaysRaw = /staysnet_raw/i.test(msg);
+          const dropKeys: string[] = [];
+          const candidates = [
+            'source_created_at',
+            'staysnet_raw',
+            'staysnet_listing_id',
+            'staysnet_client_id',
+            'staysnet_reservation_code',
+            'staysnet_partner_code',
+            'staysnet_partner_id',
+            'staysnet_partner_name',
+            'staysnet_type',
+          ];
 
-          if (shouldDropSourceCreatedAt || shouldDropStaysRaw) {
-            if (shouldDropSourceCreatedAt) {
-              console.warn('⚠️ Coluna source_created_at não existe. Rode a migration; import seguirá sem esse campo por enquanto.');
-            }
-            if (shouldDropStaysRaw) {
-              console.warn('⚠️ Coluna staysnet_raw não existe. Rode a migration; import seguirá sem esse campo por enquanto.');
-            }
+          for (const k of candidates) {
+            if (new RegExp(String(k), 'i').test(msg)) dropKeys.push(k);
+          }
 
-            const { source_created_at: _ignored1, staysnet_raw: _ignored2, ...reservationDataCompat } = reservationData as any;
+          if (dropKeys.length > 0) {
+            console.warn(`⚠️ Colunas ausentes no banco (${dropKeys.join(', ')}). Rode as migrations; import seguirá sem esses campos por enquanto.`);
+
+            const reservationDataCompat: any = { ...(reservationData as any) };
+            for (const k of dropKeys) delete reservationDataCompat[k];
+
             const retry = await supabase
               .from('reservations')
               .upsert(reservationDataCompat, { onConflict: 'id' })
@@ -862,6 +929,10 @@ export async function importStaysNetReservations(c: Context) {
 
         if (upsertError) {
           throw new Error(`Falha ao upsert reservation: ${upsertError.message}`);
+        }
+
+        if (!upsertedReservation?.id) {
+          throw new Error('Falha ao upsert reservation: retorno vazio (sem id)');
         }
 
         console.log(`   ✅ Reservation salva: ${upsertedReservation.id}`);

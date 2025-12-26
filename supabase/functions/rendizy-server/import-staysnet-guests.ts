@@ -71,6 +71,8 @@ interface ExtractedGuest {
   nationality?: string;
   language?: string;
   source: string;
+  staysnetClientId?: string;
+  staysnetRaw?: unknown;
 }
 
 // ============================================================================
@@ -92,6 +94,8 @@ function sanitizeDigits(input: string): string {
 
 function extractGuestData(res: StaysNetReservation): ExtractedGuest {
   const payloadEmail = (res.guestEmail || res.guest?.email || '').trim();
+
+  const staysnetClientId = String((res as any)._idclient || '').trim() || undefined;
 
   // Nome pode vir em diferentes formatos
   let firstName = res.guestFirstName || res.guest?.firstName || '';
@@ -165,8 +169,39 @@ function extractGuestData(res: StaysNetReservation): ExtractedGuest {
     birthDate: res.guest?.birthDate || undefined,
     nationality: res.guest?.nationality || undefined,
     language: res.guest?.language || 'pt-BR',
-    source: mappedSource
+    source: mappedSource,
+    staysnetClientId,
+    staysnetRaw: {
+      _idclient: staysnetClientId || null,
+      guest: res.guest || null,
+      guestEmail: (res.guestEmail || res.guest?.email || null) as any,
+      guestName: (res.guestName || res.guest?.name || null) as any,
+      platform: (res as any).platform || null,
+      source: (res as any).source || null,
+      partner: (res as any).partner || null,
+    },
   };
+}
+
+async function selectGuestIdByStaysnetClientId(supabase: any, orgId: string, staysnetClientId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('guests')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('staysnet_client_id', staysnetClientId)
+    .maybeSingle();
+
+  if (error) {
+    const msg = String(error.message || '');
+    if (/staysnet_client_id/i.test(msg) && /does not exist/i.test(msg)) {
+      // compat: coluna ainda não existe
+      return null;
+    }
+    console.error(`   ❌ Erro ao verificar guest por staysnet_client_id:`, msg);
+    return null;
+  }
+
+  return data?.id || null;
 }
 
 // ============================================================================
@@ -360,17 +395,29 @@ export async function importStaysNetGuests(c: Context) {
         }
 
         // ====================================================================
-        // 2.3: VERIFICAR SE GUEST JÁ EXISTE (deduplicação via email)
+        // 2.3: VERIFICAR SE GUEST JÁ EXISTE
+        // Preferência: staysnet_client_id (estável) → email
         // ====================================================================
-        const { data: existingGuest, error: checkError } = await supabase
-          .from('guests')
-          .select('id')
-          .eq('organization_id', orgId)
-          .eq('email', guestData.email)
-          .maybeSingle();
+        let existingGuest: { id: string } | null = null;
 
-        if (checkError) {
-          console.error(`   ❌ Erro ao verificar guest:`, checkError.message);
+        if (guestData.staysnetClientId) {
+          const idByClient = await selectGuestIdByStaysnetClientId(supabase, orgId, guestData.staysnetClientId);
+          if (idByClient) existingGuest = { id: idByClient };
+        }
+
+        if (!existingGuest) {
+          const { data: byEmail, error: checkError } = await supabase
+            .from('guests')
+            .select('id')
+            .eq('organization_id', orgId)
+            .eq('email', guestData.email)
+            .maybeSingle();
+
+          if (checkError) {
+            console.error(`   ❌ Erro ao verificar guest por email:`, checkError.message);
+          }
+
+          existingGuest = (byEmail as any) || null;
         }
 
         let guestId: string;
@@ -397,6 +444,8 @@ export async function importStaysNetGuests(c: Context) {
             nationality: guestData.nationality || null,
             language: guestData.language || 'pt-BR',
             source: guestData.source,
+            staysnet_client_id: guestData.staysnetClientId || null,
+            staysnet_raw: guestData.staysnetRaw || null,
             stats_total_reservations: 0,
             stats_total_nights: 0,
             stats_total_spent: 0,
@@ -404,11 +453,30 @@ export async function importStaysNetGuests(c: Context) {
             is_blacklisted: false
           };
 
-          const { data: insertedGuest, error: insertError } = await supabase
+          let { data: insertedGuest, error: insertError } = await supabase
             .from('guests')
             .insert(newGuestData)
             .select('id')
             .single();
+
+          // Compat: se migrations ainda não foram aplicadas, não quebrar o import inteiro.
+          if (insertError && /does not exist/i.test(String(insertError.message || ''))) {
+            const msg = String(insertError.message || '');
+            const shouldDropClientId = /staysnet_client_id/i.test(msg);
+            const shouldDropRaw = /staysnet_raw/i.test(msg);
+            if (shouldDropClientId || shouldDropRaw) {
+              const compat: any = { ...(newGuestData as any) };
+              if (shouldDropClientId) delete compat.staysnet_client_id;
+              if (shouldDropRaw) delete compat.staysnet_raw;
+              const retry = await supabase
+                .from('guests')
+                .insert(compat)
+                .select('id')
+                .single();
+              insertedGuest = retry.data as any;
+              insertError = retry.error as any;
+            }
+          }
 
           if (insertError) {
             throw new Error(`Falha ao criar guest: ${insertError.message}`);

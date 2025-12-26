@@ -30,6 +30,8 @@ interface ExtractedGuest {
   nationality?: string;
   language?: string;
   source: string;
+  staysnetClientId?: string;
+  staysnetRaw?: unknown;
 }
 
 function hash32Hex(input: string): string {
@@ -75,6 +77,8 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
 function extractGuestDataFromStaysReservationPayload(reservationPayload: unknown): ExtractedGuest {
   const res = asObject(reservationPayload) || {};
   const guestObj = asObject(res['guest']) || {};
+
+  const staysnetClientId = asString(res['_idclient']).trim() || undefined;
 
   const payloadEmail = asString(res['guestEmail'] || guestObj['email']).trim();
 
@@ -127,7 +131,42 @@ function extractGuestDataFromStaysReservationPayload(reservationPayload: unknown
     nationality: guestObj['nationality'] ? asString(guestObj['nationality']) : undefined,
     language: guestObj['language'] ? asString(guestObj['language']) : 'pt-BR',
     source,
+    staysnetClientId,
+    staysnetRaw: {
+      _idclient: staysnetClientId || null,
+      guest: guestObj,
+      guestEmail: asString(res['guestEmail'] || guestObj['email']).trim() || null,
+      guestName: asString(res['guestName'] || guestObj['name']).trim() || null,
+      platform: asString(res['platform']).trim() || null,
+      source: asString(res['source']).trim() || null,
+      partner: res['partner'],
+    },
   };
+}
+
+async function selectGuestIdByStaysnetClientId(
+  supabase: SupabaseClientLike,
+  organizationId: string,
+  staysnetClientId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('guests')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('staysnet_client_id', staysnetClientId)
+    .maybeSingle();
+
+  if (error) {
+    const msg = String(error.message || '');
+    if (/staysnet_client_id/i.test(msg) && /does not exist/i.test(msg)) {
+      // compat: coluna ainda não existe
+      return null;
+    }
+    console.warn(`[staysnet-guest-link] Failed selecting guest by staysnet_client_id: ${msg}`);
+    return null;
+  }
+
+  return data?.id || null;
 }
 
 async function selectGuestIdByEmail(
@@ -159,6 +198,11 @@ export async function resolveOrCreateGuestIdFromStaysReservation(
     const guest = extractGuestDataFromStaysReservationPayload(reservationPayload);
     if (!guest.email) return null;
 
+    if (guest.staysnetClientId) {
+      const existingByClientId = await selectGuestIdByStaysnetClientId(supabase, organizationId, guest.staysnetClientId);
+      if (existingByClientId) return existingByClientId;
+    }
+
     const existingId = await selectGuestIdByEmail(supabase, organizationId, guest.email);
     if (existingId) return existingId;
 
@@ -179,6 +223,8 @@ export async function resolveOrCreateGuestIdFromStaysReservation(
       nationality: guest.nationality || null,
       language: guest.language || 'pt-BR',
       source: guest.source || 'other',
+      staysnet_client_id: guest.staysnetClientId || null,
+      staysnet_raw: guest.staysnetRaw || null,
       stats_total_reservations: 0,
       stats_total_nights: 0,
       stats_total_spent: 0,
@@ -186,15 +232,37 @@ export async function resolveOrCreateGuestIdFromStaysReservation(
       is_blacklisted: false,
     };
 
-    const { data: inserted, error: insertError } = await supabase
+    let { data: inserted, error: insertError } = await supabase
       .from('guests')
       .insert(insertRow)
       .select('id')
       .single();
 
+    if (insertError && /does not exist/i.test(String(insertError.message || ''))) {
+      const msg = String(insertError.message || '');
+      const shouldDropClientId = /staysnet_client_id/i.test(msg);
+      const shouldDropRaw = /staysnet_raw/i.test(msg);
+      if (shouldDropClientId || shouldDropRaw) {
+        const compat: any = { ...(insertRow as any) };
+        if (shouldDropClientId) delete compat.staysnet_client_id;
+        if (shouldDropRaw) delete compat.staysnet_raw;
+        const retry = await supabase
+          .from('guests')
+          .insert(compat)
+          .select('id')
+          .single();
+        inserted = retry.data as any;
+        insertError = retry.error as any;
+      }
+    }
+
     if (insertError) {
       // If there is a race/unique constraint, retry select.
       console.warn(`[staysnet-guest-link] Insert guest failed: ${String(insertError.message || '')}`);
+      if (guest.staysnetClientId) {
+        const retryByClientId = await selectGuestIdByStaysnetClientId(supabase, organizationId, guest.staysnetClientId);
+        if (retryByClientId) return retryByClientId;
+      }
       const retryId = await selectGuestIdByEmail(supabase, organizationId, guest.email);
       return retryId;
     }

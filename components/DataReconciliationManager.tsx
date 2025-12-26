@@ -20,12 +20,14 @@ import {
   X,
   Trash2,
   Save,
+  Download,
   ChevronDown,
   ChevronUp,
   Calendar,
   Building2,
   Filter
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -37,6 +39,8 @@ import { ScrollArea } from './ui/scroll-area';
 import { Checkbox } from './ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { toast } from 'sonner';
+import { getSupabaseClient } from '../utils/supabase/client';
+import { publicAnonKey } from '../utils/supabase/info';
 
 // ============================================================================
 // SIMILARITY ALGORITHMS - Sugestões Automáticas
@@ -134,6 +138,11 @@ function calculateSimilarityScore(
     score += 10;
   }
 
+  // 5. Mesma categoria (boost para ordenar melhor sugestões)
+  if (platformField.category && rendizyField.category === platformField.category) {
+    score += 8;
+  }
+
   return Math.min(100, Math.round(score));
 }
 
@@ -151,6 +160,49 @@ function areTypesCompatible(rendizyType: string, platformType: string): boolean 
   const compatibleTypes = typeMap[rendizyType] || [];
   return compatibleTypes.includes(platformType.toLowerCase()) || 
          rendizyType === platformType;
+}
+
+function contextHintsForReport(field: { name?: string; label?: string; example?: string }): string {
+  const name = normalizeString(field?.name || '');
+  const label = normalizeString(field?.label || '');
+  const text = `${name} ${label}`.trim();
+
+  const hints: string[] = [];
+
+  // Prefixos do Rendizy que carregam contexto
+  if (name.startsWith('data.staysnet_raw.')) {
+    hints.push('Campo dentro do JSON bruto da Stays (staysnet_raw)');
+  }
+  if (name.includes('_t_typemeta') || name.includes('_mstitle') || name.includes('_t_propertytypemeta')) {
+    hints.push('Metadados de tipo/idioma (provavelmente não é campo de negócio)');
+  }
+
+  if (text.includes('internalname') || text.includes('internal name')) hints.push('Identificação interna / nome interno do imóvel');
+  if (text.includes('checkin') || text.includes('arrival')) hints.push('Check-in / chegada');
+  if (text.includes('checkout') || text.includes('departure')) hints.push('Check-out / saída');
+  if (text.includes('guest') || text.includes('client') || text.includes('customer')) hints.push('Hóspede / cliente');
+  if (text.includes('email')) hints.push('Email');
+  if (text.includes('phone') || text.includes('telefone')) hints.push('Telefone');
+  if (text.includes('price') || text.includes('amount') || text.includes('total')) hints.push('Valor / total / preço');
+  if (text.includes('id')) hints.push('Identificador');
+
+  const example = String(field?.example || '');
+  if (example.includes('@')) hints.push('Parece email pelo exemplo');
+  if (/^\d{4}-\d{2}-\d{2}/.test(example)) hints.push('Parece data pelo exemplo');
+
+  return Array.from(new Set(hints)).join('; ');
+}
+
+function dedupeByKey<T>(items: T[], keyFn: (t: T) => string): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const key = keyFn(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
 }
 
 // ============================================================================
@@ -203,6 +255,7 @@ interface PlatformField {
   type: string;
   description: string;
   example?: string;
+  category?: 'reservation' | 'property' | 'guest' | 'pricing';
 }
 
 // ============================================================================
@@ -448,8 +501,10 @@ const PLATFORM_FIELDS: Record<string, PlatformField[]> = {
 // ============================================================================
 
 export function DataReconciliationManager() {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server';
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('airbnb');
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('stays');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [rendizySearchQuery, setRendizySearchQuery] = useState('');
   const [platformSearchQuery, setPlatformSearchQuery] = useState('');
@@ -462,6 +517,7 @@ export function DataReconciliationManager() {
   const [loadingRealData, setLoadingRealData] = useState(false);
   const [realDataLoaded, setRealDataLoaded] = useState<string | null>(null);
   const [platformFieldsWithRealData, setPlatformFieldsWithRealData] = useState<PlatformField[]>([]);
+  const [rendizyFieldsWithRealData, setRendizyFieldsWithRealData] = useState<RendizyField[]>([]);
   
   // Estados para o modal de filtros
   const [showFiltersModal, setShowFiltersModal] = useState(false);
@@ -474,8 +530,48 @@ export function DataReconciliationManager() {
   });
   const [recordLimit, setRecordLimit] = useState(10);
 
-  // Filtrar campos RENDIZY
-  const filteredRendizyFields = RENDIZY_FIELDS.filter(field => {
+  const getAuthHeaders = async (includeJson: boolean = true): Promise<Record<string, string>> => {
+    try {
+      // Token real do sistema (arquitetura SQL): fica no localStorage
+      const localToken = typeof window !== 'undefined'
+        ? window.localStorage.getItem('rendizy-token')
+        : null;
+
+      // Fallback: se houver sessão do Supabase, usamos o access_token
+      const supabase = getSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      const supabaseToken = data?.session?.access_token;
+
+      const token = localToken || supabaseToken;
+      const headers: Record<string, string> = includeJson
+        ? { 'Content-Type': 'application/json' }
+        : {};
+
+      // Supabase Edge Functions: use anon key for Authorization/apikey.
+      // Our backend reads the user session token from X-Auth-Token.
+      if (publicAnonKey) {
+        headers['Authorization'] = `Bearer ${publicAnonKey}`;
+        headers['apikey'] = publicAnonKey;
+      }
+      if (token) headers['X-Auth-Token'] = token;
+      return headers;
+    } catch {
+      return includeJson ? { 'Content-Type': 'application/json' } : {};
+    }
+  };
+
+  const toRendizyType = (t: string): RendizyField['type'] => {
+    const x = (t || '').toLowerCase();
+    if (x === 'number') return 'number';
+    if (x === 'boolean') return 'boolean';
+    if (x === 'date' || x === 'datetime') return 'date';
+    if (x === 'array') return 'array';
+    if (x === 'object') return 'object';
+    return 'text';
+  };
+
+  // Filtrar campos RENDIZY (somente dados reais)
+  const filteredRendizyFields = rendizyFieldsWithRealData.filter(field => {
     const matchesCategory = selectedCategory === 'all' || field.category === selectedCategory;
     const query = rendizySearchQuery.trim().toLowerCase();
     const matchesSearch =
@@ -486,18 +582,18 @@ export function DataReconciliationManager() {
     return matchesCategory && matchesSearch;
   });
 
-  // Filtrar campos da plataforma (usar dados reais se disponíveis)
-  const platformFields = platformFieldsWithRealData.length > 0 
-    ? platformFieldsWithRealData 
-    : (PLATFORM_FIELDS[selectedPlatform] || []);
+  // Filtrar campos da plataforma (somente dados reais)
+  const platformFields = platformFieldsWithRealData;
   const filteredPlatformFields = platformFields.filter(field => {
+    const matchesCategory =
+      selectedCategory === 'all' || (field.category && field.category === selectedCategory);
     const query = platformSearchQuery.trim().toLowerCase();
-    return (
+    const matchesSearch =
       query.length === 0 ||
       field.label.toLowerCase().includes(query) ||
       field.name.toLowerCase().includes(query) ||
-      (field.description ?? '').toLowerCase().includes(query)
-    );
+      (field.description ?? '').toLowerCase().includes(query);
+    return matchesCategory && matchesSearch;
   });
 
   // Criar mapeamento
@@ -507,7 +603,7 @@ export function DataReconciliationManager() {
       return;
     }
 
-    const rendizyField = RENDIZY_FIELDS.find(f => f.id === selectedRendizyField);
+    const rendizyField = rendizyFieldsWithRealData.find(f => f.id === selectedRendizyField);
     const platformField = platformFields.find(f => f.id === selectedPlatformField);
 
     if (!rendizyField || !platformField) return;
@@ -553,12 +649,169 @@ export function DataReconciliationManager() {
     toast.success('Mapeamentos salvos com sucesso!');
   };
 
+  const handleExportReportXlsx = () => {
+    if (rendizyFieldsWithRealData.length === 0 || platformFieldsWithRealData.length === 0) {
+      toast.error('Carregue dados reais antes de exportar', {
+        description: 'Clique em "Buscar Dados Reais" para puxar campos reais da Stays.net e do Supabase.'
+      });
+      return;
+    }
+
+    // Dedup de campos Rendizy (reduz ruído de colunas repetidas)
+    const rendizyFields = dedupeByKey(rendizyFieldsWithRealData, (f) => `${f.name}::${f.category}::${f.description}`);
+    const platformFields = platformFieldsWithRealData;
+
+    type ReportRow = {
+      status: string;
+      notes: string;
+      rendizy_category: string;
+      rendizy_field: string;
+      rendizy_label: string;
+      rendizy_type: string;
+      rendizy_example: string;
+      rendizy_source: string;
+      rendizy_context: string;
+      platform_category: string;
+      platform_field: string;
+      platform_label: string;
+      platform_type: string;
+      platform_example: string;
+      platform_source: string;
+      platform_context: string;
+      similarity_score: number;
+      confidence: string;
+    };
+
+    const confidenceFromScore = (score: number) => {
+      if (score >= 88) return 'high';
+      if (score >= 72) return 'medium';
+      return 'low';
+    };
+
+    const sourceFromDescription = (desc: string) => {
+      const d = String(desc || '').toLowerCase();
+      if (d.includes('supabase reservations')) return 'Supabase: reservations';
+      if (d.includes('supabase guests')) return 'Supabase: guests';
+      if (d.includes('supabase anuncios_ultimate')) return 'Supabase: anuncios_ultimate';
+      if (d.includes('supabase anuncios_drafts')) return 'Supabase: anuncios_drafts';
+      if (d.includes('stays /booking/reservations')) return 'Stays: /booking/reservations';
+      if (d.includes('stays /content/properties')) return 'Stays: /content/properties';
+      return desc || '';
+    };
+
+    const rows: ReportRow[] = [];
+
+    for (const rf of rendizyFields) {
+      let best: { pf: PlatformField; score: number } | null = null;
+      for (const pf of platformFields) {
+        const score = calculateSimilarityScore(rf, pf);
+        if (!best || score > best.score) best = { pf, score };
+      }
+
+      const suggested = best?.pf;
+      const score = best?.score ?? 0;
+
+      rows.push({
+        status: '',
+        notes: '',
+        rendizy_category: rf.category,
+        rendizy_field: rf.name,
+        rendizy_label: rf.label,
+        rendizy_type: rf.type,
+        rendizy_example: rf.example || '',
+        rendizy_source: sourceFromDescription(rf.description),
+        rendizy_context: contextHintsForReport({ name: rf.name, label: rf.label, example: rf.example }),
+        platform_category: suggested?.category || '',
+        platform_field: suggested?.name || '',
+        platform_label: suggested?.label || '',
+        platform_type: suggested?.type || '',
+        platform_example: suggested?.example || '',
+        platform_source: suggested ? sourceFromDescription(suggested.description) : '',
+        platform_context: suggested ? contextHintsForReport({ name: suggested.name, label: suggested.label, example: suggested.example }) : '',
+        similarity_score: score,
+        confidence: confidenceFromScore(score),
+      });
+    }
+
+    // Ordenar por confiança e score
+    const weight = (c: string) => (c === 'high' ? 3 : c === 'medium' ? 2 : 1);
+    rows.sort((a, b) => {
+      const dw = weight(b.confidence) - weight(a.confidence);
+      if (dw !== 0) return dw;
+      return (b.similarity_score || 0) - (a.similarity_score || 0);
+    });
+
+    const headers = [
+      'status',
+      'notes',
+      'rendizy_category',
+      'rendizy_field',
+      'rendizy_label',
+      'rendizy_type',
+      'rendizy_example',
+      'rendizy_source',
+      'rendizy_context',
+      'platform_category',
+      'platform_field',
+      'platform_label',
+      'platform_type',
+      'platform_example',
+      'platform_source',
+      'platform_context',
+      'similarity_score',
+      'confidence',
+    ] as const;
+
+    const aoa: (string | number)[][] = [
+      headers as unknown as string[],
+      ...rows.map((r) =>
+        headers.map((h) => {
+          const v = (r as any)[h];
+          return typeof v === 'number' ? v : String(v ?? '');
+        })
+      ),
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'reconciliation');
+
+    const startDate = dateRange.startDate;
+    const endDate = dateRange.endDate;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `data-reconciliation-report_${startDate}_to_${endDate}_${ts}.xlsx`;
+
+    const xlsxArrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([xlsxArrayBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    toast.success('Relatório exportado!', {
+      description: `Arquivo: ${filename}`
+    });
+  };
+
   // Gerar sugestões automáticas de mapeamento
   const generateSuggestions = () => {
+    if (rendizyFieldsWithRealData.length === 0 || platformFields.length === 0) {
+      toast.error('Carregue dados reais antes de gerar sugestões', {
+        description: 'Clique em "Buscar Dados Reais" para puxar campos reais da Stays.net e do Supabase.'
+      });
+      return;
+    }
+
     const suggestions: SuggestedMapping[] = [];
     
     // Para cada campo RENDIZY, encontrar o melhor match na plataforma
-    RENDIZY_FIELDS.forEach(rendizyField => {
+    rendizyFieldsWithRealData.forEach(rendizyField => {
       // Pular se já está mapeado
       if (mappings.some(m => m.rendizyField === rendizyField.name)) {
         return;
@@ -621,8 +874,8 @@ export function DataReconciliationManager() {
   };
 
   // Aceitar uma sugestão
-  const acceptSuggestion = (suggestion: SuggestedMapping) => {
-    const newMapping: FieldMapping = {
+    const acceptSuggestion = (suggestion: SuggestedMapping) => {
+      const newMapping: FieldMapping = {
       ...suggestion,
       id: `map_${Date.now()}`,
       status: 'mapped',
@@ -660,52 +913,26 @@ export function DataReconciliationManager() {
   const fetchAvailableProperties = async () => {
     setLoadingProperties(true);
     try {
-      const configResponse = await fetch('/rendizy-server/kv/settings:staysnet');
-      if (!configResponse.ok) {
-        throw new Error('Configuração Stays.net não encontrada');
-      }
-      
-      const configData = await configResponse.json();
-      if (!configData.success || !configData.data) {
-        throw new Error('Configuração Stays.net inválida');
+      if (selectedPlatform !== 'stays') {
+        throw new Error('Busca de propriedades reais só está disponível para Stays.net');
       }
 
-      const config = configData.data;
-      
-      // Buscar propriedades da API
-      const propertiesResponse = await fetch('/rendizy-server/staysnet/test-endpoint', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey: config.apiKey,
-          apiSecret: config.apiSecret,
-          baseUrl: config.baseUrl,
-          endpoint: '/content/properties',
-          method: 'GET'
-        })
+      const res = await fetch(`${API_BASE_URL}/data-reconciliation/stays/properties`, {
+        method: 'GET',
+        headers: await getAuthHeaders(false),
       });
 
-      if (!propertiesResponse.ok) {
-        throw new Error('Falha ao buscar propriedades');
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error('Rota não encontrada (backend desatualizado). Faça deploy da Edge Function rendizy-server.');
+        }
+        throw new Error('Falha ao buscar propriedades reais');
       }
 
-      const propertiesData = await propertiesResponse.json();
-      
-      if (propertiesData.success && propertiesData.data) {
-        const properties = Array.isArray(propertiesData.data) 
-          ? propertiesData.data 
-          : propertiesData.data.properties || propertiesData.data.data || [];
-        
-        const propertyList = properties.map((p: any) => ({
-          id: p.id || p._id || p.property_id,
-          name: p.name || p.title || p.property_name || 'Sem nome',
-          code: p.code || p.property_code
-        }));
-
-        setAvailableProperties(propertyList);
-        // Selecionar todas por padrão
-        setSelectedProperties(propertyList.map((p: any) => p.id));
-      }
+      const payload = await res.json();
+      const list = payload?.data?.properties || [];
+      setAvailableProperties(list);
+      setSelectedProperties(list.map((p: any) => p.id));
     } catch (error: any) {
       console.error('Erro ao buscar propriedades:', error);
       toast.error('Falha ao buscar propriedades', {
@@ -724,165 +951,62 @@ export function DataReconciliationManager() {
     }
   };
 
-  // Buscar dados reais da API Stays.net com filtros (apenas para visualização/mapeamento)
+  // Buscar dados reais (Stays.net + Supabase) com filtros (somente para conciliação/mapeamento)
   const fetchRealDataFromAPI = async () => {
     setLoadingRealData(true);
     setShowFiltersModal(false);
     
     try {
-      // Buscar configuração da integração Stays.net
-      const configResponse = await fetch('/rendizy-server/kv/settings:staysnet');
-      if (!configResponse.ok) {
-        throw new Error('Configuração Stays.net não encontrada. Configure a integração primeiro.');
-      }
-      
-      const configData = await configResponse.json();
-      if (!configData.success || !configData.data) {
-        throw new Error('Configuração Stays.net inválida');
-      }
-
-      const config = configData.data;
-      
-      // Usar datas do filtro
       const startDate = dateRange.startDate;
       const endDate = dateRange.endDate;
-      
-      const reservationsResponse = await fetch('/rendizy-server/staysnet/test-endpoint', {
+      if (selectedPlatform !== 'stays') {
+        throw new Error('Busca de dados reais só está disponível para Stays.net no momento');
+      }
+
+      const res = await fetch(`${API_BASE_URL}/data-reconciliation/real-samples`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(true),
         body: JSON.stringify({
-          apiKey: config.apiKey,
-          apiSecret: config.apiSecret,
-          baseUrl: config.baseUrl,
-          endpoint: `/booking/reservations?start_date=${startDate}&end_date=${endDate}`,
-          method: 'GET'
-        })
+          startDate,
+          endDate,
+          propertyIds: selectedProperties,
+          limit: recordLimit,
+        }),
       });
 
-      if (!reservationsResponse.ok) {
-        throw new Error('Falha ao buscar reservas da API Stays.net');
-      }
-
-      const reservationsData = await reservationsResponse.json();
-      
-      if (!reservationsData.success || !reservationsData.data) {
-        throw new Error(reservationsData.error || 'Nenhuma reserva encontrada');
-      }
-
-      // Processar reservas retornadas
-      let reservations = Array.isArray(reservationsData.data) 
-        ? reservationsData.data 
-        : reservationsData.data.reservations || reservationsData.data.data || [];
-      
-      if (reservations.length === 0) {
-        throw new Error(`Nenhuma reserva encontrada entre ${startDate} e ${endDate}`);
-      }
-
-      // Aplicar filtro de propriedades se houver seleção específica
-      if (selectedProperties.length > 0 && selectedProperties.length < availableProperties.length) {
-        reservations = reservations.filter((r: any) => 
-          selectedProperties.includes(r.property_id || r.propertyId || r.listing_id)
-        );
-      }
-
-      // Limitar número de registros
-      reservations = reservations.slice(0, recordLimit);
-
-      if (reservations.length === 0) {
-        throw new Error('Nenhuma reserva encontrada com os filtros aplicados');
-      }
-
-      // Usar primeira reserva como exemplo (ou combinar múltiplas se necessário)
-      const sampleReservation = reservations[0];
-      
-      // Extrair todos os campos do JSON da reserva
-      const extractedFields: PlatformField[] = [];
-      let fieldCounter = 1;
-
-      const extractFieldsFromObject = (obj: any, prefix = '', depth = 0) => {
-        if (depth > 3) return; // Limitar profundidade para evitar recursão infinita
-        
-        for (const [key, value] of Object.entries(obj)) {
-          const fieldName = prefix ? `${prefix}.${key}` : key;
-          const fieldType = Array.isArray(value) ? 'array' 
-            : value === null ? 'string'
-            : typeof value === 'object' ? 'object'
-            : typeof value === 'number' ? 'number'
-            : typeof value === 'boolean' ? 'boolean'
-            : 'string';
-          
-          // Criar exemplo (truncar se muito longo)
-          let example = '';
-          if (value === null) {
-            example = 'null';
-          } else if (typeof value === 'object') {
-            example = JSON.stringify(value).substring(0, 100);
-            if (JSON.stringify(value).length > 100) example += '...';
-          } else {
-            example = String(value).substring(0, 100);
-          }
-
-          extractedFields.push({
-            id: `stays_real_${fieldCounter++}`,
-            name: fieldName,
-            label: key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-            type: fieldType,
-            description: `Campo extraído da API (tipo: ${fieldType})`,
-            example: example
-          });
-
-          // Recursivamente processar objetos aninhados
-          if (typeof value === 'object' && value !== null && !Array.isArray(value) && depth < 2) {
-            extractFieldsFromObject(value, fieldName, depth + 1);
-          }
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error('Rota não encontrada (backend desatualizado). Faça deploy da Edge Function rendizy-server.');
         }
-      };
+        throw new Error('Falha ao buscar dados reais para conciliação');
+      }
 
-      extractFieldsFromObject(sampleReservation);
+      const payload = await res.json();
+      if (!payload?.success) {
+        throw new Error(payload?.error || 'Falha ao buscar dados reais');
+      }
 
-      // Extrair propriedades únicas das reservas
-      const uniqueProperties = new Map();
-      const uniqueGuests = new Map();
+      const platform = payload?.data?.platform;
+      const rendizy = payload?.data?.rendizy;
+      const platformFields: PlatformField[] = (platform?.fields || []) as PlatformField[];
 
-      reservations.forEach((res: any) => {
-        // Extrair propriedade
-        if (res.property_id && !uniqueProperties.has(res.property_id)) {
-          uniqueProperties.set(res.property_id, {
-            id: res.property_id,
-            code: res.property_code || res.listing_code,
-            name: res.property_name || res.listing_name || `Propriedade ${res.property_id}`,
-            type: res.property_type,
-            base_price: res.base_price || 100,
-            currency: res.currency || 'BRL'
-          });
-        }
+      const rendizyFields: RendizyField[] = (rendizy?.fields || []).map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        label: f.label || f.name,
+        type: toRendizyType(f.type),
+        category: f.category || 'reservation',
+        required: Boolean(f.required),
+        description: f.description || 'Campo real',
+        example: f.example,
+      }));
 
-        // Extrair hóspede
-        if (res.guest || res.customer || res.client) {
-          const guest = res.guest || res.customer || res.client;
-          const guestId = guest.id || res.guest_id || res.customer_id;
-          
-          if (guestId && !uniqueGuests.has(guestId)) {
-            uniqueGuests.set(guestId, {
-              id: guestId,
-              first_name: guest.first_name || guest.firstName || '',
-              last_name: guest.last_name || guest.lastName || '',
-              email: guest.email || res.guest_email || res.customer_email || '',
-              phone: guest.phone || res.guest_phone || res.customer_phone || ''
-            });
-          }
-        }
-      });
+      setPlatformFieldsWithRealData(platformFields);
+      setRendizyFieldsWithRealData(rendizyFields);
 
-      const properties = Array.from(uniqueProperties.values());
-      const guests = Array.from(uniqueGuests.values());
-
-      // Atualizar estado com os campos extraídos
-      setPlatformFieldsWithRealData(extractedFields);
-      setRealDataLoaded(`${reservations.length} reserva(s) - ${startDate} a ${endDate}`);
-      
-      toast.success(`✅ ${extractedFields.length} campos carregados de ${reservations.length} reserva(s)!`, {
-        description: `Período: ${startDate} até ${endDate} | Propriedades: ${selectedProperties.length > 0 ? selectedProperties.length : 'Todas'} | Use o Módulo Integrações para importar`
+      setRealDataLoaded(`✅ Real: ${startDate} → ${endDate} | Plataforma: ${platformFields.length} | Rendizy: ${rendizyFields.length}`);
+      toast.success('✅ Dados reais carregados para conciliação!', {
+        description: `Período: ${startDate} até ${endDate} | Propriedades: ${selectedProperties.length}`
       });
     } catch (error: any) {
       console.error('Erro ao buscar dados reais:', error);
@@ -1051,6 +1175,14 @@ export function DataReconciliationManager() {
               <Link2 className="h-4 w-4 mr-2" />
               Criar Mapeamento
             </Button>
+            <Button
+              onClick={handleExportReportXlsx}
+              variant="outline"
+              disabled={loadingRealData || rendizyFieldsWithRealData.length === 0 || platformFieldsWithRealData.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
+            </Button>
             <Button onClick={handleSaveAllMappings} variant="default">
               <Save className="h-4 w-4 mr-2" />
               Salvar Tudo
@@ -1086,7 +1218,13 @@ export function DataReconciliationManager() {
                   />
                 </div>
               </div>
-              <div className="space-y-2 pr-4">
+              {rendizyFieldsWithRealData.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  Nenhum dado real carregado.
+                  <div className="mt-1">Clique em "Buscar Dados Reais" para puxar campos do Supabase.</div>
+                </div>
+              ) : (
+                <div className="space-y-2 pr-4">
                   {filteredRendizyFields.map(field => {
                     const isMapped = mappings.some(m => m.rendizyField === field.name);
                     const isSelected = selectedRendizyField === field.id;
@@ -1137,7 +1275,8 @@ export function DataReconciliationManager() {
                       </button>
                     );
                   })}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -1167,7 +1306,13 @@ export function DataReconciliationManager() {
                   />
                 </div>
               </div>
-              <div className="space-y-2 pr-4">
+              {platformFieldsWithRealData.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  Nenhum dado real carregado.
+                  <div className="mt-1">Clique em "Buscar Dados Reais" para puxar campos da Stays.net.</div>
+                </div>
+              ) : (
+                <div className="space-y-2 pr-4">
                   {filteredPlatformFields.map(field => {
                     const isMapped = mappings.some(m => m.platformField === field.name);
                     const isSelected = selectedPlatformField === field.id;
@@ -1215,7 +1360,8 @@ export function DataReconciliationManager() {
                       </button>
                     );
                   })}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -1413,7 +1559,7 @@ export function DataReconciliationManager() {
               Configurar Importação de Dados
             </DialogTitle>
             <DialogDescription>
-              Selecione os critérios para buscar dados reais da API Stays.net
+              Selecione os critérios para buscar dados reais (Stays.net + Supabase) para conciliação
             </DialogDescription>
           </DialogHeader>
 
