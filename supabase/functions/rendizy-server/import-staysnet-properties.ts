@@ -29,6 +29,7 @@ import { getSupabaseClient } from './kv_store.tsx';
 import { importPropertyPricing } from './import-staysnet-pricing.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
+import { storeStaysnetRawObject } from './utils-staysnet-raw-store.ts';
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
@@ -214,6 +215,29 @@ export async function importStaysNetProperties(c: Context) {
     // ========================================================================
     // STEP 1: RESOLVER ORG + CARREGAR CONFIG (runtime)
     // ========================================================================
+
+        // NOTE (2025-12-27): fonte de verdade versionada.
+        // `anuncios_ultimate.data.staysnet_raw` é útil para debug rápido, mas a exigência é
+        // salvar o JSON completo de forma escalável e deduplicada (por hash) em `staysnet_raw_objects`.
+        try {
+          const externalId = String((prop as any)._id || (prop as any).id || '').trim() || null;
+          const externalCode = String((prop as any).id || (prop as any).code || '').trim() || null;
+          const store = await storeStaysnetRawObject({
+            supabase,
+            organizationId,
+            domain: 'listings',
+            externalId,
+            externalCode,
+            endpoint: '/booking/listings',
+            payload: prop,
+            fetchedAtIso: new Date().toISOString(),
+          });
+          if (!store.ok) {
+            console.warn(`⚠️ Falha ao salvar staysnet_raw_objects (listings): ${store.error}`);
+          }
+        } catch (e) {
+          console.warn(`⚠️ Falha inesperada ao salvar staysnet_raw_objects (listings): ${e instanceof Error ? e.message : String(e)}`);
+        }
     console.log('🔧 [CONFIG] Carregando configuração StaysNet (runtime)...');
 
     // ✅ Preferir organization_id real do usuário; fallback mantém compatibilidade

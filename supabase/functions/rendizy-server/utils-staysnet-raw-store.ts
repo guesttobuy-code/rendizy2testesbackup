@@ -32,13 +32,25 @@ export async function storeStaysnetRawObject(params: {
   } = params;
 
   try {
+    // IMPORTANT:
+    // Postgres UNIQUE não deduplica quando `external_id` é NULL (NULLs são distintos).
+    // Para endpoints de lista/summary (ex: /finance/owners) que não têm um ID único,
+    // precisamos gravar um `external_id` sintético estável baseado no endpoint.
+    const stableExternalId = (() => {
+      const v = (externalId ?? null) === null ? '' : String(externalId).trim();
+      if (v) return v;
+      const ep = (endpoint ?? null) === null ? '' : String(endpoint).trim();
+      if (ep) return `__endpoint:${ep}`;
+      return '__no_external_id__';
+    })();
+
     const payloadJson = JSON.stringify(payload);
     const payloadHash = await sha256Hex(payloadJson);
 
     const row: Record<string, unknown> = {
       organization_id: organizationId,
       domain,
-      external_id: externalId,
+      external_id: stableExternalId,
       external_code: externalCode,
       endpoint,
       payload,

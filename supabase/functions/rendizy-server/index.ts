@@ -55,6 +55,7 @@ import { importStaysNetProperties } from "./import-staysnet-properties.ts"; // �
 import { importStaysNetReservations } from "./import-staysnet-reservations.ts"; // ✅ MODULAR: Reservations separadas
 import { importStaysNetGuests } from "./import-staysnet-guests.ts"; // ✅ MODULAR: Guests separados
 import { importStaysNetBlocks } from "./import-staysnet-blocks.ts"; // ✅ MODULAR: Blocks separadas
+import { importStaysNetFinance } from "./import-staysnet-finance.ts"; // ✅ MODULAR: Finance RAW (staysnet_raw_objects)
 import chatApp from "./routes-chat.ts";
 import { whatsappEvolutionRoutes } from "./routes-whatsapp-evolution.ts";
 
@@ -251,6 +252,7 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/import/properties", impo
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/reservations", importStaysNetReservations); // 🏨 Reservations → reservations
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/guests", importStaysNetGuests); // 👤 Guests → guests
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/blocks", importStaysNetBlocks); // ⛔ Blocks → blocks
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/finance", importStaysNetFinance); // 💰 Finance RAW → staysnet_raw_objects
 // ============================================================================
 
 // ============================================================================

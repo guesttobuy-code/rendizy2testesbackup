@@ -609,6 +609,38 @@ if (existing) {
 
 ---
 
+### 4.3 Persistência RAW Completa (OBRIGATÓRIA)
+
+**Regra de negócio (não negociável):** tudo que a Stays retornar deve ser persistido como **JSON completo** no banco para auditoria e reprocessamento.
+
+✅ **Fonte de verdade:** tabela `staysnet_raw_objects` (versionada por hash)
+
+- Migration: `supabase/migrations/20251227_create_staysnet_raw_objects.sql`
+- Helper único (não duplicar): `supabase/functions/rendizy-server/utils-staysnet-raw-store.ts`
+
+**Regras de implementação:**
+
+1) ✅ Sempre gravar RAW ao importar
+  - Reservations: `import-staysnet-reservations.ts` → domain `reservations`
+  - Guests/Clients: `import-staysnet-guests.ts` → domain `clients` via `/booking/clients/{clientId}`
+  - Listings/Properties: `import-staysnet-properties.ts` → domain `listings`
+  - Finance: `import-staysnet-finance.ts` → domain `finance`
+
+2) ✅ Nunca depender de `external_id = NULL`
+  - UNIQUE no Postgres não deduplica NULLs.
+  - O helper `storeStaysnetRawObject` converte `external_id` ausente em um valor sintético estável (baseado no endpoint).
+
+3) ✅ RAW não pode quebrar import
+  - Se a migration/tabela ainda não existe em produção, o import deve continuar (logar warning).
+
+4) ✅ Tabela de domínio continua “flat” (performance)
+  - `reservations`, `guests`, `anuncios_ultimate` ficam com campos normalizados.
+  - O RAW completo fica em `staysnet_raw_objects` para auditoria, replay, e backfill.
+
+**Documentação da arquitetura:** ver `docs/architecture/STAYSNET_RAW_OBJECT_STORE.md`.
+
+---
+
 ## 5. MIGRAÇÕES E DUPLICATAS
 
 ### 5.1 Preservar IDs Originais

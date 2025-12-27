@@ -19,6 +19,7 @@ import { Context } from 'npm:hono';
 import { getSupabaseClient } from './kv_store.tsx';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
+import { storeStaysnetRawObject } from './utils-staysnet-raw-store.ts';
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -73,6 +74,95 @@ interface ExtractedGuest {
   source: string;
   staysnetClientId?: string;
   staysnetRaw?: unknown;
+}
+
+type StaysNetClientRaw = Record<string, unknown>;
+
+function asNonEmptyString(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s ? s : null;
+}
+
+function pickClientEmail(client: StaysNetClientRaw): string | null {
+  const direct = asNonEmptyString((client as any).email);
+  if (direct && direct.includes('@')) return direct;
+
+  const emails = (client as any).emails;
+  if (Array.isArray(emails)) {
+    for (const e of emails) {
+      const s = asNonEmptyString(e);
+      if (s && s.includes('@')) return s;
+    }
+  }
+
+  return null;
+}
+
+function pickClientPhone(client: StaysNetClientRaw): string | null {
+  const direct = asNonEmptyString((client as any).phone);
+  if (direct) return direct;
+
+  const phones = (client as any).phones;
+  if (Array.isArray(phones)) {
+    for (const p of phones) {
+      const iso = asNonEmptyString(p?.iso);
+      if (iso) return iso;
+      const number = asNonEmptyString(p?.number);
+      if (number) return number;
+      const raw = asNonEmptyString(p);
+      if (raw) return raw;
+    }
+  }
+
+  return null;
+}
+
+function pickClientNameParts(client: StaysNetClientRaw): { firstName: string; lastName: string } | null {
+  const firstName = asNonEmptyString((client as any).firstName);
+  const lastName = asNonEmptyString((client as any).lastName);
+  if (firstName || lastName) {
+    return { firstName: firstName || '', lastName: lastName || '' };
+  }
+
+  const name = asNonEmptyString((client as any).name);
+  if (!name) return null;
+
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+  return { firstName: parts[0], lastName: '' };
+}
+
+async function fetchStaysClientDetails(params: {
+  baseUrl: string;
+  credentials: string;
+  clientId: string;
+}): Promise<StaysNetClientRaw | null> {
+  const clientId = String(params.clientId || '').trim();
+  if (!clientId) return null;
+
+  const url = `${params.baseUrl}/booking/clients/${encodeURIComponent(clientId)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${params.credentials}`,
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    if (!json || typeof json !== 'object') return null;
+    return json as StaysNetClientRaw;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // ============================================================================
@@ -340,6 +430,44 @@ export async function importStaysNetGuests(c: Context) {
     // ✅ Basic Auth (não x-api-key)
     const staysConfig = await loadStaysNetRuntimeConfigOrThrow(orgId);
     const credentials = btoa(`${staysConfig.apiKey}:${staysConfig.apiSecret}`);
+
+    // NOTE (2025-12-27): Para cumprir a regra "salvar o JSON completo", buscamos
+    // o payload real do cliente em `/booking/clients/{clientId}` quando `_idclient` existe.
+    // - Isso resolve o gap onde o payload de `/booking/reservations` vem sem phones/emails/documents.
+    // - A persistência é dupla: `guests.staysnet_raw` (para debug rápido) + `staysnet_raw_objects` (fonte de verdade versionada).
+    const clientRawCache = new Map<string, StaysNetClientRaw | null>();
+    const getClientRaw = async (clientId: string): Promise<StaysNetClientRaw | null> => {
+      const key = String(clientId || '').trim();
+      if (!key) return null;
+      if (clientRawCache.has(key)) return clientRawCache.get(key) || null;
+
+      const raw = await fetchStaysClientDetails({
+        baseUrl: staysConfig.baseUrl,
+        credentials,
+        clientId: key,
+      });
+
+      clientRawCache.set(key, raw);
+
+      if (raw) {
+        const store = await storeStaysnetRawObject({
+          supabase,
+          organizationId: orgId,
+          domain: 'clients',
+          externalId: key,
+          externalCode: pickClientEmail(raw),
+          endpoint: `/booking/clients/${key}`,
+          payload: raw,
+          fetchedAtIso: new Date().toISOString(),
+        });
+
+        if (!store.ok) {
+          console.warn(`⚠️ Falha ao salvar staysnet_raw_objects (clients): ${store.error}`);
+        }
+      }
+
+      return raw;
+    };
     
     const allReservations: StaysNetReservation[] = [];
     let pages = 0;
@@ -422,6 +550,29 @@ export async function importStaysNetGuests(c: Context) {
         // 2.1: EXTRAIR DADOS DO GUEST
         // ====================================================================
         const guestData = extractGuestData(res);
+
+        // Enriquecimento opcional via /booking/clients/{clientId}
+        let clientRaw: StaysNetClientRaw | null = null;
+        if (guestData.staysnetClientId) {
+          clientRaw = await getClientRaw(guestData.staysnetClientId);
+          if (clientRaw) {
+            // Se vier informação mais confiável do client, preferir.
+            const emailFromClient = pickClientEmail(clientRaw);
+            if (emailFromClient) guestData.email = emailFromClient;
+
+            const phoneFromClient = pickClientPhone(clientRaw);
+            if (phoneFromClient) guestData.phone = phoneFromClient;
+
+            const nameFromClient = pickClientNameParts(clientRaw);
+            if (nameFromClient) {
+              if (nameFromClient.firstName) guestData.firstName = nameFromClient.firstName;
+              if (nameFromClient.lastName || guestData.lastName === '') guestData.lastName = nameFromClient.lastName;
+            }
+
+            // Guardar JSON COMPLETO do client no guest (debug rápido).
+            guestData.staysnetRaw = clientRaw;
+          }
+        }
         console.log(`   📧 Email: ${guestData.email}${guestData.email.endsWith('@staysnet.local') ? ' (sintético)' : ''}`);
 
         // ====================================================================
@@ -479,6 +630,30 @@ export async function importStaysNetGuests(c: Context) {
         if (existingGuest) {
           guestId = existingGuest.id;
           console.log(`   ♻️ Guest já existe: ${guestId}`);
+
+          // NOTE: Mesmo quando o guest já existe, atualizamos o staysnet_raw com o payload completo do client
+          // (não altera dedupe; apenas aumenta auditoria/reprocessamento).
+          if (clientRaw) {
+            try {
+              const patch: any = {
+                staysnet_raw: clientRaw,
+              };
+              if (guestData.staysnetClientId) patch.staysnet_client_id = guestData.staysnetClientId;
+              const upd = await supabase
+                .from('guests')
+                .update(patch)
+                .eq('organization_id', orgId)
+                .eq('id', guestId);
+
+              if (upd.error && /does not exist/i.test(String(upd.error.message || ''))) {
+                // compat: coluna ainda não existe em alguns ambientes
+              } else if (upd.error) {
+                console.warn(`   ⚠️ Falha ao atualizar staysnet_raw do guest existente: ${upd.error.message}`);
+              }
+            } catch (e) {
+              console.warn(`   ⚠️ Falha inesperada ao atualizar staysnet_raw do guest existente: ${e instanceof Error ? e.message : String(e)}`);
+            }
+          }
         } else {
           // ================================================================
           // 2.4: CRIAR NOVO GUEST

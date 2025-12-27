@@ -26,6 +26,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - StaysNet: tabela genérica `staysnet_raw_objects` para persistir payloads completos (reservas/clients/finance/listings) com deduplicação por hash
 - StaysNet: helper `utils-staysnet-raw-store.ts` para gravar payloads com SHA-256 e não quebrar import em caso de falha de persistência de RAW
 - StaysNet: script de auditoria `scripts/audit-staysnet-raw-coverage.ps1` para medir cobertura de campos RAW por amostragem (prova de conformidade)
+- StaysNet: guests import enriquecido com `/booking/clients/{clientId}` para salvar JSON completo de client (domain `clients`)
+- StaysNet: listings/properties também persistidos em `staysnet_raw_objects` (domain `listings`)
+- StaysNet: endpoint `POST /staysnet/import/finance` para capturar RAW financeiro (payment-providers + owners) em `staysnet_raw_objects` (domain `finance`)
+- StaysNet: helper RAW agora cria `external_id` sintético quando ausente (dedupe correto em endpoints de lista)
 - StaysNet: automação via webhook público + fila + processador/cron (sem depender de import manual)
 - StaysNet: endpoint de backfill para recalcular/vincular dados de reservas antigas (pricing e dados de hóspede)
 - Sidebar: busca global expandida para reservas/hóspedes/imóveis com deep-link
