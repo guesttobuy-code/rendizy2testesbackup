@@ -545,11 +545,14 @@ export async function getReservationsSummary(c: Context) {
       return c.json(errorResponse('Erro ao calcular resumo de reservas', { details: firstError.message }), 500);
     }
 
-    const revenue = (rRevenue.data || []).reduce((sum: number, row: any) => {
+    const revenueCents = (rRevenue.data || []).reduce((sumCents: number, row: any) => {
       const v = row?.pricing_total;
       const n = Number(v);
-      return sum + (Number.isFinite(n) ? n : 0);
+      if (!Number.isFinite(n)) return sumCents;
+      return sumCents + Math.round(n * 100);
     }, 0);
+
+    const revenue = Number((revenueCents / 100).toFixed(2));
 
     return c.json(
       successResponse({
@@ -814,7 +817,7 @@ export async function createReservation(c: Context) {
     // ✅ MIGRAÇÃO: Verificar se propriedade existe no SQL (com filtro multi-tenant)
     console.log('🔍 [createReservation] Buscando propriedade:', body.propertyId);
     
-    // ✅ Preferir anuncios_ultimate (tabela oficial). Manter fallback para anuncios_drafts.
+    // ✅ Tabela canônica: anuncios_ultimate (sem fallback para tabelas legadas)
     let propertyQuery = client
       .from('anuncios_ultimate')
       .select('id, title, data, organization_id')
@@ -834,24 +837,8 @@ export async function createReservation(c: Context) {
     }
     
     if (!propertyRow) {
-      console.warn('⚠️ [createReservation] Propriedade não encontrada em anuncios_ultimate, tentando anuncios_drafts...', body.propertyId);
-      let fallbackQuery = client
-        .from('anuncios_drafts')
-        .select('id, title, data, organization_id')
-        .eq('id', body.propertyId);
-      if (tenant.type === 'imobiliaria' || tenant.type === 'superadmin') {
-        fallbackQuery = fallbackQuery.eq('organization_id', orgIdFinal);
-      }
-      const { data: draftRow, error: draftErr } = await fallbackQuery.maybeSingle();
-      if (draftErr) {
-        console.error('❌ [createReservation] SQL error fetching property (drafts):', draftErr);
-        return c.json(errorResponse('Erro ao buscar propriedade', { details: draftErr.message }), 500);
-      }
-      if (!draftRow) {
-        console.error('❌ [createReservation] Propriedade não encontrada em nenhuma tabela:', body.propertyId);
-        return c.json(notFoundResponse('Property'), 404);
-      }
-      propertyRow = draftRow;
+      console.error('❌ [createReservation] Propriedade não encontrada em anuncios_ultimate:', body.propertyId);
+      return c.json(notFoundResponse('Property'), 404);
     }
     
     console.log('✅ [createReservation] Propriedade encontrada:', propertyRow.id, propertyRow.title);

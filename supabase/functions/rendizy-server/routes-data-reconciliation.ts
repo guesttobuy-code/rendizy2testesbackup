@@ -431,12 +431,10 @@ export async function getRealSamplesForReconciliation(c: Context) {
     const sampleReservation = await selectSampleRow(db, 'reservations', organizationId).catch(() => null);
     const sampleGuest = await selectSampleRow(db, 'guests', organizationId).catch(() => null);
     const sampleAnuncioUltimate = await selectSampleRow(db, 'anuncios_ultimate', organizationId).catch(() => null);
-    const sampleAnuncioDraft = await selectSampleRow(db, 'anuncios_drafts', organizationId).catch(() => null);
 
     const sampleReservations = await selectSampleRows(db, 'reservations', organizationId, Math.min(25, limit)).catch(() => []);
     const sampleGuests = await selectSampleRows(db, 'guests', organizationId, Math.min(25, limit)).catch(() => []);
     const sampleAnunciosUltimate = await selectSampleRows(db, 'anuncios_ultimate', organizationId, Math.min(25, limit)).catch(() => []);
-    const sampleAnunciosDraft = await selectSampleRows(db, 'anuncios_drafts', organizationId, Math.min(25, limit)).catch(() => []);
 
     const rendizyReservationFields = sampleReservations.length > 0
       ? mergeFieldLists(
@@ -495,30 +493,10 @@ export async function getRealSamplesForReconciliation(c: Context) {
             })
           : []);
 
-    const rendizyAnuncioDraftFields = sampleAnunciosDraft.length > 0
-      ? mergeFieldLists(
-          sampleAnunciosDraft.map((a: any) =>
-            flattenToFields(a, {
-              idPrefix: 'db_anuncio_draft_tmp',
-              descriptionPrefix: 'Campo real (Supabase anuncios_drafts)',
-              baseCategory: 'property',
-            })
-          ),
-          'db_anuncio_draft'
-        )
-      : (sampleAnuncioDraft
-          ? flattenToFields(sampleAnuncioDraft, {
-              idPrefix: 'db_anuncio_draft',
-              descriptionPrefix: 'Campo real (Supabase anuncios_drafts)',
-              baseCategory: 'property',
-            })
-          : []);
-
     const rendizyFields: NormalizedField[] = [
       ...rendizyReservationFields,
       ...rendizyGuestFields,
       ...rendizyAnuncioFields,
-      ...rendizyAnuncioDraftFields,
     ].map((f) => ({
       ...f,
       // compat com UI: required default false
@@ -540,7 +518,6 @@ export async function getRealSamplesForReconciliation(c: Context) {
             reservation: sampleReservation,
             guest: sampleGuest,
             anuncio_ultimate: sampleAnuncioUltimate,
-            anuncio_draft: sampleAnuncioDraft,
           },
         },
         meta: {

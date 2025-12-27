@@ -67,6 +67,36 @@ export function DashboardInicialSimple({
     };
   }, []);
 
+  const formatConflictDetails = (conflict: any): { title: string; details: string } => {
+    const title = conflict?.type || 'Conflito';
+
+    if (typeof conflict?.message === 'string' && conflict.message.trim()) {
+      return { title, details: conflict.message };
+    }
+
+    const propertyName = conflict?.propertyName;
+    const date = conflict?.date;
+    const reservationsOnDate = Array.isArray(conflict?.reservations) ? conflict.reservations : [];
+
+    if (propertyName && date && reservationsOnDate.length > 0) {
+      const dateLabel = new Date(`${date}T00:00:00.000Z`).toLocaleDateString('pt-BR');
+      const parts = reservationsOnDate
+        .slice(0, 2)
+        .map((r: any) => {
+          const guest = r?.guestName || 'Hóspede';
+          const checkIn = r?.checkIn ? new Date(r.checkIn).toLocaleDateString('pt-BR') : '—';
+          const checkOut = r?.checkOut ? new Date(r.checkOut).toLocaleDateString('pt-BR') : '—';
+          const idSuffix = r?.id ? ` (${String(r.id).slice(-6)})` : '';
+          return `${guest}${idSuffix} ${checkIn}→${checkOut}`;
+        });
+      const more = Math.max(0, reservationsOnDate.length - parts.length);
+      const details = `${propertyName} em ${dateLabel}: ${parts.join(' vs ')}${more > 0 ? ` (+${more})` : ''}`;
+      return { title: 'Overbooking', details };
+    }
+
+    return { title, details: 'Detalhes não disponíveis' };
+  };
+
   return (
     <div className="flex-1 overflow-auto p-8 bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -289,15 +319,18 @@ export function DashboardInicialSimple({
           <CardContent>
             <div className="space-y-2">
               {conflicts.slice(0, 3).map((conflict, index) => (
+                (() => {
+                  const rendered = formatConflictDetails(conflict);
+                  return (
                 <div
                   key={index}
                   className="p-3 bg-white dark:bg-gray-800 rounded border"
                 >
-                  <p className="text-sm font-medium">{conflict.type || 'Conflito'}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {conflict.message || 'Detalhes não disponíveis'}
-                  </p>
+                  <p className="text-sm font-medium">{rendered.title}</p>
+                  <p className="text-xs text-muted-foreground">{rendered.details}</p>
                 </div>
+                  );
+                })()
               ))}
             </div>
             {conflicts.length > 3 && (

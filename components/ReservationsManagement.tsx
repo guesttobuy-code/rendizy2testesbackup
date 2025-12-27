@@ -480,6 +480,26 @@ export function ReservationsManagement({
     [properties]
   );
 
+  const parseDateCandidate = (value: unknown): Date | null => {
+    if (!value) return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    if (typeof value === 'number') {
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof value === 'string') {
+      const s = value.trim();
+      if (!s) return null;
+
+      // IMPORTANT: `new Date('YYYY-MM-DD')` is parsed as UTC and can shift the day in Brazil.
+      // Treat date-only strings as local midnight.
+      const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s);
+      const d = new Date(dateOnly ? `${s}T00:00:00` : s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  };
+
   // Filter reservations by search and selected properties - OTIMIZADO: Memoizado
   const filteredReservations = useMemo(() => {
     console.log('🔍 [ReservationsManagement] Filtrando reservas:', {
@@ -492,15 +512,7 @@ export function ReservationsManagement({
     const rangeStart = startOfDay(dateRange.from);
     const rangeEnd = endOfDay(dateRange.to);
 
-    const getComparableDate = (value: unknown): Date | null => {
-      if (!value) return null;
-      if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
-      if (typeof value === 'string' || typeof value === 'number') {
-        const d = new Date(value);
-        return isNaN(d.getTime()) ? null : d;
-      }
-      return null;
-    };
+    const getComparableDate = (value: unknown): Date | null => parseDateCandidate(value);
 
     const filtered = reservations.filter(reservation => {
       // Filter by date range + date field
@@ -640,7 +652,7 @@ export function ReservationsManagement({
   };
 
   // Platform badge
-  const getPlatformBadge = (platform: string) => {
+  const getPlatformBadge = (platform: string, partnerName?: string) => {
     const colors: Record<string, string> = {
       airbnb: 'bg-pink-100 text-pink-700',
       booking: 'bg-blue-100 text-blue-700',
@@ -657,9 +669,13 @@ export function ReservationsManagement({
       other: 'Outro',
     };
 
+    // Stays.net semantics: `platform=other` can mean "external platform".
+    // When available, show partner name instead of the generic label.
+    const customLabel = platform === 'other' && partnerName ? partnerName : null;
+
     return (
       <Badge className={colors[platform] || colors.other}>
-        {labels[platform] || platform}
+        {customLabel || labels[platform] || platform}
       </Badge>
     );
   };
@@ -759,9 +775,10 @@ export function ReservationsManagement({
           flex-shrink-0 
           rounded-lg 
           shadow-sm
+          min-h-[500px]
+          max-h-[calc(100vh-2rem)]
           ${isSidebarCollapsed ? 'w-12' : 'w-80'}
         `}
-        style={{ minHeight: '500px', maxHeight: 'calc(100vh - 2rem)' }}
       >
         {/* Collapse/Expand Button */}
         <button
@@ -847,6 +864,8 @@ export function ReservationsManagement({
                     <button
                       onClick={() => setSearchQuery('')}
                       className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      title="Limpar busca"
+                      aria-label="Limpar busca"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -1240,14 +1259,16 @@ export function ReservationsManagement({
                             <span>{guest?.phone || 'Sem telefone'}</span>
                             <span className="text-gray-300 dark:text-gray-600">•</span>
                             <Mail className="h-3.5 w-3.5" />
-                            <span className="truncate">{guest?.email || 'Sem email'}</span>
+                            <span className="truncate">
+                              {guest?.email && !guest.email.endsWith('@staysnet.local') ? guest.email : 'Sem email'}
+                            </span>
                           </div>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-2 ml-4 flex-shrink-0">
                         {getStatusBadge(reservation.status)}
-                        {getPlatformBadge(reservation.platform)}
+                        {getPlatformBadge(reservation.platform, reservation.staysnetPartnerName)}
                         <div className="flex items-center gap-1 ml-2">
                           <Button
                             size="sm"
@@ -1262,13 +1283,6 @@ export function ReservationsManagement({
                             variant="ghost"
                             onClick={() => handleEdit(reservation)}
                             disabled={reservation.status === 'cancelled'}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEdit(reservation)}
                             title="Editar"
                           >
                             <Edit className="h-4 w-4" />
@@ -1297,9 +1311,9 @@ export function ReservationsManagement({
                       
                       <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 flex-shrink-0">
                         <CalendarDays className="h-4 w-4" />
-                        <span>{format(new Date(reservation.checkIn), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                        <span>{format(parseDateCandidate(reservation.checkIn) || new Date(), 'dd/MM/yyyy', { locale: ptBR })}</span>
                         <ArrowRight className="h-3 w-3" />
-                        <span>{format(new Date(reservation.checkOut), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                        <span>{format(parseDateCandidate(reservation.checkOut) || new Date(), 'dd/MM/yyyy', { locale: ptBR })}</span>
                         <Badge variant="outline" className="ml-2">
                           {reservation.nights} {reservation.nights === 1 ? 'noite' : 'noites'}
                         </Badge>

@@ -92,6 +92,34 @@ function sanitizeDigits(input: string): string {
   return String(input || '').replace(/\D+/g, '');
 }
 
+function normalizeStaysDateType(input: string): 'arrival' | 'departure' | 'creation' | 'creationorig' | 'included' {
+  const v = String(input || '').trim().toLowerCase();
+  // Frontend legacy values
+  if (v === 'checkin') return 'arrival';
+  if (v === 'checkout') return 'departure';
+  // API official values
+  if (v === 'arrival') return 'arrival';
+  if (v === 'departure') return 'departure';
+  if (v === 'creation') return 'creation';
+  if (v === 'creationorig') return 'creationorig';
+  if (v === 'included') return 'included';
+  // Fallback seguro para guests: included (pega reservas que cruzam o período)
+  return 'included';
+}
+
+function normalizeReservationTypes(input: any): string[] {
+  if (Array.isArray(input)) {
+    return input.map((x) => String(x).trim()).filter(Boolean);
+  }
+  if (typeof input === 'string') {
+    return input
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function extractGuestData(res: StaysNetReservation): ExtractedGuest {
   const payloadEmail = (res.guestEmail || res.guest?.email || '').trim();
 
@@ -240,15 +268,28 @@ export async function importStaysNetGuests(c: Context) {
   let errors = 0;
   const errorDetails: Array<{guest: string, error: string}> = [];
 
+  // ⚠️ Importante: o catch final precisa SEMPRE conseguir retornar JSON.
+  // Portanto, qualquer variável usada no catch deve estar no escopo da função.
+  let nextSkip = 0;
+  let nextHasMore = false;
+
   try {
     const supabase = getSupabaseClient();
 
-    // ✅ Multi-tenant: pegar organization_id correto (fallback seguro)
+    // ✅ Multi-tenant: pegar organization_id correto
+    // ⚠️ Se há token de usuário, não pode cair no DEFAULT_ORG_ID.
+    const cookieHeader = c.req.header('Cookie') || '';
+    const hasUserToken = Boolean(c.req.header('X-Auth-Token') || cookieHeader.includes('rendizy-token='));
+
     let orgId = DEFAULT_ORG_ID;
-    try {
+    if (hasUserToken) {
       orgId = await getOrganizationIdOrThrow(c);
-    } catch {
-      orgId = DEFAULT_ORG_ID;
+    } else {
+      try {
+        orgId = await getOrganizationIdOrThrow(c);
+      } catch {
+        orgId = DEFAULT_ORG_ID;
+      }
     }
 
     // ========================================================================
@@ -271,20 +312,29 @@ export async function importStaysNetGuests(c: Context) {
     const bodyTo = body?.to || body?.endDate;
     const fromFinal = String((c.req.query('from') || bodyFrom || from) ?? '').trim();
     const toFinal = String((c.req.query('to') || bodyTo || to) ?? '').trim();
-    const dateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();
-    // A API da StaysNet tende a falhar com `limit` muito alto.
-    // Permitimos um aumento moderado (até 50) para reduzir batches, e o controle de volume
-    // continua via `maxPages` + timeouts do caller.
-    const limit = Math.min(50, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
+    const rawDateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();
+    const dateType = normalizeStaysDateType(rawDateType);
+    // ✅ Stays.net: limit max 20
+    const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
     // ✅ Segurança anti-timeout: default de poucas páginas. O caller pode continuar via `next.skip`.
     const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
     let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
     const startSkip = skip;
     let hasMore = false;
 
+    const includeCanceled = String(c.req.query('includeCanceled') || body?.includeCanceled || '').trim() === '1';
+    const rawTypes = normalizeReservationTypes(body?.types ?? body?.type ?? c.req.query('types') ?? c.req.query('type'));
+    const types = rawTypes.length > 0 ? rawTypes : ['reserved', 'booked', 'contract'];
+    if (includeCanceled && !types.includes('canceled')) types.push('canceled');
+
+    // Inicializa saída de paginação (mesmo se der erro mais cedo)
+    nextSkip = startSkip;
+    nextHasMore = false;
+
     console.log(`   🧾 organization_id: ${orgId}`);
     console.log(`   📅 Período: ${fromFinal} até ${toFinal}`);
-    console.log(`   📌 dateType: ${dateType}`);
+    console.log(`   📌 dateType: ${dateType} (raw=${rawDateType})`);
+    console.log(`   🧾 types: ${types.join(',')}`);
     console.log(`   📄 Paginação: limit=${limit}, maxPages=${maxPages}, skip=${skip}`);
     
     // ✅ Basic Auth (não x-api-key)
@@ -302,6 +352,10 @@ export async function importStaysNetGuests(c: Context) {
         limit: String(limit),
         skip: String(skip),
       });
+
+      for (const t of types) {
+        params.append('type', t);
+      }
 
       const response = await fetch(`${staysConfig.baseUrl}/booking/reservations?${params}`, {
         headers: {
@@ -538,12 +592,16 @@ export async function importStaysNetGuests(c: Context) {
       });
     }
 
+    // Expor paginação do ponto onde paramos
+    nextSkip = skip;
+    nextHasMore = hasMore;
+
     return c.json({
       success: errors < processed,
       method: 'import-guests',
       table: 'guests',
       stats: { fetched, processed, created, linked, skipped, errors },
-      next: { skip, hasMore },
+      next: { skip: nextSkip, hasMore: nextHasMore },
       errorDetails: errors > 0 ? errorDetails : undefined,
       message: `Importados ${created} guests de StaysNet, ${linked} vinculados a reservations (skipped: ${skipped})`
     });
@@ -558,7 +616,7 @@ export async function importStaysNetGuests(c: Context) {
       method: 'import-guests',
       error: error.message,
       stats: { fetched, processed, created, linked, skipped, errors },
-      next: { skip, hasMore: false }
+      next: { skip: nextSkip, hasMore: false }
     }, 500);
   }
 }

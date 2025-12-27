@@ -1,5 +1,5 @@
-# ⚡ MIGRATION SCRIPT: properties → anuncios_drafts
-# Migra todos os imóveis da tabela antiga (properties) para a nova (anuncios_drafts)
+# ⚡ MIGRATION SCRIPT: properties → anuncios_ultimate
+# Migra todos os imóveis da tabela antiga (properties) para a nova (anuncios_ultimate)
 # Versão: v1.0.103.405
 # Data: 20/12/2024
 
@@ -9,7 +9,7 @@ param(
 )
 
 Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "⚡ MIGRATION: properties → anuncios_drafts" -ForegroundColor Yellow
+Write-Host "⚡ MIGRATION: properties → anuncios_ultimate" -ForegroundColor Yellow
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 
 # Configuração
@@ -38,14 +38,14 @@ try {
     exit 1
 }
 
-# Contar anuncios_drafts existentes
+# Contar anuncios_ultimate existentes
 try {
-    $countUrl = "$env:SUPABASE_URL/rest/v1/anuncios_drafts?select=id"
+    $countUrl = "$env:SUPABASE_URL/rest/v1/anuncios_ultimate?select=id"
     $anuncios = Invoke-RestMethod -Uri $countUrl -Headers $headers -Method Get
     $totalAnuncios = $anuncios.Count
-    Write-Host "✅ Total em anuncios_drafts (antes): $totalAnuncios" -ForegroundColor Green
+    Write-Host "✅ Total em anuncios_ultimate (antes): $totalAnuncios" -ForegroundColor Green
 } catch {
-    Write-Host "⚠️ Erro ao contar anuncios_drafts: $_" -ForegroundColor Yellow
+    Write-Host "⚠️ Erro ao contar anuncios_ultimate: $_" -ForegroundColor Yellow
     $totalAnuncios = 0
 }
 
@@ -78,7 +78,7 @@ foreach ($prop in $propertiesToMigrate) {
     
     Write-Host "`n  📌 Migrando: $propName (ID: $($prop.id))" -ForegroundColor White
     
-    # Montar estrutura anuncios_drafts
+    # Montar estrutura anuncios_ultimate
     $anuncio = @{
         id = $prop.id
         organization_id = if ($prop.organization_id) { $prop.organization_id } else { "00000000-0000-0000-0000-000000000000" }
@@ -128,7 +128,7 @@ foreach ($prop in $propertiesToMigrate) {
     }
 
     # ✅ REGRA DE OURO: Verificar se JÁ EXISTE antes de inserir (evitar duplicatas)
-    $checkUrl = "$env:SUPABASE_URL/rest/v1/anuncios_drafts?id=eq.$($prop.id)&select=id"
+    $checkUrl = "$env:SUPABASE_URL/rest/v1/anuncios_ultimate?id=eq.$($prop.id)&select=id"
     $existing = Invoke-RestMethod -Uri $checkUrl -Headers $headers -ErrorAction SilentlyContinue
     
     if ($existing -and $existing.Count -gt 0) {
@@ -137,9 +137,9 @@ foreach ($prop in $propertiesToMigrate) {
         continue
     }
     
-    # Inserir no anuncios_drafts
+    # Inserir no anuncios_ultimate
     try {
-        $insertUrl = "$env:SUPABASE_URL/rest/v1/anuncios_drafts"
+        $insertUrl = "$env:SUPABASE_URL/rest/v1/anuncios_ultimate"
         $null = Invoke-RestMethod -Uri $insertUrl -Headers $headers -Method Post -Body $anuncio
         Write-Host "    ✅ Inserido com sucesso" -ForegroundColor Green
         $success++

@@ -18,6 +18,40 @@ import { getSupabaseClient } from './kv_store.tsx';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 import { resolveOrCreateGuestIdFromStaysReservation } from './utils-staysnet-guest-link.ts';
+import { storeStaysnetRawObject } from './utils-staysnet-raw-store.ts';
+
+async function fetchStaysReservationDetails(
+  baseUrl: string,
+  credentials: string,
+  idOrCode: string,
+): Promise<StaysNetReservation | null> {
+  if (!idOrCode) return null;
+  const url = `${baseUrl}/booking/reservations/${encodeURIComponent(idOrCode)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    if (!resp.ok) {
+      // Silencioso: o import continua com o payload de lista.
+      return null;
+    }
+
+    const json = await resp.json();
+    if (!json || typeof json !== 'object') return null;
+    return json as StaysNetReservation;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function resolveAnuncioUltimateIdFromStaysId(
   supabase: ReturnType<typeof getSupabaseClient>,
@@ -190,10 +224,16 @@ function parseMoney(value: any, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function parseMoneyInt(value: any, fallback = 0): number {
+function parseMoneyCents(value: any, fallbackCents = Number.NaN): number {
   const n = parseMoney(value, Number.NaN);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.round(n);
+  if (!Number.isFinite(n)) return fallbackCents;
+  // Normaliza para centavos inteiros (evita bugs de ponto flutuante)
+  return Math.round(n * 100);
+}
+
+function centsToMoney2(cents: number): number {
+  // Garante no máximo 2 casas decimais (ex: 81338 -> 813.38)
+  return Number((cents / 100).toFixed(2));
 }
 
 function pickMoneyFromObject(obj: any, keys: string[], fallback = 0): number {
@@ -318,12 +358,32 @@ function mapPlatform(staysPlatform: string | undefined, source: string | undefin
 }
 
 function mapPlatformV2(input: {
-  staysPlatform?: string;
-  source?: string;
-  partner?: string;
-  partnerCode?: string;
+  staysPlatform?: unknown;
+  source?: unknown;
+  partner?: unknown;
+  partnerCode?: unknown;
 }): string {
-  const raw = [input.staysPlatform, input.source, input.partner, input.partnerCode]
+  const token = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (typeof value === 'object') {
+      const v: any = value as any;
+      return [
+        v?.name,
+        v?.code,
+        v?.partner,
+        v?.platform,
+        v?.source,
+        v?._id,
+      ]
+        .filter((x) => typeof x === 'string' || typeof x === 'number')
+        .map(String)
+        .join(' ');
+    }
+    return String(value);
+  };
+
+  const raw = [token(input.staysPlatform), token(input.source), token(input.partner), token(input.partnerCode)]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
@@ -363,12 +423,21 @@ export async function importStaysNetReservations(c: Context) {
   const errorDetails: Array<{reservation: string, error: string}> = [];
 
   try {
-    // ✅ Preferir organization_id real do usuário (via sessions); fallback mantém compatibilidade com chamadas técnicas.
+    // ✅ Preferir organization_id real do usuário (via sessions)
+    // ⚠️ IMPORTANTE: se há token de usuário, NÃO pode cair no DEFAULT_ORG_ID
+    // senão a UI “importa” mas grava no tenant errado (parece que não importou).
+    const cookieHeader = c.req.header('Cookie') || '';
+    const hasUserToken = Boolean(c.req.header('X-Auth-Token') || cookieHeader.includes('rendizy-token='));
+
     let organizationId = DEFAULT_ORG_ID;
-    try {
+    if (hasUserToken) {
       organizationId = await getOrganizationIdOrThrow(c);
-    } catch {
-      // sem sessão/token → mantém DEFAULT_ORG_ID
+    } else {
+      try {
+        organizationId = await getOrganizationIdOrThrow(c);
+      } catch {
+        // sem sessão/token → mantém DEFAULT_ORG_ID (compat chamadas técnicas)
+      }
     }
 
     // ========================================================================
@@ -392,10 +461,8 @@ export async function importStaysNetReservations(c: Context) {
     const to = String((c.req.query('to') || bodyTo || toDate.toISOString().split('T')[0]) ?? '').trim();
     const rawDateType = String((c.req.query('dateType') || body?.dateType || 'checkin') ?? '').trim();
     const dateType = normalizeStaysDateType(rawDateType);
-    // A API da StaysNet tende a falhar com `limit` muito alto.
-    // Permitimos um aumento moderado (até 50) para reduzir batches, e o controle de volume
-    // continua via `maxPages` + timeouts do caller.
-    const limit = Math.min(50, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
+    // ✅ Stays.net: limit max 20
+    const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
     // ✅ Segurança anti-timeout: default de poucas páginas. O caller pode continuar via `next.skip`.
     const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
 
@@ -403,6 +470,9 @@ export async function importStaysNetReservations(c: Context) {
     // No Stays, o filtro “Em vigor” normalmente inclui reserved/booked/contract.
     // Se não passarmos type, algumas contas retornam subconjunto.
     const includeCanceled = String(c.req.query('includeCanceled') || body?.includeCanceled || '').trim() === '1';
+    // ✅ Por padrão, buscar detalhe por reserva para capturar hóspede (guestsDetails.list) e outros campos.
+    // O endpoint de lista (/booking/reservations) pode vir truncado e não traz dados de contato.
+    const expandDetails = String(c.req.query('expandDetails') || body?.expandDetails || '1').trim() !== '0';
     const rawTypes = normalizeReservationTypes(body?.types ?? body?.type ?? c.req.query('types') ?? c.req.query('type'));
     const types = rawTypes.length > 0 ? rawTypes : ['reserved', 'booked', 'contract'];
     if (includeCanceled && !types.includes('canceled')) types.push('canceled');
@@ -495,6 +565,19 @@ export async function importStaysNetReservations(c: Context) {
       const res = reservations[i];
       const confirmationCode = res.confirmationCode || res._id || `RES-${i + 1}`;
 
+      const guestsDetailsObj = (res as any).guestsDetails || (res as any).guests_details || null;
+      const hasGuestsList = !!(guestsDetailsObj && Array.isArray(guestsDetailsObj.list) && guestsDetailsObj.list.length > 0);
+      const hasDirectContact = Boolean((res as any).guestPhone || (res as any).guestEmail || (res as any).guestName);
+      const needsDetails = !hasGuestsList && !hasDirectContact;
+
+      const detailPayload = (expandDetails && needsDetails)
+        ? (await fetchStaysReservationDetails(staysConfig.baseUrl, credentials, String(res._id || '').trim()) ||
+            await fetchStaysReservationDetails(staysConfig.baseUrl, credentials, String((res as any).id || '').trim()) ||
+            null)
+        : null;
+
+      const resFull: StaysNetReservation = detailPayload ? ({ ...res, ...detailPayload } as StaysNetReservation) : res;
+
       // Candidate fields for "created" timestamps in StaysNet payloads
       const sourceCreatedAtRaw =
         (res as any).createdAt ??
@@ -565,7 +648,7 @@ export async function importStaysNetReservations(c: Context) {
         // 2.1: VALIDAR DADOS MÍNIMOS
         // ====================================================================
         // Tipos que NÃO devem virar reservas: usar import específico de blocks
-        const typeLower = String((res as any).type || '').trim().toLowerCase();
+        const typeLower = String((resFull as any).type || '').trim().toLowerCase();
         if (
           typeLower === 'blocked' ||
           typeLower === 'bloqueado' ||
@@ -578,15 +661,15 @@ export async function importStaysNetReservations(c: Context) {
           continue;
         }
 
-        if (!res.checkInDate || !res.checkOutDate) {
+        if (!resFull.checkInDate || !resFull.checkOutDate) {
           console.warn(`   ⚠️ Sem datas de check-in/check-out - SKIP`);
           skipped++;
           continue;
         }
 
-        const checkIn = new Date(res.checkInDate);
-        const checkOut = new Date(res.checkOutDate);
-        const nights = res.nights || Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+        const checkIn = new Date(resFull.checkInDate);
+        const checkOut = new Date(resFull.checkOutDate);
+        const nights = resFull.nights || Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
 
         if (nights < 1) {
           console.warn(`   ⚠️ Nights inválido: ${nights} - SKIP`);
@@ -600,9 +683,9 @@ export async function importStaysNetReservations(c: Context) {
         // 2.2: RESOLVER property_id (anuncios_ultimate) ANTES DO DEDUP
         // StaysNet envia o ID do imóvel/listing como _idlisting (principal). Mantemos compatibilidade com variantes.
         const staysPropertyCandidates = [
-          (res as any)._idlisting,
-          res._id_listing,
-          res.propertyId,
+          (resFull as any)._idlisting,
+          resFull._id_listing,
+          resFull.propertyId,
         ].filter(Boolean) as string[];
         let propertyId: string | null = null;
 
@@ -659,14 +742,14 @@ export async function importStaysNetReservations(c: Context) {
         // checamos ambos.
         const externalIdCandidates = Array.from(
           new Set(
-            [asTextOrNull(res._id), asTextOrNull(res.confirmationCode)]
+            [asTextOrNull(resFull._id), asTextOrNull(resFull.confirmationCode)]
               .filter(Boolean)
               .map((x) => String(x))
           )
         );
 
         const externalId = externalIdCandidates[0] || null;
-        const externalUrl = (res as any).reservationUrl || null;
+        const externalUrl = (resFull as any).reservationUrl || null;
 
         let existing: any = null;
         let checkError: any = null;
@@ -698,7 +781,7 @@ export async function importStaysNetReservations(c: Context) {
         // ✅ Vincular guest automaticamente quando possível
         let finalGuestId = existing?.guest_id || null;
         if (!finalGuestId) {
-          finalGuestId = await resolveOrCreateGuestIdFromStaysReservation(supabase as any, organizationId, res);
+          finalGuestId = await resolveOrCreateGuestIdFromStaysReservation(supabase as any, organizationId, resFull);
         }
 
         // ====================================================================
@@ -710,8 +793,8 @@ export async function importStaysNetReservations(c: Context) {
         // - guests: number (total)
         // - guestsDetails: {adults,children,infants,pets}
         // - guests: {adults,children,...}
-        const guestsDetails = (res as any).guestsDetails || (res as any).guests_details || null;
-        const guestsTotalFromNumber = typeof (res as any).guests === 'number' ? Number((res as any).guests) : Number.NaN;
+        const guestsDetails = (resFull as any).guestsDetails || (resFull as any).guests_details || null;
+        const guestsTotalFromNumber = typeof (resFull as any).guests === 'number' ? Number((resFull as any).guests) : Number.NaN;
 
         const guestsAdults = safeInt(
           guestsDetails?.adults ?? res.guests?.adults ?? (Number.isFinite(guestsTotalFromNumber) ? guestsTotalFromNumber : undefined) ?? 1,
@@ -727,11 +810,11 @@ export async function importStaysNetReservations(c: Context) {
 
         const priceObj = (res as any).price;
 
-        // OBS: em produção, os campos pricing_* são INTEGER. O Stays pode enviar decimais ("813.38"),
-        // então normalizamos para inteiro (arredondado) para evitar erro de cast no Postgres.
+        // OBS: os campos pricing_* na tabela reservations são NUMERIC(10,2).
+        // O Stays pode enviar strings/objetos com decimais, então normalizamos para centavos e gravamos com 2 casas.
         const hostingDetails = priceObj && typeof priceObj === 'object' ? (priceObj as any).hostingDetails : null;
-        const pricePerNight = parseMoneyInt(
-          res.pricePerNight ??
+        const pricePerNightCents = parseMoneyCents(
+          resFull.pricePerNight ??
             pickMoneyFromObject(hostingDetails, ['_f_nightPrice', '_f_night_price', 'nightPrice', 'night_price', 'pricePerNight', 'price_per_night'], Number.NaN) ??
             pickMoneyFromObject(priceObj, ['pricePerNight', 'price_per_night', 'perNight', 'per_night'], 0),
           0,
@@ -740,67 +823,75 @@ export async function importStaysNetReservations(c: Context) {
         // No payload real observado:
         // - price._f_expected = base/expected total
         // - price._f_total = total final
-        const expectedTotal = parseMoney(
+        const expectedTotalCents = parseMoneyCents(
           pickMoneyFromObject(priceObj, ['_f_expected', 'expected', 'expectedTotal', 'expected_total', 'baseTotal', 'base_total', 'base', 'accommodation', 'accommodationTotal', 'accommodation_total'], Number.NaN),
           Number.NaN,
         );
 
-        const totalFromStays = parseMoney(
+        const totalFromStaysCents = parseMoneyCents(
           pickMoneyFromObject(priceObj, ['_f_total', 'total', 'grandTotal', 'grand_total'], Number.NaN),
           Number.NaN,
         );
 
-        const cleaningFee = parseMoneyInt(
-          res.cleaningFee ?? pickMoneyFromObject(priceObj, ['cleaningFee', 'cleaning_fee', 'cleaning'], 0),
+        const cleaningFeeCents = parseMoneyCents(
+          resFull.cleaningFee ?? pickMoneyFromObject(priceObj, ['cleaningFee', 'cleaning_fee', 'cleaning'], 0),
           0,
         );
 
-        const serviceFee = parseMoneyInt(
-          res.serviceFee ?? pickMoneyFromObject(priceObj, ['serviceFee', 'service_fee', 'service'], 0),
+        const serviceFeeCents = parseMoneyCents(
+          resFull.serviceFee ?? pickMoneyFromObject(priceObj, ['serviceFee', 'service_fee', 'service'], 0),
           0,
         );
 
-        const taxes = parseMoneyInt(
-          res.taxes ?? pickMoneyFromObject(priceObj, ['taxes', 'tax', 'vat'], 0),
+        const taxesCents = parseMoneyCents(
+          resFull.taxes ?? pickMoneyFromObject(priceObj, ['taxes', 'tax', 'vat'], 0),
           0,
         );
 
-        const discount = parseMoneyInt(
-          res.discount ?? pickMoneyFromObject(priceObj, ['discount', 'discounts', 'coupon', 'promotion'], 0),
+        const discountCents = parseMoneyCents(
+          resFull.discount ?? pickMoneyFromObject(priceObj, ['discount', 'discounts', 'coupon', 'promotion'], 0),
           0,
         );
 
-        const resolvedBaseTotal = Number.isFinite(expectedTotal)
-          ? Math.round(expectedTotal)
-          : pricePerNight * nights;
+        const resolvedBaseTotalCents = Number.isFinite(expectedTotalCents)
+          ? expectedTotalCents
+          : pricePerNightCents * nights;
 
-        const computedTotal = resolvedBaseTotal + cleaningFee + serviceFee + taxes - discount;
-        const total = Number.isFinite(totalFromStays) ? Math.round(totalFromStays) : computedTotal;
+        const computedTotalCents = resolvedBaseTotalCents + cleaningFeeCents + serviceFeeCents + taxesCents - discountCents;
+        const totalCents = Number.isFinite(totalFromStaysCents) ? totalFromStaysCents : computedTotalCents;
+
+        const pricePerNight = centsToMoney2(pricePerNightCents);
+        const resolvedBaseTotal = centsToMoney2(resolvedBaseTotalCents);
+        const cleaningFee = centsToMoney2(cleaningFeeCents);
+        const serviceFee = centsToMoney2(serviceFeeCents);
+        const taxes = centsToMoney2(taxesCents);
+        const discount = centsToMoney2(discountCents);
+        const total = centsToMoney2(totalCents);
 
         const rawType =
-          (res as any).type ??
-          (res as any).reservationType ??
-          (res as any).typeReservation ??
-          (res as any).tipo ??
-          (res as any).tipoReserva ??
+          (resFull as any).type ??
+          (resFull as any).reservationType ??
+          (resFull as any).typeReservation ??
+          (resFull as any).tipo ??
+          (resFull as any).tipoReserva ??
           null;
 
-        const partnerObj = (res as any).partner && typeof (res as any).partner === 'object' ? (res as any).partner : null;
+        const partnerObj = (resFull as any).partner && typeof (resFull as any).partner === 'object' ? (resFull as any).partner : null;
         const staysPartnerId = asTextOrNull(partnerObj?._id);
-        const staysPartnerName = asTextOrNull(partnerObj?.name ?? (res as any).partner);
+        const staysPartnerName = asTextOrNull(partnerObj?.name ?? (resFull as any).partner);
 
-        const staysReservationCode = asTextOrNull((res as any).id ?? (res as any).reservationId ?? (res as any).confirmationCode);
-        const staysPartnerCode = asTextOrNull((res as any).partnerCode);
-        const staysClientId = asTextOrNull((res as any)._idclient);
-        const staysListingId = asTextOrNull((res as any)._idlisting ?? (res as any)._id_listing ?? (res as any).propertyId);
+        const staysReservationCode = asTextOrNull((resFull as any).id ?? (resFull as any).reservationId ?? (resFull as any).confirmationCode);
+        const staysPartnerCode = asTextOrNull((resFull as any).partnerCode);
+        const staysClientId = asTextOrNull((resFull as any)._idclient);
+        const staysListingId = asTextOrNull((resFull as any)._idlisting ?? (resFull as any)._id_listing ?? (resFull as any).propertyId);
 
         const rawStatus =
-          (res as any).status ??
-          (res as any).reservationStatus ??
-          (res as any).statusReservation ??
-          (res as any).bookingStatus ??
-          (res as any).status_reservation ??
-          (res as any).reservation_status ??
+          (resFull as any).status ??
+          (resFull as any).reservationStatus ??
+          (resFull as any).statusReservation ??
+          (resFull as any).bookingStatus ??
+          (resFull as any).status_reservation ??
+          (resFull as any).reservation_status ??
           null;
 
         const derivedStatus = deriveReservationStatus({
@@ -810,19 +901,19 @@ export async function importStaysNetReservations(c: Context) {
 
         const cancellationAtIso =
           parseOptionalDateToIso(
-            res.cancelledAt ??
-              (res as any).cancellationDate ??
-              (res as any).cancelDate ??
-              (res as any).cancelled_at ??
-              (res as any).canceledAt ??
-              (res as any).cancellation_at,
+            resFull.cancelledAt ??
+              (resFull as any).cancellationDate ??
+              (resFull as any).cancelDate ??
+              (resFull as any).cancelled_at ??
+              (resFull as any).canceledAt ??
+              (resFull as any).cancellation_at,
           ) ?? (derivedStatus === 'cancelled' ? new Date().toISOString() : null);
 
         const cancellationReason =
-          (res as any).cancellationReason ??
-          (res as any).cancellation_reason ??
-          (res as any).cancelReason ??
-          (res as any).cancel_reason ??
+          (resFull as any).cancellationReason ??
+          (resFull as any).cancellation_reason ??
+          (resFull as any).cancelReason ??
+          (resFull as any).cancel_reason ??
           null;
 
         const reservationData = {
@@ -852,17 +943,18 @@ export async function importStaysNetReservations(c: Context) {
           pricing_taxes: taxes,
           pricing_discount: discount,
           pricing_total: total,
-          pricing_currency: (res.currency || (priceObj && typeof priceObj === 'object' ? (priceObj as any).currency : null) || 'BRL') as any,
+          pricing_currency: (resFull.currency || (priceObj && typeof priceObj === 'object' ? (priceObj as any).currency : null) || 'BRL') as any,
 
           // Status
           status: derivedStatus,
 
           // Plataforma
           platform: mapPlatformV2({
-            staysPlatform: res.platform,
-            source: res.source,
-            partner: (res as any).partner,
-            partnerCode: (res as any).partnerCode,
+            staysPlatform: resFull.platform,
+            source: resFull.source,
+            // Evita "[object Object]" quando partner é objeto.
+            partner: staysPartnerName ?? (resFull as any).partner,
+            partnerCode: staysPartnerCode ?? (resFull as any).partnerCode,
           }),
           external_id: externalId,
           external_url: finalExternalUrl,
@@ -878,22 +970,22 @@ export async function importStaysNetReservations(c: Context) {
 
           // Pagamento
           payment_status: mapPaymentStatus(res.paymentStatus, 'pending'),
-          payment_method: res.paymentMethod || null,
+          payment_method: resFull.paymentMethod || null,
 
           // Comunicação
-          notes: res.notes || null,
-          special_requests: res.specialRequests || null,
+          notes: resFull.notes || null,
+          special_requests: resFull.specialRequests || null,
 
           // Check-in/out times
-          check_in_time: res.checkInTime || null,
-          check_out_time: res.checkOutTime || null,
+          check_in_time: resFull.checkInTime || null,
+          check_out_time: resFull.checkOutTime || null,
 
           // Cancelamento
           cancelled_at: cancellationAtIso,
           cancellation_reason: cancellationReason,
 
           // 🔒 Persistência completa do payload de origem (audit/debug)
-          staysnet_raw: res,
+          staysnet_raw: resFull,
 
           // Metadata
           created_by: DEFAULT_USER_ID,
@@ -950,6 +1042,28 @@ export async function importStaysNetReservations(c: Context) {
 
         if (upsertError) {
           throw new Error(`Falha ao upsert reservation: ${upsertError.message}`);
+        }
+
+        // ====================================================================
+        // 2.6: Persistência do JSON bruto (tudo) em tabela dedicada
+        // ====================================================================
+        // Não torna o import inválido se falhar (ex: migration ainda não aplicada).
+        try {
+          const store = await storeStaysnetRawObject({
+            supabase,
+            organizationId,
+            domain: 'reservations',
+            externalId: resFull._id,
+            externalCode: (resFull as any).id ?? null,
+            endpoint: '/booking/reservations',
+            payload: resFull,
+            fetchedAtIso: new Date().toISOString(),
+          });
+          if (!store.ok) {
+            console.warn(`⚠️ Falha ao salvar staysnet_raw_objects (reservations): ${store.error}`);
+          }
+        } catch (e) {
+          console.warn(`⚠️ Falha inesperada ao salvar staysnet_raw_objects (reservations): ${e instanceof Error ? e.message : String(e)}`);
         }
 
         if (!upsertedReservation?.id) {

@@ -46,6 +46,7 @@ export interface Reservation {
   // Status e Plataforma
   status: 'confirmed' | 'pending' | 'blocked' | 'maintenance' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show';
   platform: 'airbnb' | 'booking' | 'decolar' | 'direct' | 'other';
+  staysnetPartnerName?: string;
   externalId?: string;
   externalUrl?: string;
   

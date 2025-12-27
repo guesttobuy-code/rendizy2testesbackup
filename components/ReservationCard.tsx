@@ -60,6 +60,23 @@ const getPlatformInfo = (platform: string) => {
   return info[platform] || info.direct;
 };
 
+const parseDateOnlyLocal = (value: unknown): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'number') {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === 'string') {
+    const s = value.trim();
+    if (!s) return null;
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s);
+    const d = new Date(dateOnly ? `${s}T00:00:00` : s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+};
+
 const getStatusInfo = (status: string) => {
   const info: Record<string, { label: string; color: string }> = {
     confirmed: { label: 'Confirmada', color: 'bg-green-500' },
@@ -130,6 +147,7 @@ function ReservationCardComponent({
   return (
     <TooltipProvider>
       <Tooltip delayDuration={200}>
+        {/* eslint-disable-next-line */}
         <div
           className={`absolute px-2 py-1 flex items-center gap-2 transition-all hover:shadow-lg shadow-md text-white z-10 ${
             reservation.hasConflict ? 'ring-4 ring-red-500 ring-opacity-50 animate-pulse' : ''
@@ -174,7 +192,7 @@ function ReservationCardComponent({
               <div className="text-xs text-blue-600 mb-1 uppercase tracking-wide">
                 Código da Reserva
               </div>
-              <div className="font-mono text-gray-900 select-all" style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '0.5px' }}>
+              <div className="font-mono text-gray-900 select-all text-[15px] font-semibold tracking-[0.5px]">
                 {reservation.id}
               </div>
             </div>
@@ -184,18 +202,18 @@ function ReservationCardComponent({
                 <strong>{reservation.guestName}</strong>
               </div>
               <div className="text-xs text-gray-500">
-                {platformInfo.name}
+                {(reservation.platform === 'other' && reservation.staysnetPartnerName) ? reservation.staysnetPartnerName : platformInfo.name}
               </div>
             </div>
             
             <div className="text-xs space-y-1">
               <div>
                 <strong>Check-in:</strong>{' '}
-                {new Date(reservation.checkIn).toLocaleDateString('pt-BR')}
+                {(parseDateOnlyLocal(reservation.checkIn) || new Date()).toLocaleDateString('pt-BR')}
               </div>
               <div>
                 <strong>Check-out:</strong>{' '}
-                {new Date(reservation.checkOut).toLocaleDateString('pt-BR')}
+                {(parseDateOnlyLocal(reservation.checkOut) || new Date()).toLocaleDateString('pt-BR')}
               </div>
               <div>
                 <strong>Noites:</strong> {reservation.nights}

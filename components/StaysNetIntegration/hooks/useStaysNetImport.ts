@@ -657,7 +657,7 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
           },
         });
 
-        const guestsResult = await StaysNetService.importGuests(config);
+        const guestsResult = await StaysNetService.importGuests(config, options);
         addImportLog('success', 'all', 'Etapa hóspedes concluída', {
           guests: formatStats(guestsResult.stats?.guests) || undefined,
         });

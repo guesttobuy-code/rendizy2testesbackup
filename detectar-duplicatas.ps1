@@ -1,4 +1,4 @@
-# Script para detectar anúncios duplicados em anuncios_drafts
+# Script para detectar anúncios duplicados em anuncios_ultimate
 $SUPABASE_URL = $env:SUPABASE_URL
 $ANON_KEY = $env:SUPABASE_ANON_KEY
 
@@ -7,21 +7,21 @@ if (-not $ANON_KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
 
 $h = @{ "apikey" = $ANON_KEY }
 
-Write-Host "`n🔍 VERIFICANDO DUPLICATAS EM anuncios_drafts`n" -ForegroundColor Cyan
+Write-Host "`n🔍 VERIFICANDO DUPLICATAS EM anuncios_ultimate`n" -ForegroundColor Cyan
 
 # IDs dos 2 anúncios de teste
 $testIds = @("3cabf06d-51c6-4e2b-b73e-520e018f1fce", "9f6cad48-42e9-4ed5-b766-82127a62dce2")
 
 Write-Host "📋 Anúncios de TESTE esperados (com reservas/bloqueios):" -ForegroundColor Yellow
 foreach ($id in $testIds) {
-    $anuncio = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_drafts?id=eq.$id&select=id,title,created_at" -Headers $h
+    $anuncio = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_ultimate?id=eq.$id&select=id,title,created_at" -Headers $h
     if ($anuncio) {
         Write-Host "  ✅ $($anuncio[0].id) - $($anuncio[0].title)" -ForegroundColor Green
     }
 }
 
 Write-Host "`n📊 Buscando TODOS os anúncios..." -ForegroundColor Cyan
-$todos = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_drafts?select=id,title,created_at,data" -Headers $h
+$todos = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_ultimate?select=id,title,created_at,data" -Headers $h
 
 Write-Host "✅ Total de registros: $($todos.Count)" -ForegroundColor White
 

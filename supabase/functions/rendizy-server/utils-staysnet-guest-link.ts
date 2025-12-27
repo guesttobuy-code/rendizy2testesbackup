@@ -4,13 +4,14 @@
 type UnknownRecord = Record<string, unknown>;
 
 type PostgrestErrorLike = { message?: string };
-type PostgrestMaybeSingleResult = { data?: { id?: string } | null; error?: PostgrestErrorLike | null };
+type PostgrestMaybeSingleResult = { data?: UnknownRecord | null; error?: PostgrestErrorLike | null };
 
 type PostgrestBuilderLike = {
   select: (...args: unknown[]) => PostgrestBuilderLike;
   eq: (...args: unknown[]) => PostgrestBuilderLike;
   maybeSingle: () => Promise<PostgrestMaybeSingleResult>;
 
+  update: (values: unknown) => PostgrestBuilderLike;
   insert: (values: unknown) => PostgrestBuilderLike;
   single: () => Promise<PostgrestMaybeSingleResult>;
 };
@@ -48,6 +49,10 @@ function asObject(value: unknown): UnknownRecord | null {
   return null;
 }
 
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value);
 }
@@ -78,16 +83,45 @@ function extractGuestDataFromStaysReservationPayload(reservationPayload: unknown
   const res = asObject(reservationPayload) || {};
   const guestObj = asObject(res['guest']) || {};
 
+  const guestsDetailsObj = asObject(res['guestsDetails'] ?? res['guests_details']) || {};
+  const guestsList = asArray(guestsDetailsObj['list']);
+  const primaryFromList = (() => {
+    const candidates = guestsList
+      .map((x) => asObject(x))
+      .filter(Boolean) as UnknownRecord[];
+    if (candidates.length === 0) return null;
+    const primary = candidates.find((c) => c['primary'] === true);
+    return primary || candidates[0];
+  })();
+
+  const primaryNameFromList = primaryFromList ? asString(primaryFromList['name']).trim() : '';
+  const primaryPhonesFromList = primaryFromList ? asArray(primaryFromList['phones']) : [];
+  const primaryPhoneIsoFromList = (() => {
+    const p0 = asObject(primaryPhonesFromList[0]);
+    const iso = p0 ? asString(p0['iso']).trim() : '';
+    return iso;
+  })();
+
   const staysnetClientId = asString(res['_idclient']).trim() || undefined;
 
-  const payloadEmail = asString(res['guestEmail'] || guestObj['email']).trim();
+  const payloadEmail = asString(
+    res['guestEmail'] ??
+      res['email'] ??
+      res['clientEmail'] ??
+      res['customerEmail'] ??
+      res['contactEmail'] ??
+      guestObj['email'] ??
+      guestObj['mail'] ??
+      guestObj['emailAddress'] ??
+      guestObj['contactEmail'],
+  ).trim();
 
-  let firstName = asString(res['guestFirstName'] || guestObj['firstName']).trim();
-  let lastName = asString(res['guestLastName'] || guestObj['lastName']).trim();
+  let firstName = asString(res['guestFirstName'] ?? guestObj['firstName'] ?? guestObj['first_name']).trim();
+  let lastName = asString(res['guestLastName'] ?? guestObj['lastName'] ?? guestObj['last_name']).trim();
 
   if (!firstName && !lastName) {
-    const fullName = asString(res['guestName'] || guestObj['name']).trim();
-    const split = splitName(fullName);
+    const fullName = asString(res['guestName'] ?? guestObj['name'] ?? guestObj['fullName'] ?? guestObj['full_name']).trim();
+    const split = splitName(fullName || primaryNameFromList);
     firstName = split.firstName;
     lastName = split.lastName;
   }
@@ -96,12 +130,32 @@ function extractGuestDataFromStaysReservationPayload(reservationPayload: unknown
     firstName = payloadEmail && payloadEmail.includes('@') ? payloadEmail.split('@')[0] : 'Hóspede';
   }
 
-  const rawSource = asString(res['platform'] || res['source'] || res['partner'] || 'staysnet');
+  const partnerObj = asObject(res['partner']);
+  const rawSource = asString(
+    res['platform'] ??
+      res['source'] ??
+      (partnerObj ? partnerObj['name'] ?? partnerObj['code'] : res['partner']) ??
+      'staysnet',
+  );
   const source = mapSource(rawSource);
 
-  const cpf = asString(res['guestCpf'] || guestObj['cpf']).trim() || undefined;
-  const passport = asString(res['guestPassport'] || guestObj['passport']).trim() || undefined;
-  const phone = asString(res['guestPhone'] || guestObj['phone']).trim() || undefined;
+  const cpf = asString(res['guestCpf'] ?? guestObj['cpf']).trim() || undefined;
+  const passport = asString(res['guestPassport'] ?? guestObj['passport']).trim() || undefined;
+  const phone = asString(
+    res['guestPhone'] ??
+      res['phone'] ??
+      res['clientPhone'] ??
+      res['customerPhone'] ??
+      res['contactPhone'] ??
+      guestObj['phone'] ??
+      guestObj['phoneNumber'] ??
+      guestObj['phone_number'] ??
+      guestObj['mobile'] ??
+      guestObj['cellphone'] ??
+        guestObj['telephone'],
+  ).trim() || undefined;
+
+  const phoneFinal = phone || (primaryPhoneIsoFromList ? primaryPhoneIsoFromList : undefined);
 
   const email = (() => {
     if (payloadEmail && payloadEmail.includes('@')) return payloadEmail;
@@ -124,7 +178,7 @@ function extractGuestDataFromStaysReservationPayload(reservationPayload: unknown
     firstName,
     lastName,
     email,
-    phone,
+    phone: phoneFinal,
     cpf,
     passport,
     birthDate: guestObj['birthDate'] ? asString(guestObj['birthDate']) : undefined,
@@ -135,11 +189,15 @@ function extractGuestDataFromStaysReservationPayload(reservationPayload: unknown
     staysnetRaw: {
       _idclient: staysnetClientId || null,
       guest: guestObj,
-      guestEmail: asString(res['guestEmail'] || guestObj['email']).trim() || null,
-      guestName: asString(res['guestName'] || guestObj['name']).trim() || null,
+      guestEmail: payloadEmail || null,
+      guestName: asString(res['guestName'] || guestObj['name'] || guestObj['fullName'] || guestObj['full_name']).trim() || null,
       platform: asString(res['platform']).trim() || null,
       source: asString(res['source']).trim() || null,
       partner: res['partner'],
+      guestsDetailsPrimaryFromList: primaryFromList ? {
+        name: primaryNameFromList || null,
+        phoneIso: primaryPhoneIsoFromList || null,
+      } : null,
     },
   };
 }
@@ -151,7 +209,7 @@ async function selectGuestIdByStaysnetClientId(
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from('guests')
-    .select('id')
+    .select('id, phone, first_name, last_name, staysnet_client_id')
     .eq('organization_id', organizationId)
     .eq('staysnet_client_id', staysnetClientId)
     .maybeSingle();
@@ -166,7 +224,7 @@ async function selectGuestIdByStaysnetClientId(
     return null;
   }
 
-  return data?.id || null;
+  return asObject(data)?.id ? asString(asObject(data)?.id) : null;
 }
 
 async function selectGuestIdByEmail(
@@ -176,7 +234,7 @@ async function selectGuestIdByEmail(
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from('guests')
-    .select('id')
+    .select('id, phone, first_name, last_name, staysnet_client_id')
     .eq('organization_id', organizationId)
     .eq('email', email)
     .maybeSingle();
@@ -186,7 +244,60 @@ async function selectGuestIdByEmail(
     return null;
   }
 
-  return data?.id || null;
+  return asObject(data)?.id ? asString(asObject(data)?.id) : null;
+}
+
+async function maybeEnrichExistingGuest(
+  supabase: SupabaseClientLike,
+  organizationId: string,
+  existingRow: UnknownRecord,
+  extracted: ExtractedGuest,
+): Promise<void> {
+  const existingId = asString(existingRow['id']).trim();
+  if (!existingId) return;
+
+  const update: Record<string, unknown> = {};
+  const currentPhone = asString(existingRow['phone']).trim();
+  const currentFirst = asString(existingRow['first_name']).trim();
+  const currentLast = asString(existingRow['last_name']).trim();
+  const currentClientId = asString(existingRow['staysnet_client_id']).trim();
+
+  if (!currentPhone && extracted.phone) update.phone = extracted.phone;
+  if (!currentFirst && extracted.firstName) update.first_name = extracted.firstName;
+  if (!currentLast && extracted.lastName) update.last_name = extracted.lastName;
+  if (!currentClientId && extracted.staysnetClientId) update.staysnet_client_id = extracted.staysnetClientId;
+
+  if (Object.keys(update).length === 0) return;
+
+  try {
+    const { error } = await supabase
+      .from('guests')
+      .update(update)
+      .eq('organization_id', organizationId)
+      .eq('id', existingId)
+      .maybeSingle();
+
+    if (error) {
+      const msg = String(error.message || '');
+      // compat: coluna ainda não existe
+      if (/does not exist/i.test(msg) && /staysnet_client_id/i.test(msg)) {
+        const compatUpdate: Record<string, unknown> = { ...update };
+        delete compatUpdate.staysnet_client_id;
+        if (Object.keys(compatUpdate).length === 0) return;
+        await supabase
+          .from('guests')
+          .update(compatUpdate)
+          .eq('organization_id', organizationId)
+          .eq('id', existingId)
+          .maybeSingle();
+        return;
+      }
+      console.warn(`[staysnet-guest-link] Failed enriching existing guest: ${msg}`);
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[staysnet-guest-link] Failed enriching existing guest (exception): ${msg}`);
+  }
 }
 
 export async function resolveOrCreateGuestIdFromStaysReservation(
@@ -199,12 +310,32 @@ export async function resolveOrCreateGuestIdFromStaysReservation(
     if (!guest.email) return null;
 
     if (guest.staysnetClientId) {
-      const existingByClientId = await selectGuestIdByStaysnetClientId(supabase, organizationId, guest.staysnetClientId);
-      if (existingByClientId) return existingByClientId;
+      const { data: existingRow } = await supabase
+        .from('guests')
+        .select('id, phone, first_name, last_name, staysnet_client_id')
+        .eq('organization_id', organizationId)
+        .eq('staysnet_client_id', guest.staysnetClientId)
+        .maybeSingle();
+
+      const existingObj = asObject(existingRow);
+      if (existingObj?.id) {
+        await maybeEnrichExistingGuest(supabase, organizationId, existingObj, guest);
+        return asString(existingObj.id);
+      }
     }
 
-    const existingId = await selectGuestIdByEmail(supabase, organizationId, guest.email);
-    if (existingId) return existingId;
+    const { data: existingByEmail } = await supabase
+      .from('guests')
+      .select('id, phone, first_name, last_name, staysnet_client_id')
+      .eq('organization_id', organizationId)
+      .eq('email', guest.email)
+      .maybeSingle();
+
+    const existingEmailObj = asObject(existingByEmail);
+    if (existingEmailObj?.id) {
+      await maybeEnrichExistingGuest(supabase, organizationId, existingEmailObj, guest);
+      return asString(existingEmailObj.id);
+    }
 
     const birthDateIso = guest.birthDate ? new Date(guest.birthDate) : null;
     const birthDate = birthDateIso && !isNaN(birthDateIso.getTime())
@@ -243,7 +374,7 @@ export async function resolveOrCreateGuestIdFromStaysReservation(
       const shouldDropClientId = /staysnet_client_id/i.test(msg);
       const shouldDropRaw = /staysnet_raw/i.test(msg);
       if (shouldDropClientId || shouldDropRaw) {
-        const compat: any = { ...(insertRow as any) };
+        const compat: Record<string, unknown> = { ...(insertRow as Record<string, unknown>) };
         if (shouldDropClientId) delete compat.staysnet_client_id;
         if (shouldDropRaw) delete compat.staysnet_raw;
         const retry = await supabase
@@ -251,8 +382,8 @@ export async function resolveOrCreateGuestIdFromStaysReservation(
           .insert(compat)
           .select('id')
           .single();
-        inserted = retry.data as any;
-        insertError = retry.error as any;
+        inserted = retry.data as { id?: string } | null;
+        insertError = retry.error as PostgrestErrorLike | null;
       }
     }
 
@@ -267,7 +398,7 @@ export async function resolveOrCreateGuestIdFromStaysReservation(
       return retryId;
     }
 
-    return inserted?.id || null;
+    return inserted && (inserted as UnknownRecord).id ? asString((inserted as UnknownRecord).id) : null;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn(`[staysnet-guest-link] resolveOrCreateGuestIdFromStaysReservation failed: ${msg}`);

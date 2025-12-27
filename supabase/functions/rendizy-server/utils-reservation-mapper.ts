@@ -133,6 +133,45 @@ export function sqlToReservation(row: any): Reservation {
     staysRaw?.guestEmail ||
     staysRaw?.guest?.email ||
     'Hóspede';
+
+  const mapPlatformFromRaw = (input: unknown): string => {
+    if (!input) return '';
+    const token = (() => {
+      if (typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean') return String(input);
+      if (typeof input === 'object') {
+        const v: any = input as any;
+        return [v?.name, v?.code, v?.platform, v?.source].filter(Boolean).map(String).join(' ');
+      }
+      return String(input);
+    })();
+    const s = token.toLowerCase();
+    if (s.includes('airbnb')) return 'airbnb';
+    if (s.includes('booking')) return 'booking';
+    if (s.includes('decolar')) return 'decolar';
+    if (s.includes('direct')) return 'direct';
+    return '';
+  };
+
+  const platformCandidates = [
+    row.platform,
+    row.staysnet_partner_name,
+    row.staysnet_partner_code,
+    staysRaw?.platform,
+    staysRaw?.source,
+    staysRaw?.partner,
+  ];
+
+  let platform = String(row.platform || '').trim();
+  if (!platform || platform === 'other') {
+    for (const c of platformCandidates) {
+      const mapped = mapPlatformFromRaw(c);
+      if (mapped) {
+        platform = mapped;
+        break;
+      }
+    }
+    if (!platform) platform = row.platform || 'other';
+  }
   
   return {
     id: row.id,
@@ -171,7 +210,8 @@ export function sqlToReservation(row: any): Reservation {
     status: row.status,
     
     // Plataforma
-    platform: row.platform,
+    platform: platform,
+    staysnetPartnerName: row.staysnet_partner_name || undefined,
     externalId: row.external_id || undefined,
     externalUrl: row.external_url || undefined,
     
@@ -220,6 +260,7 @@ export const RESERVATION_SELECT_FIELDS = `
     full_name,
     first_name,
     last_name,
-    email
+    email,
+    phone
   )
 `.replace(/\s+/g, ' ').trim();

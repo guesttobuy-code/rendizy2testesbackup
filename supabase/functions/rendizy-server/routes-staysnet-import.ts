@@ -86,7 +86,7 @@ export async function importProperties(c: any) {
       try {
         // Verificar se propriedade já existe (por external_id ou código)
         const { data: existing } = await client
-          .from('anuncios_drafts')
+          .from('anuncios_ultimate')
           .select('id, external_ids')
           .eq('organization_id', organizationId)
           .or(`external_ids->stays_net_id.eq."${staysProperty.id}",data->codigo.eq."${staysProperty.code}"`)
@@ -123,7 +123,7 @@ export async function importProperties(c: any) {
         if (existing) {
           // Atualizar existente
           const { error } = await client
-            .from('anuncios_drafts')
+            .from('anuncios_ultimate')
             .update({
               data: propertyData.data,
               external_ids: propertyData.external_ids,
@@ -140,7 +140,7 @@ export async function importProperties(c: any) {
         } else {
           // Criar nova
           const { data: newProperty, error } = await client
-            .from('anuncios_drafts')
+            .from('anuncios_ultimate')
             .insert(propertyData)
             .select('id')
             .single();
@@ -302,7 +302,7 @@ export async function importReservations(c: any) {
         let propertyId: string | null = null;
         
         const { data: existingProperty } = await client
-          .from('anuncios_drafts')
+          .from('anuncios_ultimate')
           .select('id')
           .eq('organization_id', organizationId)
           .eq('external_ids->stays_net_id', staysReservation.property_id)
@@ -314,7 +314,7 @@ export async function importReservations(c: any) {
         } else {
           // Criar propriedade básica se não existir
           const { data: newProperty, error: propError } = await client
-            .from('anuncios_drafts')
+            .from('anuncios_ultimate')
             .insert({
               organization_id: organizationId,
               title: `Propriedade Stays.net ${staysReservation.property_id}`,
@@ -412,7 +412,11 @@ export async function importReservations(c: any) {
           guests_adults: staysReservation.adults || 1,
           guests_children: staysReservation.children || 0,
           guests_total: (staysReservation.adults || 1) + (staysReservation.children || 0),
-          pricing_total: Math.round(Number(staysReservation.total || 0)) || 0,
+          pricing_total: (() => {
+            const n = Number(staysReservation.total || 0);
+            if (!Number.isFinite(n)) return 0;
+            return Math.round(n * 100) / 100;
+          })(),
           pricing_currency: staysReservation.currency || 'BRL',
           status: mapStaysNetStatus(staysReservation.status),
           platform: 'stays.net',

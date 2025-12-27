@@ -693,7 +693,6 @@ export function DataReconciliationManager() {
       if (d.includes('supabase reservations')) return 'Supabase: reservations';
       if (d.includes('supabase guests')) return 'Supabase: guests';
       if (d.includes('supabase anuncios_ultimate')) return 'Supabase: anuncios_ultimate';
-      if (d.includes('supabase anuncios_drafts')) return 'Supabase: anuncios_drafts';
       if (d.includes('stays /booking/reservations')) return 'Stays: /booking/reservations';
       if (d.includes('stays /content/properties')) return 'Stays: /content/properties';
       return desc || '';

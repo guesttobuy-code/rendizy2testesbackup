@@ -37,44 +37,102 @@ const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
 // TIPOS - Estrutura COMPLETA da API StaysNet /content/listings
 // ============================================================================
 interface StaysNetProperty {
-  // === IDENTIFICADORES ===
-  _id: string;                    // ID único do imóvel (ex: "PY02H")
-  id?: string;                    // Outro identificador (usado em alguns endpoints/integrações)
-  internalName: string;           // Nome interno
-  name?: string;                  // Nome público
-  listingCode?: string;           // Código do listing
+        // === STATUS ===
+        // Importante: a UI de "Anúncios Ultimate" lê a COLUNA anuncios_ultimate.status.
+        // A RPC save_anuncio_field salva apenas dentro de anuncios_ultimate.data (JSONB).
+        // Se a coluna ficar no default, a UI cai no default => "Rascunho".
+        //
+        // Regra (simples e estável) para re-import via UI:
+        // - Stays status 'active' => Rendizy 'active'
+        // - Stays status 'hidden' ou published=false => Rendizy 'draft'
+        // - Stays status 'inactive' ou active=false => Rendizy 'inactive'
+        // - Se status string não vier, usar flags active/published quando existirem.
+        const staysStatus = (prop.status ?? '').toString().trim().toLowerCase();
+        const staysActiveFlag = typeof prop.active === 'boolean' ? prop.active : null;
+        const staysPublishedFlag = typeof prop.published === 'boolean' ? prop.published : null;
 
-  // Meta (quando presente): referencia do "property" por trás do listing
-  _t_propertyMeta?: {
-    _id?: string;
-    id?: string;
-    [key: string]: any;
-  };
-  
-  // === TIPO DO IMÓVEL ===
-  propertyType?: string;          // Tipo de propriedade (Building, House, etc.) → tipoPropriedade
-  unitType?: string;              // Tipo de unidade (Duplo, Triplo, etc.) → tipoAcomodacao
-  category?: string;              // Categoria geral
-  accommodationType?: string;     // Tipo de acomodação
-  listingType?: string;           // Tipo de listing (Entire Place, Private Room, etc.)
-  
-  // === CAPACIDADE E ESTRUTURA ===
-  bedrooms?: number;              // Número de quartos → quartos
-  bedroomCounts?: {               // Contagem detalhada de quartos
-    double?: number;              // Quartos duplos
-    single?: number;              // Quartos individuais
-    [key: string]: any;
-  };
-  bathrooms?: number;             // Número de banheiros → banheiros
-  accommodates?: number;          // Capacidade de hóspedes → capacidade
-  _i_maxGuests?: number;          // Capacidade máxima alternativa
-  beds?: number;                  // Número de camas → camas
-  
-  // === ENDEREÇO ===
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
+        let anuncioStatus: 'active' | 'draft' | 'inactive' = 'draft';
+
+        if (staysStatus === 'active') {
+          anuncioStatus = 'active';
+        } else if (staysStatus === 'inactive') {
+          anuncioStatus = 'inactive';
+        } else if (staysStatus === 'hidden') {
+          // "hidden" normalmente significa não-publicado/oculto (não é desligado), então vira rascunho.
+          anuncioStatus = 'draft';
+        } else {
+          // Fallback pelas flags quando status não vem.
+          if (staysActiveFlag === false) {
+            anuncioStatus = 'inactive';
+          } else if (staysPublishedFlag === false) {
+            anuncioStatus = 'draft';
+          } else if (staysActiveFlag === true) {
+            anuncioStatus = 'active';
+          } else {
+            anuncioStatus = 'draft';
+          }
+        }
+
+        const isActive = anuncioStatus === 'active';
+
+        // Campo: status (dentro do JSON - mantém valor vindo da Stays para debug)
+        await supabase.rpc('save_anuncio_field', {
+          p_anuncio_id: anuncioId,
+          p_field: 'status',
+          p_value: staysStatus || null,
+          p_idempotency_key: `status-${prop._id}`,
+          p_organization_id: organizationId,
+          p_user_id: DEFAULT_USER_ID
+        });
+
+        // Campo: flags de debug (quando existirem)
+        if (staysActiveFlag !== null) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'staysnet_active',
+            p_value: staysActiveFlag,
+            p_idempotency_key: `staysnet_active-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+        if (staysPublishedFlag !== null) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'staysnet_published',
+            p_value: staysPublishedFlag,
+            p_idempotency_key: `staysnet_published-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+
+        // Campo: ativo (boolean como string) - legado/compatibilidade UI antiga
+        await supabase.rpc('save_anuncio_field', {
+          p_anuncio_id: anuncioId,
+          p_field: 'ativo',
+          p_value: String(isActive),
+          p_idempotency_key: `ativo-${prop._id}`,
+          p_organization_id: organizationId,
+          p_user_id: DEFAULT_USER_ID
+        });
+
+        // Status CANÔNICO (coluna) usado pela UI
+        // Atualiza por id (robusto) e retorna o valor para validação.
+        const { data: statusRow, error: statusColumnError } = await supabase
+          .from('anuncios_ultimate')
+          .update({ status: anuncioStatus })
+          .eq('id', anuncioId)
+          .select('id,status,organization_id')
+          .maybeSingle();
+
+        if (statusColumnError) {
+          console.error(`      ❌ Erro ao atualizar coluna status em anuncios_ultimate:`, statusColumnError.message);
+        } else if (!statusRow) {
+          console.error(`      ❌ Coluna status não foi atualizada (nenhuma linha retornada) anuncioId=${anuncioId}`);
+        } else if (statusRow.status !== anuncioStatus) {
+          console.error(`      ❌ Status divergente após update: esperado=${anuncioStatus} atual=${statusRow.status}`);
+        }
     zip?: string;
     country?: string;
     full?: string;                // Endereço completo
@@ -238,19 +296,18 @@ export async function importStaysNetProperties(c: Context) {
     }
     
     // ========================================================================
-    // STEP 2.5: FILTRO PADRÃO (EVITAR INATIVOS)
+    // STEP 2.5: FILTRO PADRÃO (ANTI-INATIVOS)
     // ========================================================================
-    // Segurança: por padrão NÃO importar imóveis inativos.
-    // A API pode representar isso como:
-    // - status: 'active' | 'hidden' | 'inactive'...
-    // - active/published: boolean
+    // Objetivo: NÃO importar imóveis realmente inativos (não nos interessam).
+    // Importante: NÃO filtrar rascunhos/ocultos, pois eles ainda são úteis e devem
+    // aparecer como "Rascunho" na UI.
+    // A API pode representar inativo como:
+    // - status: 'inactive'
+    // - active: false
     let properties: StaysNetProperty[] = allProperties.filter((p: any) => {
-      const status = typeof p?.status === 'string' ? p.status.toLowerCase() : null;
-      if (status) {
-        return status === 'active' || status === 'hidden';
-      }
+      const status = typeof p?.status === 'string' ? p.status.toLowerCase().trim() : null;
+      if (status === 'inactive') return false;
       if (typeof p?.active === 'boolean' && p.active === false) return false;
-      if (typeof p?.published === 'boolean' && p.published === false) return false;
       return true;
     });
 
@@ -833,13 +890,33 @@ export async function importStaysNetProperties(c: Context) {
         }
 
         // === STATUS ===
-        const isActive = prop.status === 'active';
-        
-        // Campo: status
+        // Importante: a UI de "Anúncios Ultimate" lê a COLUNA anuncios_ultimate.status.
+        // A RPC save_anuncio_field salva apenas dentro de anuncios_ultimate.data (JSONB).
+        // Se a coluna ficar como default (ex: 'created'), a UI cai no default => "Rascunho".
+        const staysStatus = (prop.status || '').toString().toLowerCase();
+
+        // Regras (Stays → Rendizy):
+        // - status: active|hidden => ativo
+        // - status: inactive => inativo
+        // - se status vier vazio, usa flags booleanas (active/published) quando existirem
+        // - fallback final: considera ativo (pois o item já passou no filtro anti-inativos)
+        const hasStatus = staysStatus.length > 0;
+        const statusSuggestsActive = staysStatus === 'active' || staysStatus === 'hidden';
+        const statusSuggestsInactive = staysStatus === 'inactive';
+        const booleanSuggestsInactive = prop.active === false || prop.published === false;
+        const booleanSuggestsActive = prop.active === true && prop.published !== false;
+
+        const isActive = statusSuggestsActive
+          || (!hasStatus && booleanSuggestsActive)
+          || (!hasStatus && !booleanSuggestsInactive);
+
+        const anuncioStatus: 'active' | 'inactive' = (isActive && !statusSuggestsInactive) ? 'active' : 'inactive';
+
+        // Campo: status (dentro do JSON - mantém valor vindo da Stays para debug)
         await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: anuncioId,
           p_field: 'status',
-          p_value: prop.status || 'inactive',
+          p_value: staysStatus || 'inactive',
           p_idempotency_key: `status-${prop._id}`,
           p_organization_id: organizationId,
           p_user_id: DEFAULT_USER_ID
@@ -854,6 +931,22 @@ export async function importStaysNetProperties(c: Context) {
           p_organization_id: organizationId,
           p_user_id: DEFAULT_USER_ID
         });
+
+        // Status CANÔNICO (coluna) usado pela UI
+        // Importante: não filtrar por organization_id aqui; se houver qualquer mismatch entre
+        // org inferida no Edge Function e org aplicada pela RPC, o update viraria no-op silencioso.
+        const { data: statusUpdatedRow, error: statusColumnError } = await supabase
+          .from('anuncios_ultimate')
+          .update({ status: anuncioStatus })
+          .eq('id', anuncioId)
+          .select('id,status,organization_id')
+          .maybeSingle();
+
+        if (statusColumnError) {
+          console.error(`      ❌ Erro ao atualizar coluna status em anuncios_ultimate:`, statusColumnError.message);
+        } else if (!statusUpdatedRow) {
+          console.warn(`      ⚠️ Coluna status não atualizada (nenhuma linha retornada) para anuncioId=${anuncioId}`);
+        }
 
         // ========================================================================
         // IMPORTAR DADOS FINANCEIROS (PREÇOS, CONFIGURAÇÕES, REGRAS)

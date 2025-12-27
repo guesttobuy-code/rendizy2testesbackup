@@ -5,6 +5,8 @@ interface ConflictInfo {
   propertyName: string;
   date: string;
   reservations: Reservation[];
+  type?: string;
+  message?: string;
 }
 
 interface ReservationWithConflict extends Reservation {
@@ -27,6 +29,23 @@ export function detectConflicts(
 } {
   const conflicts: ConflictInfo[] = [];
   const conflictingReservationIds = new Set<string>();
+
+  const formatDatePtBr = (isoDate: string): string => {
+    try {
+      // isoDate vem como YYYY-MM-DD
+      return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('pt-BR');
+    } catch {
+      return isoDate;
+    }
+  };
+
+  const formatReservationShort = (reservation: Reservation): string => {
+    const guest = reservation.guestName || 'Hóspede';
+    const checkIn = reservation.checkIn ? new Date(reservation.checkIn).toLocaleDateString('pt-BR') : '—';
+    const checkOut = reservation.checkOut ? new Date(reservation.checkOut).toLocaleDateString('pt-BR') : '—';
+    const idSuffix = reservation.id ? ` (${String(reservation.id).slice(-6)})` : '';
+    return `${guest}${idSuffix} ${checkIn}→${checkOut}`;
+  };
 
   // Mapa: propertyId -> data -> array de reservas
   const occupancyMap = new Map<string, Map<string, Reservation[]>>();
@@ -83,11 +102,21 @@ export function detectConflicts(
         const property = properties.find(p => p.id === propertyId);
         const propertyName = property?.name || `Propriedade ${propertyId}`;
 
+        const conflictType = 'Overbooking';
+        const dateLabel = formatDatePtBr(date);
+        const reservationLabels = reservationsOnDate
+          .slice(0, 2)
+          .map(formatReservationShort);
+        const moreCount = Math.max(0, reservationsOnDate.length - reservationLabels.length);
+        const message = `${propertyName} em ${dateLabel}: ${reservationLabels.join(' vs ')}${moreCount > 0 ? ` (+${moreCount})` : ''}`;
+
         conflicts.push({
           propertyId,
           propertyName,
           date,
           reservations: reservationsOnDate,
+          type: conflictType,
+          message,
         });
 
         // Marcar todas as reservas como conflitantes

@@ -23,7 +23,7 @@ $headers = @{
 }
 
 try {
-    $response = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_drafts?select=id,title,data&limit=5" -Method Get -Headers $headers
+    $response = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_ultimate?select=id,title,data&limit=5" -Method Get -Headers $headers
     
     if ($response.Count -eq 0) {
         Write-Host "❌ Nenhum imóvel encontrado!" -ForegroundColor Red

@@ -13,7 +13,7 @@ Write-Host "`n🔍 ANALISANDO 161 ANÚNCIOS`n" -ForegroundColor Cyan
 $testIds = @("3cabf06d-51c6-4e2b-b73e-520e018f1fce", "9f6cad48-42e9-4ed5-b766-82127a62dce2")
 
 Write-Host "📊 Buscando todos os anúncios..." -ForegroundColor Cyan
-$todos = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_drafts?select=id,title,created_at,data" -Headers $h
+$todos = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_ultimate?select=id,title,created_at,data" -Headers $h
 
 Write-Host "✅ Total: $($todos.Count) anúncios`n" -ForegroundColor White
 

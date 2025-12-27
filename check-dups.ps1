@@ -5,7 +5,7 @@ $ANON_KEY = $env:SUPABASE_ANON_KEY
 if (-not $SUPABASE_URL) { throw "Missing env var SUPABASE_URL" }
 if (-not $ANON_KEY) { throw "Missing env var SUPABASE_ANON_KEY" }
 
-$r = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_drafts?select=id,title" -Headers @{ "apikey" = $ANON_KEY }
+$r = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_ultimate?select=id,title" -Headers @{ "apikey" = $ANON_KEY }
 
 Write-Host "`nTotal: $($r.Count)"
 

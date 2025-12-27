@@ -16,7 +16,7 @@ $h = @{ "apikey" = $KEY; "Prefer" = "return=minimal" }
 Write-Host "`n🔍 REMOVENDO DUPLICATAS DOS ANÚNCIOS DE TESTE`n" -ForegroundColor Cyan
 
 # Buscar todos os anúncios
-$todos = Invoke-RestMethod -Uri "$URL/rest/v1/anuncios_drafts?select=id,title,data" -Headers @{ "apikey" = $KEY }
+$todos = Invoke-RestMethod -Uri "$URL/rest/v1/anuncios_ultimate?select=id,title,data" -Headers @{ "apikey" = $KEY }
 
 Write-Host "📊 Total antes: $($todos.Count)" -ForegroundColor White
 
@@ -49,7 +49,7 @@ foreach ($testId in $testIds) {
             Write-Host "      - Removendo $($dup.id) [$tipo]" -ForegroundColor Yellow
             
             try {
-                $delUrl = "$env:URL/rest/v1/anuncios_drafts?id=eq.$($dup.id)"
+                $delUrl = "$env:URL/rest/v1/anuncios_ultimate?id=eq.$($dup.id)"
                 Invoke-RestMethod -Uri $delUrl -Headers $h -Method Delete | Out-Null
                 Write-Host "      ✅ Removido" -ForegroundColor Green
                 $removidos++
@@ -63,7 +63,7 @@ foreach ($testId in $testIds) {
 }
 
 # Verificar total após remoção
-$todosDepois = Invoke-RestMethod -Uri "$URL/rest/v1/anuncios_drafts?select=id" -Headers @{ "apikey" = $KEY }
+$todosDepois = Invoke-RestMethod -Uri "$URL/rest/v1/anuncios_ultimate?select=id" -Headers @{ "apikey" = $KEY }
 
 Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Gray
 Write-Host "📊 RESULTADO:" -ForegroundColor Cyan

@@ -513,6 +513,9 @@ export interface Reservation {
 
   // Plataforma de origem
   platform: Platform;
+  // Nome do parceiro (Stays.net), quando disponível.
+  // Útil para UI quando platform='other' (Stays usa 'other' para "plataforma externa").
+  staysnetPartnerName?: string;
   externalId?: string; // ID na plataforma externa
   externalUrl?: string; // Link para a reserva externa
 
