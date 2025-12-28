@@ -70,6 +70,8 @@ export function ImportTab({
   error,
   importLogs = [],
   onImportProperties,
+  onImportReservations,
+  onImportGuests,
   onImportReservationsAndGuests,
   startDate,
   endDate,
@@ -77,8 +79,10 @@ export function ImportTab({
   dateType,
   onDateTypeChange,
   importProgress,
+  overallProgress = 0,
   onImportNewOnly,
   onImportUpsertAll,
+  onSelectNewProperties,
 }: ImportTabProps) {
   const lastLogs = importLogs.slice(-25);
 
@@ -186,6 +190,20 @@ export function ImportTab({
             />
           )}
 
+          {!!preview && (
+            <div className="grid grid-cols-1 gap-2">
+              <LoadingButton
+                onClick={onSelectNewProperties}
+                isLoading={false}
+                loadingText=""
+                className="w-full"
+                variant="outline"
+              >
+                Selecionar somente novos (do preview)
+              </LoadingButton>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-2">
             <LoadingButton
               onClick={onImportProperties}
@@ -223,18 +241,27 @@ export function ImportTab({
         </CardContent>
       </Card>
 
-      {/* Reservations + Guests Section */}
+      {/* Reservations / Guests Section */}
       <Card className="bg-orange-50/50 dark:bg-orange-950/20 border-orange-200">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <CalendarDays className="w-4 h-4" />
-            Importação de Reservas + Hóspedes
+            Importação de Reservas
           </CardTitle>
           <CardDescription>
-            Regra: reservas e hóspedes rodam sempre juntos. Imóveis não são obrigatórios aqui.
+            Importa reservas (e opcionalmente hóspedes) sem importar imóveis.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {selectedPropertyIds.length === 0 && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Selecione pelo menos 1 imóvel acima para filtrar a importação de reservas.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label>Tipo de data (StaysNet)</Label>
             <Select value={dateType} onValueChange={(v) => onDateTypeChange(v as any)}>
@@ -271,16 +298,43 @@ export function ImportTab({
             </div>
           </div>
 
-          <LoadingButton
-            onClick={onImportReservationsAndGuests}
-            isLoading={isImporting && (importType === 'reservations' || importType === 'guests')}
-            loadingText="Importando reservas e hóspedes..."
-            className="w-full whitespace-normal text-left leading-snug"
-            size="lg"
-            icon={<CalendarDays className="w-4 h-4 mr-2" />}
-          >
-            Confirmar e Importar Reservas + Hóspedes
-          </LoadingButton>
+          <div className="grid grid-cols-1 gap-2">
+            <LoadingButton
+              onClick={onImportReservations}
+              disabled={selectedPropertyIds.length === 0}
+              isLoading={isImporting && importType === 'reservations'}
+              loadingText="Importando reservas..."
+              className="w-full whitespace-normal text-left leading-snug"
+              size="lg"
+              icon={<CalendarDays className="w-4 h-4 mr-2" />}
+            >
+              Importar somente Reservas
+            </LoadingButton>
+
+            <LoadingButton
+              onClick={onImportGuests}
+              isLoading={isImporting && importType === 'guests'}
+              loadingText="Importando hóspedes..."
+              className="w-full whitespace-normal text-left leading-snug"
+              variant="outline"
+              icon={<CalendarDays className="w-4 h-4 mr-2" />}
+            >
+              Importar somente Hóspedes
+            </LoadingButton>
+
+            {/* Mantido por compatibilidade caso alguém dependa do fluxo antigo */}
+            <LoadingButton
+              onClick={onImportReservationsAndGuests}
+              disabled={selectedPropertyIds.length === 0}
+              isLoading={isImporting && (importType === 'reservations' || importType === 'guests')}
+              loadingText="Importando reservas e hóspedes..."
+              className="w-full whitespace-normal text-left leading-snug"
+              variant="secondary"
+              icon={<CalendarDays className="w-4 h-4 mr-2" />}
+            >
+              Importar Reservas + Hóspedes
+            </LoadingButton>
+          </div>
         </CardContent>
       </Card>
 

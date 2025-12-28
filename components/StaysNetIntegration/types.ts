@@ -38,6 +38,8 @@ export interface ApiResponse {
 export interface StaysNetProperty {
   _id: string;              // ⚡ Campo principal da API Stays.net
   id?: string;              // Alias para compatibilidade
+  // Alguns payloads usam um "código curto" (ex: C003). Guardamos para compat.
+  staysListingCode?: string;
   name: string;
   code?: string;
   status?: 'active' | 'hidden' | 'inactive';

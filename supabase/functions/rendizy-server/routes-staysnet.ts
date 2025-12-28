@@ -833,6 +833,28 @@ export async function receiveStaysNetWebhook(c: Context) {
       }
     }
 
+    // 🚀 Realtime: processar a fila imediatamente (sem bloquear o response).
+    // Em Supabase Edge Functions + Hono, `c.executionCtx.waitUntil` mantém o trabalho rodando.
+    // Se não existir ExecutionContext (ambientes diferentes), apenas retorna e o cron consumirá.
+    const realtimeEnabled = String(Deno.env.get('STAYSNET_WEBHOOK_REALTIME_PROCESS') || 'true')
+      .trim()
+      .toLowerCase() === 'true';
+    const realtimeLimit = Math.max(
+      1,
+      Math.min(50, Number(Deno.env.get('STAYSNET_WEBHOOK_REALTIME_LIMIT') || 10)),
+    );
+
+    if (realtimeEnabled) {
+      const execCtx: any = (c as any).executionCtx;
+      if (execCtx && typeof execCtx.waitUntil === 'function') {
+        execCtx.waitUntil(
+          processPendingStaysNetWebhooksForOrg(organizationId, realtimeLimit).catch((e: any) => {
+            console.error('[StaysNet Webhook] realtime process failed:', e?.message || String(e));
+          }),
+        );
+      }
+    }
+
     return c.json(successResponse({ id: save.id, received: true }));
   } catch (error) {
     logError('Error receiving Stays.net webhook', error);
@@ -1028,6 +1050,49 @@ function mapPaymentStatus(raw: string | undefined, fallback: string = 'pending')
   return map[v] || fallback;
 }
 
+function mapPlatformFromRaw(input: unknown): string {
+  if (!input) return '';
+  const token = (() => {
+    if (typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean') return String(input);
+    if (typeof input === 'object') {
+      const v: any = input as any;
+      return [v?.name, v?.code, v?.platform, v?.source].filter(Boolean).map(String).join(' ');
+    }
+    return String(input);
+  })();
+  const s = token.toLowerCase();
+  if (s.includes('airbnb')) return 'airbnb';
+  if (s.includes('booking')) return 'booking';
+  if (s.includes('decolar')) return 'decolar';
+  if (s.includes('direct')) return 'direct';
+  return '';
+}
+
+function derivePlatformFromStaysReservation(input: any, existingPlatform?: string | null): string {
+  const existing = String(existingPlatform || '').trim();
+  if (existing && existing !== 'other') return existing;
+
+  const candidates = [
+    input?.platform,
+    input?.source,
+    input?.partner,
+    input?.partnerName,
+    input?.partnerCode,
+    input?.ota,
+    input?.channel,
+    input?.channelName,
+    input?.origin,
+  ];
+
+  for (const c of candidates) {
+    const mapped = mapPlatformFromRaw(c);
+    if (mapped) return mapped;
+  }
+
+  // Fallback conservador: a maioria das reservas do Stays é "direct"
+  return 'direct';
+}
+
 function parseOptionalDateToIso(value: any): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'string' && value.trim() === '') return null;
@@ -1068,6 +1133,54 @@ async function resolveAnuncioDraftIdFromStaysId(
   return null;
 }
 
+function extractListingCandidateFromStaysReservation(input: any): string | null {
+  const r = input?.payload ?? input;
+  if (!r || typeof r !== 'object') return null;
+
+  const direct =
+    r?._idlisting ??
+    r?._id_listing ??
+    r?.idlisting ??
+    r?.id_listing ??
+    r?.listingId ??
+    r?.listing_id ??
+    r?.propertyId ??
+    r?.property_id ??
+    null;
+  if (direct) return String(direct);
+
+  const nestedListing = r?.listing ?? r?.property ?? null;
+  if (nestedListing && typeof nestedListing === 'object') {
+    const nested =
+      nestedListing?._id ??
+      nestedListing?.id ??
+      nestedListing?._idlisting ??
+      nestedListing?.listingId ??
+      nestedListing?.listing_id ??
+      nestedListing?.propertyId ??
+      nestedListing?.property_id ??
+      nestedListing?.code ??
+      null;
+    if (nested) return String(nested);
+  }
+
+  // Alguns payloads podem vir envelopados em staysnet_raw
+  const raw = r?.staysnet_raw;
+  if (raw && typeof raw === 'object') {
+    const fromRaw =
+      raw?._idlisting ??
+      raw?._id_listing ??
+      raw?.listingId ??
+      raw?.listing_id ??
+      raw?.propertyId ??
+      raw?.property_id ??
+      null;
+    if (fromRaw) return String(fromRaw);
+  }
+
+  return null;
+}
+
 function extractReservationIdFromPayload(payload: any): string | null {
   const p = payload?.payload ?? payload;
   const candidates = [
@@ -1084,6 +1197,116 @@ function extractReservationIdFromPayload(payload: any): string | null {
 
   if (candidates.length === 0) return null;
   return String(candidates[0]);
+}
+
+function extractReservationIdCandidatesFromPayload(payload: any): string[] {
+  const p = payload?.payload ?? payload;
+  const raw = [
+    p?._id,
+    p?.id,
+    p?.reservationId,
+    p?.reserveId,
+    p?.confirmationCode,
+    p?.partnerCode,
+    p?.reservation?._id,
+    p?.reservation?.id,
+    p?.reservation?.confirmationCode,
+  ]
+    .filter(Boolean)
+    .map((x) => String(x));
+  return Array.from(new Set(raw));
+}
+
+function isCancellationAction(action: string): boolean {
+  const a = String(action || '').trim().toLowerCase();
+  return a === 'reservation.deleted' || a === 'reservation.canceled' || a === 'reservation.cancelled';
+}
+
+async function findReservationsByCandidates(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  organizationId: string,
+  candidates: string[],
+): Promise<any[]> {
+  const ids = Array.from(new Set((candidates || []).filter(Boolean).map((x) => String(x))));
+  if (ids.length === 0) return [];
+
+  const found: any[] = [];
+  const seen = new Set<string>();
+
+  const tryQueries: Array<{ label: string; column: string }> = [
+    { label: 'external_id', column: 'external_id' },
+    { label: 'id', column: 'id' },
+    { label: 'staysnet_reservation_code', column: 'staysnet_reservation_code' },
+  ];
+
+  for (const q of tryQueries) {
+    const res = await supabase
+      .from('reservations')
+      .select('id, external_id, staysnet_reservation_code, staysnet_type, staysnet_raw')
+      .eq('organization_id', organizationId)
+      .in(q.column as any, ids)
+      .limit(25);
+
+    if (res.error) {
+      console.warn(`[StaysNet Webhook] findReservationsByCandidates(${q.label}) failed:`, res.error.message);
+      continue;
+    }
+
+    for (const row of res.data || []) {
+      const key = String((row as any).id);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      found.push(row);
+    }
+  }
+
+  return found;
+}
+
+async function applyCancellationForCandidates(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  organizationId: string,
+  candidates: string[],
+): Promise<{ matched: number; cancelled: number; deletedBlocks: number }> {
+  const rows = await findReservationsByCandidates(supabase, organizationId, candidates);
+  if (rows.length === 0) return { matched: 0, cancelled: 0, deletedBlocks: 0 };
+
+  let cancelled = 0;
+  let deletedBlocks = 0;
+  const nowIso = new Date().toISOString();
+
+  for (const r of rows) {
+    const isBlocked =
+      String((r as any).staysnet_type || '').trim().toLowerCase() === 'blocked' ||
+      String((r as any).staysnet_raw?.type || '').trim().toLowerCase() === 'blocked';
+
+    if (isBlocked) {
+      const { error } = await supabase
+        .from('reservations')
+        .delete()
+        .eq('organization_id', organizationId)
+        .eq('id', (r as any).id);
+      if (error) {
+        console.warn('[StaysNet Webhook] Failed to delete block reservation:', error.message);
+      } else {
+        deletedBlocks++;
+      }
+      continue;
+    }
+
+    const { error } = await supabase
+      .from('reservations')
+      .update({ status: 'cancelled', cancelled_at: nowIso })
+      .eq('organization_id', organizationId)
+      .eq('id', (r as any).id);
+    if (error) {
+      console.warn('[StaysNet Webhook] Failed to mark cancelled:', error.message);
+    } else {
+      cancelled++;
+    }
+  }
+
+  return { matched: rows.length, cancelled, deletedBlocks };
 }
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
@@ -1257,7 +1480,7 @@ function mapStaysReservationToSql(
     pricing_total: total,
     pricing_currency: currency,
     status: derivedStatus,
-    platform: 'other',
+    platform: derivePlatformFromStaysReservation(input, existing?.platform ?? null),
     external_id: externalId,
     external_url: externalUrl,
     payment_status: mapPaymentStatus(input?.paymentStatus, 'pending'),
@@ -1412,8 +1635,7 @@ export async function backfillStaysNetReservationGuests(c: Context) {
         }
 
         // Resolver property se possível
-        const listingCandidate =
-          raw?._idlisting || raw?._id_listing || raw?.propertyId || raw?.listingId || raw?.listing_id || null;
+        const listingCandidate = extractListingCandidateFromStaysReservation(raw);
         let resolvedPropertyId: string | null = null;
         if (listingCandidate) {
           resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
@@ -1431,6 +1653,18 @@ export async function backfillStaysNetReservationGuests(c: Context) {
           guest_id: existingGuestId,
           created_by: null,
         });
+
+        // 🔒 Regra canônica: reservas sem imóvel não existem.
+        // Se não conseguimos resolver property_id (nem existe vínculo anterior), não persistimos.
+        if (!sqlData.property_id) {
+          await supabase
+            .from('reservations')
+            .delete()
+            .eq('organization_id', organizationId)
+            .eq('id', (r as any).id);
+          skipped++;
+          continue;
+        }
 
         const { error: upErr } = await supabase
           .from('reservations')
@@ -1511,18 +1745,67 @@ export async function processPendingStaysNetWebhooksForOrg(
 
       const reservationId = extractReservationIdFromPayload(hook.payload);
 
-      // Para deleted, pode não existir mais na API. Tentamos atualizar no SQL direto.
-      if (action === 'reservation.deleted') {
-        if (reservationId) {
-          const { error: updErr } = await supabase
-            .from('reservations')
-            .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-            .eq('organization_id', organizationId)
-            .or(`id.eq.${reservationId},external_id.eq.${reservationId}`);
-          if (updErr) console.warn('[StaysNet Webhook] delete→update falhou:', updErr.message);
+      const cancellationCandidates = extractReservationIdCandidatesFromPayload(hook.payload);
+      if (reservationId) cancellationCandidates.unshift(String(reservationId));
+
+      // delete/canceled/cancelled: tratar como cancelamento (mesma regra), mas para bloqueios removemos.
+      // Motivo: Stays pode enviar `reservation.deleted` quando a reserva é cancelada.
+      if (isCancellationAction(action)) {
+        const cancelResult = await applyCancellationForCandidates(supabase, organizationId, cancellationCandidates);
+        if (cancelResult.matched > 0) {
+          updated++;
+          await staysnetDB.markWebhookProcessedDB(
+            hook.id,
+            `Cancellation applied (matched=${cancelResult.matched}, cancelled=${cancelResult.cancelled}, deletedBlocks=${cancelResult.deletedBlocks})`,
+          );
+          continue;
         }
-        updated++;
-        await staysnetDB.markWebhookProcessedDB(hook.id);
+
+        // Se não encontramos no banco, tentamos buscar detalhes e criar/atualizar como cancelled.
+        // Isso evita perder cancelamentos quando o evento chega antes da criação local.
+        if (reservationId) {
+          const detail = await client.request(`/booking/reservations/${reservationId}`, 'GET');
+          if (detail.success) {
+            const staysReservation = detail.data;
+
+            const listingCandidate =
+              extractListingCandidateFromStaysReservation(staysReservation) ||
+              extractListingCandidateFromStaysReservation(hook.payload);
+
+            let resolvedPropertyId: string | null = null;
+            if (listingCandidate) {
+              resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
+            }
+
+            let resolvedGuestId: string | null = null;
+            resolvedGuestId = await resolveOrCreateGuestIdFromStaysReservation(supabase, organizationId, staysReservation);
+
+            const sqlData = mapStaysReservationToSql(staysReservation, organizationId, resolvedPropertyId, resolvedGuestId);
+            (sqlData as any).status = 'cancelled';
+            (sqlData as any).cancelled_at = (sqlData as any).cancelled_at || new Date().toISOString();
+
+            if (!sqlData.property_id) {
+              skipped++;
+              await staysnetDB.markWebhookProcessedDB(
+                hook.id,
+                'Cancellation webhook: no match in DB and property not resolved (cannot persist cancelled reservation without property_id)',
+              );
+              continue;
+            }
+
+            const { error: upErr } = await supabase
+              .from('reservations')
+              .upsert(sqlData, { onConflict: 'organization_id,platform,external_id' });
+            if (upErr) throw new Error(`Upsert failed (cancelled fallback): ${upErr.message}`);
+
+            updated++;
+            await staysnetDB.markWebhookProcessedDB(hook.id, 'Cancellation webhook: created/updated cancelled reservation');
+            continue;
+          }
+        }
+
+        skipped++;
+        await staysnetDB.markWebhookProcessedDB(hook.id, 'Cancellation webhook: no matching reservation found');
         continue;
       }
 
@@ -1532,18 +1815,6 @@ export async function processPendingStaysNetWebhooksForOrg(
 
       const detail = await client.request(`/booking/reservations/${reservationId}`, 'GET');
       if (!detail.success) {
-        // Se falhar ao buscar detalhes e for canceled, ainda dá pra marcar cancelada
-        if (action === 'reservation.canceled' || action === 'reservation.cancelled') {
-          const { error: updErr } = await supabase
-            .from('reservations')
-            .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-            .eq('organization_id', organizationId)
-            .or(`id.eq.${reservationId},external_id.eq.${reservationId}`);
-          if (updErr) throw new Error(`Falha ao marcar cancelada: ${updErr.message}`);
-          updated++;
-          await staysnetDB.markWebhookProcessedDB(hook.id);
-          continue;
-        }
         throw new Error(detail.error || 'Falha ao buscar detalhes da reserva');
       }
 
@@ -1551,12 +1822,8 @@ export async function processPendingStaysNetWebhooksForOrg(
 
       // Resolver property se possível
       const listingCandidate =
-        staysReservation?._idlisting ||
-        staysReservation?._id_listing ||
-        staysReservation?.propertyId ||
-        staysReservation?.listingId ||
-        staysReservation?.listing_id ||
-        null;
+        extractListingCandidateFromStaysReservation(staysReservation) ||
+        extractListingCandidateFromStaysReservation(hook.payload);
 
       let existing: any = null;
 
@@ -1581,7 +1848,7 @@ export async function processPendingStaysNetWebhooksForOrg(
       if (!existing && dedupeCandidates.length > 0) {
         const ex = await supabase
           .from('reservations')
-          .select('id, property_id, guest_id, created_by, external_id')
+          .select('id, platform, property_id, guest_id, created_by, external_id')
           .eq('organization_id', organizationId)
           .in('external_id', dedupeCandidates)
           .order('updated_at', { ascending: false })
@@ -1595,7 +1862,7 @@ export async function processPendingStaysNetWebhooksForOrg(
       if (!existing && dedupeCandidates.length > 0) {
         const ex = await supabase
           .from('reservations')
-          .select('id, property_id, guest_id, created_by, external_id')
+          .select('id, platform, property_id, guest_id, created_by, external_id')
           .eq('organization_id', organizationId)
           .in('id', dedupeCandidates)
           .order('updated_at', { ascending: false })
@@ -1609,7 +1876,7 @@ export async function processPendingStaysNetWebhooksForOrg(
       if (!existing && dedupeCandidates.length > 0) {
         const ex = await supabase
           .from('reservations')
-          .select('id, property_id, guest_id, created_by, external_id')
+          .select('id, platform, property_id, guest_id, created_by, external_id')
           .eq('organization_id', organizationId)
           .in('staysnet_reservation_code', dedupeCandidates)
           .order('updated_at', { ascending: false })
@@ -1636,6 +1903,23 @@ export async function processPendingStaysNetWebhooksForOrg(
       }
 
       const sqlData = mapStaysReservationToSql(staysReservation, organizationId, resolvedPropertyId, resolvedGuestId, existing);
+
+      // 🔒 Regra canônica: reservas sem imóvel não existem.
+      // Se não conseguimos resolver o imóvel e não há vínculo anterior, não persistimos.
+      // Evita gerar cards “Propriedade não encontrada”.
+      if (!sqlData.property_id) {
+        if (existing?.id) {
+          await supabase
+            .from('reservations')
+            .delete()
+            .eq('organization_id', organizationId)
+            .eq('id', existing.id);
+        }
+
+        skipped++;
+        await staysnetDB.markWebhookProcessedDB(hook.id, 'Skipped: property not resolved (reservation without property is forbidden)');
+        continue;
+      }
 
       const { error: upErr } = await supabase
         .from('reservations')

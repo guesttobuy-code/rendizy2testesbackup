@@ -312,35 +312,14 @@ export async function importReservations(c: any) {
           propertyId = existingProperty.id;
           console.log(`✅ Propriedade encontrada: ${propertyId}`);
         } else {
-          // Criar propriedade básica se não existir
-          const { data: newProperty, error: propError } = await client
-            .from('anuncios_ultimate')
-            .insert({
-              organization_id: organizationId,
-              title: `Propriedade Stays.net ${staysReservation.property_id}`,
-              data: {
-                nome_interno: `Propriedade ${staysReservation.property_id}`,
-                codigo: staysReservation.property_id,
-                preco_base_noite: 100,
-                tipo: 'apartment'
-              },
-              external_ids: {
-                stays_net_id: staysReservation.property_id
-              },
-              source: 'stays.net',
-              status: 'active'
-            })
-            .select('id')
-            .single();
-
-          if (propError) {
-            results.errors.push(`Erro ao criar propriedade para reserva ${staysReservation.code}: ${propError.message}`);
-            continue;
-          }
-
-          propertyId = newProperty.id;
-          results.propertiesCreated++;
-          console.log(`✅ Propriedade criada: ${propertyId}`);
+          // ❌ REGRA DE OURO: NUNCA criar imóvel/anúncio placeholder.
+          // Reservas só podem ser importadas se o imóvel já estiver importado/mapeado.
+          results.skipped++;
+          results.errors.push(
+            `Reserva ${staysReservation.code}: imóvel não encontrado para staysPropertyId=${staysReservation.property_id}. ` +
+              `Importe imóveis primeiro (sem placeholder).`
+          );
+          continue;
         }
 
         // === PASSO 2: GARANTIR QUE HÓSPEDE EXISTE ===

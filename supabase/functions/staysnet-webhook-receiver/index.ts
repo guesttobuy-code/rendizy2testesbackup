@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts'
 
 import { saveStaysNetWebhookDB, markWebhookProcessedDB } from '../rendizy-server/staysnet-db.ts'
+import { processPendingStaysNetWebhooksForOrg } from '../rendizy-server/routes-staysnet.ts'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -158,6 +159,21 @@ serve(async (req: Request) => {
       if (signatureVerified === false) {
         await markWebhookProcessedDB(save.id!, 'Invalid webhook signature')
         return json({ ok: false, error: 'Invalid webhook signature' }, 401)
+      }
+    }
+
+    // 🚀 Best-effort realtime: processar imediatamente alguns webhooks pendentes da organização.
+    // Observação: aqui não temos ExecutionContext.waitUntil; então rodamos um processamento curto.
+    const realtimeEnabled = String(Deno.env.get('STAYSNET_WEBHOOK_REALTIME_PROCESS') || 'true')
+      .trim()
+      .toLowerCase() === 'true'
+    const realtimeLimit = Math.max(1, Math.min(25, Number(Deno.env.get('STAYSNET_WEBHOOK_REALTIME_LIMIT') || 5)))
+    if (realtimeEnabled) {
+      try {
+        await processPendingStaysNetWebhooksForOrg(organizationId, realtimeLimit)
+      } catch (e: any) {
+        // Não falhar o receiver por causa do processamento; o cron pode consumir depois.
+        console.error('[StaysNet Webhook Receiver] realtime process failed:', e?.message || String(e))
       }
     }
 

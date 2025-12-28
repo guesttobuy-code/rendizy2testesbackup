@@ -502,6 +502,8 @@ export class StaysNetService {
               apiKey: config.apiKey,
               apiSecret: config.apiSecret,
               baseUrl: config.baseUrl,
+              // 🔒 Restringe import às propriedades selecionadas na UI (quando fornecido)
+              selectedPropertyIds: options.selectedPropertyIds || [],
               // ✅ API StaysNet usa from/to/dateType; backend aceita também startDate/endDate
               from: options.startDate,
               to: options.endDate,

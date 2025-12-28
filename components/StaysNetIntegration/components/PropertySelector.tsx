@@ -30,21 +30,78 @@ export function PropertySelector({
 }: PropertySelectorProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
 
+  const getStableId = (p: StaysNetProperty): string => {
+    const anyP: any = p as any;
+    return String(p.id || anyP?._id || '').trim();
+  };
+
+  const normalizeText = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+    const text = String(value)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    return text;
+  };
+
+  const getSearchHaystack = (p: StaysNetProperty): string => {
+    const anyP: any = p as any;
+    const address = anyP?.address || anyP?.endereco || anyP?.location || anyP?.localization || null;
+    const addressBits: unknown[] = [];
+
+    if (address && typeof address === 'object') {
+      addressBits.push(
+        (address as any).street,
+        (address as any).streetName,
+        (address as any).address,
+        (address as any).number,
+        (address as any).neighborhood,
+        (address as any).bairro,
+        (address as any).city,
+        (address as any).state,
+        (address as any).zip,
+        (address as any).zipcode,
+        (address as any).postalCode,
+      );
+    }
+
+    const tokens: unknown[] = [
+      p.name,
+      anyP?.internalName,
+      anyP?.internal_name,
+      anyP?.title,
+      anyP?.nickname,
+      anyP?.descricao,
+      anyP?.description,
+      p.code,
+      p.id,
+      anyP?._id,
+      ...addressBits,
+    ];
+
+    return normalizeText(tokens.filter(Boolean).join(' '));
+  };
+
   // Filter properties based on search
   const filteredProperties = useMemo(() => {
     if (!searchQuery) return properties;
 
-    const query = searchQuery.toLowerCase();
-    return properties.filter(
-      (p) =>
-        p.name?.toLowerCase().includes(query) ||
-        p.code?.toLowerCase().includes(query) ||
-        p.id?.toLowerCase().includes(query)
-    );
+    const terms = normalizeText(searchQuery)
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    if (terms.length === 0) return properties;
+
+    return properties.filter((p) => {
+      const haystack = getSearchHaystack(p);
+      return terms.every((t) => haystack.includes(t));
+    });
   }, [properties, searchQuery]);
 
-  const allSelected = filteredProperties.length > 0 && filteredProperties.every((p) => selectedIds.includes(p.id));
-  const someSelected = filteredProperties.some((p) => selectedIds.includes(p.id)) && !allSelected;
+  const allSelected =
+    filteredProperties.length > 0 && filteredProperties.every((p) => selectedIds.includes(getStableId(p)));
+  
 
   return (
     <div className="space-y-3">
@@ -104,21 +161,22 @@ export function PropertySelector({
                 </div>
               ) : (
                 filteredProperties.map((property) => {
-                  const isSelected = selectedIds.includes(property.id);
+                  const stableId = getStableId(property);
+                  const isSelected = selectedIds.includes(stableId);
 
                   return (
                     <label
-                      key={property.id}
+                      key={stableId}
                       className="flex items-start gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors"
                     >
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={() => onToggleProperty(property.id)}
+                        onCheckedChange={() => onToggleProperty(stableId)}
                       />
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h4 className="font-medium text-sm leading-tight break-words whitespace-normal">
-                            {property.name || property.internalName || property.id}
+                            {property.name || property.internalName || stableId}
                           </h4>
                           {property.internalName && property.name !== property.internalName && (
                             <span className="text-xs text-muted-foreground break-words whitespace-normal">
@@ -140,7 +198,7 @@ export function PropertySelector({
                           )}
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 break-words whitespace-normal">
-                          ID: {property.id}
+                          ID: {stableId}
                         </p>
                       </div>
                     </label>

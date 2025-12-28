@@ -140,8 +140,22 @@ export default function StaysNetIntegration() {
 
   const handleImportReservations = async () => {
     try {
+      const expandedSelectedPropertyIds = Array.from(
+        new Set(
+          (selectedPropertyIds || []).flatMap((selectedId) => {
+            const id = String(selectedId || '').trim();
+            if (!id) return [];
+            const prop = (availableProperties || []).find((p: any) =>
+              String(p?.id || '') === id || String(p?._id || '') === id || String(p?.staysListingCode || '') === id
+            );
+            if (!prop) return [id];
+            return [String(prop?._id || prop?.id || ''), String(prop?.staysListingCode || ''), id].filter(Boolean);
+          })
+        )
+      );
+
       await importReservations(config, {
-        selectedPropertyIds,
+        selectedPropertyIds: expandedSelectedPropertyIds,
         startDate: importDateRange.startDate,
         endDate: importDateRange.endDate,
         dateType: importDateRange.dateType,
@@ -167,17 +181,23 @@ export default function StaysNetIntegration() {
   // Imóveis são independentes.
   const handleImportReservationsAndGuests = async () => {
     try {
-      // Reservas dependem do filtro de imóveis. Se não carregou, busca agora.
-      const props = availableProperties.length > 0 ? availableProperties : await fetchProperties(config);
-      const allIds = props.map((p: any) => p?.id || p?._id).filter(Boolean);
-
-      if (allIds.length > 0) {
-        // Mantém UI consistente mostrando o universo que vai ser usado nas reservas.
-        selectProperties(allIds);
-      }
+      // ✅ Respeitar a seleção do usuário (não selecionar tudo automaticamente)
+      const ids = Array.from(
+        new Set(
+          (selectedPropertyIds || []).flatMap((selectedId) => {
+            const id = String(selectedId || '').trim();
+            if (!id) return [];
+            const prop = (availableProperties || []).find((p: any) =>
+              String(p?.id || '') === id || String(p?._id || '') === id || String(p?.staysListingCode || '') === id
+            );
+            if (!prop) return [id];
+            return [String(prop?._id || prop?.id || ''), String(prop?.staysListingCode || ''), id].filter(Boolean);
+          })
+        )
+      );
 
       await importReservations(config, {
-        selectedPropertyIds: allIds,
+        selectedPropertyIds: ids,
         startDate: importDateRange.startDate,
         endDate: importDateRange.endDate,
         dateType: importDateRange.dateType,

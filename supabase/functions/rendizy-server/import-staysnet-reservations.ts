@@ -94,7 +94,8 @@ async function resolveAnuncioUltimateIdFromStaysId(
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
-const FALLBACK_PROPERTY_ID = '00000000-0000-0000-0000-000000000001'; // Property padrão quando não encontrar
+// ⚠️ REGRA CANÔNICA: reserva SEMPRE precisa de um imóvel válido (anuncios_ultimate).
+// Não existe fallback/placeholder para property_id.
 
 // ============================================================================
 // TIPOS - Estrutura da API StaysNet /booking/reservations
@@ -250,6 +251,36 @@ function asTextOrNull(v: any): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
   return s ? s : null;
+}
+
+function normalizeTextCandidates(values: any[]): string[] {
+  return values
+    .map((v) => asTextOrNull(v))
+    .filter(Boolean) as string[];
+}
+
+function extractStaysListingIdCandidates(res: any): string[] {
+  const candidates = [
+    res?._idlisting,
+    res?._id_listing,
+    res?._idListing,
+    res?.propertyId,
+    res?.property_id,
+    res?.listingId,
+    res?.listing_id,
+    res?.idListing,
+    res?.id_listing,
+    res?.listing?._id,
+    res?.listing?.id,
+    res?.property?._id,
+    res?.property?.id,
+    res?.apartmentId,
+    res?.apartment_id,
+    res?.unitId,
+    res?.unit_id,
+  ];
+
+  return Array.from(new Set(normalizeTextCandidates(candidates)));
 }
 
 function parseOptionalDateToIso(value: any): string | null {
@@ -449,6 +480,13 @@ export async function importStaysNetReservations(c: Context) {
     // Default: últimos 12 meses e próximos 12 meses (override via querystring ou body)
     const body: any = await c.req.json().catch(() => ({}));
 
+    // ✅ (Opcional) Restringir importação aos imóveis selecionados na UI
+    // Esperado: array de IDs StaysNet do listing (ex.: campo `_idlisting` nas reservations)
+    const rawSelectedPropertyIds = Array.isArray(body?.selectedPropertyIds) ? body.selectedPropertyIds : [];
+    const selectedPropertyIds = rawSelectedPropertyIds.map((x: any) => String(x ?? '').trim()).filter(Boolean);
+    const selectedPropertyIdSet = new Set(selectedPropertyIds);
+    const filterBySelectedProperties = selectedPropertyIdSet.size > 0;
+
     const fromDate = new Date();
     fromDate.setMonth(fromDate.getMonth() - 12);
     const toDate = new Date();
@@ -481,12 +519,17 @@ export async function importStaysNetReservations(c: Context) {
     console.log(`   📌 dateType: ${dateType} (raw=${rawDateType})`);
     console.log(`   🧾 types: ${types.join(',')}`);
     console.log(`   📄 Paginação: limit=${limit}, maxPages=${maxPages}`);
+    if (filterBySelectedProperties) {
+      console.log(`   🏠 Filtro: ${selectedPropertyIdSet.size} imóvel(is) selecionado(s)`);
+    }
 
     // ✅ Carregar config Stays.net (DB → global → env)
     const staysConfig = await loadStaysNetRuntimeConfigOrThrow(organizationId);
     const credentials = btoa(`${staysConfig.apiKey}:${staysConfig.apiSecret}`);
 
     const allReservations: StaysNetReservation[] = [];
+    let fetchedFromApi = 0;
+    let skippedBySelection = 0;
     skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
     const startSkip = skip;
     let pages = 0;
@@ -522,9 +565,25 @@ export async function importStaysNetReservations(c: Context) {
         throw new Error(`Resposta da API não é um array. Tipo: ${typeof pageData}`);
       }
 
-      allReservations.push(...pageData);
+      fetchedFromApi += pageData.length;
 
-      console.log(`   📥 Página ${pages + 1}: ${pageData.length} itens (total=${allReservations.length})`);
+      const filteredPageData = filterBySelectedProperties
+        ? pageData.filter((r) => {
+            const candidates = extractStaysListingIdCandidates(r);
+            if (candidates.length === 0) return false;
+            return candidates.some((id) => selectedPropertyIdSet.has(id));
+          })
+        : pageData;
+
+      if (filterBySelectedProperties) {
+        skippedBySelection += pageData.length - filteredPageData.length;
+      }
+
+      allReservations.push(...filteredPageData);
+
+      console.log(
+        `   📥 Página ${pages + 1}: ${filteredPageData.length}/${pageData.length} itens (totalFiltrado=${allReservations.length})`
+      );
 
       if (pageData.length < limit) {
         hasMore = false;
@@ -544,15 +603,29 @@ export async function importStaysNetReservations(c: Context) {
     const reservations: StaysNetReservation[] = allReservations;
 
     fetched = reservations.length;
-    console.log(`✅ [FETCH] ${fetched} reservations recebidas\n`);
+    if (filterBySelectedProperties) {
+      console.log(`✅ [FETCH] ${fetched} reservations após filtro (${fetchedFromApi} recebidas da API; skippedBySelection=${skippedBySelection})\n`);
+    } else {
+      console.log(`✅ [FETCH] ${fetched} reservations recebidas\n`);
+    }
 
     if (fetched === 0) {
       return c.json({
         success: true,
         method: 'import-reservations',
-        stats: { fetched: 0, saved: 0, errors: 0, skipped: 0 },
-        next: { skip: startSkip, hasMore: false },
-        message: 'Nenhuma reservation encontrada na API StaysNet'
+        stats: {
+          fetched: 0,
+          saved: 0,
+          errors: 0,
+          skipped: skippedBySelection,
+          fetchedFromApi,
+          skippedBySelection,
+        },
+        // Se houver mais páginas, o caller pode continuar (mesmo que este lote não tenha matches)
+        next: { skip, hasMore },
+        message: filterBySelectedProperties
+          ? 'Nenhuma reservation encontrada para os imóveis selecionados (neste lote)'
+          : 'Nenhuma reservation encontrada na API StaysNet'
       });
     }
 
@@ -694,41 +767,16 @@ export async function importStaysNetReservations(c: Context) {
           if (propertyId) break;
         }
 
-        // Último fallback: criar um imóvel básico para não deixar reserva órfã
+        // ❌ IMPORTANTE: NÃO criar imóvel placeholder automaticamente.
+        // Isso gerava cards “Propriedade Stays.net ...” sem endereço/quartos e poluía o Anúncio Ultimate.
+        // Se a property não existir no Rendizy, a reserva é ignorada (o usuário deve importar imóveis primeiro).
         if (!propertyId && staysPropertyCandidates.length > 0) {
           const primaryStaysId = staysPropertyCandidates[0];
-          console.warn(`   ⚠️ Property não encontrado para staysPropertyId=${primaryStaysId}. Criando placeholder em anuncios_ultimate...`);
-
-          const { data: newUltimate, error: createUltimateError } = await supabase
-            .from('anuncios_ultimate')
-            .insert({
-              organization_id: organizationId,
-              user_id: DEFAULT_USER_ID,
-              status: 'created',
-              data: {
-                title: `Propriedade Stays.net ${primaryStaysId}`,
-                status: 'active',
-                ativo: true,
-                codigo: primaryStaysId,
-                externalIds: {
-                  staysnet_property_id: primaryStaysId,
-                },
-                staysnet_raw: {
-                  _id: primaryStaysId,
-                },
-              },
-            })
-            .select('id')
-            .single();
-
-          if (createUltimateError) {
-            console.warn(`   ⚠️ Falha ao criar placeholder em anuncios_ultimate: ${createUltimateError.message}`);
-          } else {
-            propertyId = newUltimate?.id || null;
-            if (propertyId) {
-              console.log(`   ✅ Placeholder criado e vinculado: ${propertyId}`);
-            }
-          }
+          console.warn(
+            `   ⚠️ Property não encontrado no Rendizy para staysPropertyId=${primaryStaysId}. SKIP (sem criar anúncio placeholder)`
+          );
+          skipped++;
+          continue;
         }
 
         // ====================================================================
@@ -819,7 +867,23 @@ export async function importStaysNetReservations(c: Context) {
         // - A identidade externa é (organization_id, platform, external_id)
         // - Para Stays, `external_id` preferencialmente é o `_id` interno (estável)
         const reservationId = existing?.id || crypto.randomUUID();
-        const finalPropertyId = propertyId || existing?.property_id || FALLBACK_PROPERTY_ID;
+
+        // 🔒 BLINDAGEM: se não conseguimos resolver o imóvel, NÃO salvar reserva.
+        // Se já existe uma reserva órfã (property_id nulo/inválido), deletar para não poluir números.
+        const finalPropertyId = propertyId || existing?.property_id || null;
+        if (!finalPropertyId) {
+          if (existing?.id) {
+            console.warn(`   🧹 Reserva órfã detectada (id=${existing.id}) - removendo`);
+            await supabase
+              .from('reservations')
+              .delete()
+              .eq('organization_id', organizationId)
+              .eq('id', existing.id);
+          }
+          console.warn(`   ⚠️ Sem property_id válido - SKIP (sem criar reserva fantasma)`);
+          skipped++;
+          continue;
+        }
         const finalExternalUrl = externalUrl || existing?.external_url || null;
 
         // ✅ Vincular guest automaticamente quando possível
@@ -964,7 +1028,7 @@ export async function importStaysNetReservations(c: Context) {
           // Identificadores
           id: reservationId, // TEXT PRIMARY KEY (UUID string)
           organization_id: organizationId,
-          property_id: finalPropertyId, // ✅ manter vinculação existente se ainda não resolver property
+          property_id: finalPropertyId,
           guest_id: finalGuestId, // ✅ preservar se já foi populado por import-staysnet-guests.ts
 
           // Datas
@@ -1040,13 +1104,64 @@ export async function importStaysNetReservations(c: Context) {
         // ====================================================================
         // 2.5: UPSERT NA TABELA reservations (idempotente)
         // ====================================================================
-        console.log(`   ♻️ Upsert reservation (property_id: ${propertyId || 'NULL'})...`);
+        console.log(`   ♻️ Persist reservation (property_id: ${propertyId || 'NULL'})...`);
 
-        let { data: upsertedReservation, error: upsertError } = await supabase
-          .from('reservations')
-          .upsert(reservationData, { onConflict: 'organization_id,platform,external_id' })
-          .select('id')
-          .single();
+        const persistReservationRow = async (payload: any) => {
+          const byId = async (id: string) => {
+            const updatePayload = { ...payload };
+            delete updatePayload.id;
+            return await supabase
+              .from('reservations')
+              .update(updatePayload)
+              .eq('id', id)
+              .eq('organization_id', organizationId)
+              .select('id')
+              .single();
+          };
+
+          const findByCanonicalKey = async () => {
+            const ext = payload?.external_id;
+            const plat = payload?.platform;
+            if (!ext || !plat) return null;
+            const found = await supabase
+              .from('reservations')
+              .select('id')
+              .eq('organization_id', organizationId)
+              .eq('platform', plat)
+              .eq('external_id', ext)
+              .maybeSingle();
+            return found.data as any;
+          };
+
+          // Preferir sempre a linha canônica quando ela existir.
+          // Isso evita violação do UNIQUE ao tentar "canonicalizar" um registro legado
+          // cujo external_id já está ocupado por outra linha.
+          const canonical = await findByCanonicalKey();
+          if (canonical?.id) {
+            return await byId(String(canonical.id));
+          }
+
+          // Se já achamos um registro legado (por external_id/id/staysnet_reservation_code),
+          // atualiza por `id` para evitar colisões em reservations_pkey.
+          if (existing?.id) {
+            return await byId(String(existing.id));
+          }
+
+          // Inserção “fresh” (id UUID interno). Em corrida, podemos bater em unique e aí fazemos update.
+          let inserted = await supabase.from('reservations').insert(payload).select('id').single();
+
+          const anyErr = inserted.error as any;
+          if (anyErr?.code === '23505') {
+            const canonicalAfter = await findByCanonicalKey();
+            if (canonicalAfter?.id) {
+              inserted = await byId(String(canonicalAfter.id));
+            }
+          }
+
+          return inserted;
+        };
+
+        let { data: upsertedReservation, error: upsertError } = await persistReservationRow(reservationData);
 
         // Compat: alguns ambientes ainda têm colunas monetárias como INTEGER (centavos).
         // Se tentarmos gravar "652.41" em INTEGER, o Postgres retorna:
@@ -1068,11 +1183,7 @@ export async function importStaysNetReservations(c: Context) {
             pricing_total: totalCents,
           };
 
-          const retry = await supabase
-            .from('reservations')
-            .upsert(reservationDataCents, { onConflict: 'organization_id,platform,external_id' })
-            .select('id')
-            .single();
+          const retry = await persistReservationRow(reservationDataCents);
 
           upsertedReservation = retry.data as any;
           upsertError = retry.error as any;
@@ -1104,11 +1215,7 @@ export async function importStaysNetReservations(c: Context) {
             const reservationDataCompat: any = { ...(reservationData as any) };
             for (const k of dropKeys) delete reservationDataCompat[k];
 
-            const retry = await supabase
-              .from('reservations')
-              .upsert(reservationDataCompat, { onConflict: 'organization_id,platform,external_id' })
-              .select('id')
-              .single();
+            const retry = await persistReservationRow(reservationDataCompat);
             upsertedReservation = retry.data as any;
             upsertError = retry.error as any;
           }
@@ -1188,10 +1295,19 @@ export async function importStaysNetReservations(c: Context) {
     }
 
     return c.json({
-      success: errors < fetched, // success = true se pelo menos 1 salvou
+      // success = true se salvou algo, ou se não houve erro e não havia nada para importar
+      success: saved > 0 || (fetched === 0 && errors === 0),
       method: 'import-reservations',
       table: 'reservations',
-      stats: { fetched, saved, created, updated, skipped, errors },
+      stats: {
+        fetched,
+        saved,
+        created,
+        updated,
+        skipped,
+        errors,
+        ...(filterBySelectedProperties ? { fetchedFromApi, skippedBySelection } : {}),
+      },
       next: { skip, hasMore },
       errorDetails: errors > 0 ? errorDetails : undefined,
       debugSample: debug ? debugSample : undefined,

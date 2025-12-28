@@ -300,7 +300,15 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
 
       // Normaliza: Stays.net entrega `_id`, mas o UI usa `id`
       const properties: StaysNetProperty[] = (rawProperties || [])
-        .map((p: any) => ({ ...p, id: p?._id || p?.id }))
+        .map((p: any) => {
+          const legacyCode = p?.id; // em alguns ambientes é o “C003”, etc.
+          const staysId = p?._id || p?.id;
+          return {
+            ...p,
+            id: staysId,
+            staysListingCode: legacyCode && legacyCode !== staysId ? String(legacyCode) : undefined,
+          };
+        })
         .filter((p: any) => Boolean(p?.id));
 
       dispatch({ type: 'FETCH_PROPERTIES_SUCCESS', payload: properties });
@@ -318,8 +326,6 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
       try {
         const preview = await StaysNetService.previewImport(propertyIds);
         dispatch({ type: 'SET_PREVIEW', payload: preview });
-        // Seleciona por padrão apenas os novos para evitar duplicações
-        dispatch({ type: 'SET_SELECTED_PROPERTIES', payload: preview.newIds || [] });
         staysnetLogger.import.info('Preview de importação gerado', preview);
 
         addImportLog('success', 'properties', 'Preview de importação gerado', {

@@ -59,6 +59,7 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { reservationsApi, propertiesApi, guestsApi, Property, Reservation, Guest } from '../utils/api';
 import { format, startOfMonth, endOfMonth, addMonths, endOfDay, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import * as XLSX from 'xlsx';
 
 interface ReservationsManagementProps {
   organizationId?: string;
@@ -180,6 +181,7 @@ export function ReservationsManagement({
   const [properties, setProperties] = useState<Property[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [page, setPage] = useState(1);
@@ -498,6 +500,236 @@ export function ReservationsManagement({
       return isNaN(d.getTime()) ? null : d;
     }
     return null;
+  };
+
+  const formatDateForExport = (value: unknown, withTime = false): string => {
+    const date = parseDateCandidate(value);
+    if (!date) return '';
+    try {
+      return format(date, withTime ? 'yyyy-MM-dd HH:mm:ss' : 'yyyy-MM-dd');
+    } catch {
+      return '';
+    }
+  };
+
+  const buildServerFilters = () => {
+    const filters: any = {};
+
+    if (statusFilter !== 'all') {
+      filters.status = [statusFilter];
+    }
+    if (platformFilter !== 'all') {
+      filters.platform = [platformFilter];
+    }
+
+    const dateFrom = format(dateRange.from, 'yyyy-MM-dd');
+    const dateTo = format(dateRange.to, 'yyyy-MM-dd');
+
+    const shouldFilterProperties =
+      properties.length > 0 &&
+      selectedProperties.length > 0 &&
+      selectedProperties.length < properties.length;
+    const propertyIds = shouldFilterProperties ? selectedProperties : undefined;
+
+    return {
+      ...filters,
+      propertyIds,
+      dateField: dateFilterField,
+      dateFrom,
+      dateTo,
+    };
+  };
+
+  const applyClientSideFilters = (list: Reservation[]): Reservation[] => {
+    const rangeStart = startOfDay(dateRange.from);
+    const rangeEnd = endOfDay(dateRange.to);
+
+    const getComparableDate = (value: unknown): Date | null => parseDateCandidate(value);
+
+    return list.filter(reservation => {
+      // Filter by date range + date field
+      const dateCandidate = (() => {
+        if (dateFilterField === 'created') {
+          return getComparableDate((reservation as any).sourceCreatedAt || reservation.createdAt);
+        }
+        if (dateFilterField === 'checkout') {
+          return getComparableDate(reservation.checkOut);
+        }
+        return getComparableDate(reservation.checkIn);
+      })();
+
+      if (!dateCandidate) return false;
+      if (dateCandidate < rangeStart || dateCandidate > rangeEnd) return false;
+
+      // Filter by selected properties (same rule used in UI)
+      if (selectedProperties.length > 0) {
+        const propertyIsKnown = propertiesMap.has(reservation.propertyId);
+        if (propertyIsKnown && !selectedProperties.includes(reservation.propertyId)) {
+          return false;
+        }
+      }
+
+      // Filter by selected APIs (fonte da reserva)
+      if (selectedApis.length > 0) {
+        const externalUrl = (reservation as any).externalUrl as unknown;
+        const inferredSource =
+          typeof externalUrl === 'string' && externalUrl.toLowerCase().includes('stays.net')
+            ? 'stays'
+            : (reservation.platform || 'direct');
+        const source = String(inferredSource);
+        const apiMap: Record<string, string[]> = {
+          airbnb: ['airbnb'],
+          booking: ['booking', 'booking.com'],
+          decolar: ['decolar'],
+          stays: ['stays', 'staysnet', 'stays.net'],
+          direct: ['direct', 'direto', 'manual'],
+        };
+
+        const sourceLower = source.toLowerCase();
+        const matchesApi = selectedApis.some(api => apiMap[api]?.some(variant => sourceLower.includes(variant)));
+        if (!matchesApi) return false;
+      }
+
+      // Filter by search query
+      if (!searchQuery) return true;
+
+      const query = searchQuery.toLowerCase();
+      const guest = guestsMap.get(reservation.guestId);
+      const property = propertiesMap.get(reservation.propertyId);
+
+      return (
+        reservation.id.toLowerCase().includes(query) ||
+        guest?.fullName?.toLowerCase().includes(query) ||
+        guest?.email?.toLowerCase().includes(query) ||
+        property?.name?.toLowerCase().includes(query)
+      );
+    });
+  };
+
+  const fetchAllReservationsForExport = async (): Promise<Reservation[]> => {
+    // Em modo client-side já temos tudo carregado
+    if (paginationMode === 'client') {
+      return filteredReservations;
+    }
+
+    const serverFilters = buildServerFilters();
+    const all: Reservation[] = [];
+
+    let currentPage = 1;
+    let lastPage = 1;
+    const exportLimit = 200;
+
+    while (currentPage <= lastPage) {
+      const response = await reservationsApi.listPaged({
+        ...serverFilters,
+        page: currentPage,
+        limit: exportLimit,
+      });
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Falha ao buscar reservas para exportação');
+      }
+
+      const payload: any = response.data as any;
+
+      // Compat: array direto (sem paginação)
+      if (Array.isArray(payload)) {
+        return applyClientSideFilters(payload.map(normalizeReservation));
+      }
+
+      const list = Array.isArray(payload?.data) ? payload.data : [];
+      const normalized = list.map(normalizeReservation);
+      all.push(...normalized);
+
+      const pagination = payload?.pagination;
+      if (pagination && typeof pagination.totalPages === 'number') {
+        lastPage = pagination.totalPages || 1;
+      } else {
+        // Se não tiver paginação, assume que já veio tudo
+        break;
+      }
+
+      if (normalized.length === 0) {
+        break;
+      }
+
+      currentPage += 1;
+    }
+
+    return applyClientSideFilters(all);
+  };
+
+  const handleExportXls = async () => {
+    if (exporting) return;
+    setExporting(true);
+    const toastId = toast.loading('Exportando Excel (.xls)...');
+
+    try {
+      const list = await fetchAllReservationsForExport();
+
+      const rows = list.map(reservation => {
+        const guest = guestsMap.get(reservation.guestId);
+        const property = propertiesMap.get(reservation.propertyId);
+        const pricing = (reservation as any).pricing || {};
+
+        return {
+          id: reservation.id,
+          externalId: (reservation as any).externalId || '',
+          status: reservation.status || '',
+          platform: reservation.platform || '',
+          createdAt: formatDateForExport(reservation.createdAt, true),
+          sourceCreatedAt: formatDateForExport((reservation as any).sourceCreatedAt, true),
+          checkIn: formatDateForExport(reservation.checkIn),
+          checkOut: formatDateForExport(reservation.checkOut),
+          nights: (reservation as any).nights ?? '',
+          propertyId: reservation.propertyId,
+          propertyName: property?.name || '',
+          guestId: reservation.guestId,
+          guestName: guest?.fullName || (reservation as any).guestName || '',
+          guestEmail: guest?.email || '',
+          guestPhone: guest?.phone || '',
+          total: toNumber(pricing.total ?? reservation.price ?? (reservation as any).total ?? 0, 0),
+          currency: String(pricing.currency || 'BRL'),
+          externalUrl: String((reservation as any).externalUrl || ''),
+        };
+      });
+
+      const sheet = XLSX.utils.json_to_sheet(rows, {
+        header: [
+          'id',
+          'externalId',
+          'status',
+          'platform',
+          'createdAt',
+          'sourceCreatedAt',
+          'checkIn',
+          'checkOut',
+          'nights',
+          'propertyId',
+          'propertyName',
+          'guestId',
+          'guestName',
+          'guestEmail',
+          'guestPhone',
+          'total',
+          'currency',
+          'externalUrl',
+        ],
+      });
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, sheet, 'Reservas');
+
+      const fileName = `reservas_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.xls`;
+      XLSX.writeFile(workbook, fileName, { bookType: 'xls' });
+
+      toast.success(`Exportação concluída (${rows.length} reservas)`, { id: toastId });
+    } catch (error) {
+      console.error('❌ Erro ao exportar XLS:', error);
+      toast.error('Falha ao exportar Excel (.xls)', { id: toastId });
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Filter reservations by search and selected properties - OTIMIZADO: Memoizado
@@ -1209,6 +1441,10 @@ export function ReservationsManagement({
               <Button onClick={handleCreate} className="bg-purple-600 hover:bg-purple-700">
                 <Calendar className="h-4 w-4 mr-2" />
                 Nova Reserva
+              </Button>
+              <Button onClick={handleExportXls} variant="outline" disabled={loading || exporting}>
+                <Download className="h-4 w-4 mr-2" />
+                {exporting ? 'Exportando...' : 'Exportar Excel (.xls)'}
               </Button>
               <Button onClick={loadReservations} variant="outline">
                 <RefreshCw className="h-4 w-4 mr-2" />
