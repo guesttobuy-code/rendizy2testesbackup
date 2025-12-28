@@ -474,6 +474,19 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
 
         const result = await StaysNetService.importReservations(config, options);
 
+        // ✅ CRÍTICO: Bloqueios da Stays (blocked/maintenance) NÃO vêm pelo import de reservas.
+        // Se o usuário reimporta “reservas” para corrigir calendário, ele espera que bloqueios também sejam atualizados.
+        // Rodamos o import de blocks logo após para:
+        // - criar/atualizar blocks
+        // - limpar reservas misclassificadas (bug histórico)
+        try {
+          await StaysNetService.importBlocks(config, options);
+        } catch (e) {
+          // Não falhar a importação de reservas por erro em bloqueios; registramos no log.
+          const msg = (e as Error)?.message || String(e);
+          addImportLog('warn', 'reservations', 'Import de bloqueios falhou após import de reservas', { error: msg });
+        }
+
         stop();
         stop = null;
         dispatch({
@@ -655,6 +668,17 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         addImportLog('success', 'all', 'Etapa reservas concluída', {
           reservations: formatStats(reservationsResult.stats?.reservations) || undefined,
         });
+
+        // ⛔ STEP 3: Importar Blocks (bloqueios/maintenance)
+        try {
+          const blocksResult = await StaysNetService.importBlocks(config, options);
+          addImportLog('success', 'all', 'Etapa bloqueios concluída', {
+            blocks: blocksResult.stats || undefined,
+          });
+        } catch (e) {
+          const msg = (e as Error)?.message || String(e);
+          addImportLog('warn', 'all', 'Etapa bloqueios falhou (seguindo fluxo)', { error: msg });
+        }
         dispatch({
           type: 'UPDATE_PROGRESS',
           payload: {

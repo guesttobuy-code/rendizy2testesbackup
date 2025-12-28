@@ -651,9 +651,11 @@ export class StaysNetService {
             apiKey: config.apiKey,
             apiSecret: config.apiSecret,
             baseUrl: config.baseUrl,
+            // 🔒 Restringe import às propriedades selecionadas na UI (quando fornecido)
+            selectedPropertyIds: options.selectedPropertyIds || [],
             from: options.startDate,
             to: options.endDate,
-            dateType: 'included',
+            dateType: normalizeDateTypeForApi(options.dateType || 'included'),
           }),
         }
       );

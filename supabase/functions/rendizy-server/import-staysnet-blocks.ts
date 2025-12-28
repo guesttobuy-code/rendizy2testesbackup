@@ -120,6 +120,14 @@ export async function importStaysNetBlocks(c: Context) {
     // Default range: +-12 meses; override via query ou body
     const body: any = await c.req.json().catch(() => ({}));
 
+    const selectedPropertyIds = Array.isArray(body?.selectedPropertyIds)
+      ? (body.selectedPropertyIds as unknown[]).map(String).filter(Boolean)
+      : Array.isArray(body?.propertyIds)
+        ? (body.propertyIds as unknown[]).map(String).filter(Boolean)
+        : [];
+    const restrictToSelected = selectedPropertyIds.length > 0;
+    const selectedSet = restrictToSelected ? new Set(selectedPropertyIds) : null;
+
     const fromDate = new Date();
     fromDate.setMonth(fromDate.getMonth() - 12);
     const toDate = new Date();
@@ -224,6 +232,11 @@ export async function importStaysNetBlocks(c: Context) {
 
         if (!propertyId) {
           // Sem property_id válido o calendário não consegue atribuir o block
+          skipped++;
+          continue;
+        }
+
+        if (selectedSet && !selectedSet.has(propertyId)) {
           skipped++;
           continue;
         }
