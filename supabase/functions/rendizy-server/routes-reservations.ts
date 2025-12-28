@@ -321,9 +321,11 @@ export async function getReservationsKpis(c: Context) {
       .eq('check_out', today)
       .not('status', 'in', statusNotIn);
 
+    // NOTE: UI mostra "Hóspedes hospedados hoje", então aqui retornamos total de hóspedes (somatório)
+    // ao invés da quantidade de reservas in-house.
     const qInHouse = client
       .from('reservations')
-      .select('id', { count: 'exact', head: true })
+      .select('guests_total')
       .eq('organization_id', orgIdFinal)
       .lte('check_in', today)
       .gt('check_out', today)
@@ -367,7 +369,14 @@ export async function getReservationsKpis(c: Context) {
 
     const checkinsToday = rCheckins.count ?? 0;
     const checkoutsToday = rCheckouts.count ?? 0;
-    const inHouseToday = rInHouse.count ?? 0;
+
+    // rInHouse aqui traz linhas com guests_total.
+    const inHouseToday = Array.isArray((rInHouse as any).data)
+      ? ((rInHouse as any).data as Array<{ guests_total?: number | string | null }>).reduce((acc, row) => {
+          const n = Number(row?.guests_total ?? 0);
+          return acc + (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
+        }, 0)
+      : 0;
 
     let newReservationsToday = (rNewSource.count ?? 0) + (rNewFallback.count ?? 0);
     if (sourceCreatedAtMissing) {
@@ -549,7 +558,9 @@ export async function getReservationsSummary(c: Context) {
       const v = row?.pricing_total;
       const n = Number(v);
       if (!Number.isFinite(n)) return sumCents;
-      return sumCents + Math.round(n * 100);
+      // No schema atual, pricing_total é INTEGER (centavos). Somar direto.
+      // Se um dia virar NUMERIC(10,2), isso ainda funciona quando vier com decimais.
+      return sumCents + (Number.isInteger(n) ? n : Math.round(n * 100));
     }, 0);
 
     const revenue = Number((revenueCents / 100).toFixed(2));

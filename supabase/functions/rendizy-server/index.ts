@@ -243,8 +243,12 @@ app.post("/staysnet/webhook/:organizationId", staysnetRoutes.receiveStaysNetWebh
 app.post("/rendizy-server/staysnet/webhook/:organizationId", staysnetRoutes.receiveStaysNetWebhook);
 app.post("/staysnet/webhooks/process/:organizationId", staysnetRoutes.processStaysNetWebhooks);
 app.post("/rendizy-server/staysnet/webhooks/process/:organizationId", staysnetRoutes.processStaysNetWebhooks);
+app.get("/staysnet/webhooks/diagnostics/:organizationId", staysnetRoutes.getStaysNetWebhooksDiagnostics);
+app.get("/rendizy-server/staysnet/webhooks/diagnostics/:organizationId", staysnetRoutes.getStaysNetWebhooksDiagnostics);
 app.post("/staysnet/backfill/guests/:organizationId", staysnetRoutes.backfillStaysNetReservationGuests);
 app.post("/rendizy-server/staysnet/backfill/guests/:organizationId", staysnetRoutes.backfillStaysNetReservationGuests);
+app.post("/staysnet/reservations/reconcile/:organizationId", staysnetRoutes.reconcileStaysNetReservations);
+app.post("/rendizy-server/staysnet/reservations/reconcile/:organizationId", staysnetRoutes.reconcileStaysNetReservations);
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade
 // ============================================================================

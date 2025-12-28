@@ -508,6 +508,8 @@ export class StaysNetService {
               dateType: normalizeDateTypeForApi(options.dateType || 'included'),
               startDate: options.startDate,
               endDate: options.endDate,
+              // ✅ CRÍTICO: incluir canceladas para que reimports reflitam cancelamentos/alterações
+              includeCanceled: '1',
               // paginação
               limit: LIMIT,
               skip,
@@ -587,6 +589,8 @@ export class StaysNetService {
               dateType: normalizeDateTypeForApi(options?.dateType || 'included'),
               startDate: options?.startDate,
               endDate: options?.endDate,
+              // ✅ Manter alinhado com reservas: incluir canceladas para reprocessar vínculos/enriquecimento
+              includeCanceled: '1',
               // paginação
               limit: LIMIT,
               skip,

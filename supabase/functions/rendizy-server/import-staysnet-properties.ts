@@ -38,144 +38,43 @@ const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
 // TIPOS - Estrutura COMPLETA da API StaysNet /content/listings
 // ============================================================================
 interface StaysNetProperty {
-        // === STATUS ===
-        // Importante: a UI de "Anúncios Ultimate" lê a COLUNA anuncios_ultimate.status.
-        // A RPC save_anuncio_field salva apenas dentro de anuncios_ultimate.data (JSONB).
-        // Se a coluna ficar no default, a UI cai no default => "Rascunho".
-        //
-        // Regra (simples e estável) para re-import via UI:
-        // - Stays status 'active' => Rendizy 'active'
-        // - Stays status 'hidden' ou published=false => Rendizy 'draft'
-        // - Stays status 'inactive' ou active=false => Rendizy 'inactive'
-        // - Se status string não vier, usar flags active/published quando existirem.
-        const staysStatus = (prop.status ?? '').toString().trim().toLowerCase();
-        const staysActiveFlag = typeof prop.active === 'boolean' ? prop.active : null;
-        const staysPublishedFlag = typeof prop.published === 'boolean' ? prop.published : null;
+  _id: string;
+  id?: string;
 
-        let anuncioStatus: 'active' | 'draft' | 'inactive' = 'draft';
+  name?: string;
+  internalName?: string;
 
-        if (staysStatus === 'active') {
-          anuncioStatus = 'active';
-        } else if (staysStatus === 'inactive') {
-          anuncioStatus = 'inactive';
-        } else if (staysStatus === 'hidden') {
-          // "hidden" normalmente significa não-publicado/oculto (não é desligado), então vira rascunho.
-          anuncioStatus = 'draft';
-        } else {
-          // Fallback pelas flags quando status não vem.
-          if (staysActiveFlag === false) {
-            anuncioStatus = 'inactive';
-          } else if (staysPublishedFlag === false) {
-            anuncioStatus = 'draft';
-          } else if (staysActiveFlag === true) {
-            anuncioStatus = 'active';
-          } else {
-            anuncioStatus = 'draft';
-          }
-        }
+  status?: string;
+  active?: boolean;
+  published?: boolean;
 
-        const isActive = anuncioStatus === 'active';
+  _mstitle?: Record<string, string>;
+  _t_propertyMeta?: { _id?: string; id?: string };
+  _t_propertyTypeMeta?: { _mstitle?: Record<string, string> };
 
-        // Campo: status (dentro do JSON - mantém valor vindo da Stays para debug)
-        await supabase.rpc('save_anuncio_field', {
-          p_anuncio_id: anuncioId,
-          p_field: 'status',
-          p_value: staysStatus || null,
-          p_idempotency_key: `status-${prop._id}`,
-          p_organization_id: organizationId,
-          p_user_id: DEFAULT_USER_ID
-        });
+  subtype?: string;
+  category?: string;
+  listingType?: string;
 
-        // Campo: flags de debug (quando existirem)
-        if (staysActiveFlag !== null) {
-          await supabase.rpc('save_anuncio_field', {
-            p_anuncio_id: anuncioId,
-            p_field: 'staysnet_active',
-            p_value: staysActiveFlag,
-            p_idempotency_key: `staysnet_active-${prop._id}`,
-            p_organization_id: organizationId,
-            p_user_id: DEFAULT_USER_ID
-          });
-        }
-        if (staysPublishedFlag !== null) {
-          await supabase.rpc('save_anuncio_field', {
-            p_anuncio_id: anuncioId,
-            p_field: 'staysnet_published',
-            p_value: staysPublishedFlag,
-            p_idempotency_key: `staysnet_published-${prop._id}`,
-            p_organization_id: organizationId,
-            p_user_id: DEFAULT_USER_ID
-          });
-        }
+  _i_rooms?: number;
+  _f_bathrooms?: number;
+  _i_beds?: number;
+  _i_maxGuests?: number;
+  accommodates?: number;
 
-        // Campo: ativo (boolean como string) - legado/compatibilidade UI antiga
-        await supabase.rpc('save_anuncio_field', {
-          p_anuncio_id: anuncioId,
-          p_field: 'ativo',
-          p_value: String(isActive),
-          p_idempotency_key: `ativo-${prop._id}`,
-          p_organization_id: organizationId,
-          p_user_id: DEFAULT_USER_ID
-        });
+  bedroomCounts?: any;
+  address?: any;
+  coordinates?: any;
+  photos?: any[];
+  picture?: any;
 
-        // Status CANÔNICO (coluna) usado pela UI
-        // Atualiza por id (robusto) e retorna o valor para validação.
-        const { data: statusRow, error: statusColumnError } = await supabase
-          .from('anuncios_ultimate')
-          .update({ status: anuncioStatus })
-          .eq('id', anuncioId)
-          .select('id,status,organization_id')
-          .maybeSingle();
-
-        if (statusColumnError) {
-          console.error(`      ❌ Erro ao atualizar coluna status em anuncios_ultimate:`, statusColumnError.message);
-        } else if (!statusRow) {
-          console.error(`      ❌ Coluna status não foi atualizada (nenhuma linha retornada) anuncioId=${anuncioId}`);
-        } else if (statusRow.status !== anuncioStatus) {
-          console.error(`      ❌ Status divergente após update: esperado=${anuncioStatus} atual=${statusRow.status}`);
-        }
-    zip?: string;
-    country?: string;
-    full?: string;                // Endereço completo
-  };
-  
-  // === LOCALIZAÇÃO ===
-  coordinates?: {
-    latitude?: number;
-    longitude?: number;
-  };
-  
-  // === FOTOS ===
-  photos?: Array<{
-    url: string;
-    caption?: string;
-    order?: number;
-  }>;
-  picture?: {                     // Foto principal alternativa
-    thumbnail?: string;
-    large?: string;
-  };
-  
-  // === AMENIDADES E DESCRIÇÃO ===
-  amenities?: string[];           // Comodidades
-  description?: string;           // Descrição
-  publicDescription?: {           // Descrição pública estruturada
-    summary?: string;
-    space?: string;
-    access?: string;
-    notes?: string;
-  };
-  
-  // === STATUS ===
-  active?: boolean;               // Ativo/Inativo
-  published?: boolean;            // Publicado
-  
-  // === OUTROS CAMPOS ÚTEIS ===
+  amenities?: string[];
+  description?: string;
+  publicDescription?: any;
+  cleaningFee?: number;
   importingBlockedStatus?: string;
   timezone?: string;
-  cleaningFee?: number;
-  
-  // Outros campos que podem vir...
+
   [key: string]: any;
 }
 
@@ -216,28 +115,11 @@ export async function importStaysNetProperties(c: Context) {
     // STEP 1: RESOLVER ORG + CARREGAR CONFIG (runtime)
     // ========================================================================
 
-        // NOTE (2025-12-27): fonte de verdade versionada.
-        // `anuncios_ultimate.data.staysnet_raw` é útil para debug rápido, mas a exigência é
-        // salvar o JSON completo de forma escalável e deduplicada (por hash) em `staysnet_raw_objects`.
-        try {
-          const externalId = String((prop as any)._id || (prop as any).id || '').trim() || null;
-          const externalCode = String((prop as any).id || (prop as any).code || '').trim() || null;
-          const store = await storeStaysnetRawObject({
-            supabase,
-            organizationId,
-            domain: 'listings',
-            externalId,
-            externalCode,
-            endpoint: '/booking/listings',
-            payload: prop,
-            fetchedAtIso: new Date().toISOString(),
-          });
-          if (!store.ok) {
-            console.warn(`⚠️ Falha ao salvar staysnet_raw_objects (listings): ${store.error}`);
-          }
-        } catch (e) {
-          console.warn(`⚠️ Falha inesperada ao salvar staysnet_raw_objects (listings): ${e instanceof Error ? e.message : String(e)}`);
-        }
+    // NOTE (2025-12-27): fonte de verdade versionada.
+    // `anuncios_ultimate.data.staysnet_raw` é útil para debug rápido, mas a exigência é
+    // salvar o JSON completo de forma escalável e deduplicada (por hash) em `staysnet_raw_objects`.
+    // A persistência do RAW é feita por property, dentro do loop de importação.
+
     console.log('🔧 [CONFIG] Carregando configuração StaysNet (runtime)...');
 
     // ✅ Preferir organization_id real do usuário; fallback mantém compatibilidade
@@ -406,6 +288,29 @@ export async function importStaysNetProperties(c: Context) {
 
       try {
         // ====================================================================
+        // 2.0: SALVAR RAW COMPLETO (soft-fail) - staysnet_raw_objects
+        // ====================================================================
+        try {
+          const externalId = String((prop as any)._id || (prop as any).id || '').trim() || null;
+          const externalCode = String((prop as any).id || (prop as any).code || '').trim() || null;
+          const store = await storeStaysnetRawObject({
+            supabase,
+            organizationId,
+            domain: 'listings',
+            externalId,
+            externalCode,
+            endpoint: '/content/listings',
+            payload: prop,
+            fetchedAtIso: new Date().toISOString(),
+          });
+          if (!store.ok) {
+            console.warn(`⚠️ Falha ao salvar staysnet_raw_objects (listings): ${store.error}`);
+          }
+        } catch (e) {
+          console.warn(`⚠️ Falha inesperada ao salvar staysnet_raw_objects (listings): ${e instanceof Error ? e.message : String(e)}`);
+        }
+
+        // ====================================================================
         // 2.1: VERIFICAR SE JÁ EXISTE (deduplicação via externalIds staysnet_*)
         // ====================================================================
         const staysnetListingId = prop._id;
@@ -483,6 +388,93 @@ export async function importStaysNetProperties(c: Context) {
           console.log(`🔍 [DEBUG] anuncioId após assignment: ${anuncioId} (tipo: ${typeof anuncioId})`);
           isNewProperty = true;
           console.log(`   ✅ Anúncio criado: ${anuncioId}`);
+        }
+
+        // ====================================================================
+        // 2.2.5: STATUS CANÔNICO (coluna) + debug fields no JSON
+        // ====================================================================
+        try {
+          const staysStatus = (prop.status ?? '').toString().trim().toLowerCase();
+          const staysActiveFlag = typeof prop.active === 'boolean' ? prop.active : null;
+          const staysPublishedFlag = typeof prop.published === 'boolean' ? prop.published : null;
+
+          let anuncioStatus: 'active' | 'draft' | 'inactive' = 'draft';
+
+          if (staysStatus === 'active') {
+            anuncioStatus = 'active';
+          } else if (staysStatus === 'inactive') {
+            anuncioStatus = 'inactive';
+          } else if (staysStatus === 'hidden') {
+            anuncioStatus = 'draft';
+          } else {
+            if (staysActiveFlag === false) {
+              anuncioStatus = 'inactive';
+            } else if (staysPublishedFlag === false) {
+              anuncioStatus = 'draft';
+            } else if (staysActiveFlag === true) {
+              anuncioStatus = 'active';
+            } else {
+              anuncioStatus = 'draft';
+            }
+          }
+
+          const isActive = anuncioStatus === 'active';
+
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'status',
+            p_value: staysStatus || null,
+            p_idempotency_key: `status-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+
+          if (staysActiveFlag !== null) {
+            await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'staysnet_active',
+              p_value: staysActiveFlag,
+              p_idempotency_key: `staysnet_active-${prop._id}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+          }
+          if (staysPublishedFlag !== null) {
+            await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'staysnet_published',
+              p_value: staysPublishedFlag,
+              p_idempotency_key: `staysnet_published-${prop._id}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+          }
+
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'ativo',
+            p_value: String(isActive),
+            p_idempotency_key: `ativo-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+
+          const { data: statusRow, error: statusColumnError } = await supabase
+            .from('anuncios_ultimate')
+            .update({ status: anuncioStatus })
+            .eq('id', anuncioId)
+            .select('id,status,organization_id')
+            .maybeSingle();
+
+          if (statusColumnError) {
+            console.error(`      ❌ Erro ao atualizar coluna status em anuncios_ultimate:`, statusColumnError.message);
+          } else if (!statusRow) {
+            console.error(`      ❌ Coluna status não foi atualizada (nenhuma linha retornada) anuncioId=${anuncioId}`);
+          } else if (statusRow.status !== anuncioStatus) {
+            console.error(`      ❌ Status divergente após update: esperado=${anuncioStatus} atual=${statusRow.status}`);
+          }
+        } catch (e) {
+          console.error(`      ❌ [EXCEPTION] Status mapping/update crashed:`, e);
         }
 
         // ====================================================================

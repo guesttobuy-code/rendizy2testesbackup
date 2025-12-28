@@ -1,5 +1,5 @@
 {
-  "version": "5",
+  "version": "4",
   "specifiers": {
     "jsr:@supabase/supabase-js@2": "2.49.8",
     "jsr:@supabase/supabase-js@2.49.8": "2.49.8",

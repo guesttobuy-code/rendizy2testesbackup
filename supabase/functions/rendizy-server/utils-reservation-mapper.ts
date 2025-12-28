@@ -10,6 +10,20 @@
 
 import type { Reservation } from './types.ts';
 
+function moneyToCents(value: unknown, fallbackCents = 0): number {
+  if (value === null || value === undefined || value === '') return fallbackCents;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallbackCents;
+  return Math.round(n * 100);
+}
+
+function centsToMoney2(cents: unknown, fallback = 0): number {
+  if (cents === null || cents === undefined || cents === '') return fallback;
+  const n = Number(cents);
+  if (!Number.isFinite(n)) return fallback;
+  return Number((n / 100).toFixed(2));
+}
+
 /**
  * Converte Reservation (TypeScript) para formato SQL (tabela reservations)
  */
@@ -46,13 +60,15 @@ export function reservationToSql(reservation: Reservation, organizationId: strin
     guests_total: Math.floor(Math.abs(Number(reservation.guests?.total || reservation.guests?.adults || 1))),
     
     // Precificação (flat)
-    pricing_price_per_night: reservation.pricing?.pricePerNight || 0,
-    pricing_base_total: reservation.pricing?.baseTotal || 0,
-    pricing_cleaning_fee: reservation.pricing?.cleaningFee || 0,
-    pricing_service_fee: reservation.pricing?.serviceFee || 0,
-    pricing_taxes: reservation.pricing?.taxes || 0,
-    pricing_discount: reservation.pricing?.discount || 0,
-    pricing_total: reservation.pricing?.total || 0,
+    // ⚠️ IMPORTANTE: no schema atual do banco esses campos são INTEGER (centavos)
+    // então persistimos sempre em centavos (inteiro) para garantir centavos exatos.
+    pricing_price_per_night: moneyToCents(reservation.pricing?.pricePerNight, 0),
+    pricing_base_total: moneyToCents(reservation.pricing?.baseTotal, 0),
+    pricing_cleaning_fee: moneyToCents(reservation.pricing?.cleaningFee, 0),
+    pricing_service_fee: moneyToCents(reservation.pricing?.serviceFee, 0),
+    pricing_taxes: moneyToCents(reservation.pricing?.taxes, 0),
+    pricing_discount: moneyToCents(reservation.pricing?.discount, 0),
+    pricing_total: moneyToCents(reservation.pricing?.total, 0),
     pricing_currency: reservation.pricing?.currency || 'BRL',
     pricing_applied_tier: reservation.pricing?.appliedTier || null,
     
@@ -195,13 +211,15 @@ export function sqlToReservation(row: any): Reservation {
     
     // Precificação (aninhado)
     pricing: {
-      pricePerNight: toNumber(row.pricing_price_per_night, 0),
-      baseTotal: toNumber(row.pricing_base_total, 0),
-      cleaningFee: toNumber(row.pricing_cleaning_fee, 0),
-      serviceFee: toNumber(row.pricing_service_fee, 0),
-      taxes: toNumber(row.pricing_taxes, 0),
-      discount: toNumber(row.pricing_discount, 0),
-      total: toNumber(row.pricing_total, 0),
+      // ⚠️ IMPORTANTE: no schema atual do banco esses campos são INTEGER (centavos)
+      // e precisamos expor em reais (2 casas) para o frontend.
+      pricePerNight: centsToMoney2(toNumber(row.pricing_price_per_night, 0), 0),
+      baseTotal: centsToMoney2(toNumber(row.pricing_base_total, 0), 0),
+      cleaningFee: centsToMoney2(toNumber(row.pricing_cleaning_fee, 0), 0),
+      serviceFee: centsToMoney2(toNumber(row.pricing_service_fee, 0), 0),
+      taxes: centsToMoney2(toNumber(row.pricing_taxes, 0), 0),
+      discount: centsToMoney2(toNumber(row.pricing_discount, 0), 0),
+      total: centsToMoney2(toNumber(row.pricing_total, 0), 0),
       currency: row.pricing_currency || 'BRL',
       appliedTier: row.pricing_applied_tier || undefined,
     },

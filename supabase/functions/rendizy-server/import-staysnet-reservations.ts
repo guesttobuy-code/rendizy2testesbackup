@@ -739,26 +739,36 @@ export async function importStaysNetReservations(c: Context) {
         // ====================================================================
         // Histórico: versões antigas salvaram `external_id` como confirmationCode,
         // enquanto versões novas preferem `res._id`. Para evitar duplicar no switch,
-        // checamos ambos.
-        const externalIdCandidates = Array.from(
+        // checamos múltiplos candidatos e também tentamos casar por `id` e por
+        // `staysnet_reservation_code`.
+        const staysReservationCodeForDedupe = asTextOrNull(
+          (resFull as any).id ?? (resFull as any).reservationId ?? (resFull as any).confirmationCode,
+        );
+
+        const preferredExternalId = asTextOrNull(resFull._id) || asTextOrNull(resFull.confirmationCode) || asTextOrNull(confirmationCode);
+
+        const dedupeCandidates = Array.from(
           new Set(
-            [asTextOrNull(resFull._id), asTextOrNull(resFull.confirmationCode)]
+            [preferredExternalId, staysReservationCodeForDedupe, asTextOrNull(resFull.confirmationCode), asTextOrNull(confirmationCode)]
               .filter(Boolean)
               .map((x) => String(x))
           )
         );
 
-        const externalId = externalIdCandidates[0] || null;
         const externalUrl = (resFull as any).reservationUrl || null;
 
         let existing: any = null;
         let checkError: any = null;
-        if (externalIdCandidates.length > 0) {
+
+        // 1) Tenta dedupe por external_id
+        if (!existing && dedupeCandidates.length > 0) {
           const resExisting = await supabase
             .from('reservations')
             .select('id, property_id, external_url, guest_id, external_id')
             .eq('organization_id', organizationId)
-            .in('external_id', externalIdCandidates)
+            .in('external_id', dedupeCandidates)
+            .order('updated_at', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
 
@@ -766,15 +776,49 @@ export async function importStaysNetReservations(c: Context) {
           checkError = resExisting.error;
         }
 
+        // 2) Tenta dedupe por id (alguns ambientes salvaram confirmationCode no id)
+        if (!existing && !checkError && dedupeCandidates.length > 0) {
+          const resExisting = await supabase
+            .from('reservations')
+            .select('id, property_id, external_url, guest_id, external_id')
+            .eq('organization_id', organizationId)
+            .in('id', dedupeCandidates)
+            .order('updated_at', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          existing = resExisting.data;
+          checkError = resExisting.error;
+        }
+
+        // 3) Tenta dedupe por staysnet_reservation_code (casos onde o código foi persistido separado)
+        if (!existing && !checkError && dedupeCandidates.length > 0) {
+          const resExisting = await supabase
+            .from('reservations')
+            .select('id, property_id, external_url, guest_id, external_id')
+            .eq('organization_id', organizationId)
+            .in('staysnet_reservation_code', dedupeCandidates)
+            .order('updated_at', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          existing = resExisting.data;
+          checkError = resExisting.error;
+        }
+
+        const externalId = preferredExternalId || existing?.external_id || null;
+
         if (checkError) {
           console.error(`   ❌ Erro ao verificar duplicação:`, checkError.message);
         }
 
-        // ✅ Idempotência: se já existe (por external_id), atualizar ao invés de pular.
-        // Importações repetidas precisam refletir mudanças de status/datas/preços.
-        // Se já existir (por qualquer external_id candidato), atualiza a linha existente.
-        // Se não existir, cria com um id estável (preferindo res._id quando possível).
-        const reservationId = existing?.id || externalId || confirmationCode;
+        // ✅ Contrato canônico (multi-canal):
+        // - `reservations.id` é SEMPRE um UUID interno do Rendizy (string)
+        // - A identidade externa é (organization_id, platform, external_id)
+        // - Para Stays, `external_id` preferencialmente é o `_id` interno (estável)
+        const reservationId = existing?.id || crypto.randomUUID();
         const finalPropertyId = propertyId || existing?.property_id || FALLBACK_PROPERTY_ID;
         const finalExternalUrl = externalUrl || existing?.external_url || null;
 
@@ -917,8 +961,8 @@ export async function importStaysNetReservations(c: Context) {
           null;
 
         const reservationData = {
-          // Identificadores (✅ id é TEXT na tabela, usar confirmationCode)
-          id: reservationId, // TEXT PRIMARY KEY
+          // Identificadores
+          id: reservationId, // TEXT PRIMARY KEY (UUID string)
           organization_id: organizationId,
           property_id: finalPropertyId, // ✅ manter vinculação existente se ainda não resolver property
           guest_id: finalGuestId, // ✅ preservar se já foi populado por import-staysnet-guests.ts
@@ -1000,9 +1044,39 @@ export async function importStaysNetReservations(c: Context) {
 
         let { data: upsertedReservation, error: upsertError } = await supabase
           .from('reservations')
-          .upsert(reservationData, { onConflict: 'id' })
+          .upsert(reservationData, { onConflict: 'organization_id,platform,external_id' })
           .select('id')
           .single();
+
+        // Compat: alguns ambientes ainda têm colunas monetárias como INTEGER (centavos).
+        // Se tentarmos gravar "652.41" em INTEGER, o Postgres retorna:
+        //   invalid input syntax for type integer: "652.41"
+        // Para preservar centavos EXATOS, re-tentamos salvando em centavos inteiros.
+        if (upsertError && /invalid input syntax for type\s+integer/i.test(upsertError.message || '')) {
+          console.warn(
+            `⚠️ Banco parece esperar valores monetários como INTEGER (centavos). Re-tentando upsert com centavos inteiros...`,
+          );
+
+          const reservationDataCents: any = {
+            ...(reservationData as any),
+            pricing_price_per_night: pricePerNightCents,
+            pricing_base_total: resolvedBaseTotalCents,
+            pricing_cleaning_fee: cleaningFeeCents,
+            pricing_service_fee: serviceFeeCents,
+            pricing_taxes: taxesCents,
+            pricing_discount: discountCents,
+            pricing_total: totalCents,
+          };
+
+          const retry = await supabase
+            .from('reservations')
+            .upsert(reservationDataCents, { onConflict: 'organization_id,platform,external_id' })
+            .select('id')
+            .single();
+
+          upsertedReservation = retry.data as any;
+          upsertError = retry.error as any;
+        }
 
         // Compat: se migrations ainda não foram aplicadas, não quebrar o import inteiro.
         if (upsertError && /does not exist/i.test(upsertError.message)) {
@@ -1032,7 +1106,7 @@ export async function importStaysNetReservations(c: Context) {
 
             const retry = await supabase
               .from('reservations')
-              .upsert(reservationDataCompat, { onConflict: 'id' })
+              .upsert(reservationDataCompat, { onConflict: 'organization_id,platform,external_id' })
               .select('id')
               .single();
             upsertedReservation = retry.data as any;
@@ -1041,7 +1115,13 @@ export async function importStaysNetReservations(c: Context) {
         }
 
         if (upsertError) {
-          throw new Error(`Falha ao upsert reservation: ${upsertError.message}`);
+          const anyErr = upsertError as any;
+          const meta = {
+            code: anyErr?.code,
+            details: anyErr?.details,
+            hint: anyErr?.hint,
+          };
+          throw new Error(`Falha ao upsert reservation: ${upsertError.message} | meta: ${JSON.stringify(meta)}`);
         }
 
         // ====================================================================

@@ -641,6 +641,12 @@ if (existing) {
 
 ---
 
+### 4.4 Regra Canônica — Identidade de Reservas (Multi‑Canal)
+
+✅ Documento oficial (não duplicar): `docs/03-conventions/REGRA_IDENTIDADE_RESERVAS.md`
+
+---
+
 ## 5. MIGRAÇÕES E DUPLICATAS
 
 ### 5.1 Preservar IDs Originais

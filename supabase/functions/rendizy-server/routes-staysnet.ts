@@ -1106,10 +1106,11 @@ function mapStaysReservationToSql(
   const nights = safeInt(input?.nights, Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
   if (nights < 1) throw new Error('Nights inválido');
 
-  // No nosso schema, `reservations.id` é o código curto (ex: ES28J / EN41J), não o `_id` interno do Stays.
-  // IMPORTANTE: em backfill/reprocessamento queremos atualizar o registro existente,
-  // evitando criar duplicatas quando um import antigo gravou `id` como `_id`.
-  const id = String(existing?.id || input?.confirmationCode || input?.id || input?.partnerCode || input?._id);
+  // ✅ Contrato canônico (multi-canal):
+  // - `reservations.id` é SEMPRE um UUID interno do Rendizy (string)
+  // - A identidade externa é (organization_id, platform, external_id)
+  // - Para Stays, `external_id` preferencialmente é o `_id` interno (estável)
+  const id = String(existing?.id || crypto.randomUUID());
   if (!id) throw new Error('Reservation sem id');
 
   const priceObj = input?.price || {};
@@ -1294,6 +1295,84 @@ export async function processStaysNetWebhooks(c: Context) {
 }
 
 /**
+ * GET /staysnet/webhooks/diagnostics/:organizationId
+ * Diagnóstico rápido: fila pendente, erros processados e últimos eventos.
+ *
+ * Útil para validar se o webhook está chegando e se o cron/processador está consumindo.
+ */
+export async function getStaysNetWebhooksDiagnostics(c: Context) {
+  try {
+    const { organizationId } = c.req.param();
+    if (!organizationId) return c.json(errorResponse('organizationId is required'), 400);
+
+    const limit = Math.max(1, Math.min(200, Number(c.req.query('limit') || 50)));
+    const supabase = getSupabaseClient();
+
+    const qPending = supabase
+      .from('staysnet_webhooks')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .eq('processed', false);
+
+    const qErrorProcessed = supabase
+      .from('staysnet_webhooks')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .eq('processed', true)
+      .not('error_message', 'is', null);
+
+    const qRecent = supabase
+      .from('staysnet_webhooks')
+      .select('id, action, received_at, processed, processed_at, error_message, metadata, payload')
+      .eq('organization_id', organizationId)
+      .order('received_at', { ascending: false })
+      .limit(limit);
+
+    const [rPending, rErrProcessed, rRecent] = await Promise.all([qPending, qErrorProcessed, qRecent]);
+    const firstError = rPending.error || rErrProcessed.error || rRecent.error;
+    if (firstError) {
+      return c.json(errorResponse('Failed to load Stays.net webhook diagnostics', { details: firstError.message }), 500);
+    }
+
+    const rows = (rRecent.data || []) as any[];
+
+    const recent = rows.map((row) => {
+      const reservationId = extractReservationIdFromPayload(row?.payload);
+      const signature = row?.metadata?.headers?.['x-stays-signature'] || null;
+      const signatureVerified = row?.metadata?.signature_verification?.verified ?? null;
+      const signatureReason = row?.metadata?.signature_verification?.reason ?? null;
+      return {
+        id: row.id,
+        action: row.action,
+        reservationId,
+        received_at: row.received_at,
+        processed: row.processed,
+        processed_at: row.processed_at || null,
+        error_message: row.error_message || null,
+        signature: signature ? String(signature).slice(0, 12) + '…' : null,
+        signature_verified: signatureVerified,
+        signature_reason: signatureReason,
+      };
+    });
+
+    return c.json(
+      successResponse({
+        organizationId,
+        counts: {
+          pending: rPending.count ?? 0,
+          processedWithError: rErrProcessed.count ?? 0,
+          recentReturned: recent.length,
+        },
+        recent,
+      }),
+    );
+  } catch (error: any) {
+    logError('Error loading Stays.net webhook diagnostics', error);
+    return c.json(errorResponse('Failed to load webhook diagnostics', { details: error?.message || String(error) }), 500);
+  }
+}
+
+/**
  * POST /staysnet/backfill/guests/:organizationId
  * Backfill: cria/vincula guests para reservas que ainda estão com guest_id = null.
  *
@@ -1353,7 +1432,9 @@ export async function backfillStaysNetReservationGuests(c: Context) {
           created_by: null,
         });
 
-        const { error: upErr } = await supabase.from('reservations').upsert(sqlData, { onConflict: 'id' });
+        const { error: upErr } = await supabase
+          .from('reservations')
+          .upsert(sqlData, { onConflict: 'organization_id,platform,external_id' });
         if (upErr) {
           errors++;
           continue;
@@ -1420,6 +1501,14 @@ export async function processPendingStaysNetWebhooksForOrg(
         continue;
       }
 
+      // Pagamentos não impactam calendário; hoje não temos pipeline de conciliação financeira via webhook.
+      // Para evitar ruído e falhas com IDs errados (paymentId vs reservationId), marcamos como processado.
+      if (action.startsWith('reservation.payments.')) {
+        skipped++;
+        await staysnetDB.markWebhookProcessedDB(hook.id);
+        continue;
+      }
+
       const reservationId = extractReservationIdFromPayload(hook.payload);
 
       // Para deleted, pode não existir mais na API. Tentamos atualizar no SQL direto.
@@ -1428,6 +1517,7 @@ export async function processPendingStaysNetWebhooksForOrg(
           const { error: updErr } = await supabase
             .from('reservations')
             .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+            .eq('organization_id', organizationId)
             .or(`id.eq.${reservationId},external_id.eq.${reservationId}`);
           if (updErr) console.warn('[StaysNet Webhook] delete→update falhou:', updErr.message);
         }
@@ -1447,6 +1537,7 @@ export async function processPendingStaysNetWebhooksForOrg(
           const { error: updErr } = await supabase
             .from('reservations')
             .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+            .eq('organization_id', organizationId)
             .or(`id.eq.${reservationId},external_id.eq.${reservationId}`);
           if (updErr) throw new Error(`Falha ao marcar cancelada: ${updErr.message}`);
           updated++;
@@ -1469,29 +1560,68 @@ export async function processPendingStaysNetWebhooksForOrg(
 
       let existing: any = null;
 
-      const idCandidate = String(
-        staysReservation?.confirmationCode || staysReservation?.id || staysReservation?.partnerCode || staysReservation?._id || reservationId,
+      // Dedupe: o mesmo booking pode aparecer com IDs diferentes ao longo do tempo
+      // (ex.: confirmationCode vs _id). Para evitar duplicação e evitar violar o
+      // unique (organization_id, platform, external_id), tentamos casar por múltiplos
+      // campos, sempre filtrando pela organização.
+      const preferredExternalId = (staysReservation?._id ?? reservationId) ? String(staysReservation?._id ?? reservationId) : null;
+      const staysReservationCode = (staysReservation?.id ?? staysReservation?.reservationId ?? staysReservation?.confirmationCode)
+        ? String(staysReservation?.id ?? staysReservation?.reservationId ?? staysReservation?.confirmationCode)
+        : null;
+
+      const dedupeCandidates = Array.from(
+        new Set(
+          [preferredExternalId, staysReservationCode, staysReservation?.confirmationCode, reservationId]
+            .filter(Boolean)
+            .map((x) => String(x))
+        )
       );
 
-      const externalIdCandidate = String(staysReservation?._id || reservationId);
-
-      if (idCandidate) {
+      // 1) external_id
+      if (!existing && dedupeCandidates.length > 0) {
         const ex = await supabase
           .from('reservations')
-          .select('id, property_id, guest_id, created_by')
-          .eq('id', idCandidate)
+          .select('id, property_id, guest_id, created_by, external_id')
+          .eq('organization_id', organizationId)
+          .in('external_id', dedupeCandidates)
+          .order('updated_at', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
         if (!ex.error && ex.data) existing = ex.data;
       }
 
-      // Fallback: se a reserva já existe (criada por import), é comum estar com external_id = _id interno do Stays.
-      if (!existing && externalIdCandidate) {
+      // 2) id
+      if (!existing && dedupeCandidates.length > 0) {
         const ex = await supabase
           .from('reservations')
-          .select('id, property_id, guest_id, created_by')
-          .eq('external_id', externalIdCandidate)
+          .select('id, property_id, guest_id, created_by, external_id')
+          .eq('organization_id', organizationId)
+          .in('id', dedupeCandidates)
+          .order('updated_at', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
         if (!ex.error && ex.data) existing = ex.data;
+      }
+
+      // 3) staysnet_reservation_code
+      if (!existing && dedupeCandidates.length > 0) {
+        const ex = await supabase
+          .from('reservations')
+          .select('id, property_id, guest_id, created_by, external_id')
+          .eq('organization_id', organizationId)
+          .in('staysnet_reservation_code', dedupeCandidates)
+          .order('updated_at', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!ex.error && ex.data) existing = ex.data;
+      }
+
+      // Se não vier externalId no payload, não apagamos o que já existe.
+      if (!staysReservation?._id && existing?.external_id) {
+        (staysReservation as any)._id = existing.external_id;
       }
 
       let resolvedPropertyId: string | null = null;
@@ -1509,7 +1639,7 @@ export async function processPendingStaysNetWebhooksForOrg(
 
       const { error: upErr } = await supabase
         .from('reservations')
-        .upsert(sqlData, { onConflict: 'id' });
+        .upsert(sqlData, { onConflict: 'organization_id,platform,external_id' });
 
       if (upErr) throw new Error(`Upsert failed: ${upErr.message}`);
 
@@ -1522,6 +1652,142 @@ export async function processPendingStaysNetWebhooksForOrg(
   }
 
   return { processed, updated, skipped, errors };
+}
+
+export async function reconcileStaysNetReservations(c: Context) {
+  try {
+    const organizationId = c.req.param('organizationId');
+    const body = await c.req.json().catch(() => ({}));
+
+    const dryRun = Boolean((body as any)?.dryRun ?? true);
+    const groupLimit = Math.max(1, Math.min(200, Number((body as any)?.limit) || 25));
+    const scanLimit = Math.max(100, Math.min(20000, Number((body as any)?.scanLimit) || 5000));
+
+    const supabase = getSupabaseClient();
+
+    const { data: rows, error } = await supabase
+      .from('reservations')
+      .select(
+        'id, organization_id, platform, external_id, staysnet_reservation_code, status, cancelled_at, cancellation_reason, property_id, guest_id, updated_at, created_at',
+      )
+      .eq('organization_id', organizationId)
+      .not('external_id', 'is', null)
+      .order('external_id', { ascending: true })
+      .order('updated_at', { ascending: false })
+      .limit(scanLimit);
+
+    if (error) {
+      return c.json(errorResponse(`Failed to scan reservations: ${error.message}`), 500);
+    }
+
+    const byKey = new Map<string, any[]>();
+    for (const r of rows || []) {
+      const platform = String((r as any).platform || 'other');
+      const externalId = String((r as any).external_id || '');
+      if (!externalId) continue;
+      const key = `${platform}||${externalId}`;
+      const arr = byKey.get(key) || [];
+      arr.push(r);
+      byKey.set(key, arr);
+    }
+
+    const duplicateGroups = Array.from(byKey.entries()).filter(([, arr]) => arr.length > 1);
+
+    const planned = duplicateGroups.slice(0, groupLimit).map(([key, group]) => {
+      // Prefer manter o registro cujo id == external_id (id canônico estável), senão o mais recente.
+      const sorted = [...group].sort((a, b) => {
+        const au = new Date((a as any).updated_at || (a as any).created_at || 0).getTime();
+        const bu = new Date((b as any).updated_at || (b as any).created_at || 0).getTime();
+        return bu - au;
+      });
+
+      const externalId = String((sorted[0] as any).external_id);
+      const canonical = group.find((x) => String((x as any).id) === externalId) || sorted[0];
+      const losers = group.filter((x) => String((x as any).id) !== String((canonical as any).id));
+
+      const latest = sorted[0];
+      const merged = {
+        status: (latest as any).status,
+        cancelled_at: (latest as any).cancelled_at,
+        cancellation_reason: (latest as any).cancellation_reason,
+        property_id: (canonical as any).property_id || (latest as any).property_id,
+        guest_id: (canonical as any).guest_id || (latest as any).guest_id,
+        staysnet_reservation_code:
+          (canonical as any).staysnet_reservation_code ||
+          (latest as any).staysnet_reservation_code ||
+          losers.map((x) => (x as any).staysnet_reservation_code).find(Boolean) ||
+          null,
+      };
+
+      return {
+        key,
+        external_id: externalId,
+        platform: String((canonical as any).platform),
+        keep_id: String((canonical as any).id),
+        merge_from_ids: losers.map((x) => String((x as any).id)),
+        merged,
+      };
+    });
+
+    const stats = {
+      scanned: (rows || []).length,
+      duplicateGroups: duplicateGroups.length,
+      plannedGroups: planned.length,
+      dryRun,
+      repointed: 0,
+      deleted: 0,
+      updated: 0,
+      errors: 0,
+    };
+
+    if (dryRun) {
+      return c.json(successResponse({ stats, planned }));
+    }
+
+    for (const plan of planned) {
+      try {
+        // 1) Atualiza o registro canônico com o estado mais recente
+        const { error: updErr } = await supabase
+          .from('reservations')
+          .update(plan.merged)
+          .eq('organization_id', organizationId)
+          .eq('id', plan.keep_id);
+        if (updErr) throw updErr;
+        stats.updated++;
+
+        // 2) Repontar dependências conhecidas
+        for (const loserId of plan.merge_from_ids) {
+          const updChat = await supabase
+            .from('chat_conversations')
+            .update({ reservation_id: plan.keep_id })
+            // Algumas bases têm reservation_id como UUID; se der erro, registramos e seguimos.
+            .eq('reservation_id', loserId);
+          if (!updChat.error && (updChat as any).data) stats.repointed++;
+
+          const updFin = await supabase
+            .from('financeiro_titulos')
+            .update({ reservation_id: plan.keep_id })
+            .eq('reservation_id', loserId);
+          if (!updFin.error && (updFin as any).data) stats.repointed++;
+
+          // 3) Apaga a duplicata
+          const { error: delErr } = await supabase
+            .from('reservations')
+            .delete()
+            .eq('organization_id', organizationId)
+            .eq('id', loserId);
+          if (delErr) throw delErr;
+          stats.deleted++;
+        }
+      } catch (e: any) {
+        stats.errors++;
+      }
+    }
+
+    return c.json(successResponse({ stats, planned }));
+  } catch (error: any) {
+    return c.json(errorResponse(error?.message || 'Failed to reconcile reservations'), 500);
+  }
 }
 
 /**

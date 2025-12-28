@@ -163,6 +163,36 @@ export default function StaysNetIntegration() {
     }
   };
 
+  // Regra de negócio: reservas e hóspedes sempre importados juntos.
+  // Imóveis são independentes.
+  const handleImportReservationsAndGuests = async () => {
+    try {
+      // Reservas dependem do filtro de imóveis. Se não carregou, busca agora.
+      const props = availableProperties.length > 0 ? availableProperties : await fetchProperties(config);
+      const allIds = props.map((p: any) => p?.id || p?._id).filter(Boolean);
+
+      if (allIds.length > 0) {
+        // Mantém UI consistente mostrando o universo que vai ser usado nas reservas.
+        selectProperties(allIds);
+      }
+
+      await importReservations(config, {
+        selectedPropertyIds: allIds,
+        startDate: importDateRange.startDate,
+        endDate: importDateRange.endDate,
+        dateType: importDateRange.dateType,
+      });
+
+      await importGuests(config, {
+        startDate: importDateRange.startDate,
+        endDate: importDateRange.endDate,
+        dateType: importDateRange.dateType,
+      });
+    } catch (error) {
+      // Error is already logged by the hook
+    }
+  };
+
   const handleImportAll = async () => {
     try {
       let ids = selectedPropertyIds;
@@ -266,6 +296,7 @@ export default function StaysNetIntegration() {
             onImportUpsertAll={handleImportUpsertAll}
             onImportReservations={handleImportReservations}
             onImportGuests={handleImportGuests}
+            onImportReservationsAndGuests={handleImportReservationsAndGuests}
             onImportAll={handleImportAll}
             onImportOneForTest={handleImportOneForTest}
             startDate={importDateRange.startDate}

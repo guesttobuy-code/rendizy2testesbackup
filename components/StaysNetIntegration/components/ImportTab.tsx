@@ -9,12 +9,12 @@ import { Alert, AlertDescription } from '../../ui/alert';
 import { Label } from '../../ui/label';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Progress } from '../../ui/progress';
 import { LoadingButton } from './LoadingButton';
 import { ImportStats } from './ImportStats';
 import { ImportProgress, ImportProgressData } from './ImportProgress';
-import { Database, AlertCircle, FileText } from 'lucide-react';
+import { AlertCircle, FileText, Home, CalendarDays } from 'lucide-react';
 import type { StaysNetConfig, ImportStats as ImportStatsType, ImportType, ImportPreview, ImportLogEntry } from '../types';
+import { PropertySelector } from './PropertySelector';
 
 interface ImportTabProps {
   config: StaysNetConfig;
@@ -39,6 +39,7 @@ interface ImportTabProps {
   onImportUpsertAll: () => void;
   onImportReservations: () => void;
   onImportGuests: () => void;
+  onImportReservationsAndGuests: () => void;
   onImportAll: () => void;
   onImportOneForTest: () => void;  // NEW: Test import with 1 property
   // Date range
@@ -53,19 +54,31 @@ interface ImportTabProps {
 }
 
 export function ImportTab({
+  // Properties
+  availableProperties,
+  selectedPropertyIds,
+  preview,
+  loadingProperties,
+  onFetchProperties,
+  onToggleProperty,
+  onSelectAllProperties,
+  onDeselectAllProperties,
+  // Import
   isImporting,
   importType,
   stats,
   error,
   importLogs = [],
-  onImportAll,
+  onImportProperties,
+  onImportReservationsAndGuests,
   startDate,
   endDate,
   onDateChange,
   dateType,
   onDateTypeChange,
   importProgress,
-  overallProgress = 0,
+  onImportNewOnly,
+  onImportUpsertAll,
 }: ImportTabProps) {
   const lastLogs = importLogs.slice(-25);
 
@@ -131,15 +144,94 @@ export function ImportTab({
         </CardContent>
       </Card>
 
-      {/* Import All Section */}
+      {/* Properties / Listings Section */}
+      <Card className="bg-blue-50/50 dark:bg-blue-950/20 border-blue-200">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Home className="w-4 h-4" />
+            Importação de Imóveis (Anúncios)
+          </CardTitle>
+          <CardDescription>
+            Importa imóveis/listings. Pode ser feito separado de reservas e hóspedes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <LoadingButton
+            onClick={onFetchProperties}
+            isLoading={loadingProperties}
+            loadingText="Carregando imóveis..."
+            className="w-full"
+            variant="outline"
+            icon={<Home className="w-4 h-4 mr-2" />}
+          >
+            Carregar imóveis do Stays.net
+          </LoadingButton>
+
+          {preview && (
+            <div className="text-sm text-slate-700 dark:text-slate-300 rounded-md border p-3">
+              <div className="font-medium">Preview (sem escrever no banco)</div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                Remotos: {preview.totalRemote} • Novos: {preview.newCount} • Já existentes: {preview.existingCount}
+              </div>
+            </div>
+          )}
+
+          {availableProperties?.length > 0 && (
+            <PropertySelector
+              properties={availableProperties}
+              selectedIds={selectedPropertyIds}
+              onToggleProperty={onToggleProperty}
+              onSelectAll={onSelectAllProperties}
+              onDeselectAll={onDeselectAllProperties}
+            />
+          )}
+
+          <div className="grid grid-cols-1 gap-2">
+            <LoadingButton
+              onClick={onImportProperties}
+              isLoading={isImporting && importType === 'properties'}
+              loadingText="Importando imóveis..."
+              className="w-full"
+              size="lg"
+              icon={<Home className="w-4 h-4 mr-2" />}
+            >
+              Importar imóveis selecionados
+            </LoadingButton>
+
+            <div className="grid grid-cols-2 gap-2">
+              <LoadingButton
+                onClick={onImportNewOnly}
+                isLoading={false}
+                loadingText=""
+                className="w-full"
+                variant="outline"
+              >
+                Importar somente novos
+              </LoadingButton>
+
+              <LoadingButton
+                onClick={onImportUpsertAll}
+                isLoading={false}
+                loadingText=""
+                className="w-full"
+                variant="outline"
+              >
+                Importar todos (upsert)
+              </LoadingButton>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Reservations + Guests Section */}
       <Card className="bg-orange-50/50 dark:bg-orange-950/20 border-orange-200">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Importação Completa
+            <CalendarDays className="w-4 h-4" />
+            Importação de Reservas + Hóspedes
           </CardTitle>
           <CardDescription>
-            Importa imóveis, reservas e hóspedes (em etapas) com persistência
+            Regra: reservas e hóspedes rodam sempre juntos. Imóveis não são obrigatórios aqui.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -180,24 +272,15 @@ export function ImportTab({
           </div>
 
           <LoadingButton
-            onClick={onImportAll}
-            isLoading={isImporting && importType === 'all'}
-            loadingText="Importando tudo..."
+            onClick={onImportReservationsAndGuests}
+            isLoading={isImporting && (importType === 'reservations' || importType === 'guests')}
+            loadingText="Importando reservas e hóspedes..."
             className="w-full whitespace-normal text-left leading-snug"
             size="lg"
-            icon={<Database className="w-4 h-4 mr-2" />}
+            icon={<CalendarDays className="w-4 h-4 mr-2" />}
           >
-            Confirmar e Importar Tudo
+            Confirmar e Importar Reservas + Hóspedes
           </LoadingButton>
-
-          {isImporting && (
-            <div className="space-y-2">
-              <Progress value={overallProgress} className="h-2" />
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Importando... {overallProgress.toFixed(0)}%
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 

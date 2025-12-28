@@ -143,7 +143,8 @@ async function fetchStaysClientDetails(params: {
 
   const url = `${params.baseUrl}/booking/clients/${encodeURIComponent(clientId)}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
+  // Edge runtime safety: manter baixo para não estourar timeout em batch grande.
+  const timeout = setTimeout(() => controller.abort(), 3_000);
 
   try {
     const resp = await fetch(url, {
@@ -180,6 +181,23 @@ function hash32Hex(input: string): string {
 
 function sanitizeDigits(input: string): string {
   return String(input || '').replace(/\D+/g, '');
+}
+
+function safeIsoDateOnly(input: unknown): string | null {
+  const s = asNonEmptyString(input);
+  if (!s) return null;
+
+  // Formato já ok
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // Tentativa de parse tolerante (ex: ISO datetime)
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return null;
+  try {
+    return new Date(t).toISOString().slice(0, 10);
+  } catch {
+    return null;
+  }
 }
 
 function normalizeStaysDateType(input: string): 'arrival' | 'departure' | 'creation' | 'creationorig' | 'included' {
@@ -353,7 +371,9 @@ export async function importStaysNetGuests(c: Context) {
   let fetched = 0;
   let processed = 0;
   let created = 0;
+  let updated = 0;
   let linked = 0;
+  let alreadyLinked = 0;
   let skipped = 0;
   let errors = 0;
   const errorDetails: Array<{guest: string, error: string}> = [];
@@ -406,8 +426,10 @@ export async function importStaysNetGuests(c: Context) {
     const dateType = normalizeStaysDateType(rawDateType);
     // ✅ Stays.net: limit max 20
     const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
-    // ✅ Segurança anti-timeout: default de poucas páginas. O caller pode continuar via `next.skip`.
-    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
+    // ✅ Segurança anti-timeout (Edge): limitar páginas por request.
+    // O caller pode continuar via `next.skip` em múltiplas chamadas.
+    const requestedMaxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
+    const maxPages = Math.min(1, requestedMaxPages);
     let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
     const startSkip = skip;
     let hasMore = false;
@@ -531,6 +553,7 @@ export async function importStaysNetGuests(c: Context) {
         method: 'import-guests',
         stats: { fetched: 0, processed: 0, created: 0, linked: 0, skipped: 0, errors: 0 },
         next: { skip: startSkip, hasMore: false },
+        errorDetails: [],
         message: 'Nenhuma reservation encontrada na API StaysNet'
       });
     }
@@ -625,6 +648,54 @@ export async function importStaysNetGuests(c: Context) {
           existingGuest = (byEmail as any) || null;
         }
 
+        // Fallback de dedupe (RULES: email OU documento)
+        // Ajuda a manter idempotência quando o email muda (ex: sintético → real).
+        if (!existingGuest && guestData.cpf) {
+          try {
+            const cpfDigits = sanitizeDigits(guestData.cpf);
+            if (cpfDigits) {
+              const { data: byCpf, error: cpfErr } = await supabase
+                .from('guests')
+                .select('id')
+                .eq('organization_id', orgId)
+                .eq('cpf', cpfDigits)
+                .maybeSingle();
+              if (cpfErr) {
+                const msg = String(cpfErr.message || '');
+                if (!(/cpf/i.test(msg) && /does not exist/i.test(msg))) {
+                  console.warn(`   ⚠️ Falha ao verificar guest por cpf: ${msg}`);
+                }
+              }
+              existingGuest = (byCpf as any) || null;
+            }
+          } catch (e) {
+            console.warn(`   ⚠️ Falha inesperada ao verificar guest por cpf: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+
+        if (!existingGuest && guestData.passport) {
+          try {
+            const passport = guestData.passport.trim();
+            if (passport) {
+              const { data: byPassport, error: passErr } = await supabase
+                .from('guests')
+                .select('id')
+                .eq('organization_id', orgId)
+                .eq('passport', passport)
+                .maybeSingle();
+              if (passErr) {
+                const msg = String(passErr.message || '');
+                if (!(/passport/i.test(msg) && /does not exist/i.test(msg))) {
+                  console.warn(`   ⚠️ Falha ao verificar guest por passport: ${msg}`);
+                }
+              }
+              existingGuest = (byPassport as any) || null;
+            }
+          } catch (e) {
+            console.warn(`   ⚠️ Falha inesperada ao verificar guest por passport: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+
         let guestId: string;
 
         if (existingGuest) {
@@ -650,6 +721,8 @@ export async function importStaysNetGuests(c: Context) {
               } else if (upd.error) {
                 console.warn(`   ⚠️ Falha ao atualizar staysnet_raw do guest existente: ${upd.error.message}`);
               }
+
+              if (!upd.error) updated++;
             } catch (e) {
               console.warn(`   ⚠️ Falha inesperada ao atualizar staysnet_raw do guest existente: ${e instanceof Error ? e.message : String(e)}`);
             }
@@ -660,6 +733,11 @@ export async function importStaysNetGuests(c: Context) {
           // ================================================================
           console.log(`   ➕ Criando novo guest...`);
           
+          const birthDateIso = safeIsoDateOnly(guestData.birthDate);
+          if (guestData.birthDate && !birthDateIso) {
+            console.warn(`   ⚠️ birthDate inválida/inesperada (ignorado): ${String(guestData.birthDate)}`);
+          }
+
           const newGuestData = {
             id: crypto.randomUUID(),
             organization_id: orgId,
@@ -667,9 +745,9 @@ export async function importStaysNetGuests(c: Context) {
             last_name: guestData.lastName,
             email: guestData.email,
             phone: guestData.phone || null,
-            cpf: guestData.cpf || null,
+            cpf: guestData.cpf ? sanitizeDigits(guestData.cpf) : null,
             passport: guestData.passport || null,
-            birth_date: guestData.birthDate ? new Date(guestData.birthDate).toISOString().split('T')[0] : null,
+            birth_date: birthDateIso,
             nationality: guestData.nationality || null,
             language: guestData.language || 'pt-BR',
             source: guestData.source,
@@ -728,12 +806,18 @@ export async function importStaysNetGuests(c: Context) {
 
           if (linkError) {
             console.error(`   ❌ Erro ao vincular guest à reservation:`, linkError.message);
+            errors++;
+            errorDetails.push({
+              guest: confirmationCode,
+              error: `Falha ao vincular guest_id=${guestId} na reservation_id=${reservation.id}: ${linkError.message}`,
+            });
           } else {
             console.log(`   🔗 Guest vinculado à reservation: ${reservation.id}`);
             linked++;
           }
         } else {
           console.log(`   ✓ Guest já estava vinculado`);
+          alreadyLinked++;
         }
 
       } catch (err: any) {
@@ -755,7 +839,9 @@ export async function importStaysNetGuests(c: Context) {
     console.log(`   Fetched:    ${fetched}`);
     console.log(`   Processed:  ${processed}`);
     console.log(`   Created:    ${created}`);
+    console.log(`   Updated:    ${updated}`);
     console.log(`   Linked:     ${linked}`);
+    console.log(`   AlreadyLinked: ${alreadyLinked}`);
     console.log(`   Skipped:    ${skipped}`);
     console.log(`   Errors:     ${errors}`);
     console.log('═══════════════════════════════════════════════════\n');
@@ -775,9 +861,9 @@ export async function importStaysNetGuests(c: Context) {
       success: errors < processed,
       method: 'import-guests',
       table: 'guests',
-      stats: { fetched, processed, created, linked, skipped, errors },
+      stats: { fetched, processed, created, updated, linked, alreadyLinked, skipped, errors },
       next: { skip: nextSkip, hasMore: nextHasMore },
-      errorDetails: errors > 0 ? errorDetails : undefined,
+      errorDetails,
       message: `Importados ${created} guests de StaysNet, ${linked} vinculados a reservations (skipped: ${skipped})`
     });
 
@@ -790,8 +876,9 @@ export async function importStaysNetGuests(c: Context) {
       success: false,
       method: 'import-guests',
       error: error.message,
-      stats: { fetched, processed, created, linked, skipped, errors },
-      next: { skip: nextSkip, hasMore: false }
+      stats: { fetched, processed, created, updated, linked, alreadyLinked, skipped, errors },
+      next: { skip: nextSkip, hasMore: false },
+      errorDetails
     }, 500);
   }
 }

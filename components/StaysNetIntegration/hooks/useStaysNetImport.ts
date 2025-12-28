@@ -296,7 +296,13 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     );
 
     try {
-      const properties = await StaysNetService.fetchAllProperties(config);
+      const rawProperties = await StaysNetService.fetchAllProperties(config);
+
+      // Normaliza: Stays.net entrega `_id`, mas o UI usa `id`
+      const properties: StaysNetProperty[] = (rawProperties || [])
+        .map((p: any) => ({ ...p, id: p?._id || p?.id }))
+        .filter((p: any) => Boolean(p?.id));
+
       dispatch({ type: 'FETCH_PROPERTIES_SUCCESS', payload: properties });
       staysnetLogger.properties.success(`${properties.length} propriedades carregadas`);
 
@@ -304,9 +310,7 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         fetchedProperties: properties.length,
       });
 
-      // ⚡ CRITICAL: Stays.net usa '_id' (não 'id')!
-      // As properties vêm com { _id: "PY02H", ... } da API
-      const propertyIds = properties.map((p) => (p as any)._id || p.id).filter(Boolean);
+      const propertyIds = properties.map((p) => p.id).filter(Boolean);
       
       console.log(`[useStaysNetImport] 🔍 Extracted ${propertyIds.length} property IDs`);
       console.log(`[useStaysNetImport] 📋 Sample IDs:`, propertyIds.slice(0, 5));
