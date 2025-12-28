@@ -87,6 +87,11 @@ function buildReason(type: string): string {
   return 'Bloqueio (Stays.net)';
 }
 
+function isStaysBlockLikeType(rawType: any): boolean {
+  const t = String(rawType || '').trim().toLowerCase();
+  return t === 'blocked' || t === 'bloqueado' || t === 'maintenance' || t === 'manutenção' || t === 'manutencao';
+}
+
 export async function importStaysNetBlocks(c: Context) {
   console.log('\n═══════════════════════════════════════════════════');
   console.log('⚡ IMPORT STAYSNET - BLOCKS (BLOQUEIOS)');
@@ -237,6 +242,36 @@ export async function importStaysNetBlocks(c: Context) {
 
         if (existingError) {
           console.warn(`   ⚠️ Erro ao verificar duplicação block ${itemId}: ${existingError.message}`);
+        }
+
+        // ✅ Reparar bug antigo: bloqueio vindo da Stays não pode ficar em `reservations`
+        // Se existirem reservas com staysnet_type=blocked/maintenance no mesmo range, removemos.
+        try {
+          const { data: wrongRows, error: wrongErr } = await supabase
+            .from('reservations')
+            .select('id, staysnet_type, staysnet_raw')
+            .eq('organization_id', organizationId)
+            .eq('property_id', propertyId)
+            .eq('check_in', checkIn)
+            .eq('check_out', checkOut)
+            .limit(25);
+
+          if (wrongErr) {
+            console.warn(`   ⚠️ Erro ao buscar reservas misclassificadas p/ cleanup: ${wrongErr.message}`);
+          } else if (wrongRows?.length) {
+            const toDelete = wrongRows.filter(
+              (r: any) => isStaysBlockLikeType(r?.staysnet_type) || isStaysBlockLikeType(r?.staysnet_raw?.type),
+            );
+            for (const r of toDelete) {
+              await supabase
+                .from('reservations')
+                .delete()
+                .eq('organization_id', organizationId)
+                .eq('id', r.id);
+            }
+          }
+        } catch (e: any) {
+          console.warn(`   ⚠️ Falha no cleanup de reservas misclassificadas: ${e?.message || String(e)}`);
         }
 
         if (existing?.id) {

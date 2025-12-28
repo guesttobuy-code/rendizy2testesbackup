@@ -6,6 +6,8 @@ import * as staysnetDB from './staysnet-db.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 import { resolveOrCreateGuestIdFromStaysReservation } from './utils-staysnet-guest-link.ts';
+import type { Block, BlockSubtype } from './types.ts';
+import { blockToSql } from './utils-block-mapper.ts';
 
 // ============================================================================
 // TYPES
@@ -1035,6 +1037,36 @@ function deriveReservationStatus(input: { type?: string; status?: string }): str
   return fromStatus;
 }
 
+function isStaysBlockLikeType(rawType: any): boolean {
+  const t = String(rawType || '').trim().toLowerCase();
+  return t === 'blocked' || t === 'bloqueado' || t === 'maintenance' || t === 'manutenção' || t === 'manutencao';
+}
+
+function mapBlockSubtypeFromStaysType(rawType: any): BlockSubtype {
+  const t = String(rawType || '').trim().toLowerCase();
+  if (t === 'maintenance' || t === 'manutenção' || t === 'manutencao') return 'maintenance';
+  return 'simple';
+}
+
+function buildBlockReasonFromStaysType(rawType: any): string {
+  const t = String(rawType || '').trim().toLowerCase();
+  if (t === 'maintenance' || t === 'manutenção' || t === 'manutencao') return 'Manutenção (Stays.net)';
+  return 'Bloqueio (Stays.net)';
+}
+
+function toYmd(value: any): string | null {
+  if (!value) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+  return s.split('T')[0];
+}
+
+function calcNightsYmd(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 function mapPaymentStatus(raw: string | undefined, fallback: string = 'pending'): string {
   if (!raw) return fallback;
   const v = String(raw).trim().toLowerCase();
@@ -1277,8 +1309,8 @@ async function applyCancellationForCandidates(
 
   for (const r of rows) {
     const isBlocked =
-      String((r as any).staysnet_type || '').trim().toLowerCase() === 'blocked' ||
-      String((r as any).staysnet_raw?.type || '').trim().toLowerCase() === 'blocked';
+      isStaysBlockLikeType((r as any).staysnet_type) ||
+      isStaysBlockLikeType((r as any).staysnet_raw?.type);
 
     if (isBlocked) {
       const { error } = await supabase
@@ -1307,6 +1339,96 @@ async function applyCancellationForCandidates(
   }
 
   return { matched: rows.length, cancelled, deletedBlocks };
+}
+
+async function cleanupMisclassifiedBlockReservations(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  organizationId: string,
+  candidates: string[],
+): Promise<number> {
+  const rows = await findReservationsByCandidates(supabase, organizationId, candidates);
+  if (rows.length === 0) return 0;
+
+  const misclassified = rows.filter(
+    (r) => isStaysBlockLikeType((r as any).staysnet_type) || isStaysBlockLikeType((r as any).staysnet_raw?.type),
+  );
+
+  let deleted = 0;
+  for (const r of misclassified) {
+    const { error } = await supabase
+      .from('reservations')
+      .delete()
+      .eq('organization_id', organizationId)
+      .eq('id', (r as any).id);
+    if (!error) deleted++;
+  }
+  return deleted;
+}
+
+async function upsertBlockFromStaysReservation(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  organizationId: string,
+  propertyId: string,
+  startDate: string,
+  endDate: string,
+  subtype: BlockSubtype,
+  reason: string,
+  staysMeta: any,
+): Promise<{ created: boolean; id: string } | null> {
+  const { data: existing, error: existingError } = await supabase
+    .from('blocks')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('property_id', propertyId)
+    .eq('start_date', startDate)
+    .eq('end_date', endDate)
+    .eq('subtype', subtype)
+    .maybeSingle();
+
+  if (existingError) {
+    console.warn('[StaysNet Webhook] Failed to check existing block:', existingError.message);
+  }
+
+  const now = new Date().toISOString();
+  const notes = JSON.stringify({ staysnet: staysMeta });
+
+  if (existing?.id) {
+    const { error: updErr } = await supabase
+      .from('blocks')
+      .update({ reason, notes, updated_at: now })
+      .eq('organization_id', organizationId)
+      .eq('id', existing.id);
+    if (updErr) {
+      console.warn('[StaysNet Webhook] Failed to update existing block:', updErr.message);
+      return null;
+    }
+    return { created: false, id: existing.id };
+  }
+
+  const nights = Math.max(1, calcNightsYmd(startDate, endDate));
+  const block: Block = {
+    id: crypto.randomUUID(),
+    propertyId,
+    startDate,
+    endDate,
+    nights,
+    type: 'block',
+    subtype,
+    reason,
+    notes,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 'staysnet-webhook',
+  };
+
+  const sqlData = blockToSql(block, organizationId);
+  const { error: insErr } = await supabase.from('blocks').insert(sqlData);
+  if (insErr) {
+    console.warn('[StaysNet Webhook] Failed to insert block:', insErr.message);
+    return null;
+  }
+
+  return { created: true, id: block.id };
 }
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
@@ -1768,6 +1890,8 @@ export async function processPendingStaysNetWebhooksForOrg(
           if (detail.success) {
             const staysReservation = detail.data;
 
+            const staysTypeLower = String((staysReservation as any)?.type || '').trim().toLowerCase();
+
             const listingCandidate =
               extractListingCandidateFromStaysReservation(staysReservation) ||
               extractListingCandidateFromStaysReservation(hook.payload);
@@ -1775,6 +1899,43 @@ export async function processPendingStaysNetWebhooksForOrg(
             let resolvedPropertyId: string | null = null;
             if (listingCandidate) {
               resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
+            }
+
+            // ✅ Se for bloqueio/manutenção, a ação de cancelamento significa remover o block (não marcar reserva).
+            if (isStaysBlockLikeType(staysTypeLower)) {
+              const startDate = toYmd((staysReservation as any)?.checkInDate || (staysReservation as any)?.checkIn);
+              const endDate = toYmd((staysReservation as any)?.checkOutDate || (staysReservation as any)?.checkOut);
+              if (!resolvedPropertyId || !startDate || !endDate) {
+                skipped++;
+                await staysnetDB.markWebhookProcessedDB(
+                  hook.id,
+                  'Cancellation webhook (block): property/date not resolved; cannot delete block',
+                );
+                continue;
+              }
+
+              const subtype = mapBlockSubtypeFromStaysType(staysTypeLower);
+              const { error: delErr } = await supabase
+                .from('blocks')
+                .delete()
+                .eq('organization_id', organizationId)
+                .eq('property_id', resolvedPropertyId)
+                .eq('start_date', startDate)
+                .eq('end_date', endDate)
+                .eq('subtype', subtype);
+
+              const deletedMisclassified = await cleanupMisclassifiedBlockReservations(supabase, organizationId, cancellationCandidates);
+
+              if (delErr) {
+                throw new Error(`Failed to delete block on cancellation: ${delErr.message}`);
+              }
+
+              updated++;
+              await staysnetDB.markWebhookProcessedDB(
+                hook.id,
+                `Cancellation webhook (block): deleted block + cleaned ${deletedMisclassified} misclassified reservations`,
+              );
+              continue;
             }
 
             let resolvedGuestId: string | null = null;
@@ -1820,12 +1981,12 @@ export async function processPendingStaysNetWebhooksForOrg(
 
       const staysReservation = detail.data;
 
+      const staysTypeLower = String((staysReservation as any)?.type || '').trim().toLowerCase();
+
       // Resolver property se possível
       const listingCandidate =
         extractListingCandidateFromStaysReservation(staysReservation) ||
         extractListingCandidateFromStaysReservation(hook.payload);
-
-      let existing: any = null;
 
       // Dedupe: o mesmo booking pode aparecer com IDs diferentes ao longo do tempo
       // (ex.: confirmationCode vs _id). Para evitar duplicação e evitar violar o
@@ -1843,6 +2004,59 @@ export async function processPendingStaysNetWebhooksForOrg(
             .map((x) => String(x))
         )
       );
+
+      // ✅ Se for bloqueio/manutenção vindo da Stays, persistir em `blocks` (não em `reservations`).
+      if (isStaysBlockLikeType(staysTypeLower)) {
+        let resolvedPropertyId: string | null = null;
+        if (listingCandidate) {
+          resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
+        }
+
+        const startDate = toYmd((staysReservation as any)?.checkInDate || (staysReservation as any)?.checkIn);
+        const endDate = toYmd((staysReservation as any)?.checkOutDate || (staysReservation as any)?.checkOut);
+        if (!resolvedPropertyId || !startDate || !endDate) {
+          skipped++;
+          await staysnetDB.markWebhookProcessedDB(hook.id, 'Webhook (block): property/date not resolved; skipping');
+          continue;
+        }
+
+        const subtype = mapBlockSubtypeFromStaysType(staysTypeLower);
+        const reason = buildBlockReasonFromStaysType(staysTypeLower);
+        const upserted = await upsertBlockFromStaysReservation(
+          supabase,
+          organizationId,
+          resolvedPropertyId,
+          startDate,
+          endDate,
+          subtype,
+          reason,
+          {
+            _id: (staysReservation as any)?._id ?? reservationId,
+            type: staysTypeLower,
+            reservationId,
+            partner: (staysReservation as any)?.partner,
+            partnerCode: (staysReservation as any)?.partnerCode,
+            reservationUrl: (staysReservation as any)?.reservationUrl,
+          },
+        );
+
+        const deletedMisclassified = await cleanupMisclassifiedBlockReservations(supabase, organizationId, dedupeCandidates);
+
+        if (!upserted) {
+          errors++;
+          await staysnetDB.markWebhookErrorDB(hook.id, 'Webhook (block): failed to upsert block');
+          continue;
+        }
+
+        updated++;
+        await staysnetDB.markWebhookProcessedDB(
+          hook.id,
+          `Webhook (block): upserted block (created=${upserted.created}) + cleaned ${deletedMisclassified} misclassified reservations`,
+        );
+        continue;
+      }
+
+      let existing: any = null;
 
       // 1) external_id
       if (!existing && dedupeCandidates.length > 0) {
