@@ -41,7 +41,10 @@ export function BackendTester() {
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/rendizy-server/health`,
           {
-            headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+            headers: {
+              apikey: publicAnonKey,
+              Authorization: `Bearer ${publicAnonKey}`,
+            }
           }
         );
         return response.json();

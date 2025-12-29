@@ -643,31 +643,68 @@ export class StaysNetService {
     staysnetLogger.import.info('Iniciando importação de bloqueios', options);
 
     try {
-      const response = await this.request<{ success: boolean; stats?: any; data?: any; error?: string }>(
-        '/rendizy-server/make-server-67caf26a/staysnet/import/blocks',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            apiKey: config.apiKey,
-            apiSecret: config.apiSecret,
-            baseUrl: config.baseUrl,
-            // 🔒 Restringe import às propriedades selecionadas na UI (quando fornecido)
-            selectedPropertyIds: options.selectedPropertyIds || [],
-            from: options.startDate,
-            to: options.endDate,
-            dateType: normalizeDateTypeForApi(options.dateType || 'included'),
-          }),
-        }
-      );
+      const LIMIT = 20;
+      const MAX_PAGES_PER_REQUEST = 10;
+      const MAX_REQUESTS = 200;
+      const BETWEEN_REQUEST_DELAY_MS = 250;
 
-      if (!response.success) {
-        throw new Error((response as any).data?.error || (response as any).error || 'Erro ao importar bloqueios');
+      let aggregated: NormalizedSectionStats = { fetched: 0, created: 0, updated: 0, failed: 0 };
+      let skip = 0;
+      let hasMore = true;
+      let requests = 0;
+
+      while (hasMore && requests < MAX_REQUESTS) {
+        requests++;
+
+        staysnetLogger.import.info(`Import bloqueios - lote ${requests}${skip > 0 ? ` (skip=${skip})` : ''}`);
+
+        const response = await this.request<{ success: boolean; data: any }>(
+          '/rendizy-server/make-server-67caf26a/staysnet/import/blocks',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              apiKey: config.apiKey,
+              apiSecret: config.apiSecret,
+              baseUrl: config.baseUrl,
+              // 🔒 Restringe import às propriedades selecionadas na UI (quando fornecido)
+              selectedPropertyIds: options.selectedPropertyIds || [],
+              from: options.startDate,
+              to: options.endDate,
+              dateType: normalizeDateTypeForApi(options.dateType || 'included'),
+              // paginação
+              limit: LIMIT,
+              skip,
+              maxPages: MAX_PAGES_PER_REQUEST,
+            }),
+          }
+        );
+
+        if (!response.success) {
+          throw new Error(response.data?.error || 'Erro ao importar bloqueios');
+        }
+
+        const section = normalizeSectionStats(response.data?.stats || response.data);
+        aggregated = sumSectionStats(aggregated, section);
+
+        const next = response.data?.next;
+        hasMore = Boolean(next?.hasMore);
+        if (hasMore) {
+          const nextSkip = Number(next?.skip);
+          skip = Number.isFinite(nextSkip) ? nextSkip : skip + LIMIT * MAX_PAGES_PER_REQUEST;
+          await sleep(BETWEEN_REQUEST_DELAY_MS);
+        }
       }
 
-      const stats = (response as any).stats || (response as any).data?.stats || {};
-      staysnetLogger.import.success('Bloqueios importados com sucesso', stats);
+      if (hasMore && requests >= MAX_REQUESTS) {
+        staysnetLogger.import.warn('Import bloqueios interrompido por segurança (MAX_REQUESTS atingido)', {
+          requests,
+          skip,
+          aggregated,
+        });
+      }
 
-      return { success: true, stats };
+      staysnetLogger.import.success('Bloqueios importados com sucesso', aggregated);
+      return { success: true, stats: { blocks: aggregated } };
     } catch (error) {
       staysnetLogger.import.error('Erro ao importar bloqueios', error);
       throw error;

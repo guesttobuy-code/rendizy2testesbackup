@@ -114,7 +114,7 @@ export function SettingsManager({
   listingId,
   mode = 'global'
 }: {
-  organizationId: string;
+  organizationId?: string;
   listingId?: string;
   mode?: 'global' | 'individual';
 }) {
@@ -143,12 +143,21 @@ export function SettingsManager({
     
     setLoading(true);
     try {
+      // ⚠️ Evitar chamadas com organizationId indefinido
+      if (mode === 'global' && (!organizationId || organizationId === 'undefined')) {
+        console.warn('[SettingsManager] organizationId não definido, pulando carregamento');
+        return;
+      }
+
       if (mode === 'global') {
         // Carregar configurações globais
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${organizationId}/settings/global`,
           {
-            headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+            headers: {
+              apikey: publicAnonKey,
+              Authorization: `Bearer ${publicAnonKey}`,
+            }
           }
         );
         const data = await response.json();
@@ -160,7 +169,10 @@ export function SettingsManager({
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/rendizy-server/listings/${listingId}/settings`,
           {
-            headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+            headers: {
+              apikey: publicAnonKey,
+              Authorization: `Bearer ${publicAnonKey}`,
+            }
           }
         );
         const data = await response.json();
@@ -190,12 +202,18 @@ export function SettingsManager({
 
     setSaving(true);
     try {
+      if (!organizationId || organizationId === 'undefined') {
+        toast.error('Organização inválida (organizationId indefinido)');
+        return;
+      }
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${organizationId}/settings/global`,
         {
           method: 'PUT',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
+            apikey: publicAnonKey,
+            Authorization: `Bearer ${publicAnonKey}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(globalSettings)

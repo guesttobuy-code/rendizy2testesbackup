@@ -1004,9 +1004,10 @@ export const calendarApi = {
   getBlocks: async (propertyIds: string[]): Promise<ApiResponse<any[]>> => {
     try {
       const idsParam = propertyIds.join(',');
-      // ✅ FIX v1.0.103.360: Remover /rendizy-server duplicado (API_BASE_URL já inclui)
+      // ✅ CANÔNICO: usar rota SQL do calendário (multi-tenant, com filtros)
+      // Evita depender do legado /make-server-67caf26a/blocks (que pode 404 em alguns ambientes)
       const response = await apiRequest<any[]>(
-        `/make-server-67caf26a/blocks?propertyIds=${idsParam}`,
+        `/calendar/blocks?propertyIds=${idsParam}`,
         { method: 'GET' }
       );
       

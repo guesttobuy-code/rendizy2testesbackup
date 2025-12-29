@@ -64,7 +64,18 @@ const app = new Hono();
 // ============================================================================
 // HEALTH CHECK (frontend usa: GET /health)
 // ============================================================================
-app.get("/health", (c) => c.json({ ok: true }));
+function withCorsJson(c: any, payload: unknown) {
+  // Esses handlers ficam ANTES do middleware global; então setamos CORS aqui também.
+  c.header("Access-Control-Allow-Origin", "*");
+  c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token");
+  c.header("Access-Control-Max-Age", "86400");
+  return c.json(payload);
+}
+
+app.get("/health", (c) => withCorsJson(c, { ok: true }));
+// Compat: alguns clients chamam com prefixo /rendizy-server
+app.get("/rendizy-server/health", (c) => withCorsJson(c, { ok: true }));
 
 // ============================================================================
 // 🛡️ CAMADA 1: CORS PROTECTION (CRÍTICO - NÃO MODIFICAR)
@@ -150,14 +161,33 @@ app.delete("/reservations/:id", tenancyMiddleware, reservationsRoutes.deleteRese
 // ============================================================================
 // CALENDAR / BLOCKS
 // ============================================================================
-app.get("/rendizy-server/calendar/blocks", calendarRoutes.getBlocks);
-app.post("/rendizy-server/calendar/blocks", calendarRoutes.createBlock);
-app.delete("/rendizy-server/calendar/blocks/:id", calendarRoutes.deleteBlock);
+// Calendário completo (SQL) + aliases (frontend utils/api.ts chama /calendar)
+app.get("/calendar", tenancyMiddleware, calendarRoutes.getCalendarDataSql);
+app.get("/calendar/stats", tenancyMiddleware, calendarRoutes.getCalendarStatsSql);
+app.get("/rendizy-server/calendar", tenancyMiddleware, calendarRoutes.getCalendarDataSql);
+app.get("/rendizy-server/calendar/stats", tenancyMiddleware, calendarRoutes.getCalendarStatsSql);
+
+// Blocks via calendário (SQL) + compat legado
+app.get("/calendar/blocks", tenancyMiddleware, calendarRoutes.getCalendarBlocksSql);
+app.post("/calendar/blocks", tenancyMiddleware, calendarRoutes.createCalendarBlockSql);
+app.delete("/calendar/blocks/:id", tenancyMiddleware, calendarRoutes.deleteCalendarBlockSql);
+
+app.get("/rendizy-server/calendar/blocks", tenancyMiddleware, calendarRoutes.getCalendarBlocksSql);
+app.post("/rendizy-server/calendar/blocks", tenancyMiddleware, calendarRoutes.createCalendarBlockSql);
+app.delete("/rendizy-server/calendar/blocks/:id", tenancyMiddleware, calendarRoutes.deleteCalendarBlockSql);
 
 // ============================================================================
 // BLOCKS LEGACY ROUTER (compat)
 // ============================================================================
 app.route("/rendizy-server/blocks", blocksApp);
+
+// ============================================================================
+// BLOCKS (LEGACY make-server) - frontend utils/api.ts chama:
+// GET /make-server-67caf26a/blocks?propertyIds=...
+// ============================================================================
+app.route("/make-server-67caf26a/blocks", blocksApp);
+// Compat extra (alguns clientes antigos duplicam prefixo)
+app.route("/rendizy-server/make-server-67caf26a/blocks", blocksApp);
 
 // ============================================================================
 // ICAL (Airbnb/Booking/etc) - Sync de calendário externo
@@ -294,11 +324,19 @@ app.post(
 // ============================================================================
 // GUESTS (mínimo necessário para reservas)
 // ============================================================================
-app.get("/rendizy-server/guests", guestsRoutes.listGuests);
-app.get("/rendizy-server/guests/:id", guestsRoutes.getGuest);
-app.post("/rendizy-server/guests", guestsRoutes.createGuest);
-app.put("/rendizy-server/guests/:id", guestsRoutes.updateGuest);
-app.delete("/rendizy-server/guests/:id", guestsRoutes.deleteGuest);
+// ⚠️ Guests dependem do tenancyMiddleware (getTenant/getOrganizationId)
+app.get("/rendizy-server/guests", tenancyMiddleware, guestsRoutes.listGuests);
+app.get("/rendizy-server/guests/:id", tenancyMiddleware, guestsRoutes.getGuest);
+app.post("/rendizy-server/guests", tenancyMiddleware, guestsRoutes.createGuest);
+app.put("/rendizy-server/guests/:id", tenancyMiddleware, guestsRoutes.updateGuest);
+app.delete("/rendizy-server/guests/:id", tenancyMiddleware, guestsRoutes.deleteGuest);
+
+// Alias sem prefixo: base /functions/v1/rendizy-server
+app.get("/guests", tenancyMiddleware, guestsRoutes.listGuests);
+app.get("/guests/:id", tenancyMiddleware, guestsRoutes.getGuest);
+app.post("/guests", tenancyMiddleware, guestsRoutes.createGuest);
+app.put("/guests/:id", tenancyMiddleware, guestsRoutes.updateGuest);
+app.delete("/guests/:id", tenancyMiddleware, guestsRoutes.deleteGuest);
 
 // ============================================================================
 // DEFAULT HANDLERS
@@ -334,7 +372,7 @@ app.onError((err, c) => {
 //
 // REFERÊNCIA: docs/architecture/BLINDAGEM_MODULAR_ANTI_REGRESSAO.md
 // ============================================================================
-Deno.serve((req) => {
+Deno.serve(async (req) => {
   // ========================================
   // CAMADA 1: CORS PREFLIGHT (SEMPRE FUNCIONA)
   // ========================================
@@ -354,7 +392,7 @@ Deno.serve((req) => {
   // CAMADA 2: APP HONO COM PROTEÇÃO DE ERRO
   // ========================================
   try {
-    return app.fetch(req);
+    return await app.fetch(req);
   } catch (error) {
     console.error("🔥 ERRO CRÍTICO NO APP:", error);
     const anyError = error as any;
@@ -370,6 +408,8 @@ Deno.serve((req) => {
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token",
         }
       }
     );

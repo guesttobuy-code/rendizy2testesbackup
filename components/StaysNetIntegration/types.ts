@@ -59,6 +59,13 @@ export interface ImportStats {
     updated: number;
     failed: number;
   };
+  // ⛔ Bloqueios (blocks) existem no backend mas ainda não são exibidos no card de stats da UI.
+  blocks?: {
+    fetched: number;
+    created: number;
+    updated: number;
+    failed: number;
+  };
   guests?: {
     fetched: number;
     created: number;
