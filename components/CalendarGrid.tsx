@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Property, Reservation } from '../App';
 import { ReservationCard } from './ReservationCard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -208,6 +208,47 @@ export function Calendar({
   onReservationClick,
   onBlockClick
 }: CalendarProps) {
+  // Coluna de imóveis redimensionável (splitter)
+  const DEFAULT_LEFT_COL_WIDTH = 180;
+  const MIN_LEFT_COL_WIDTH = 160;
+  const MAX_LEFT_COL_WIDTH = 420;
+  const [leftColWidth, setLeftColWidth] = useState<number>(DEFAULT_LEFT_COL_WIDTH);
+  const resizingRef = useRef<{ startX: number; startWidth: number; isResizing: boolean }>({
+    startX: 0,
+    startWidth: DEFAULT_LEFT_COL_WIDTH,
+    isResizing: false
+  });
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current.isResizing) return;
+      const next = resizingRef.current.startWidth + (e.clientX - resizingRef.current.startX);
+      const clamped = Math.max(MIN_LEFT_COL_WIDTH, Math.min(MAX_LEFT_COL_WIDTH, next));
+      setLeftColWidth(clamped);
+    };
+
+    const onMouseUp = () => {
+      if (!resizingRef.current.isResizing) return;
+      resizingRef.current.isResizing = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  const startResizeLeftCol = (e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = { startX: e.clientX, startWidth: leftColWidth, isResizing: true };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   // 🔍 DEBUG: Verificar se bloqueios chegam como props
         useEffect(() => {
           // Logs removidos para melhorar performance de renderização
@@ -742,8 +783,16 @@ export function Calendar({
 
               {/* Anúncios - Imóveis Section Header */}
               <tr className="border-b border-gray-200 bg-gray-50">
-                <td className="sticky left-0 z-30 bg-gray-50 border-r border-gray-200 p-2 w-[180px] min-w-[180px] max-w-[180px]">
+                <td
+                  className="sticky left-0 z-30 bg-gray-50 border-r border-gray-200 p-2 relative"
+                  style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
+                >
                   <span className="text-sm text-gray-700">Anúncios - Imóveis</span>
+                  <div
+                    className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-gray-200"
+                    onMouseDown={startResizeLeftCol}
+                    title="Arraste para ajustar a largura"
+                  />
                 </td>
                 {days.map((day, idx) => {
                   const today = new Date();
@@ -774,7 +823,8 @@ export function Calendar({
                     {/* Reservations row */}
                     <tr className="border-b border-gray-200">
                       <td 
-                        className="sticky left-0 z-30 bg-white border-r border-gray-200 p-1.5 w-[180px] min-w-[180px] max-w-[180px]"
+                        className="sticky left-0 z-30 bg-white border-r border-gray-200 p-1.5 relative"
+                        style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
                       >
                         <div className="flex items-center gap-2">
                           {/* Imagem menor com lazy-loading para identificação rápida do imóvel */}
@@ -802,6 +852,11 @@ export function Calendar({
                             )}
                           </button>
                         </div>
+                        <div
+                          className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-gray-200"
+                          onMouseDown={startResizeLeftCol}
+                          title="Arraste para ajustar a largura"
+                        />
                       </td>
                       {days.map((day, idx) => {
                         const allReservationsOnDay = getAllReservationsForPropertyAndDate(property.id, day, reservations);
@@ -841,6 +896,9 @@ export function Calendar({
                         const visibleEndExclusive = new Date(visibleEnd);
                         visibleEndExclusive.setDate(visibleEndExclusive.getDate() + 1);
                         const cellDate = normalizeDateOnly(day);
+
+                        const BASE_CARD_LEFT_PX = 40;
+                        const CONTINUING_LEFT_PX = -12; // passa por baixo da borda/sticky
                         
                         // ✅ FIX v1.0.103.411: Renderizar apenas reservas que COMEÇAM neste dia
                         // O card já se estende naturalmente pelos dias (width = nights * 80px)
@@ -923,8 +981,9 @@ export function Calendar({
                               <div
                                 className="absolute top-0.5 h-11 bg-orange-100 border border-orange-400 rounded flex items-center justify-center z-10 cursor-pointer hover:bg-orange-200 transition-colors"
                                 style={{
-                                  left: '40px', // LÓGICA HOTELEIRA: check-in às 14h (meio da célula)
-                                  width: `${(visibleBlockNights * 80) - 6}px` // Recortado para caber no range visível
+                                  left: `${(idx === 0 && blockOnDay.startDate < dayStr) ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX}px`,
+                                  width: `${((visibleBlockNights * 80) - 6) + (BASE_CARD_LEFT_PX - ((idx === 0 && blockOnDay.startDate < dayStr) ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX))}px`,
+                                  borderRadius: (idx === 0 && blockOnDay.startDate < dayStr) ? '0 8px 8px 0' : '8px'
                                 }}
                                 onClick={() => onBlockClick?.(blockOnDay)}
                                 title={`Bloqueio: ${blockOnDay.reason || 'Manutenção'}`}
@@ -976,6 +1035,12 @@ export function Calendar({
                                 ? visibleEndExclusive
                                 : checkOutDateOnly;
                               const visibleNights = Math.max(1, diffDays(segmentStart, segmentEnd));
+
+                              const isContinuingFromLeft = idx === 0 && normalizeDateOnly(new Date(reservation.checkIn)).getTime() < cellDate.getTime();
+                              const cardLeftPx = isContinuingFromLeft ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX;
+                              const widthAdjustPx = BASE_CARD_LEFT_PX - cardLeftPx;
+
+                              const effectiveHasAdjacentPrev = hasAdjacentPrev || isContinuingFromLeft;
                               
                               return (
                                 <div 
@@ -987,9 +1052,11 @@ export function Calendar({
                                     reservation={reservation}
                                     days={visibleNights}
                                     hasAdjacentNext={hasAdjacentNext}
-                                    hasAdjacentPrev={hasAdjacentPrev}
+                                    hasAdjacentPrev={effectiveHasAdjacentPrev}
                                     stackIndex={resIdx}
                                     totalStacked={reservationsAnchoredToday.length}
+                                    leftPx={cardLeftPx}
+                                    widthAdjustPx={widthAdjustPx}
                                   />
                                 </div>
                               );
@@ -1014,7 +1081,10 @@ export function Calendar({
                       <>
                         {/* Condições row */}
                         <tr className="border-b border-gray-100 bg-orange-50">
-                          <td className="sticky left-0 z-30 bg-orange-50 border-r border-gray-200 p-1 pl-12">
+                          <td
+                            className="sticky left-0 z-30 bg-orange-50 border-r border-gray-200 p-1 pl-12"
+                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
+                          >
                             <div className="flex items-center gap-2 text-xs text-orange-700">
                               <span className="text-orange-600">%</span>
                               <span>Condição (%)</span>
@@ -1040,7 +1110,10 @@ export function Calendar({
 
                         {/* Restrições row */}
                         <tr className="border-b border-gray-100 bg-red-50">
-                          <td className="sticky left-0 z-30 bg-red-50 border-r border-gray-200 p-1 pl-12">
+                          <td
+                            className="sticky left-0 z-30 bg-red-50 border-r border-gray-200 p-1 pl-12"
+                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
+                          >
                             <div className="flex items-center gap-2 text-xs text-red-700">
                               <span className="text-red-600">🚫</span>
                               <span>Restrições</span>
@@ -1058,7 +1131,10 @@ export function Calendar({
 
                         {/* Mín. Noites row */}
                         <tr className="border-b border-gray-100 bg-blue-50">
-                          <td className="sticky left-0 z-30 bg-blue-50 border-r border-gray-200 p-1 pl-12">
+                          <td
+                            className="sticky left-0 z-30 bg-blue-50 border-r border-gray-200 p-1 pl-12"
+                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
+                          >
                             <div className="flex items-center gap-2 text-xs text-blue-700">
                               <span className="text-blue-600">🌙</span>
                               <span>Mín. noites</span>
@@ -1084,7 +1160,10 @@ export function Calendar({
 
                         {/* Base (R$) row */}
                         <tr className="border-b border-gray-100 bg-gray-50">
-                          <td className="sticky left-0 z-30 bg-gray-50 border-r border-gray-200 p-1 pl-12">
+                          <td
+                            className="sticky left-0 z-30 bg-gray-50 border-r border-gray-200 p-1 pl-12"
+                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
+                          >
                             <div className="flex items-center gap-2 text-xs text-gray-700">
                               <span className="text-gray-600">💰</span>
                               <span>Base (R$)</span>
@@ -1110,7 +1189,10 @@ export function Calendar({
 
                         {/* Semanal 07 (R$) row */}
                         <tr className="border-b border-gray-100 bg-cyan-50">
-                          <td className="sticky left-0 z-30 bg-cyan-50 border-r border-gray-200 p-1 pl-12">
+                          <td
+                            className="sticky left-0 z-30 bg-cyan-50 border-r border-gray-200 p-1 pl-12"
+                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
+                          >
                             <div className="flex items-center gap-2 text-xs text-cyan-700">
                               <span className="text-cyan-600">📅</span>
                               <span>Semanal 07 (R$)</span>
@@ -1136,7 +1218,10 @@ export function Calendar({
 
                         {/* Personalizado 15 (R$) row */}
                         <tr className="border-b border-gray-100 bg-purple-50">
-                          <td className="sticky left-0 z-30 bg-purple-50 border-r border-gray-200 p-1 pl-12">
+                          <td
+                            className="sticky left-0 z-30 bg-purple-50 border-r border-gray-200 p-1 pl-12"
+                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
+                          >
                             <div className="flex items-center gap-2 text-xs text-purple-700">
                               <span className="text-purple-600">⭐</span>
                               <span>Personalizado 15 (R$)</span>
@@ -1162,7 +1247,10 @@ export function Calendar({
 
                         {/* Mensal 28 (R$) row */}
                         <tr className="border-b border-gray-200 bg-teal-50">
-                          <td className="sticky left-0 z-30 bg-teal-50 border-r border-gray-200 p-1 pl-12">
+                          <td
+                            className="sticky left-0 z-30 bg-teal-50 border-r border-gray-200 p-1 pl-12"
+                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
+                          >
                             <div className="flex items-center gap-2 text-xs text-teal-700">
                               <span className="text-teal-600">📆</span>
                               <span>Mensal 28 (R$)</span>

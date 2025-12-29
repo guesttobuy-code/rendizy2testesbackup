@@ -10,6 +10,8 @@ interface ReservationCardProps {
   hasAdjacentPrev?: boolean;
   stackIndex?: number; // Índice de empilhamento (0, 1, 2, ...) para reservas sobrepostas
   totalStacked?: number; // Total de reservas empilhadas na mesma célula
+  leftPx?: number; // Offset horizontal do card dentro da célula
+  widthAdjustPx?: number; // Ajuste fino de largura (ex: para continuar por baixo da borda)
 }
 
 // Ícones das plataformas como SVG inline (novo design)
@@ -93,7 +95,9 @@ function ReservationCardComponent({
   hasAdjacentNext = false, 
   hasAdjacentPrev = false,
   stackIndex = 0,
-  totalStacked = 1
+  totalStacked = 1,
+  leftPx = 40,
+  widthAdjustPx = 0
 }: ReservationCardProps) {
   const platformInfo = getPlatformInfo(reservation.platform);
   const statusInfo = getStatusInfo(reservation.status);
@@ -106,7 +110,7 @@ function ReservationCardComponent({
   // - Left: 40px (meio da célula de check-in)
   // - Width: 3 × 80 = 240px - 6px (gap para separação visual)
   // - Gap de 6px cria espaço entre reservas adjacentes
-  const width = (days * 80) - 6; // 6px gap para separação visual
+  const width = ((days * 80) - 6) + widthAdjustPx; // 6px gap para separação visual
   
   // Determine border radius based on adjacent reservations
   const getBorderRadius = () => {
@@ -153,7 +157,7 @@ function ReservationCardComponent({
             reservation.hasConflict ? 'ring-4 ring-red-500 ring-opacity-50 animate-pulse' : ''
           }`}
           style={{ 
-            left: '40px', // SEMPRE no meio da célula (check-in ~14h)
+            left: `${leftPx}px`,
             width: `${width}px`,
             top: verticalPos.top,
             height: verticalPos.height,
