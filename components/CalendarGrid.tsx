@@ -124,19 +124,31 @@ const getBlockForPropertyAndDate = (
   const foundBlock = blocks.find(b => {
     if (b.propertyId !== propertyId) return false;
     
+    // ✅ FIX: Normalizar datas de bloqueio para YYYY-MM-DD
+    // Alguns registros podem vir como ISO (ex: 2026-01-06T00:00:00.000Z).
+    // A comparação por string pura quebra nesse caso.
+    const toYmd = (v: unknown): string => {
+      if (!v) return '';
+      const s = String(v);
+      return s.split('T')[0].split(' ')[0];
+    };
+
     // ✅ FIX v1.0.103.365: Comparar strings de data diretamente (YYYY-MM-DD)
     // Evita problemas de timezone ao criar objetos Date
     const currentDateStr = formatLocalDate(date);
+
+    const startYmd = toYmd(b.startDate);
+    const endYmd = toYmd(b.endDate);
     
     // Block ocupa de startDate (inclusive) até endDate (exclusive)
-    const matches = currentDateStr >= b.startDate && currentDateStr < b.endDate;
+    const matches = !!startYmd && !!endYmd && currentDateStr >= startYmd && currentDateStr < endYmd;
     
     if (matches) {
       console.log('✅ [getBlockForPropertyAndDate] Bloqueio encontrado:', {
         blockId: b.id,
         propertyId: b.propertyId,
-        startDate: b.startDate,
-        endDate: b.endDate,
+        startDate: startYmd,
+        endDate: endYmd,
         currentDateStr,  // ✅ Usar a variável local em vez de currentDate
         nights: b.nights
       });
@@ -932,12 +944,16 @@ export function Calendar({
                           ? [...reservationsStartingToday, ...reservationsContinuingIntoView]
                           : reservationsStartingToday;
                         
+                        // Normalizar datas do bloqueio (pode vir ISO)
+                        const blockStartYmd = blockOnDay?.startDate ? String(blockOnDay.startDate).split('T')[0].split(' ')[0] : '';
+                        const blockEndYmd = blockOnDay?.endDate ? String(blockOnDay.endDate).split('T')[0].split(' ')[0] : '';
+
                         // Verificar se o bloqueio deve renderizar ancorado neste dia
                         // - Se começa hoje: renderiza normalmente
                         // - Se começou antes do range visível: renderiza no 1º dia visível (idx === 0)
                         const blockAnchoredToday = !!blockOnDay && (
-                          blockOnDay.startDate === dayStr ||
-                          (idx === 0 && blockOnDay.startDate < dayStr)
+                          blockStartYmd === dayStr ||
+                          (idx === 0 && blockStartYmd < dayStr)
                         );
 
                         // ✅ Recorte do bloqueio dentro do range visível
@@ -946,8 +962,8 @@ export function Calendar({
                           // Força local midnight para evitar deslocamento de timezone
                           return normalizeDateOnly(new Date(`${ymd}T00:00:00`));
                         };
-                        const blockEndExclusive = blockOnDay?.endDate
-                          ? parseYmdToLocalDate(blockOnDay.endDate)
+                        const blockEndExclusive = blockEndYmd
+                          ? parseYmdToLocalDate(blockEndYmd)
                           : null;
                         const clippedBlockEndExclusive = (blockEndExclusive && blockEndExclusive.getTime() > visibleEndExclusive.getTime())
                           ? visibleEndExclusive
@@ -992,9 +1008,9 @@ export function Calendar({
                               <div
                                 className="absolute top-0.5 h-11 bg-orange-100 border border-orange-400 rounded flex items-center justify-center z-10 cursor-pointer hover:bg-orange-200 transition-colors"
                                 style={{
-                                  left: `${(idx === 0 && blockOnDay.startDate < dayStr) ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX}px`,
-                                  width: `${((visibleBlockNights * 80) - 6) + (BASE_CARD_LEFT_PX - ((idx === 0 && blockOnDay.startDate < dayStr) ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX))}px`,
-                                  borderRadius: (idx === 0 && blockOnDay.startDate < dayStr) ? '0 8px 8px 0' : '8px'
+                                  left: `${(idx === 0 && blockStartYmd < dayStr) ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX}px`,
+                                  width: `${((visibleBlockNights * 80) - 6) + (BASE_CARD_LEFT_PX - ((idx === 0 && blockStartYmd < dayStr) ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX))}px`,
+                                  borderRadius: (idx === 0 && blockStartYmd < dayStr) ? '0 8px 8px 0' : '8px'
                                 }}
                                 onClick={() => onBlockClick?.(blockOnDay)}
                                 title={`Bloqueio: ${blockOnDay.reason || 'Manutenção'}`}
