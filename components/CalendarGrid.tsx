@@ -886,16 +886,25 @@ export function Calendar({
                           nd.setHours(0, 0, 0, 0);
                           return nd;
                         };
+                        const ymdToUtcMs = (ymd: string): number => {
+                          const [y, m, d] = ymd.split('-').map(Number);
+                          return Date.UTC(y, (m || 1) - 1, d || 1);
+                        };
+                        const utcMsFromLocalDate = (d: Date): number => {
+                          return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+                        };
                         const diffDays = (from: Date, to: Date): number => {
-                          const a = normalizeDateOnly(from).getTime();
-                          const b = normalizeDateOnly(to).getTime();
+                          // Usa UTC midnight para evitar bugs de timezone/DST
+                          const a = utcMsFromLocalDate(normalizeDateOnly(from));
+                          const b = utcMsFromLocalDate(normalizeDateOnly(to));
                           return Math.round((b - a) / MS_PER_DAY);
                         };
 
                         const visibleEnd = normalizeDateOnly(days[days.length - 1]);
-                        const visibleEndExclusive = new Date(visibleEnd);
-                        visibleEndExclusive.setDate(visibleEndExclusive.getDate() + 1);
+                        const visibleEndStr = formatLocalDate(visibleEnd);
+                        const visibleEndExclusiveUtcMs = ymdToUtcMs(visibleEndStr) + MS_PER_DAY;
                         const cellDate = normalizeDateOnly(day);
+                        const cellUtcMs = ymdToUtcMs(dayStr);
 
                         const BASE_CARD_LEFT_PX = 40;
                         const CONTINUING_LEFT_PX = -12; // passa por baixo da borda/sticky
@@ -912,8 +921,8 @@ export function Calendar({
                         // precisam ser ancoradas no primeiro dia visível (senão o card some na borda esquerda).
                         const reservationsContinuingIntoView = (idx === 0)
                           ? allReservationsOnDay.filter(r => {
-                              const checkInDate = normalizeDateOnly(new Date(r.checkIn));
-                              return checkInDate.getTime() < cellDate.getTime();
+                              const checkInStr = r.checkIn.split('T')[0];
+                              return checkInStr < dayStr;
                             })
                           : [];
 
@@ -1001,42 +1010,33 @@ export function Calendar({
                               // Check for adjacent reservations
                               let hasAdjacentPrev = false;
                               let hasAdjacentNext = false;
-                              
-                              const checkOutDate = new Date(reservation.checkOut);
-                              checkOutDate.setHours(0, 0, 0, 0);
+
+                              const reservationCheckInStr = reservation.checkIn.split('T')[0];
+                              const reservationCheckOutStr = reservation.checkOut.split('T')[0];
                               
                               // Check if there's a reservation starting on this reservation's checkout day
                               const nextReservation = reservations.find(r => {
                                 if (r.propertyId !== property.id || r.id === reservation.id) return false;
-                                const nextCheckIn = new Date(r.checkIn);
-                                nextCheckIn.setHours(0, 0, 0, 0);
-                                return nextCheckIn.getTime() === checkOutDate.getTime();
+                                const nextCheckInStr = r.checkIn.split('T')[0];
+                                return nextCheckInStr === reservationCheckOutStr;
                               });
                               hasAdjacentNext = !!nextReservation;
                               
                               // Check if there's a reservation ending on this reservation's checkin day
-                              const checkInDate = new Date(reservation.checkIn);
-                              checkInDate.setHours(0, 0, 0, 0);
-                              
                               const prevReservation = reservations.find(r => {
                                 if (r.propertyId !== property.id || r.id === reservation.id) return false;
-                                const prevCheckOut = new Date(r.checkOut);
-                                prevCheckOut.setHours(0, 0, 0, 0);
-                                return prevCheckOut.getTime() === checkInDate.getTime();
+                                const prevCheckOutStr = r.checkOut.split('T')[0];
+                                return prevCheckOutStr === reservationCheckInStr;
                               });
                               hasAdjacentPrev = !!prevReservation;
 
                               // ✅ Recorte do card dentro do range visível
                               // - Se a reserva começou antes do primeiro dia, renderiza a partir do 1º dia
                               // - Se termina depois do último dia visível, encurta para não “vazar”
-                              const checkOutDateOnly = normalizeDateOnly(new Date(reservation.checkOut));
-                              const segmentStart = cellDate; // esta célula é o anchor
-                              const segmentEnd = (checkOutDateOnly.getTime() > visibleEndExclusive.getTime())
-                                ? visibleEndExclusive
-                                : checkOutDateOnly;
-                              const visibleNights = Math.max(1, diffDays(segmentStart, segmentEnd));
+                              const segmentEndExclusiveUtcMs = Math.min(ymdToUtcMs(reservationCheckOutStr), visibleEndExclusiveUtcMs);
+                              const visibleNights = Math.max(1, Math.round((segmentEndExclusiveUtcMs - cellUtcMs) / MS_PER_DAY));
 
-                              const isContinuingFromLeft = idx === 0 && normalizeDateOnly(new Date(reservation.checkIn)).getTime() < cellDate.getTime();
+                              const isContinuingFromLeft = idx === 0 && reservationCheckInStr < dayStr;
                               const cardLeftPx = isContinuingFromLeft ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX;
                               const widthAdjustPx = BASE_CARD_LEFT_PX - cardLeftPx;
 
