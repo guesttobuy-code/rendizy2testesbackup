@@ -901,6 +901,8 @@ export function Calendar({
                         };
 
                         const visibleEnd = normalizeDateOnly(days[days.length - 1]);
+                        const visibleEndExclusive = new Date(visibleEnd);
+                        visibleEndExclusive.setDate(visibleEndExclusive.getDate() + 1);
                         const visibleEndStr = formatLocalDate(visibleEnd);
                         const visibleEndExclusiveUtcMs = ymdToUtcMs(visibleEndStr) + MS_PER_DAY;
                         const cellDate = normalizeDateOnly(day);
