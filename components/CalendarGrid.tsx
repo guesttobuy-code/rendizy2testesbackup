@@ -824,6 +824,23 @@ export function Calendar({
                         };
                         
                         const dayStr = formatLocalDate(day);
+
+                        const MS_PER_DAY = 24 * 60 * 60 * 1000;
+                        const normalizeDateOnly = (d: Date): Date => {
+                          const nd = new Date(d);
+                          nd.setHours(0, 0, 0, 0);
+                          return nd;
+                        };
+                        const diffDays = (from: Date, to: Date): number => {
+                          const a = normalizeDateOnly(from).getTime();
+                          const b = normalizeDateOnly(to).getTime();
+                          return Math.round((b - a) / MS_PER_DAY);
+                        };
+
+                        const visibleEnd = normalizeDateOnly(days[days.length - 1]);
+                        const visibleEndExclusive = new Date(visibleEnd);
+                        visibleEndExclusive.setDate(visibleEndExclusive.getDate() + 1);
+                        const cellDate = normalizeDateOnly(day);
                         
                         // ✅ FIX v1.0.103.411: Renderizar apenas reservas que COMEÇAM neste dia
                         // O card já se estende naturalmente pelos dias (width = nights * 80px)
@@ -832,16 +849,50 @@ export function Calendar({
                           const checkInStr = r.checkIn.split('T')[0];
                           return checkInStr === dayStr;
                         });
+
+                        // ✅ FIX v1.0.105.xxx: Reservas que começaram ANTES do range visível e ainda estão ativas
+                        // precisam ser ancoradas no primeiro dia visível (senão o card some na borda esquerda).
+                        const reservationsContinuingIntoView = (idx === 0)
+                          ? allReservationsOnDay.filter(r => {
+                              const checkInDate = normalizeDateOnly(new Date(r.checkIn));
+                              return checkInDate.getTime() < cellDate.getTime();
+                            })
+                          : [];
+
+                        const reservationsAnchoredToday = idx === 0
+                          ? [...reservationsStartingToday, ...reservationsContinuingIntoView]
+                          : reservationsStartingToday;
                         
-                        // Verificar se o bloqueio COMEÇA neste dia
-                        const blockStartsToday = blockOnDay && blockOnDay.startDate === dayStr;
+                        // Verificar se o bloqueio deve renderizar ancorado neste dia
+                        // - Se começa hoje: renderiza normalmente
+                        // - Se começou antes do range visível: renderiza no 1º dia visível (idx === 0)
+                        const blockAnchoredToday = !!blockOnDay && (
+                          blockOnDay.startDate === dayStr ||
+                          (idx === 0 && blockOnDay.startDate < dayStr)
+                        );
+
+                        // ✅ Recorte do bloqueio dentro do range visível
+                        // Block ocupa de startDate (inclusive) até endDate (exclusive)
+                        const parseYmdToLocalDate = (ymd: string): Date => {
+                          // Força local midnight para evitar deslocamento de timezone
+                          return normalizeDateOnly(new Date(`${ymd}T00:00:00`));
+                        };
+                        const blockEndExclusive = blockOnDay?.endDate
+                          ? parseYmdToLocalDate(blockOnDay.endDate)
+                          : null;
+                        const clippedBlockEndExclusive = (blockEndExclusive && blockEndExclusive.getTime() > visibleEndExclusive.getTime())
+                          ? visibleEndExclusive
+                          : blockEndExclusive;
+                        const visibleBlockNights = (blockOnDay && clippedBlockEndExclusive)
+                          ? Math.max(1, diffDays(cellDate, clippedBlockEndExclusive))
+                          : (blockOnDay?.nights || 1);
                         
                         // Debug APENAS para primeiras iterações
                         if (idx < 5 && blockOnDay) {
                           console.log('🔍 [CalendarGrid] Bloqueio detectado:', {
                             dayStr,  // ✅ Usar dayStr local
                             blockStartDate: blockOnDay.startDate,
-                            blockStartsToday,
+                            blockAnchoredToday,
                             blockNights: blockOnDay.nights,
                             propertyId: property.id
                           });
@@ -867,13 +918,13 @@ export function Calendar({
                               <div className="absolute inset-0 bg-blue-100 border-2 border-blue-400 pointer-events-none z-0" />
                             )}
                             
-                            {/* Renderizar bloqueio se começar neste dia */}
-                            {blockStartsToday && (
+                            {/* Renderizar bloqueio ancorado neste dia */}
+                            {blockAnchoredToday && (
                               <div
                                 className="absolute top-0.5 h-11 bg-orange-100 border border-orange-400 rounded flex items-center justify-center z-10 cursor-pointer hover:bg-orange-200 transition-colors"
                                 style={{
                                   left: '40px', // LÓGICA HOTELEIRA: check-in às 14h (meio da célula)
-                                  width: `${(blockOnDay.nights * 80) - 6}px` // Cada dia = 80px, termina às 12h do último dia
+                                  width: `${(visibleBlockNights * 80) - 6}px` // Recortado para caber no range visível
                                 }}
                                 onClick={() => onBlockClick?.(blockOnDay)}
                                 title={`Bloqueio: ${blockOnDay.reason || 'Manutenção'}`}
@@ -887,7 +938,7 @@ export function Calendar({
                             
                             {/* ✅ FIX v1.0.103.411: Renderizar apenas reservas que começam neste dia */}
                             {/* O card se estende automaticamente pelos dias - não duplicar! */}
-                            {reservationsStartingToday.map((reservation, resIdx) => {
+                            {reservationsAnchoredToday.map((reservation, resIdx) => {
                               // Check for adjacent reservations
                               let hasAdjacentPrev = false;
                               let hasAdjacentNext = false;
@@ -915,20 +966,30 @@ export function Calendar({
                                 return prevCheckOut.getTime() === checkInDate.getTime();
                               });
                               hasAdjacentPrev = !!prevReservation;
+
+                              // ✅ Recorte do card dentro do range visível
+                              // - Se a reserva começou antes do primeiro dia, renderiza a partir do 1º dia
+                              // - Se termina depois do último dia visível, encurta para não “vazar”
+                              const checkOutDateOnly = normalizeDateOnly(new Date(reservation.checkOut));
+                              const segmentStart = cellDate; // esta célula é o anchor
+                              const segmentEnd = (checkOutDateOnly.getTime() > visibleEndExclusive.getTime())
+                                ? visibleEndExclusive
+                                : checkOutDateOnly;
+                              const visibleNights = Math.max(1, diffDays(segmentStart, segmentEnd));
                               
                               return (
                                 <div 
                                   key={reservation.id} 
-                                  className={resIdx < reservationsStartingToday.length - 1 ? 'mb-1' : ''}
+                                  className={resIdx < reservationsAnchoredToday.length - 1 ? 'mb-1' : ''}
                                   onClick={() => onReservationClick(reservation)}
                                 >
                                   <ReservationCard
                                     reservation={reservation}
-                                    days={reservation.nights}
+                                    days={visibleNights}
                                     hasAdjacentNext={hasAdjacentNext}
                                     hasAdjacentPrev={hasAdjacentPrev}
                                     stackIndex={resIdx}
-                                    totalStacked={reservationsStartingToday.length}
+                                    totalStacked={reservationsAnchoredToday.length}
                                   />
                                 </div>
                               );
