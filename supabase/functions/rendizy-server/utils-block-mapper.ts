@@ -10,6 +10,12 @@
 
 import type { Block } from './types.ts';
 
+const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 /**
  * Converte Block (TypeScript) para formato SQL (tabela blocks)
  */
@@ -35,7 +41,9 @@ export function blockToSql(block: Block, organizationId: string): any {
     // Metadata
     created_at: block.createdAt || new Date().toISOString(),
     updated_at: block.updatedAt || new Date().toISOString(),
-    created_by: block.createdBy || 'system',
+    // `blocks.created_by` é UUID no Postgres. Muitos chamadores antigos usam strings
+    // como 'system'/'staysnet-webhook'. Coagir para um UUID estável para evitar falha.
+    created_by: isUuid(block.createdBy) ? block.createdBy : DEFAULT_USER_ID,
   };
 }
 
@@ -68,7 +76,7 @@ export function sqlToBlock(row: any): Block {
     // Metadata
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
-    createdBy: row.created_by || 'system',
+    createdBy: isUuid(row.created_by) ? row.created_by : DEFAULT_USER_ID,
   };
 }
 

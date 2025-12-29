@@ -89,7 +89,35 @@ function buildReason(type: string): string {
 
 function isStaysBlockLikeType(rawType: any): boolean {
   const t = String(rawType || '').trim().toLowerCase();
-  return t === 'blocked' || t === 'bloqueado' || t === 'maintenance' || t === 'manutenção' || t === 'manutencao';
+  if (!t) return false;
+
+  if (
+    t === 'blocked' ||
+    t === 'maintenance' ||
+    t === 'unavailable' ||
+    t === 'owner_block' ||
+    t === 'ownerblock'
+  ) {
+    return true;
+  }
+
+  if (
+    t === 'bloqueado' ||
+    t === 'bloqueio' ||
+    t === 'indisponivel' ||
+    t === 'indisponível' ||
+    t === 'manutenção' ||
+    t === 'manutencao'
+  ) {
+    return true;
+  }
+
+  if (t.includes('maintenance') || t.includes('manut')) return true;
+  if (t.includes('owner') && t.includes('block')) return true;
+  if (t.includes('bloq')) return true;
+  if (t === 'block') return true;
+
+  return false;
 }
 
 async function migrateMisclassifiedReservationsToBlocks(opts: {

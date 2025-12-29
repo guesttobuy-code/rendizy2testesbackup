@@ -9,6 +9,7 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { Badge } from '../../ui/badge';
+import { Button } from '../../ui/button';
 import { LoadingButton } from './LoadingButton';
 import {
   Key,
@@ -20,8 +21,10 @@ import {
   AlertCircle,
   RefreshCw,
   AlertTriangle,
+  Copy,
 } from 'lucide-react';
 import type { StaysNetConfig, ValidationResult, ConnectionStatus } from '../types';
+import { projectId } from '../../../utils/supabase/info';
 
 interface ConfigTabProps {
   config: StaysNetConfig;
@@ -50,6 +53,23 @@ export function ConfigTab({
 }: ConfigTabProps) {
   const [showApiKey, setShowApiKey] = React.useState(false);
   const [showApiSecret, setShowApiSecret] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+
+  const webhookUrl = React.useMemo(() => {
+    const explicit = String(config.notificationWebhookUrl || '').trim();
+    if (explicit) return explicit;
+    return `https://${projectId}.supabase.co/functions/v1/staysnet-webhook-receiver/<ORG_ID>`;
+  }, [config.notificationWebhookUrl]);
+
+  const handleCopyWebhook = async () => {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // noop: clipboard pode falhar em alguns navegadores/HTTP
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -152,6 +172,39 @@ export function ConfigTab({
             )}
           </div>
 
+          {/* Webhook URL */}
+          <div className="space-y-2">
+            <Label htmlFor="notificationWebhookUrl">Webhook URL (colar no Stays)</Label>
+            <div className="flex gap-2">
+              <Input
+                id="notificationWebhookUrl"
+                value={webhookUrl}
+                readOnly
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCopyWebhook}
+              >
+                {copied ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Se aparecer <code>{'<ORG_ID>'}</code>, salve a configuração para o backend preencher automaticamente.
+            </p>
+          </div>
+
           {/* Actions */}
           <div className="flex justify-between pt-4">
             <LoadingButton
@@ -211,6 +264,9 @@ export function ConfigTab({
           </p>
           <p>
             <strong>Teste de Conexão:</strong> Valida se as credenciais estão corretas
+          </p>
+          <p>
+            <strong>Webhook:</strong> Configure no Stays para acionar o robô (receiver) e manter bloqueios/reservas sincronizados.
           </p>
         </CardContent>
       </Card>

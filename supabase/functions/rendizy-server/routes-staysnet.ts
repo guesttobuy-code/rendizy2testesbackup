@@ -6,8 +6,16 @@ import * as staysnetDB from './staysnet-db.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 import { resolveOrCreateGuestIdFromStaysReservation } from './utils-staysnet-guest-link.ts';
+import { SUPABASE_URL } from './utils-env.ts';
 import type { Block, BlockSubtype } from './types.ts';
 import { blockToSql } from './utils-block-mapper.ts';
+
+function buildDefaultStaysNetWebhookUrl(organizationId: string): string | undefined {
+  const base = String(SUPABASE_URL || '').trim().replace(/\/$/, '');
+  if (!base) return undefined;
+  if (!organizationId) return undefined;
+  return `${base}/functions/v1/staysnet-webhook-receiver/${organizationId}`;
+}
 
 // ============================================================================
 // TYPES
@@ -666,7 +674,12 @@ export async function getStaysNetConfig(c: Context) {
     
     if (dbResult.success && dbResult.data) {
       console.log('[StaysNet] ✅ Configuração carregada do banco de dados');
-      return c.json(successResponse(dbResult.data));
+      const computedWebhook = buildDefaultStaysNetWebhookUrl(organizationId);
+      const dataWithWebhook: StaysNetConfig = {
+        ...dbResult.data,
+        notificationWebhookUrl: dbResult.data.notificationWebhookUrl || computedWebhook || '',
+      };
+      return c.json(successResponse(dataWithWebhook));
     }
     
     // ⚠️ FALLBACK: Tentar carregar do KV Store (compatibilidade)
@@ -679,14 +692,21 @@ export async function getStaysNetConfig(c: Context) {
       await staysnetDB.saveStaysNetConfigDB(config, organizationId);
     }
 
-    return c.json(successResponse(config || {
+    const computedWebhook = buildDefaultStaysNetWebhookUrl(organizationId);
+    const defaultConfig: StaysNetConfig = config || {
       apiKey: '',
       baseUrl: 'https://stays.net/external/v1',
       accountName: '',
       notificationWebhookUrl: '',
       scope: 'global',
       enabled: false,
-    }));
+    };
+
+    if (!defaultConfig.notificationWebhookUrl && computedWebhook) {
+      defaultConfig.notificationWebhookUrl = computedWebhook;
+    }
+
+    return c.json(successResponse(defaultConfig));
   } catch (error) {
     logError('Error getting Stays.net config', error);
     return c.json(errorResponse('Failed to get config'), 500);
@@ -704,13 +724,15 @@ export async function saveStaysNetConfig(c: Context) {
 
     // ✅ REFATORADO v1.0.103.500 - Usar helper híbrido ao invés de body.organizationId
     const organizationId = await getOrganizationIdOrThrow(c);
+
+    const computedWebhook = buildDefaultStaysNetWebhookUrl(organizationId);
     
     const config: StaysNetConfig = {
       apiKey: body.apiKey,
       apiSecret: body.apiSecret || undefined,
       baseUrl: body.baseUrl || 'https://stays.net/external/v1',
       accountName: body.accountName || undefined,
-      notificationWebhookUrl: body.notificationWebhookUrl || undefined,
+      notificationWebhookUrl: body.notificationWebhookUrl || computedWebhook || undefined,
       scope: body.scope || 'global',
       enabled: body.enabled || false,
       lastSync: body.lastSync || new Date().toISOString(),
@@ -1039,7 +1061,38 @@ function deriveReservationStatus(input: { type?: string; status?: string }): str
 
 function isStaysBlockLikeType(rawType: any): boolean {
   const t = String(rawType || '').trim().toLowerCase();
-  return t === 'blocked' || t === 'bloqueado' || t === 'maintenance' || t === 'manutenção' || t === 'manutencao';
+  if (!t) return false;
+
+  // Canonical known values
+  if (
+    t === 'blocked' ||
+    t === 'maintenance' ||
+    t === 'unavailable' ||
+    t === 'owner_block' ||
+    t === 'ownerblock'
+  ) {
+    return true;
+  }
+
+  // PT-BR / UI variants
+  if (
+    t === 'bloqueado' ||
+    t === 'bloqueio' ||
+    t === 'indisponivel' ||
+    t === 'indisponível' ||
+    t === 'manutenção' ||
+    t === 'manutencao'
+  ) {
+    return true;
+  }
+
+  // Defensive: some payloads use compound tokens
+  if (t.includes('maintenance') || t.includes('manut')) return true;
+  if (t.includes('owner') && t.includes('block')) return true;
+  if (t.includes('bloq')) return true;
+  if (t === 'block') return true;
+
+  return false;
 }
 
 function mapBlockSubtypeFromStaysType(rawType: any): BlockSubtype {
@@ -1165,8 +1218,23 @@ async function resolveAnuncioDraftIdFromStaysId(
   return null;
 }
 
+function unwrapStaysWebhookPayloadLike(input: any): any {
+  if (!input || typeof input !== 'object') return input;
+
+  // Common webhook envelopes
+  const obj: any = input;
+  if (obj.payload && typeof obj.payload === 'object') return obj.payload;
+  if (obj.data && typeof obj.data === 'object') return obj.data;
+
+  // Some providers nest under reservation
+  if (obj.reservation && typeof obj.reservation === 'object') return obj.reservation;
+  if (obj.booking && typeof obj.booking === 'object') return obj.booking;
+
+  return obj;
+}
+
 function extractListingCandidateFromStaysReservation(input: any): string | null {
-  const r = input?.payload ?? input;
+  const r = unwrapStaysWebhookPayloadLike(input);
   if (!r || typeof r !== 'object') return null;
 
   const direct =
@@ -1178,10 +1246,14 @@ function extractListingCandidateFromStaysReservation(input: any): string | null 
     r?.listing_id ??
     r?.propertyId ??
     r?.property_id ??
+    r?._idproperty ??
+    r?._id_property ??
+    r?.idproperty ??
+    r?.id_property ??
     null;
   if (direct) return String(direct);
 
-  const nestedListing = r?.listing ?? r?.property ?? null;
+  const nestedListing = r?.listing ?? r?.property ?? r?.apartment ?? r?.unit ?? null;
   if (nestedListing && typeof nestedListing === 'object') {
     const nested =
       nestedListing?._id ??
@@ -1214,12 +1286,16 @@ function extractListingCandidateFromStaysReservation(input: any): string | null 
 }
 
 function extractReservationIdFromPayload(payload: any): string | null {
-  const p = payload?.payload ?? payload;
+  const p = unwrapStaysWebhookPayloadLike(payload);
   const candidates = [
     p?._id,
     p?.reservationId,
     p?.reserveId,
     p?.id,
+    p?._idreservation,
+    p?._id_reservation,
+    p?.idreservation,
+    p?.id_reservation,
     p?.confirmationCode,
     p?.partnerCode,
     p?.reservation?._id,
@@ -1232,12 +1308,16 @@ function extractReservationIdFromPayload(payload: any): string | null {
 }
 
 function extractReservationIdCandidatesFromPayload(payload: any): string[] {
-  const p = payload?.payload ?? payload;
+  const p = unwrapStaysWebhookPayloadLike(payload);
   const raw = [
     p?._id,
     p?.id,
     p?.reservationId,
     p?.reserveId,
+    p?._idreservation,
+    p?._id_reservation,
+    p?.idreservation,
+    p?.id_reservation,
     p?.confirmationCode,
     p?.partnerCode,
     p?.reservation?._id,
@@ -1251,7 +1331,89 @@ function extractReservationIdCandidatesFromPayload(payload: any): string[] {
 
 function isCancellationAction(action: string): boolean {
   const a = String(action || '').trim().toLowerCase();
-  return a === 'reservation.deleted' || a === 'reservation.canceled' || a === 'reservation.cancelled';
+  if (a === 'reservation.canceled' || a === 'reservation.cancelled' || a === 'reservation.deleted') return true;
+  // Defensive: some integrations send suffixed variants.
+  if (a.startsWith('reservation.') && (a.endsWith('.deleted') || a.endsWith('.canceled') || a.endsWith('.cancelled'))) return true;
+  return false;
+}
+
+function extractYmdRangeFromStaysLike(input: any): { startDate: string | null; endDate: string | null } {
+  const r = unwrapStaysWebhookPayloadLike(input);
+  const start = toYmd(r?.checkInDate ?? r?.checkIn ?? r?.check_in ?? r?.startDate ?? r?.start_date ?? null);
+  const end = toYmd(r?.checkOutDate ?? r?.checkOut ?? r?.check_out ?? r?.endDate ?? r?.end_date ?? null);
+  return { startDate: start, endDate: end };
+}
+
+async function deleteBlocksByNotesCandidates(opts: {
+  supabase: ReturnType<typeof getSupabaseClient>;
+  organizationId: string;
+  candidates: string[];
+  propertyId?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+}): Promise<number> {
+  const { supabase, organizationId, candidates, propertyId, startDate, endDate } = opts;
+  const ids = Array.from(new Set((candidates || []).filter(Boolean).map((x) => String(x).trim())));
+  if (ids.length === 0) return 0;
+
+  // We cannot OR multiple ilike in a single builder reliably; do it per-candidate.
+  let deleted = 0;
+  for (const id of ids.slice(0, 10)) {
+    const patterns = [
+      `%"reservationId":"${id}"%`,
+      `%"_id":"${id}"%`,
+      `%"id":"${id}"%`,
+    ];
+
+    for (const p of patterns) {
+      let q = supabase
+        .from('blocks')
+        .delete()
+        .eq('organization_id', organizationId)
+        .ilike('notes', p)
+        // Safety: our Stays blocks always set a Stays reason string
+        .ilike('reason', '%Stays.net%')
+        .select('id');
+
+      if (propertyId) q = q.eq('property_id', propertyId);
+      if (startDate) q = q.eq('start_date', startDate);
+      if (endDate) q = q.eq('end_date', endDate);
+
+      const { data, error } = await q;
+      if (error) continue;
+      deleted += (data || []).length;
+    }
+  }
+
+  return deleted;
+}
+
+async function deleteBlocksByPropertyDates(opts: {
+  supabase: ReturnType<typeof getSupabaseClient>;
+  organizationId: string;
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+  subtype?: BlockSubtype | null;
+}): Promise<number> {
+  const { supabase, organizationId, propertyId, startDate, endDate, subtype } = opts;
+
+  let q = supabase
+    .from('blocks')
+    .delete()
+    .eq('organization_id', organizationId)
+    .eq('property_id', propertyId)
+    .eq('start_date', startDate)
+    .eq('end_date', endDate)
+    // Safety: only remove blocks that were created by Stays integration
+    .ilike('reason', '%Stays.net%')
+    .select('id');
+
+  if (subtype) q = q.eq('subtype', subtype);
+
+  const { data, error } = await q;
+  if (error) return 0;
+  return (data || []).length;
 }
 
 async function findReservationsByCandidates(
@@ -1418,7 +1580,7 @@ async function upsertBlockFromStaysReservation(
     notes,
     createdAt: now,
     updatedAt: now,
-    createdBy: 'staysnet-webhook',
+    createdBy: DEFAULT_USER_ID,
   };
 
   const sqlData = blockToSql(block, organizationId);
@@ -1883,6 +2045,56 @@ export async function processPendingStaysNetWebhooksForOrg(
           continue;
         }
 
+        // Mesmo sem match em reservations, pode existir um block salvo corretamente.
+        // Tentamos deletar via notes (idempotente) e, se houver datas/property no payload, restringimos.
+        const payloadListingCandidate = extractListingCandidateFromStaysReservation(hook.payload);
+        let payloadResolvedPropertyId: string | null = null;
+        if (payloadListingCandidate) {
+          payloadResolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(payloadListingCandidate));
+        }
+        const payloadDates = extractYmdRangeFromStaysLike(hook.payload);
+        const deletedByNotes = await deleteBlocksByNotesCandidates({
+          supabase,
+          organizationId,
+          candidates: cancellationCandidates,
+          propertyId: payloadResolvedPropertyId,
+          startDate: payloadDates.startDate,
+          endDate: payloadDates.endDate,
+        });
+        if (deletedByNotes > 0) {
+          const deletedMisclassified = await cleanupMisclassifiedBlockReservations(supabase, organizationId, cancellationCandidates);
+          updated++;
+          await staysnetDB.markWebhookProcessedDB(
+            hook.id,
+            `Cancellation webhook: deleted ${deletedByNotes} blocks (notes match) + cleaned ${deletedMisclassified} misclassified reservations`,
+          );
+          continue;
+        }
+
+        // Fallback: if payload itself already indicates a block-like reservation and we can resolve property/dates,
+        // delete by (org, property, dates) but only for Stays-created blocks (reason contains 'Stays.net').
+        const payloadTypeLower = String(unwrapStaysWebhookPayloadLike(hook.payload)?.type || '').trim().toLowerCase();
+        if (isStaysBlockLikeType(payloadTypeLower) && payloadResolvedPropertyId && payloadDates.startDate && payloadDates.endDate) {
+          const payloadSubtype = mapBlockSubtypeFromStaysType(payloadTypeLower);
+          const deletedByFields = await deleteBlocksByPropertyDates({
+            supabase,
+            organizationId,
+            propertyId: payloadResolvedPropertyId,
+            startDate: payloadDates.startDate,
+            endDate: payloadDates.endDate,
+            subtype: payloadSubtype,
+          });
+          if (deletedByFields > 0) {
+            const deletedMisclassified = await cleanupMisclassifiedBlockReservations(supabase, organizationId, cancellationCandidates);
+            updated++;
+            await staysnetDB.markWebhookProcessedDB(
+              hook.id,
+              `Cancellation webhook (payload block): deleted blocks=${deletedByFields} + cleaned ${deletedMisclassified} misclassified reservations`,
+            );
+            continue;
+          }
+        }
+
         // Se não encontramos no banco, tentamos buscar detalhes e criar/atualizar como cancelled.
         // Isso evita perder cancelamentos quando o evento chega antes da criação local.
         if (reservationId) {
@@ -1905,35 +2117,44 @@ export async function processPendingStaysNetWebhooksForOrg(
             if (isStaysBlockLikeType(staysTypeLower)) {
               const startDate = toYmd((staysReservation as any)?.checkInDate || (staysReservation as any)?.checkIn);
               const endDate = toYmd((staysReservation as any)?.checkOutDate || (staysReservation as any)?.checkOut);
-              if (!resolvedPropertyId || !startDate || !endDate) {
+              const subtype = mapBlockSubtypeFromStaysType(staysTypeLower);
+              const deletedMisclassified = await cleanupMisclassifiedBlockReservations(supabase, organizationId, cancellationCandidates);
+
+              // Prefer deterministic deletion by notes/id. If we can also resolve property/dates, constrain even more.
+              const deletedNotes = await deleteBlocksByNotesCandidates({
+                supabase,
+                organizationId,
+                candidates: cancellationCandidates,
+                propertyId: resolvedPropertyId,
+                startDate,
+                endDate,
+              });
+
+              let deletedByFields = 0;
+              if (deletedNotes === 0 && resolvedPropertyId && startDate && endDate) {
+                deletedByFields = await deleteBlocksByPropertyDates({
+                  supabase,
+                  organizationId,
+                  propertyId: resolvedPropertyId,
+                  startDate,
+                  endDate,
+                  subtype,
+                });
+              }
+
+              if (deletedNotes + deletedByFields === 0) {
                 skipped++;
                 await staysnetDB.markWebhookProcessedDB(
                   hook.id,
-                  'Cancellation webhook (block): property/date not resolved; cannot delete block',
+                  'Cancellation webhook (block): no matching blocks found to delete',
                 );
                 continue;
-              }
-
-              const subtype = mapBlockSubtypeFromStaysType(staysTypeLower);
-              const { error: delErr } = await supabase
-                .from('blocks')
-                .delete()
-                .eq('organization_id', organizationId)
-                .eq('property_id', resolvedPropertyId)
-                .eq('start_date', startDate)
-                .eq('end_date', endDate)
-                .eq('subtype', subtype);
-
-              const deletedMisclassified = await cleanupMisclassifiedBlockReservations(supabase, organizationId, cancellationCandidates);
-
-              if (delErr) {
-                throw new Error(`Failed to delete block on cancellation: ${delErr.message}`);
               }
 
               updated++;
               await staysnetDB.markWebhookProcessedDB(
                 hook.id,
-                `Cancellation webhook (block): deleted block + cleaned ${deletedMisclassified} misclassified reservations`,
+                `Cancellation webhook (block): deleted blocks=${deletedNotes + deletedByFields} + cleaned ${deletedMisclassified} misclassified reservations`,
               );
               continue;
             }
@@ -1967,6 +2188,73 @@ export async function processPendingStaysNetWebhooksForOrg(
 
         skipped++;
         await staysnetDB.markWebhookProcessedDB(hook.id, 'Cancellation webhook: no matching reservation found');
+        continue;
+      }
+
+      // ✅ ROBUSTEZ: Se o payload já é block-like (blocked/maintenance/etc), não depende de buscar
+      // detalhes na API. Isso evita perder blocks quando o Stays deletou/recriou rápido e o ID
+      // não existe mais no endpoint /booking/reservations/:id.
+      const payloadLike = unwrapStaysWebhookPayloadLike(hook.payload);
+      const payloadTypeLower = String(payloadLike?.type || '').trim().toLowerCase();
+      if (isStaysBlockLikeType(payloadTypeLower)) {
+        const listingCandidate = extractListingCandidateFromStaysReservation(hook.payload);
+        let resolvedPropertyId: string | null = null;
+        if (listingCandidate) {
+          resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
+        }
+
+        const payloadDates = extractYmdRangeFromStaysLike(hook.payload);
+        const startDate = payloadDates.startDate;
+        const endDate = payloadDates.endDate;
+
+        if (!resolvedPropertyId || !startDate || !endDate) {
+          skipped++;
+          await staysnetDB.markWebhookProcessedDB(hook.id, 'Webhook (payload block): property/date not resolved; skipping');
+          continue;
+        }
+
+        const subtype = mapBlockSubtypeFromStaysType(payloadTypeLower);
+        const reason = buildBlockReasonFromStaysType(payloadTypeLower);
+
+        const staysId = String((payloadLike as any)?._id || reservationId || '');
+        const dedupeCandidates = Array.from(
+          new Set(
+            [...cancellationCandidates, staysId]
+              .filter(Boolean)
+              .map((x) => String(x)),
+          ),
+        );
+
+        const upserted = await upsertBlockFromStaysReservation(
+          supabase,
+          organizationId,
+          resolvedPropertyId,
+          startDate,
+          endDate,
+          subtype,
+          reason,
+          {
+            _id: staysId || null,
+            type: payloadTypeLower,
+            reservationId: reservationId || null,
+            partner: (payloadLike as any)?.partner,
+            partnerCode: (payloadLike as any)?.partnerCode,
+            reservationUrl: (payloadLike as any)?.reservationUrl,
+          },
+        );
+
+        const deletedMisclassified = await cleanupMisclassifiedBlockReservations(supabase, organizationId, dedupeCandidates);
+        if (!upserted) {
+          errors++;
+          await staysnetDB.markWebhookProcessedDB(hook.id, 'Webhook (payload block): failed to upsert block');
+          continue;
+        }
+
+        updated++;
+        await staysnetDB.markWebhookProcessedDB(
+          hook.id,
+          `Webhook (payload block): upserted block (created=${upserted.created}) + cleaned ${deletedMisclassified} misclassified reservations`,
+        );
         continue;
       }
 
@@ -2044,7 +2332,7 @@ export async function processPendingStaysNetWebhooksForOrg(
 
         if (!upserted) {
           errors++;
-          await staysnetDB.markWebhookErrorDB(hook.id, 'Webhook (block): failed to upsert block');
+          await staysnetDB.markWebhookProcessedDB(hook.id, 'Webhook (block): failed to upsert block');
           continue;
         }
 
