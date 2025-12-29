@@ -121,43 +121,51 @@ const getBlockForPropertyAndDate = (
     return null;
   }
   
-  const foundBlock = blocks.find(b => {
-    if (b.propertyId !== propertyId) return false;
-    
-    // ✅ FIX: Normalizar datas de bloqueio para YYYY-MM-DD
-    // Alguns registros podem vir como ISO (ex: 2026-01-06T00:00:00.000Z).
-    // A comparação por string pura quebra nesse caso.
-    const toYmd = (v: unknown): string => {
-      if (!v) return '';
-      const s = String(v);
-      return s.split('T')[0].split(' ')[0];
-    };
+  // ✅ FIX: Normalizar datas de bloqueio para YYYY-MM-DD
+  // Alguns registros podem vir como ISO (ex: 2026-01-06T00:00:00.000Z).
+  // Também suportar backend/ambientes que retornam snake_case.
+  const toYmd = (v: unknown): string => {
+    if (!v) return '';
+    const s = String(v).trim();
+    if (!s) return '';
+    return s.split('T')[0].split(' ')[0];
+  };
 
-    // ✅ FIX v1.0.103.365: Comparar strings de data diretamente (YYYY-MM-DD)
-    // Evita problemas de timezone ao criar objetos Date
-    const currentDateStr = formatLocalDate(date);
+  const currentDateStr = formatLocalDate(date);
 
-    const startYmd = toYmd(b.startDate);
-    const endYmd = toYmd(b.endDate);
-    
+  const foundBlockRaw = blocks.find((b: any) => {
+    const blockPropertyId = String(b?.propertyId ?? b?.property_id ?? '').trim();
+    if (!blockPropertyId || blockPropertyId !== propertyId) return false;
+
+    const startYmd = toYmd(b?.startDate ?? b?.start_date);
+    const endYmd = toYmd(b?.endDate ?? b?.end_date);
+
     // Block ocupa de startDate (inclusive) até endDate (exclusive)
     const matches = !!startYmd && !!endYmd && currentDateStr >= startYmd && currentDateStr < endYmd;
-    
+
     if (matches) {
       console.log('✅ [getBlockForPropertyAndDate] Bloqueio encontrado:', {
-        blockId: b.id,
-        propertyId: b.propertyId,
+        blockId: b?.id,
+        propertyId: blockPropertyId,
         startDate: startYmd,
         endDate: endYmd,
-        currentDateStr,  // ✅ Usar a variável local em vez de currentDate
-        nights: b.nights
+        currentDateStr,
+        nights: b?.nights,
       });
     }
-    
+
     return matches;
   }) || null;
-  
-  return foundBlock;
+
+  if (!foundBlockRaw) return null;
+
+  // Retornar bloco com shape consistente para o resto do CalendarGrid
+  return {
+    ...foundBlockRaw,
+    propertyId: String(foundBlockRaw?.propertyId ?? foundBlockRaw?.property_id ?? '').trim(),
+    startDate: toYmd(foundBlockRaw?.startDate ?? foundBlockRaw?.start_date),
+    endDate: toYmd(foundBlockRaw?.endDate ?? foundBlockRaw?.end_date),
+  };
 };
 
 // Nova função: Retorna TODAS as reservas que ocupam uma data (para detectar sobreposições)
