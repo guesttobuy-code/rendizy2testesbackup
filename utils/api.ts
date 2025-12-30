@@ -736,6 +736,7 @@ export const reservationsApi = {
   },
 
   // KPIs do dia (check-in/out/in-house/novas hoje)
+  // inHouseToday = quantidade de imóveis/reservas em estadia hoje (não é somatório de hóspedes).
   getKpis: async (): Promise<ApiResponse<{
     date: string;
     checkinsToday: number;

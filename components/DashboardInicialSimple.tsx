@@ -148,9 +148,7 @@ export function DashboardInicialSimple({
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{kpis ? kpis.inHouseToday : kpisLoading ? '—' : 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Hóspedes hospedados hoje
-            </p>
+            <p className="text-xs text-muted-foreground">Imóveis ocupados hoje</p>
           </CardContent>
         </Card>
 
