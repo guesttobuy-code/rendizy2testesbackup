@@ -144,6 +144,15 @@ interface RequestOptions extends RequestInit {
  * Handles all API communication with proper error handling
  */
 export class StaysNetService {
+  private static unwrapEnvelope<T = any>(response: any): T {
+    // Alguns endpoints devolvem { success, data: {...} }
+    // Outros (imports modulares) devolvem { success, stats, next, ... } direto.
+    if (response && typeof response === 'object' && 'data' in response && (response as any).data != null) {
+      return (response as any).data as T;
+    }
+    return response as T;
+  }
+
   /**
    * Generic request method with error handling and retry logic
    */
@@ -494,7 +503,7 @@ export class StaysNetService {
 
         staysnetLogger.import.info(`Import reservas - lote ${requests}${skip > 0 ? ` (skip=${skip})` : ''}`);
 
-        const response = await this.request<{ success: boolean; data: any }>(
+        const rawResponse = await this.request<any>(
           '/rendizy-server/make-server-67caf26a/staysnet/import/reservations',
           {
             method: 'POST',
@@ -520,14 +529,16 @@ export class StaysNetService {
           },
         );
 
-        if (!response.success) {
-          throw new Error(response.data?.error || 'Erro ao importar reservas');
+        const payload = this.unwrapEnvelope<any>(rawResponse);
+        const success = Boolean((rawResponse as any)?.success ?? payload?.success);
+        if (!success) {
+          throw new Error(payload?.error || payload?.message || 'Erro ao importar reservas');
         }
 
-        const section = normalizeSectionStats(response.data?.stats || response.data);
+        const section = normalizeSectionStats(payload?.stats || payload);
         aggregated = sumSectionStats(aggregated, section);
 
-        const next = response.data?.next;
+        const next = payload?.next;
         hasMore = Boolean(next?.hasMore);
         if (hasMore) {
           const nextSkip = Number(next?.skip);
@@ -577,7 +588,7 @@ export class StaysNetService {
 
         staysnetLogger.import.info(`Import hóspedes - lote ${requests}${skip > 0 ? ` (skip=${skip})` : ''}`);
 
-        const response = await this.request<{ success: boolean; data: any }>(
+        const rawResponse = await this.request<any>(
           '/rendizy-server/make-server-67caf26a/staysnet/import/guests',
           {
             method: 'POST',
@@ -601,14 +612,16 @@ export class StaysNetService {
           },
         );
 
-        if (!response.success) {
-          throw new Error(response.data?.error || 'Erro ao importar hóspedes');
+        const payload = this.unwrapEnvelope<any>(rawResponse);
+        const success = Boolean((rawResponse as any)?.success ?? payload?.success);
+        if (!success) {
+          throw new Error(payload?.error || payload?.message || 'Erro ao importar hóspedes');
         }
 
-        const section = normalizeSectionStats(response.data?.stats || response.data);
+        const section = normalizeSectionStats(payload?.stats || payload);
         aggregated = sumSectionStats(aggregated, section);
 
-        const next = response.data?.next;
+        const next = payload?.next;
         hasMore = Boolean(next?.hasMore);
         if (hasMore) {
           const nextSkip = Number(next?.skip);
@@ -658,7 +671,7 @@ export class StaysNetService {
 
         staysnetLogger.import.info(`Import bloqueios - lote ${requests}${skip > 0 ? ` (skip=${skip})` : ''}`);
 
-        const response = await this.request<{ success: boolean; data: any }>(
+        const rawResponse = await this.request<any>(
           '/rendizy-server/make-server-67caf26a/staysnet/import/blocks',
           {
             method: 'POST',
@@ -679,14 +692,16 @@ export class StaysNetService {
           }
         );
 
-        if (!response.success) {
-          throw new Error(response.data?.error || 'Erro ao importar bloqueios');
+        const payload = this.unwrapEnvelope<any>(rawResponse);
+        const success = Boolean((rawResponse as any)?.success ?? payload?.success);
+        if (!success) {
+          throw new Error(payload?.error || payload?.message || 'Erro ao importar bloqueios');
         }
 
-        const section = normalizeSectionStats(response.data?.stats || response.data);
+        const section = normalizeSectionStats(payload?.stats || payload);
         aggregated = sumSectionStats(aggregated, section);
 
-        const next = response.data?.next;
+        const next = payload?.next;
         hasMore = Boolean(next?.hasMore);
         if (hasMore) {
           const nextSkip = Number(next?.skip);

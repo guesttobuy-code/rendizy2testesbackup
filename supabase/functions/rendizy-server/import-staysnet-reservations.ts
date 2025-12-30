@@ -453,6 +453,26 @@ export async function importStaysNetReservations(c: Context) {
   let hasMore = false;
   const errorDetails: Array<{reservation: string, error: string}> = [];
 
+  // 🧭 AUDIT: reservas puladas por falta de mapping do imóvel
+  // (stays `_idlisting` / `propertyId` não encontrado em anuncios_ultimate)
+  const missingPropertyMappingByListingId = new Map<
+    string,
+    {
+      staysPropertyId: string;
+      candidates: string[];
+      count: number;
+      sampleReservations: Array<{
+        externalId: string | null;
+        reservationCode: string | null;
+        checkInDate: string | null;
+        checkOutDate: string | null;
+        partner: string | null;
+        platform: string | null;
+      }>;
+    }
+  >();
+  let skippedMissingPropertyMapping = 0;
+
   try {
     // ✅ Preferir organization_id real do usuário (via sessions)
     // ⚠️ IMPORTANTE: se há token de usuário, NÃO pode cair no DEFAULT_ORG_ID
@@ -545,7 +565,9 @@ export async function importStaysNetReservations(c: Context) {
       });
 
       for (const t of types) {
-        params.append('type', t);
+        // Stays.net usa `type[]` (ex.: type[]=reserved&type[]=booked...)
+        // Alguns ambientes retornam 200 + [] quando enviamos apenas `type`.
+        params.append('type[]', t);
       }
 
       const response = await fetch(`${staysConfig.baseUrl}/booking/reservations?${params}`, {
@@ -775,6 +797,40 @@ export async function importStaysNetReservations(c: Context) {
           console.warn(
             `   ⚠️ Property não encontrado no Rendizy para staysPropertyId=${primaryStaysId}. SKIP (sem criar anúncio placeholder)`
           );
+
+          // Auditoria: agregamos por listingId para facilitar o diagnóstico.
+          skippedMissingPropertyMapping++;
+          const key = String(primaryStaysId);
+          const existingAgg = missingPropertyMappingByListingId.get(key);
+          if (existingAgg) {
+            existingAgg.count++;
+            if (existingAgg.sampleReservations.length < 8) {
+              existingAgg.sampleReservations.push({
+                externalId: asTextOrNull((resFull as any)._id ?? (resFull as any).confirmationCode ?? confirmationCode),
+                reservationCode: asTextOrNull((resFull as any).id ?? (resFull as any).reservationId ?? (resFull as any).confirmationCode),
+                checkInDate: asTextOrNull((resFull as any).checkInDate),
+                checkOutDate: asTextOrNull((resFull as any).checkOutDate),
+                partner: asTextOrNull((resFull as any).partner),
+                platform: asTextOrNull((resFull as any).platform),
+              });
+            }
+          } else {
+            missingPropertyMappingByListingId.set(key, {
+              staysPropertyId: key,
+              candidates: staysPropertyCandidates.map((x) => String(x)),
+              count: 1,
+              sampleReservations: [
+                {
+                  externalId: asTextOrNull((resFull as any)._id ?? (resFull as any).confirmationCode ?? confirmationCode),
+                  reservationCode: asTextOrNull((resFull as any).id ?? (resFull as any).reservationId ?? (resFull as any).confirmationCode),
+                  checkInDate: asTextOrNull((resFull as any).checkInDate),
+                  checkOutDate: asTextOrNull((resFull as any).checkOutDate),
+                  partner: asTextOrNull((resFull as any).partner),
+                  platform: asTextOrNull((resFull as any).platform),
+                },
+              ],
+            });
+          }
           skipped++;
           continue;
         }
@@ -1305,12 +1361,18 @@ export async function importStaysNetReservations(c: Context) {
         created,
         updated,
         skipped,
+        skippedMissingPropertyMapping,
         errors,
         ...(filterBySelectedProperties ? { fetchedFromApi, skippedBySelection } : {}),
       },
       next: { skip, hasMore },
       errorDetails: errors > 0 ? errorDetails : undefined,
       debugSample: debug ? debugSample : undefined,
+      missingPropertyMappings: debug
+        ? Array.from(missingPropertyMappingByListingId.values())
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 50)
+        : undefined,
       message: `Importados ${saved}/${fetched} reservations de StaysNet (skipped: ${skipped})`
     });
 

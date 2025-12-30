@@ -8,6 +8,16 @@
  * Observações:
  * - API usa paginação `skip/limit` (limit max 20)
  * - Bloqueios não devem virar registros em `reservations`
+ *
+ * Guardrails (antirregressão):
+ * 1) Se há token/sessão do usuário, NUNCA cair no DEFAULT_ORG_ID.
+ *    Isso cria o bug “importou mas não aparece” (gravou no tenant errado).
+ * 2) O modal envia selectedPropertyIds como IDs da Stays (não UUID interno).
+ *    Filtre por IDs da Stays ANTES de resolver; depois resolva p/ UUID interno.
+ * 3) Alguns payloads podem vir sem `type`; como a lista já filtra por query params,
+ *    aceitamos type vazio como block-like.
+ *
+ * Docs: docs/04-modules/STAYSNET_INTEGRATION_GOVERNANCE.md
  */
 
 import { Context } from 'npm:hono';
@@ -265,22 +275,41 @@ export async function importStaysNetBlocks(c: Context) {
   try {
     const supabase = getSupabaseClient();
 
-    // ✅ Preferir organization_id real do usuário; fallback mantém compatibilidade com chamadas técnicas.
+    // ✅ Governança (igual import-reservations):
+    // Se existe token de usuário, NÃO pode cair no DEFAULT_ORG_ID.
+    const cookieHeader = c.req.header('Cookie') || '';
+    const hasUserToken = Boolean(c.req.header('X-Auth-Token') || cookieHeader.includes('rendizy-token='));
+
     let organizationId = DEFAULT_ORG_ID;
-    try {
+    if (hasUserToken) {
       organizationId = await getOrganizationIdOrThrow(c);
-    } catch {
-      // sem sessão/token → mantém DEFAULT_ORG_ID
+    } else {
+      try {
+        organizationId = await getOrganizationIdOrThrow(c);
+      } catch {
+        // sem sessão/token → mantém DEFAULT_ORG_ID (compat chamadas técnicas)
+      }
     }
 
     // Default range: +-12 meses; override via query ou body
     const body: any = await c.req.json().catch(() => ({}));
 
+
     const selectedPropertyIds = Array.isArray(body?.selectedPropertyIds)
-      ? (body.selectedPropertyIds as unknown[]).map(String).filter(Boolean)
+      ? (body.selectedPropertyIds as unknown[]).map(String).map((s) => s.trim()).filter(Boolean)
       : Array.isArray(body?.propertyIds)
-        ? (body.propertyIds as unknown[]).map(String).filter(Boolean)
+        ? (body.propertyIds as unknown[]).map(String).map((s) => s.trim()).filter(Boolean)
         : [];
+
+    // Seleção pode vir como IDs Stays (padrão do modal) ou UUID interno.
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const selectedInternalIdSet = new Set<string>();
+    const selectedStaysIdSet = new Set<string>();
+    for (const id of selectedPropertyIds) {
+      if (uuidRegex.test(id)) selectedInternalIdSet.add(id);
+      else selectedStaysIdSet.add(id);
+    }
+    const filterBySelected = selectedInternalIdSet.size > 0 || selectedStaysIdSet.size > 0;
 
     const propertyIdCache = new Map<string, string | null>();
     const resolveCached = async (staysId: string): Promise<string | null> => {
@@ -291,37 +320,6 @@ export async function importStaysNetBlocks(c: Context) {
       propertyIdCache.set(key, resolved);
       return resolved;
     };
-
-    // ⚠️ Import UI frequentemente envia IDs da Stays (_id) / códigos, não apenas UUID interno.
-    // O calendário e a tabela `blocks` usam `property_id` interno (UUID) -> precisamos resolver.
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const selectedInternalPropertyIds = new Set<string>();
-    const unresolvedSelected: string[] = [];
-
-    for (const rawId of selectedPropertyIds) {
-      const id = String(rawId || '').trim();
-      if (!id) continue;
-
-      if (uuidRegex.test(id)) {
-        selectedInternalPropertyIds.add(id);
-        continue;
-      }
-
-      try {
-        const resolved = await resolveCached(id);
-        if (resolved) {
-          selectedInternalPropertyIds.add(resolved);
-        } else {
-          unresolvedSelected.push(id);
-        }
-      } catch {
-        unresolvedSelected.push(id);
-      }
-    }
-
-    const restrictToSelected = selectedPropertyIds.length > 0;
-    const selectedSet = restrictToSelected ? selectedInternalPropertyIds : null;
 
     const fromDate = new Date();
     fromDate.setMonth(fromDate.getMonth() - 12);
@@ -346,21 +344,10 @@ export async function importStaysNetBlocks(c: Context) {
     console.log(`📌 dateType: ${dateType}`);
     console.log(`📄 Paginação: limit=${limit}, maxPages=${maxPages}`);
     console.log(`⏱️ Runtime budget: ${maxRuntimeMs}ms (fetch timeout=${fetchTimeoutMs}ms)`);
-    if (restrictToSelected) {
-      console.log(`🏠 Filtrando por propriedades selecionadas: ${selectedPropertyIds.length} IDs recebidos → ${selectedInternalPropertyIds.size} UUIDs resolvidos`);
-      if (unresolvedSelected.length > 0) {
-        console.log(`   ⚠️ Não foi possível resolver ${unresolvedSelected.length} IDs (ex.: ${unresolvedSelected.slice(0, 3).join(', ')})`);
-      }
-      if (selectedInternalPropertyIds.size === 0) {
-        console.log('   ⚠️ Nenhum UUID interno foi resolvido; nenhum bloqueio será salvo para a seleção atual.');
-        return c.json({
-          success: true,
-          method: 'import-blocks',
-          table: 'blocks',
-          stats: { fetched: 0, saved: 0, skipped: 0, errors: 0 },
-          next: { hasMore: false, skip: 0 },
-        });
-      }
+    if (filterBySelected) {
+      console.log(
+        `🏠 Filtrando por propriedades selecionadas: received=${selectedPropertyIds.length} (stays=${selectedStaysIdSet.size}, internal=${selectedInternalIdSet.size})`,
+      );
     }
 
     const staysConfig = await loadStaysNetRuntimeConfigOrThrow(organizationId);
@@ -374,7 +361,7 @@ export async function importStaysNetBlocks(c: Context) {
         organizationId,
         from,
         to,
-        selectedSet,
+        selectedSet: selectedInternalIdSet.size > 0 ? selectedInternalIdSet : null,
         debug,
       });
       if (mig.scanned > 0) {
@@ -407,8 +394,9 @@ export async function importStaysNetBlocks(c: Context) {
         skip: String(skipCursor),
       });
       // type pode ser múltiplo (repetido)
-      params.append('type', 'blocked');
-      params.append('type', 'maintenance');
+      // Stays.net usa `type[]` (ex.: type[]=blocked&type[]=maintenance)
+      params.append('type[]', 'blocked');
+      params.append('type[]', 'maintenance');
 
       const resp = await fetchWithTimeout(`${staysConfig.baseUrl}/booking/reservations?${params}`, {
         headers: {
@@ -437,8 +425,12 @@ export async function importStaysNetBlocks(c: Context) {
         const itemId = item._id || `item-${skipCursor + i + 1}`;
 
         try {
-          const typeLower = String(item.type || '').toLowerCase();
-          if (typeLower !== 'blocked' && typeLower !== 'maintenance') {
+          const rawType = (item as any).type ?? (item as any).reservationType ?? (item as any).kind ?? '';
+          const typeLower = String(rawType || '').toLowerCase();
+          // ✅ Robustez: a lista já é filtrada via query params, mas alguns payloads vêm sem `type`.
+          // Então aceitamos quando for block-like ou quando `type` vier vazio.
+          const isBlockLike = !typeLower || isStaysBlockLikeType(typeLower);
+          if (!isBlockLike) {
             skipped++;
             continue;
           }
@@ -462,6 +454,16 @@ export async function importStaysNetBlocks(c: Context) {
             (item as any).propertyId,
           ].filter(Boolean) as string[];
 
+          // ✅ Filtro de seleção (modal): seleciona por IDs Stays.
+          // Fazemos isso antes de resolver p/ UUID interno para evitar abortar tudo quando faltam vínculos.
+          if (selectedStaysIdSet.size > 0) {
+            const matched = staysListingCandidates.some((c) => selectedStaysIdSet.has(String(c).trim()));
+            if (!matched) {
+              skipped++;
+              continue;
+            }
+          }
+
           let propertyId: string | null = null;
           for (const candidate of staysListingCandidates) {
             propertyId = await resolveCached(candidate);
@@ -474,13 +476,14 @@ export async function importStaysNetBlocks(c: Context) {
             continue;
           }
 
-          if (selectedSet && !selectedSet.has(propertyId)) {
+          // ✅ Se seleção veio com UUID interno, filtrar aqui após resolução
+          if (selectedInternalIdSet.size > 0 && !selectedInternalIdSet.has(propertyId)) {
             skipped++;
             continue;
           }
 
           // Dedup simples: org + property + start + end + subtype
-          const subtype = mapSubtypeFromType(typeLower);
+          const subtype = mapSubtypeFromType(typeLower || 'blocked');
           const { data: existing, error: existingError } = await supabase
             .from('blocks')
             .select('id')
@@ -539,12 +542,12 @@ export async function importStaysNetBlocks(c: Context) {
             nights,
             type: 'block',
             subtype,
-            reason: buildReason(typeLower),
+            reason: buildReason(typeLower || 'blocked'),
             notes: debug
               ? JSON.stringify({
                   staysnet: {
                     _id: itemId,
-                    type: typeLower,
+                    type: typeLower || null,
                     reservationUrl: item.reservationUrl,
                     partner: item.partner,
                     partnerCode: item.partnerCode,

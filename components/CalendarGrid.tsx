@@ -22,6 +22,61 @@ interface CalendarProps {
   onBlockClick?: (block: any) => void;
 }
 
+function splitTwoLines(input: string, firstLineMax = 30, secondLineMax = 30): { line1: string; line2?: string } {
+  const text = (input || '').trim().replace(/\s+/g, ' ');
+  if (!text) return { line1: 'Sem nome' };
+
+  const words = text.split(' ').filter(Boolean);
+
+  const fitWords = (startIndex: number, maxLen: number): { line: string; nextIndex: number } => {
+    if (startIndex >= words.length) return { line: '', nextIndex: startIndex };
+
+    const firstWord = words[startIndex];
+    if ((firstWord || '').length > maxLen) {
+      // Palavra maior que o limite: não quebrar; deixa truncar via CSS.
+      return { line: firstWord, nextIndex: startIndex + 1 };
+    }
+
+    let line = '';
+    let i = startIndex;
+    while (i < words.length) {
+      const w = words[i];
+      const candidate = line ? `${line} ${w}` : w;
+      if (candidate.length > maxLen) break;
+      line = candidate;
+      i += 1;
+    }
+    return { line, nextIndex: i };
+  };
+
+  const l1 = fitWords(0, firstLineMax);
+  if (!l1.line) return { line1: 'Sem nome' };
+  if (l1.nextIndex >= words.length) return { line1: l1.line };
+
+  const l2 = fitWords(l1.nextIndex, secondLineMax);
+  if (!l2.line) return { line1: l1.line };
+
+  const hasMore = l2.nextIndex < words.length;
+  if (!hasMore) return { line1: l1.line, line2: l2.line };
+
+  // Adiciona reticências sem quebrar palavras: se não couber, remove palavras do fim.
+  const ellipsis = '…';
+  let line2 = l2.line;
+  while (line2.length + ellipsis.length > secondLineMax && line2.includes(' ')) {
+    const parts = line2.split(' ');
+    parts.pop();
+    line2 = parts.join(' ');
+  }
+  if (line2.length + ellipsis.length <= secondLineMax) {
+    line2 = `${line2}${ellipsis}`;
+  } else if (line2 !== l2.line) {
+    // fallback: se ficou vazio, volta para original e deixa truncar via CSS
+    line2 = `${l2.line}${ellipsis}`;
+  }
+
+  return { line1: l1.line, line2 };
+}
+
 // Generate calendar days
 // Suporta dateRange para gerar 60+ dias através de múltiplos meses
 const getDaysInMonth = (date: Date, dateRange?: { from: Date; to: Date }) => {
@@ -858,8 +913,22 @@ export function Calendar({
                             className="w-7 h-7 rounded object-cover flex-shrink-0"
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm text-gray-900 truncate">{property.name}</div>
-                            <div className="text-gray-500 text-xs truncate">{property.id}</div>
+                            {(() => {
+                              const displayName = property.internalId || property.name || 'Sem nome';
+                              const { line1, line2 } = splitTwoLines(displayName, 30, 30);
+                              return (
+                                <a
+                                  href={`/anuncios-ultimate/${property.id}/edit`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block text-sm text-gray-900 leading-4 hover:underline"
+                                  title={displayName}
+                                >
+                                  <span className="block truncate">{line1}</span>
+                                  {line2 ? <span className="block truncate">{line2}</span> : null}
+                                </a>
+                              );
+                            })()}
                           </div>
                           <button
                             onClick={() => togglePropertyExpansion(property.id)}

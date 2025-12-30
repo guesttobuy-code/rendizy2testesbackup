@@ -504,7 +504,8 @@ export async function importStaysNetGuests(c: Context) {
       });
 
       for (const t of types) {
-        params.append('type', t);
+        // Stays.net usa `type[]` (ex.: type[]=reserved&type[]=booked...)
+        params.append('type[]', t);
       }
 
       const response = await fetch(`${staysConfig.baseUrl}/booking/reservations?${params}`, {

@@ -315,7 +315,13 @@ export async function importStaysNetProperties(c: Context) {
         // ====================================================================
         const staysnetListingId = prop._id;
         const staysnetPropertyId = prop._t_propertyMeta?._id || prop._t_propertyMeta?.id || null;
+        const staysnetInternalName = typeof prop.internalName === 'string' ? prop.internalName.trim() : '';
+        const staysnetListingCode = typeof prop.id === 'string' ? prop.id.trim() : '';
 
+        // Dedupe deve ser robusto: em ambientes onde o anúncio já existe (criado manualmente
+        // ou por versões antigas do import), `externalIds` pode estar ausente.
+        // Nesses casos, tentamos casar por `internalId` (que é alimentado por internalName)
+        // e por `codigo` quando aplicável.
         const dedupeCandidates: Array<{ label: string; needle: Record<string, any> }> = [
           { label: 'data.externalIds.staysnet_listing_id', needle: { externalIds: { staysnet_listing_id: staysnetListingId } } },
           ...(staysnetPropertyId && staysnetPropertyId !== staysnetListingId
@@ -323,6 +329,19 @@ export async function importStaysNetProperties(c: Context) {
             : []),
           // legado: em alguns imports antigos, staysnet_property_id foi gravado com o listingId
           { label: 'data.externalIds.staysnet_property_id (legacy)', needle: { externalIds: { staysnet_property_id: staysnetListingId } } },
+          // legado: alguns ambientes gravaram internalId como o próprio listingId
+          { label: 'data.internalId (listingId)', needle: { internalId: staysnetListingId } },
+          ...(staysnetInternalName
+            ? [{ label: 'data.internalId (internalName)', needle: { internalId: staysnetInternalName } }]
+            : []),
+          ...(staysnetListingCode
+            ? [
+                // Alguns ambientes usam o código curto do listing como `codigo`
+                { label: 'data.codigo (listingCode)', needle: { codigo: staysnetListingCode } },
+                // E/ou como internalId
+                { label: 'data.internalId (listingCode)', needle: { internalId: staysnetListingCode } },
+              ]
+            : []),
         ];
 
         let existing: any = null;

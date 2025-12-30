@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts'
 
-import { processPendingStaysNetWebhooksForOrg } from '../rendizy-server/routes-staysnet.ts'
+import { processPendingStaysNetWebhooksForOrg } from '../rendizy-server/routes-staysnet-webhooks.ts'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

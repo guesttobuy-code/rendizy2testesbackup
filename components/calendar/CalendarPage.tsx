@@ -72,14 +72,15 @@ function CalendarPageContent(props: CalendarPageProps) {
       
       const blocksResponse = await calendarApi.getBlocks(state.selectedProperties);
       console.log(`📥 [CalendarPage] Resposta da API de bloqueios:`, blocksResponse);
-      
-      const blocks = blocksResponse.success ? blocksResponse.data : [];
-      console.log(`✅ [CalendarPage] ${blocks.length} bloqueios carregados`);
-      
-      if (blocksResponse.error) {
+
+      if (!blocksResponse.success) {
         console.error(`❌ [CalendarPage] Erro ao buscar bloqueios:`, blocksResponse.error);
+        // ✅ Estabilidade: não retornar [] e apagar estado existente.
+        throw new Error(blocksResponse.error || 'Falha ao buscar bloqueios');
       }
-      
+
+      const blocks = blocksResponse.data || [];
+      console.log(`✅ [CalendarPage] ${blocks.length} bloqueios carregados`);
       return blocks;
     },
     enabled: state.selectedProperties.length > 0,

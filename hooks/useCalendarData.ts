@@ -64,12 +64,24 @@ export function useProperties() {
       if (anuncios && anuncios.length) {
         const properties: Property[] = anuncios.map((a: any) => {
           const title = a.data?.title || a.title || 'Sem título';
+          const internalId = a.data?.internalId || a.data?.internal_id || a.internalId || a.internal_id || '';
           const propertyId = a.id || '';
+          const coverPhoto =
+            a.data?.coverPhoto ||
+            a.data?.cover_photo ||
+            a.coverPhoto ||
+            a.cover_photo ||
+            a.data?.photos?.[0] ||
+            a.photos?.[0] ||
+            '';
           
           return {
             id: propertyId,
             name: title,
-            image: a.data?.photos?.[0] || 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=100&h=100&fit=crop',
+            title,
+            internalId,
+            coverPhoto,
+            image: coverPhoto || 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=100&h=100&fit=crop',
             type: 'Imóvel',
             location: 'A definir',
             tarifGroup: 'Ultimate',
@@ -115,8 +127,11 @@ export function useReservations(options: UseReservationsOptions = {}) {
         console.log(`✅ [useReservations] ${activeReservations.length} reservas ativas carregadas (${response.data.length} total, ${response.data.length - activeReservations.length} canceladas)`);
         return activeReservations;
       }
-      
-      return [];
+
+      // ✅ Estabilidade: não “zerar” reservas em falha temporária.
+      // Se a API falhar (token expirar, 401, rede), lançar erro para o React Query
+      // manter o último dado bom em cache, evitando sumir todos os cards.
+      throw new Error(response.error || 'Falha ao carregar reservas');
     },
     staleTime: 2 * 60 * 1000, // Cache válido por 2 minutos
     gcTime: 5 * 60 * 1000,
@@ -152,17 +167,22 @@ export function useCalendarData({ propertyIds, dateRange, enabled = true }: UseC
       try {
         // ✅ Buscar todos os bloqueios de uma vez (API aceita array de IDs)
         const blocksResponse = await calendarApi.getBlocks(propertyIds);
-        
-        const allBlocks = blocksResponse.success && blocksResponse.data 
-          ? blocksResponse.data 
-          : [];
+
+        if (!blocksResponse.success) {
+          // ✅ Estabilidade: não sobrescrever com [] em falha temporária
+          throw new Error(blocksResponse.error || 'Falha ao carregar bloqueios');
+        }
+
+        const allBlocks = blocksResponse.data || [];
         
         console.log(`✅ [useCalendarData] ${allBlocks.length} bloqueios carregados`);
         
         return { blocks: allBlocks };
       } catch (error) {
         console.error('❌ [useCalendarData] Erro ao buscar bloqueios:', error);
-        return { blocks: [] };
+
+        // Deixar o React Query marcar como erro e manter o último valor bom.
+        throw error instanceof Error ? error : new Error('Erro desconhecido ao buscar bloqueios');
       }
     },
     staleTime: 3 * 60 * 1000,

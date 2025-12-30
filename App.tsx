@@ -151,7 +151,13 @@ const SettingsModule = React.lazy(() =>
 export interface Property {
   id: string;
   name: string;
+  /** Nome interno (identificação operacional). */
+  internalId?: string;
+  /** Nome comercial/título (ex.: Airbnb). */
+  title?: string;
   image: string;
+  /** Foto de capa (quando disponível). */
+  coverPhoto?: string;
   type: string;
   location: string;
   tarifGroup: string;

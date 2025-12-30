@@ -50,6 +50,8 @@ Desktop.ini
 .env.*
 !.env.example
 
+_rendizy-creds.local.ps1
+
 token.txt
 token*.txt
 *token*.txt

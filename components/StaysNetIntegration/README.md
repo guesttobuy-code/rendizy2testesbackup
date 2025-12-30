@@ -78,6 +78,27 @@ TypeScript em 100% do código com interfaces centralizadas.
 
 ---
 
+## 🛡️ Guardrails (Antirregressão)
+
+Essas regras existem porque este módulo é “coração do sistema” e já provou ser frágil quando alguém mexe num lado e quebra o outro.
+
+1) **IDs selecionados no modal são IDs da Stays (não UUID interno)**
+- `selectedPropertyIds` enviados ao backend são `property.id`/`_id` da Stays.
+- O backend deve resolver para `anuncios_ultimate.id` antes de salvar `blocks`/`reservations`.
+
+2) **Em falha de API/token, nunca “limpar” calendário**
+- Não usar fallback `[]` em erro para reservas/bloqueios.
+- Deve lançar erro para manter cache do React Query e evitar “sumir todos os cards”.
+
+3) **Rotas são contrato**
+- Não renomear endpoints sem atualizar `staysnet.service.ts` e a governança em `docs/04-modules/STAYSNET_INTEGRATION_GOVERNANCE.md`.
+
+4) **Webhooks e Modal são cápsulas separadas**
+- Robô de webhooks e modal de importação não devem se importar mutuamente.
+- No backend, use as cápsulas dedicadas para evitar acoplamento acidental.
+
+---
+
 ## 🔧 Como Usar os Hooks
 
 ### **useStaysNetConfig**

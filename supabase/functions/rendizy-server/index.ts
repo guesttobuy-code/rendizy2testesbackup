@@ -47,6 +47,8 @@ import blocksApp from "./routes-blocks.ts";
 import icalApp from "./routes-ical.ts";
 import * as guestsRoutes from "./routes-guests.ts";
 import * as staysnetRoutes from "./routes-staysnet.ts";
+import * as staysnetWebhooksRoutes from "./routes-staysnet-webhooks.ts";
+import * as staysnetImportModalRoutes from "./routes-staysnet-import-modal.ts";
 import * as dataReconciliationRoutes from "./routes-data-reconciliation.ts";
 import { tenancyMiddleware } from "./utils-tenancy.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
@@ -264,17 +266,17 @@ app.get("/rendizy-server/make-server-67caf26a/settings/staysnet", staysnetRoutes
 app.post("/rendizy-server/make-server-67caf26a/settings/staysnet", staysnetRoutes.saveStaysNetConfig);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/test", staysnetRoutes.testStaysNetConnection);
 app.post("/rendizy-server/make-server-67caf26a/staysnet/test-endpoint", staysnetRoutes.testStaysNetEndpoint);
-app.post("/rendizy-server/make-server-67caf26a/staysnet/import/preview", staysnetRoutes.previewStaysNetImport);
-app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetRoutes.importFullStaysNet);
-app.post("/rendizy-server/make-server-67caf26a/staysnet/import/debug", staysnetRoutes.debugRawStaysNet); // 🧪 DEBUG
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/preview", staysnetImportModalRoutes.previewStaysNetImport);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetImportModalRoutes.importFullStaysNet);
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/debug", staysnetImportModalRoutes.debugRawStaysNet); // 🧪 DEBUG
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/SIMPLE", importStaysNetSimple); // ⚡ SIMPLES - INSERT direto
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/RPC", importStaysNetRPC); // ✅ USA RPC (igual FormularioAnuncio) - LEGACY
-app.post("/staysnet/webhook/:organizationId", staysnetRoutes.receiveStaysNetWebhook);
-app.post("/rendizy-server/staysnet/webhook/:organizationId", staysnetRoutes.receiveStaysNetWebhook);
-app.post("/staysnet/webhooks/process/:organizationId", staysnetRoutes.processStaysNetWebhooks);
-app.post("/rendizy-server/staysnet/webhooks/process/:organizationId", staysnetRoutes.processStaysNetWebhooks);
-app.get("/staysnet/webhooks/diagnostics/:organizationId", staysnetRoutes.getStaysNetWebhooksDiagnostics);
-app.get("/rendizy-server/staysnet/webhooks/diagnostics/:organizationId", staysnetRoutes.getStaysNetWebhooksDiagnostics);
+app.post("/staysnet/webhook/:organizationId", staysnetWebhooksRoutes.receiveStaysNetWebhook);
+app.post("/rendizy-server/staysnet/webhook/:organizationId", staysnetWebhooksRoutes.receiveStaysNetWebhook);
+app.post("/staysnet/webhooks/process/:organizationId", staysnetWebhooksRoutes.processStaysNetWebhooks);
+app.post("/rendizy-server/staysnet/webhooks/process/:organizationId", staysnetWebhooksRoutes.processStaysNetWebhooks);
+app.get("/staysnet/webhooks/diagnostics/:organizationId", staysnetWebhooksRoutes.getStaysNetWebhooksDiagnostics);
+app.get("/rendizy-server/staysnet/webhooks/diagnostics/:organizationId", staysnetWebhooksRoutes.getStaysNetWebhooksDiagnostics);
 app.post("/staysnet/backfill/guests/:organizationId", staysnetRoutes.backfillStaysNetReservationGuests);
 app.post("/rendizy-server/staysnet/backfill/guests/:organizationId", staysnetRoutes.backfillStaysNetReservationGuests);
 app.post("/staysnet/reservations/reconcile/:organizationId", staysnetRoutes.reconcileStaysNetReservations);
