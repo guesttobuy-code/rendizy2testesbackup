@@ -14,6 +14,7 @@ import type {
   FetchPropertiesResult,
   ImportType,
   ImportPreview,
+  ListImportIssuesResult,
 } from '../types';
 
 type NormalizedSectionStats = { fetched: number; created: number; updated: number; failed: number };
@@ -724,6 +725,45 @@ export class StaysNetService {
       staysnetLogger.import.error('Erro ao importar bloqueios', error);
       throw error;
     }
+  }
+
+  /**
+   * List import issues (e.g. reservations missing property mapping).
+   */
+  static async listImportIssues(params?: { status?: 'open' | 'resolved' | 'all'; limit?: number; offset?: number }): Promise<ListImportIssuesResult> {
+    const status = params?.status || 'open';
+    const limit = typeof params?.limit === 'number' ? params!.limit : 50;
+    const offset = typeof params?.offset === 'number' ? params!.offset : 0;
+
+    const qs = new URLSearchParams({
+      status,
+      limit: String(limit),
+      offset: String(offset),
+    });
+
+    const rawResponse = await this.request<any>(
+      `/rendizy-server/make-server-67caf26a/staysnet/import/issues?${qs.toString()}`,
+      { method: 'GET' },
+    );
+
+    const payload = this.unwrapEnvelope<any>(rawResponse);
+    const success = Boolean((rawResponse as any)?.success ?? payload?.success);
+
+    if (!success) {
+      return {
+        success: false,
+        issues: [],
+        count: 0,
+        error: payload?.error || payload?.message || 'Falha ao listar issues de importação',
+      };
+    }
+
+    return {
+      success: true,
+      issues: Array.isArray(payload?.issues) ? payload.issues : [],
+      count: typeof payload?.count === 'number' ? payload.count : (Array.isArray(payload?.issues) ? payload.issues.length : 0),
+      message: payload?.message,
+    };
   }
 
   /**

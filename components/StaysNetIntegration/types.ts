@@ -129,6 +129,38 @@ export interface ImportResult {
   error?: string;
 }
 
+export interface StaysNetImportIssue {
+  id: string;
+  organization_id: string;
+  platform: string;
+  entity_type: string;
+  issue_type: string;
+
+  external_id?: string | null;
+  reservation_code?: string | null;
+  listing_id?: string | null;
+  listing_candidates?: any;
+
+  check_in?: string | null;
+  check_out?: string | null;
+  partner?: string | null;
+  platform_source?: string | null;
+
+  status: 'open' | 'resolved' | string;
+  message?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  resolved_at?: string | null;
+}
+
+export interface ListImportIssuesResult {
+  success: boolean;
+  issues: StaysNetImportIssue[];
+  count: number;
+  message?: string;
+  error?: string;
+}
+
 export interface ImportPreview {
   totalRemote: number;
   existingCount: number;

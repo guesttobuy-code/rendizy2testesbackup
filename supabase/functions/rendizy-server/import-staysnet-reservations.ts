@@ -92,6 +92,97 @@ async function resolveAnuncioUltimateIdFromStaysId(
   return null;
 }
 
+async function upsertStaysnetImportIssueMissingPropertyMapping(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  input: {
+    organizationId: string;
+    externalId: string | null;
+    reservationCode: string | null;
+    listingId: string;
+    listingCandidates: string[];
+    checkInDate: string | null;
+    checkOutDate: string | null;
+    partner: string | null;
+    platform: string | null;
+    rawPayload: any;
+  },
+): Promise<void> {
+  try {
+    // Prefer idempotency by external_id when available; otherwise insert best-effort (may duplicate).
+    const baseRow: any = {
+      organization_id: input.organizationId,
+      platform: 'staysnet',
+      entity_type: 'reservation',
+      issue_type: 'missing_property_mapping',
+      external_id: input.externalId,
+      reservation_code: input.reservationCode,
+      listing_id: input.listingId,
+      listing_candidates: input.listingCandidates,
+      check_in: input.checkInDate,
+      check_out: input.checkOutDate,
+      partner: input.partner,
+      platform_source: input.platform,
+      status: 'open',
+      message: 'Reserva StaysNet sem vínculo com imóvel (anuncios_ultimate) — importar imóveis/upsert e reprocessar',
+      raw_payload: input.rawPayload,
+    };
+
+    // If we have external_id, upsert (unique partial index will enforce one per external_id)
+    if (input.externalId) {
+      await supabase
+        .from('staysnet_import_issues')
+        .upsert(baseRow, {
+          onConflict: 'organization_id,platform,entity_type,issue_type,external_id',
+        });
+      return;
+    }
+
+    // Without external_id, insert best-effort.
+    await supabase.from('staysnet_import_issues').insert(baseRow);
+  } catch (e: any) {
+    console.warn(`   ⚠️ Falha ao registrar staysnet_import_issue (missing_property_mapping): ${e?.message || String(e)}`);
+  }
+}
+
+async function resolveStaysnetImportIssueForReservation(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  input: {
+    organizationId: string;
+    externalId: string | null;
+    reservationCode: string | null;
+  },
+): Promise<void> {
+  try {
+    const patch = { status: 'resolved', resolved_at: new Date().toISOString() };
+
+    if (input.externalId) {
+      await supabase
+        .from('staysnet_import_issues')
+        .update(patch)
+        .eq('organization_id', input.organizationId)
+        .eq('platform', 'staysnet')
+        .eq('entity_type', 'reservation')
+        .eq('issue_type', 'missing_property_mapping')
+        .eq('status', 'open')
+        .eq('external_id', String(input.externalId));
+    }
+
+    if (input.reservationCode) {
+      await supabase
+        .from('staysnet_import_issues')
+        .update(patch)
+        .eq('organization_id', input.organizationId)
+        .eq('platform', 'staysnet')
+        .eq('entity_type', 'reservation')
+        .eq('issue_type', 'missing_property_mapping')
+        .eq('status', 'open')
+        .eq('reservation_code', String(input.reservationCode));
+    }
+  } catch (e: any) {
+    console.warn(`   ⚠️ Falha ao resolver staysnet_import_issue: ${e?.message || String(e)}`);
+  }
+}
+
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
 // ⚠️ REGRA CANÔNICA: reserva SEMPRE precisa de um imóvel válido (anuncios_ultimate).
@@ -798,6 +889,19 @@ export async function importStaysNetReservations(c: Context) {
             `   ⚠️ Property não encontrado no Rendizy para staysPropertyId=${primaryStaysId}. SKIP (sem criar anúncio placeholder)`
           );
 
+          await upsertStaysnetImportIssueMissingPropertyMapping(supabase, {
+            organizationId,
+            externalId: asTextOrNull((resFull as any)._id ?? null),
+            reservationCode: asTextOrNull((resFull as any).confirmationCode ?? (resFull as any).id ?? (resFull as any).reservationId ?? confirmationCode),
+            listingId: String(primaryStaysId),
+            listingCandidates: staysPropertyCandidates.map((x) => String(x)),
+            checkInDate: asTextOrNull((resFull as any).checkInDate),
+            checkOutDate: asTextOrNull((resFull as any).checkOutDate),
+            partner: asTextOrNull((resFull as any).partner),
+            platform: asTextOrNull((resFull as any).platform),
+            rawPayload: resFull,
+          });
+
           // Auditoria: agregamos por listingId para facilitar o diagnóstico.
           skippedMissingPropertyMapping++;
           const key = String(primaryStaysId);
@@ -1286,6 +1390,14 @@ export async function importStaysNetReservations(c: Context) {
           };
           throw new Error(`Falha ao upsert reservation: ${upsertError.message} | meta: ${JSON.stringify(meta)}`);
         }
+
+        // ✅ Sustentável: se antes essa reserva caiu em "missing_property_mapping",
+        // marcar como resolvida automaticamente quando ela finalmente entra.
+        await resolveStaysnetImportIssueForReservation(supabase, {
+          organizationId,
+          externalId: asTextOrNull(externalId),
+          reservationCode: staysReservationCodeForDedupe,
+        });
 
         // ====================================================================
         // 2.6: Persistência do JSON bruto (tudo) em tabela dedicada

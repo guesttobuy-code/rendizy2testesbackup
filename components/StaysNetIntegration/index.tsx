@@ -6,7 +6,7 @@
  * Total lines: ~200 (vs 1,392 before)
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Building2, Upload, FileText, RefreshCw, Settings } from 'lucide-react';
 
@@ -59,6 +59,9 @@ export default function StaysNetIntegration() {
     stats,
     error,
     importLogs,
+    importIssues,
+    issuesLoading,
+    issuesError,
     importProgress,
     overallProgress,
     fetchProperties,
@@ -68,12 +71,20 @@ export default function StaysNetIntegration() {
     importGuests,
     importAll,
     importOneForTest,
+    fetchImportIssues,
     toggleProperty,
     selectAllProperties,
     deselectAllProperties,
     selectProperties,
     selectNewProperties,
   } = useStaysNetImport();
+
+  // Carrega issues persistentes ao abrir o módulo (evita perda silenciosa).
+  useEffect(() => {
+    fetchImportIssues().catch(() => {
+      // handled by hook
+    });
+  }, [fetchImportIssues]);
 
   // Date range for reservations
   const [importDateRange, setImportDateRange] = useState({
@@ -175,6 +186,33 @@ export default function StaysNetIntegration() {
     } catch (error) {
       // Error is already logged by the hook
     }
+  };
+
+  const handleRefreshImportIssues = async () => {
+    try {
+      await fetchImportIssues();
+    } catch {
+      // handled by hook
+    }
+  };
+
+  const handleReprocessIssueReservations = async () => {
+    const listingIds = Array.from(
+      new Set(
+        (importIssues || [])
+          .map((i: any) => String(i?.listing_id || '').trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (listingIds.length === 0) return;
+
+    await importReservations(config, {
+      selectedPropertyIds: listingIds,
+      startDate: importDateRange.startDate,
+      endDate: importDateRange.endDate,
+      dateType: importDateRange.dateType,
+    });
   };
 
   // Regra de negócio: reservas e hóspedes sempre importados juntos.
@@ -311,6 +349,11 @@ export default function StaysNetIntegration() {
             stats={stats}
             error={error}
             importLogs={importLogs}
+            importIssues={importIssues}
+            issuesLoading={issuesLoading}
+            issuesError={issuesError}
+            onRefreshIssues={handleRefreshImportIssues}
+            onReprocessIssues={handleReprocessIssueReservations}
             onImportProperties={handleImportProperties}
             onImportNewOnly={handleImportNewOnly}
             onImportUpsertAll={handleImportUpsertAll}

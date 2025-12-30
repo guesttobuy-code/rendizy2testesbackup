@@ -34,6 +34,11 @@ interface ImportTabProps {
   stats: ImportStatsType | null;
   error: string | null;
   importLogs?: ImportLogEntry[];
+  importIssues?: any[];
+  issuesLoading?: boolean;
+  issuesError?: string | null;
+  onRefreshIssues?: () => void;
+  onReprocessIssues?: () => void;
   onImportProperties: () => void;
   onImportNewOnly: () => void;
   onImportUpsertAll: () => void;
@@ -69,6 +74,11 @@ export function ImportTab({
   stats,
   error,
   importLogs = [],
+  importIssues = [],
+  issuesLoading = false,
+  issuesError = null,
+  onRefreshIssues,
+  onReprocessIssues,
   onImportProperties,
   onImportReservations,
   onImportGuests,
@@ -85,6 +95,7 @@ export function ImportTab({
   onSelectNewProperties,
 }: ImportTabProps) {
   const lastLogs = importLogs.slice(-25);
+  const openIssues = Array.isArray(importIssues) ? importIssues : [];
 
   const formatTime = (iso: string) => {
     try {
@@ -335,6 +346,73 @@ export function ImportTab({
               Importar Reservas + Hóspedes
             </LoadingButton>
           </div>
+
+          {/* ⚠️ Sustentável: nunca perder reservas silenciosamente */}
+          {(issuesError || openIssues.length > 0) && (
+            <div className="space-y-3">
+              {issuesError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Falha ao carregar "reservas sem imóvel": {issuesError}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {openIssues.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <div className="font-medium">
+                        Atenção: {openIssues.length} reserva(s) da Stays.net sem vínculo com imóvel
+                      </div>
+                      <div className="text-sm opacity-90">
+                        Isso acontece quando a reserva vem com um <strong>listing_id</strong> que ainda não existe no
+                        Anúncio Ultimate. Importe imóveis (upsert) e reimporte reservas para resolver.
+                      </div>
+                      <div className="rounded-md border bg-background/40 p-2 text-xs">
+                        {openIssues.slice(0, 8).map((it: any) => {
+                          const code = it?.reservation_code || it?.external_id || 'sem-código';
+                          const listing = it?.listing_id || 'sem-listing';
+                          const dates = [it?.check_in, it?.check_out].filter(Boolean).join(' → ');
+                          return (
+                            <div key={it?.id || `${code}-${listing}`} className="py-0.5">
+                              {code} • {listing}{dates ? ` • ${dates}` : ''}
+                            </div>
+                          );
+                        })}
+                        {openIssues.length > 8 && (
+                          <div className="pt-1 opacity-80">… e mais {openIssues.length - 8}</div>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-2">
+                        <LoadingButton
+                          onClick={onRefreshIssues}
+                          isLoading={issuesLoading}
+                          loadingText="Atualizando issues..."
+                          className="w-full"
+                          variant="outline"
+                        >
+                          Atualizar lista
+                        </LoadingButton>
+
+                        <LoadingButton
+                          onClick={onReprocessIssues}
+                          isLoading={isImporting && importType === 'reservations'}
+                          loadingText="Reprocessando reservas..."
+                          className="w-full"
+                          disabled={!onReprocessIssues}
+                        >
+                          Tentar reprocessar agora (reimportar reservas desses listings)
+                        </LoadingButton>
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

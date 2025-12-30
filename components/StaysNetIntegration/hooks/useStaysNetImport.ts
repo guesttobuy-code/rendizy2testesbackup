@@ -19,6 +19,7 @@ import type {
   ImportLogEntry,
   ImportLogLevel,
   ImportLogScope,
+  StaysNetImportIssue,
 } from '../types';
 
 export interface UseStaysNetImportReturn extends ImportStateExtended {
@@ -29,6 +30,7 @@ export interface UseStaysNetImportReturn extends ImportStateExtended {
   importGuests: (config: StaysNetConfig, options?: Pick<ImportOptions, 'startDate' | 'endDate' | 'dateType'>) => Promise<void>;
   importAll: (config: StaysNetConfig, options: ImportOptions) => Promise<void>;
   importOneForTest: (config: StaysNetConfig) => Promise<void>;
+  fetchImportIssues: () => Promise<StaysNetImportIssue[]>;
   toggleProperty: (propertyId: string) => void;
   selectAllProperties: () => void;
   deselectAllProperties: () => void;
@@ -55,7 +57,10 @@ type ImportAction =
   | { type: 'SET_PREVIEW'; payload: ImportPreview | null }
   | { type: 'UPDATE_PROGRESS'; payload: { progress: ImportProgressData; overallProgress: number } }
   | { type: 'ADD_IMPORT_LOG'; payload: ImportLogEntry }
-  | { type: 'CLEAR_IMPORT_LOGS' };
+  | { type: 'CLEAR_IMPORT_LOGS' }
+  | { type: 'FETCH_ISSUES_START' }
+  | { type: 'FETCH_ISSUES_SUCCESS'; payload: StaysNetImportIssue[] }
+  | { type: 'FETCH_ISSUES_ERROR'; payload: string };
 
 interface ImportStateExtended extends ImportState {
   availableProperties: StaysNetProperty[];
@@ -66,6 +71,9 @@ interface ImportStateExtended extends ImportState {
   overallProgress: number;
   preview: ImportPreview | null;
   importLogs: ImportLogEntry[];
+  importIssues: StaysNetImportIssue[];
+  issuesLoading: boolean;
+  issuesError: string | null;
 }
 
 const initialState: ImportStateExtended = {
@@ -81,6 +89,9 @@ const initialState: ImportStateExtended = {
   overallProgress: 0,
   preview: null,
   importLogs: [],
+  importIssues: [],
+  issuesLoading: false,
+  issuesError: null,
 };
 
 function safeGetHost(baseUrl: string): string | null {
@@ -213,6 +224,15 @@ function importReducer(state: ImportStateExtended, action: ImportAction): Import
     case 'CLEAR_IMPORT_LOGS':
       return { ...state, importLogs: [] };
 
+    case 'FETCH_ISSUES_START':
+      return { ...state, issuesLoading: true, issuesError: null };
+
+    case 'FETCH_ISSUES_SUCCESS':
+      return { ...state, issuesLoading: false, importIssues: action.payload || [], issuesError: null };
+
+    case 'FETCH_ISSUES_ERROR':
+      return { ...state, issuesLoading: false, issuesError: action.payload };
+
     default:
       return state;
   }
@@ -241,6 +261,23 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
 
   const clearImportLogs = useCallback(() => {
     dispatch({ type: 'CLEAR_IMPORT_LOGS' });
+  }, []);
+
+  const fetchImportIssues = useCallback(async (): Promise<StaysNetImportIssue[]> => {
+    dispatch({ type: 'FETCH_ISSUES_START' });
+    try {
+      const result = await StaysNetService.listImportIssues({ status: 'open', limit: 200, offset: 0 });
+      if (!result.success) {
+        throw new Error(result.error || 'Falha ao listar issues de importação');
+      }
+      const issues = result.issues || [];
+      dispatch({ type: 'FETCH_ISSUES_SUCCESS', payload: issues });
+      return issues;
+    } catch (e) {
+      const msg = (e as Error)?.message || String(e);
+      dispatch({ type: 'FETCH_ISSUES_ERROR', payload: msg });
+      return [];
+    }
   }, []);
 
   const startPseudoProgress = useCallback(
@@ -501,6 +538,9 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
 
         dispatch({ type: 'IMPORT_SUCCESS', payload: result.stats });
 
+        // Atualiza a lista de issues persistentes (reservas sem imóvel) após o import.
+        await fetchImportIssues();
+
         addImportLog('success', 'reservations', 'Importação de reservas concluída', {
           durationMs: Date.now() - startedAt,
           reservations: formatStats(result.stats?.reservations) || undefined,
@@ -527,7 +567,7 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
         if (stop) stop();
       }
     },
-    [addImportLog, startPseudoProgress, state.overallProgress]
+    [addImportLog, startPseudoProgress, state.overallProgress, fetchImportIssues]
   );
 
   /**
@@ -874,6 +914,7 @@ export function useStaysNetImport(): UseStaysNetImportReturn {
     importGuests,
     importAll,
     importOneForTest,
+    fetchImportIssues,
     toggleProperty,
     selectAllProperties,
     deselectAllProperties,
