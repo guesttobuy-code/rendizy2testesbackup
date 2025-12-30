@@ -26,6 +26,12 @@ Este documento existe para **blindar** a integração Stays.net (modal + robôs 
 - Nunca retornar `[]` como “fallback” de erro para reservas/bloqueios.
 - Em erro de rede/token, **lançar erro** para React Query manter o último cache bom.
 
+5) **Reserva sem imóvel: SKIP + issue (nunca silencioso)**
+- `reservations.property_id` precisa existir em `anuncios_ultimate`.
+- Se não resolver mapping do listing da Stays: **SKIP** da reserva (não criar placeholder).
+- Porém, deve persistir `staysnet_import_issues` (`missing_property_mapping`) para auditoria + reprocess.
+- Documento canônico: `docs/04-modules/STAYSNET_IMPORT_ISSUES.md`.
+
 ## Cápsulas (isolamento obrigatório)
 
 Para evitar acoplamento acidental, as rotas foram encapsuladas em dois módulos (“capsules”):

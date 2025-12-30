@@ -1,6 +1,8 @@
 -- Stores StaysNet import issues so we never silently drop data.
 -- Focus: reservations that cannot be linked to an internal property (anuncios_ultimate).
 
+create extension if not exists pgcrypto;
+
 create table if not exists public.staysnet_import_issues (
   id uuid primary key default gen_random_uuid(),
 

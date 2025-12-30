@@ -647,6 +647,27 @@ if (existing) {
 
 ---
 
+### 4.5 Import Issues (NUNCA SKIP silencioso)
+
+**Regra de integridade (não negociável):**
+
+- ✅ `reservations.property_id` precisa existir em `anuncios_ultimate` (mesma org).
+- ✅ Se não conseguir resolver o imóvel durante o import Stays.net: **SKIP** da reserva (não criar placeholder).
+- ✅ Porém, é obrigatório persistir o motivo como issue durável em `staysnet_import_issues` (ex: `missing_property_mapping`).
+
+Objetivo: evitar “sumir 1 reserva” e permitir reprocessamento depois que o imóvel/mapping existir.
+
+**Fonte canônica:** `docs/04-modules/STAYSNET_IMPORT_ISSUES.md`
+
+**Arquivos-chave (modular):**
+- `supabase/functions/rendizy-server/import-staysnet-reservations.ts` (gera/resolve issues)
+- `supabase/functions/rendizy-server/import-staysnet-issues.ts` (lista issues)
+- `components/StaysNetIntegration/services/staysnet.service.ts` (UI lista issues + compat 404)
+
+**Migration:** `supabase/migrations/20251230_create_staysnet_import_issues.sql`
+
+---
+
 ## 5. MIGRAÇÕES E DUPLICATAS
 
 ### 5.1 Preservar IDs Originais

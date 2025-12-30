@@ -58,6 +58,8 @@ async function resolveAnuncioUltimateIdFromStaysId(
   organizationId: string,
   staysId: string,
 ): Promise<string | null> {
+  // ⚠️ CANÔNICO: manter esta ordem de resolução alinhada com
+  // docs/04-modules/STAYSNET_IMPORT_ISSUES.md ("Como o mapping é encontrado").
   const lookups: Array<{ label: string; needle: any }> = [
     // ✅ Forma atual encontrada no banco: data.externalIds.staysnet_property_id
     { label: 'data.externalIds.staysnet_property_id', needle: { externalIds: { staysnet_property_id: staysId } } },
@@ -108,6 +110,9 @@ async function upsertStaysnetImportIssueMissingPropertyMapping(
   },
 ): Promise<void> {
   try {
+    // ⚠️ Governança: quando não há mapping do imóvel, a reserva é SKIP por regra canônica,
+    // mas NUNCA pode ser SKIP silencioso. Esta escrita é best-effort e não deve quebrar o import.
+    // Documento canônico: docs/04-modules/STAYSNET_IMPORT_ISSUES.md
     // Prefer idempotency by external_id when available; otherwise insert best-effort (may duplicate).
     const baseRow: any = {
       organization_id: input.organizationId,

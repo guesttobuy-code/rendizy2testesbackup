@@ -729,6 +729,7 @@ export class StaysNetService {
 
   /**
    * List import issues (e.g. reservations missing property mapping).
+    * Documento canônico: docs/04-modules/STAYSNET_IMPORT_ISSUES.md
    */
   static async listImportIssues(params?: { status?: 'open' | 'resolved' | 'all'; limit?: number; offset?: number }): Promise<ListImportIssuesResult> {
     const status = params?.status || 'open';
@@ -741,10 +742,33 @@ export class StaysNetService {
       offset: String(offset),
     });
 
-    const rawResponse = await this.request<any>(
-      `/rendizy-server/make-server-67caf26a/staysnet/import/issues?${qs.toString()}`,
-      { method: 'GET' },
-    );
+    let rawResponse: any;
+    try {
+      rawResponse = await this.request<any>(
+        `/rendizy-server/make-server-67caf26a/staysnet/import/issues?${qs.toString()}`,
+        { method: 'GET' },
+      );
+    } catch (e) {
+      const msg = (e as Error)?.message || String(e);
+
+      // Compat: backend ainda não foi redeployado com a rota nova.
+      // Não tratar como erro fatal no UI; apenas retorna lista vazia.
+      if (/^HTTP\s+404\s*:/i.test(msg)) {
+        return {
+          success: true,
+          issues: [],
+          count: 0,
+          message: 'Endpoint de issues ainda não está disponível no backend (redeploy pendente).',
+        };
+      }
+
+      return {
+        success: false,
+        issues: [],
+        count: 0,
+        error: msg,
+      };
+    }
 
     const payload = this.unwrapEnvelope<any>(rawResponse);
     const success = Boolean((rawResponse as any)?.success ?? payload?.success);

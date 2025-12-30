@@ -32,6 +32,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - StaysNet: helper RAW agora cria `external_id` sintético quando ausente (dedupe correto em endpoints de lista)
 - StaysNet: automação via webhook público + fila + processador/cron (sem depender de import manual)
 - StaysNet: endpoint de backfill para recalcular/vincular dados de reservas antigas (pricing e dados de hóspede)
+- StaysNet: tabela `staysnet_import_issues` para persistir falhas duráveis de import (ex: `missing_property_mapping`)
+- StaysNet: endpoint `GET /staysnet/import/issues` para listar issues e permitir auditoria/reprocessamento
+- StaysNet: UI do modal lista issues; 404 do endpoint é tratado como “redeploy pendente” (compat)
+- StaysNet: reprocessamento “targeted reimport” por `listing_id` (sem criar placeholder de imóvel)
+- StaysNet: script `scripts/run-reprocess-staysnet-orphan-issue.ps1` para smoke test E2E (listar → reimport → validar resolução)
 - Sidebar: busca global expandida para reservas/hóspedes/imóveis com deep-link
 
 ### Fixed

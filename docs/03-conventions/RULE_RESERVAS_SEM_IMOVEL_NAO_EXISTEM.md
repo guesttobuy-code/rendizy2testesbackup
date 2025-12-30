@@ -28,7 +28,10 @@ Importadores nunca podem “inventar” property.
 
 Para Stays.net:
 - O import de reservas **não usa fallback** para `property_id`.
-- Se não consegue resolver o imóvel via `externalIds` → **SKIP**.
+- Se não consegue resolver o imóvel via `externalIds`/RAW → **SKIP**.
+- **Mas nunca SKIP silencioso**: deve registrar um `staysnet_import_issue` do tipo `missing_property_mapping` para auditoria e reprocessamento.
+
+Documento canônico do fluxo: `docs/04-modules/STAYSNET_IMPORT_ISSUES.md`.
 
 ### 3) API/UI
 O frontend/modal não pode “puxar” reservas sem imóvel.
