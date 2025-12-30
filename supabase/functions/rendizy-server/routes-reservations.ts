@@ -305,7 +305,9 @@ export async function getReservationsKpis(c: Context) {
     const today = formatDateSaoPaulo(new Date());
     const startOfDay = `${today}T00:00:00-03:00`;
     const endOfDay = `${today}T23:59:59.999-03:00`;
-    const statusNotIn = '("cancelled","no_show")';
+    // Status que NÃO representam hóspedes ocupando um imóvel.
+    // (bloqueios/manutenção/pedidos pendentes/cancelados/no-show não entram em KPIs operacionais)
+    const statusNotIn = '("cancelled","no_show","blocked","maintenance","pending")';
 
     const qCheckins = client
       .from('reservations')
@@ -321,11 +323,12 @@ export async function getReservationsKpis(c: Context) {
       .eq('check_out', today)
       .not('status', 'in', statusNotIn);
 
-    // In-house = imóveis ocupados hoje (reservas ativas cujo período inclui "hoje").
-    // Observação: não contamos hóspedes aqui; contamos a quantidade de reservas/imóveis em estadia.
+    // In-house = imóveis ocupados hoje.
+    // Regra: contar DISTINCT property_id de reservas ativas hoje.
+    // Motivo: se houver duplicidade/overlap por imóvel, não pode inflar o KPI.
     const qInHouse = client
       .from('reservations')
-      .select('id', { count: 'exact', head: true })
+      .select('property_id')
       .eq('organization_id', orgIdFinal)
       .lte('check_in', today)
       .gt('check_out', today)
@@ -370,7 +373,11 @@ export async function getReservationsKpis(c: Context) {
     const checkinsToday = rCheckins.count ?? 0;
     const checkoutsToday = rCheckouts.count ?? 0;
 
-    const inHouseToday = (rInHouse as any).count ?? 0;
+    const inHouseToday = Array.isArray((rInHouse as any).data)
+      ? new Set(
+          ((rInHouse as any).data as Array<{ property_id?: string | null }>).map((row) => row?.property_id).filter(Boolean) as string[]
+        ).size
+      : 0;
 
     let newReservationsToday = (rNewSource.count ?? 0) + (rNewFallback.count ?? 0);
     if (sourceCreatedAtMissing) {
