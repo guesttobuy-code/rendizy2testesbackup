@@ -108,8 +108,43 @@ async function upsertStaysnetImportIssueMissingPropertyMapping(
     platform: string | null;
     rawPayload: any;
   },
-): Promise<void> {
+): Promise<{ ok: boolean; mode: 'upsert' | 'insert'; error?: string }> {
   try {
+    const toYmdOrNull = (value: string | null): string | null => {
+      if (!value) return null;
+      const s = String(value).trim();
+      if (!s) return null;
+      const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+      if (m?.[0]) return m[0];
+      const d = new Date(s);
+      if (!Number.isFinite(d.getTime())) return null;
+      return d.toISOString().slice(0, 10);
+    };
+
+    // ✅ Guardrail: manter payload mínimo para auditoria/replay.
+    // Evita risco de payload gigantesco / ruídos desnecessários.
+    const raw = (input.rawPayload && typeof input.rawPayload === 'object') ? input.rawPayload : {};
+    const rawAny = raw as Record<string, unknown>;
+
+    const minimalRawPayload = {
+      _id: (rawAny && rawAny['_id'] != null ? rawAny['_id'] : (input.externalId ?? null)),
+      id: (rawAny && rawAny['id'] != null ? rawAny['id'] : null),
+      confirmationCode: (rawAny && rawAny['confirmationCode'] != null ? rawAny['confirmationCode'] : (input.reservationCode ?? null)),
+      reservationUrl: (rawAny && rawAny['reservationUrl'] != null ? rawAny['reservationUrl'] : null),
+      type: (rawAny && rawAny['type'] != null ? rawAny['type'] : null),
+      partner: (rawAny && rawAny['partner'] != null ? rawAny['partner'] : (input.partner ?? null)),
+      partnerCode: (rawAny && rawAny['partnerCode'] != null ? rawAny['partnerCode'] : null),
+      _idlisting: (
+        (rawAny && rawAny['_idlisting'] != null ? rawAny['_idlisting'] : null)
+        ?? (rawAny && rawAny['_id_listing'] != null ? rawAny['_id_listing'] : null)
+        ?? (rawAny && rawAny['propertyId'] != null ? rawAny['propertyId'] : null)
+        ?? input.listingId
+        ?? null
+      ),
+      checkInDate: (rawAny && rawAny['checkInDate'] != null ? rawAny['checkInDate'] : (input.checkInDate ?? null)),
+      checkOutDate: (rawAny && rawAny['checkOutDate'] != null ? rawAny['checkOutDate'] : (input.checkOutDate ?? null)),
+    };
+
     // ⚠️ Governança: quando não há mapping do imóvel, a reserva é SKIP por regra canônica,
     // mas NUNCA pode ser SKIP silencioso. Esta escrita é best-effort e não deve quebrar o import.
     // Documento canônico: docs/04-modules/STAYSNET_IMPORT_ISSUES.md
@@ -123,29 +158,52 @@ async function upsertStaysnetImportIssueMissingPropertyMapping(
       reservation_code: input.reservationCode,
       listing_id: input.listingId,
       listing_candidates: input.listingCandidates,
-      check_in: input.checkInDate,
-      check_out: input.checkOutDate,
+      check_in: toYmdOrNull(input.checkInDate),
+      check_out: toYmdOrNull(input.checkOutDate),
       partner: input.partner,
       platform_source: input.platform,
       status: 'open',
       message: 'Reserva StaysNet sem vínculo com imóvel (anuncios_ultimate) — importar imóveis/upsert e reprocessar',
-      raw_payload: input.rawPayload,
+      raw_payload: minimalRawPayload,
     };
 
-    // If we have external_id, upsert (unique partial index will enforce one per external_id)
+    // If we have external_id, prefer upsert.
+    // IMPORTANT: PostgREST/Supabase upsert requires a NON-PARTIAL unique constraint/index
+    // on the conflict target. If the DB only has a partial unique index, upsert will fail
+    // with "no unique or exclusion constraint". In that case, we fallback to insert.
     if (input.externalId) {
-      await supabase
+      const { error } = await supabase
         .from('staysnet_import_issues')
         .upsert(baseRow, {
           onConflict: 'organization_id,platform,entity_type,issue_type,external_id',
         });
-      return;
+
+      if (!error) return { ok: true, mode: 'upsert' };
+
+      console.warn(
+        `   ⚠️ Falha no upsert staysnet_import_issues (external_id=${input.externalId}): ${error.message}`
+      );
+      // Fallback best-effort insert (may duplicate if unique index is missing).
+      const { error: insertError } = await supabase.from('staysnet_import_issues').insert(baseRow);
+      if (insertError) {
+        console.warn(
+          `   ⚠️ Falha no insert staysnet_import_issues (fallback): ${insertError.message}`
+        );
+        return { ok: false, mode: 'insert', error: insertError.message };
+      }
+      return { ok: true, mode: 'insert' };
     }
 
     // Without external_id, insert best-effort.
-    await supabase.from('staysnet_import_issues').insert(baseRow);
+    const { error } = await supabase.from('staysnet_import_issues').insert(baseRow);
+    if (error) {
+      console.warn(`   ⚠️ Falha no insert staysnet_import_issues: ${error.message}`);
+      return { ok: false, mode: 'insert', error: error.message };
+    }
+    return { ok: true, mode: 'insert' };
   } catch (e: any) {
     console.warn(`   ⚠️ Falha ao registrar staysnet_import_issue (missing_property_mapping): ${e?.message || String(e)}`);
+    return { ok: false, mode: 'insert', error: e?.message || String(e) };
   }
 }
 
@@ -568,6 +626,10 @@ export async function importStaysNetReservations(c: Context) {
     }
   >();
   let skippedMissingPropertyMapping = 0;
+  let missingPropertyIssueAttempts = 0;
+  let missingPropertyIssueWritten = 0;
+  let missingPropertyIssueFailed = 0;
+  let missingPropertyIssueLastError: string | null = null;
 
   try {
     // ✅ Preferir organization_id real do usuário (via sessions)
@@ -871,13 +933,9 @@ export async function importStaysNetReservations(c: Context) {
         // ====================================================================
         // 2.2: RESOLVER property_id (anuncios_ultimate) ANTES DO DEDUP
         // ====================================================================
-        // 2.2: RESOLVER property_id (anuncios_ultimate) ANTES DO DEDUP
-        // StaysNet envia o ID do imóvel/listing como _idlisting (principal). Mantemos compatibilidade com variantes.
-        const staysPropertyCandidates = [
-          (resFull as any)._idlisting,
-          resFull._id_listing,
-          resFull.propertyId,
-        ].filter(Boolean) as string[];
+        // StaysNet pode enviar IDs do imóvel/listing em múltiplos campos (e às vezes dentro de objetos `listing/property`).
+        // Usar um extrator robusto evita “reservas órfãs” por diferença de ID entre endpoints.
+        const staysPropertyCandidates = extractStaysListingIdCandidates(resFull);
         let propertyId: string | null = null;
 
         for (const candidate of staysPropertyCandidates) {
@@ -894,7 +952,8 @@ export async function importStaysNetReservations(c: Context) {
             `   ⚠️ Property não encontrado no Rendizy para staysPropertyId=${primaryStaysId}. SKIP (sem criar anúncio placeholder)`
           );
 
-          await upsertStaysnetImportIssueMissingPropertyMapping(supabase, {
+          missingPropertyIssueAttempts++;
+          const issueWrite = await upsertStaysnetImportIssueMissingPropertyMapping(supabase, {
             organizationId,
             externalId: asTextOrNull((resFull as any)._id ?? null),
             reservationCode: asTextOrNull((resFull as any).confirmationCode ?? (resFull as any).id ?? (resFull as any).reservationId ?? confirmationCode),
@@ -906,6 +965,13 @@ export async function importStaysNetReservations(c: Context) {
             platform: asTextOrNull((resFull as any).platform),
             rawPayload: resFull,
           });
+
+          if (issueWrite.ok) {
+            missingPropertyIssueWritten++;
+          } else {
+            missingPropertyIssueFailed++;
+            missingPropertyIssueLastError = issueWrite.error || 'unknown_error';
+          }
 
           // Auditoria: agregamos por listingId para facilitar o diagnóstico.
           skippedMissingPropertyMapping++;
@@ -1479,6 +1545,10 @@ export async function importStaysNetReservations(c: Context) {
         updated,
         skipped,
         skippedMissingPropertyMapping,
+        missingPropertyIssueAttempts,
+        missingPropertyIssueWritten,
+        missingPropertyIssueFailed,
+        missingPropertyIssueLastError,
         errors,
         ...(filterBySelectedProperties ? { fetchedFromApi, skippedBySelection } : {}),
       },

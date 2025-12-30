@@ -32,6 +32,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { useLanguage } from '../contexts/LanguageContext';
+import { parseDateLocal } from '../utils/dateLocal';
 
 // ============================================
 // TYPES
@@ -154,8 +155,9 @@ export function DashboardAnalytics({
     const totalDays = dataProperties.length * 30; // 30 dias por propriedade
     const bookedDays = dataReservations.reduce((sum, r) => {
       if (r.status !== 'confirmed') return sum;
-      const checkIn = new Date(r.checkIn);
-      const checkOut = new Date(r.checkOut);
+      const checkIn = parseDateLocal(r.checkIn);
+      const checkOut = parseDateLocal(r.checkOut);
+      if (!checkIn || !checkOut) return sum;
       const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
       return sum + nights;
     }, 0);

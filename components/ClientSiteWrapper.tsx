@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { parseDateLocal } from '../utils/dateLocal';
 
 // ============================================================
 // TIPOS
@@ -459,8 +460,8 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
 // ============================================================
 
 function calculateNights(checkIn: string, checkOut: string): number {
-  const start = new Date(checkIn);
-  const end = new Date(checkOut);
+  const start = parseDateLocal(checkIn) ?? new Date(checkIn);
+  const end = parseDateLocal(checkOut) ?? new Date(checkOut);
   const diff = end.getTime() - start.getTime();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }

@@ -74,6 +74,7 @@ import { Property } from '../App';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatPhoneDisplay, extractPhoneNumber } from '../utils/whatsappChatApi';
+import { parseDateLocal } from '../utils/dateLocal';
 
 // ============================================
 // TYPES
@@ -588,6 +589,7 @@ export function ChatInbox() {
             prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
           );
         }}
+        onSetSelectedProperties={setSelectedProperties}
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
         selectedStatuses={selectedStatuses}
@@ -653,11 +655,11 @@ export function ChatInbox() {
                 <div className="mb-2">
                   <p className="text-sm text-gray-600">Check-in</p>
                   <p className="text-sm font-medium">
-                    {new Date(selectedConversation.checkInDate).toLocaleDateString('pt-BR')}
+                    {(parseDateLocal(selectedConversation.checkInDate) ?? new Date(selectedConversation.checkInDate)).toLocaleDateString('pt-BR')}
                   </p>
                   <p className="text-sm text-gray-600 mt-1">Check-out</p>
                   <p className="text-sm font-medium">
-                    {new Date(selectedConversation.checkOutDate).toLocaleDateString('pt-BR')}
+                    {(parseDateLocal(selectedConversation.checkOutDate) ?? new Date(selectedConversation.checkOutDate)).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
               )}
@@ -730,8 +732,8 @@ export function ChatInbox() {
             amenities: [],
             status: 'active'
           }}
-          startDate={selectedConversation.checkInDate ? new Date(selectedConversation.checkInDate) : new Date()}
-          endDate={selectedConversation.checkOutDate ? new Date(selectedConversation.checkOutDate) : new Date()}
+            startDate={selectedConversation.checkInDate ? (parseDateLocal(selectedConversation.checkInDate) ?? new Date(selectedConversation.checkInDate)) : new Date()}
+            endDate={selectedConversation.checkOutDate ? (parseDateLocal(selectedConversation.checkOutDate) ?? new Date(selectedConversation.checkOutDate)) : new Date()}
         />
       )}
 
@@ -750,8 +752,8 @@ export function ChatInbox() {
           onClose={() => setShowBlockModal(false)}
           propertyId={selectedConversation.propertyId}
           propertyName={selectedConversation.propertyName || ''}
-          startDate={selectedConversation.checkInDate ? new Date(selectedConversation.checkInDate) : new Date()}
-          endDate={selectedConversation.checkOutDate ? new Date(selectedConversation.checkOutDate) : new Date()}
+          startDate={selectedConversation.checkInDate ? (parseDateLocal(selectedConversation.checkInDate) ?? new Date(selectedConversation.checkInDate)) : new Date()}
+          endDate={selectedConversation.checkOutDate ? (parseDateLocal(selectedConversation.checkOutDate) ?? new Date(selectedConversation.checkOutDate)) : new Date()}
           onSave={() => {
             setShowBlockModal(false);
             loadData();

@@ -156,15 +156,89 @@ export async function importStaysNetProperties(c: Context) {
     const reqMaxPages = Math.max(0, Number.isFinite(reqMaxPagesRaw) ? reqMaxPagesRaw : 0);
     const isBatchMode = reqMaxPages > 0;
 
+    const normalizeId = (v: any): string => {
+      if (v === null || v === undefined) return '';
+      return String(v).trim();
+    };
+
+    const selectedSet = new Set(
+      selectedPropertyIds.map((x) => normalizeId(x)).filter(Boolean),
+    );
+    const hasSelected = selectedSet.size > 0;
+
+    const matchesSelected = (p: any): boolean => {
+      const idCandidates = [
+        p?._id,
+        p?.id,
+        p?._t_propertyMeta?._id,
+        p?._t_propertyMeta?.id,
+        p?.internalName,
+        p?.name,
+      ]
+        .map(normalizeId)
+        .filter(Boolean);
+
+      for (const c of idCandidates) {
+        if (selectedSet.has(c)) return true;
+      }
+      return false;
+    };
+
     // Buscar properties com paginação manual
     let allProperties: StaysNetProperty[] = [];
     let skip = reqSkip;
     const limit = reqLimit;
     let hasMore = true;
     let pagesFetched = 0;
+    let scanned = 0;
+    const foundSelected = new Set<string>();
+    let sampleFromApi: StaysNetProperty[] | null = null;
     
     // Criar Basic Auth
     const credentials = btoa(`${config.apiKey}:${config.apiSecret || ''}`);
+
+    // ========================================================================
+    // STEP 2.1: (TARGET MODE) TENTAR BUSCA DIRETA POR ID
+    // ========================================================================
+    // Em algumas contas/ambientes, um listing pode não aparecer na listagem paginada
+    // por causa de filtros/visibilidade, mas ainda ser acessível via endpoint por ID.
+    if (hasSelected) {
+      console.log(`🎯 [FETCH] selectedPropertyIds: tentando busca direta por ID antes da paginação...`);
+
+      for (const rawId of Array.from(selectedSet.values())) {
+        const id = normalizeId(rawId);
+        if (!id) continue;
+
+        // Evita repetir se já foi achado via outra via
+        if (foundSelected.has(id)) continue;
+
+        const urlById = `${config.baseUrl}/content/listings/${encodeURIComponent(id)}`;
+        try {
+          const respById = await fetch(urlById, {
+            headers: {
+              'Authorization': `Basic ${credentials}`,
+              'Accept': 'application/json',
+            },
+          });
+
+          if (!respById.ok) {
+            // Silencioso: pode não existir, e seguiremos para paginação.
+            continue;
+          }
+
+          const json = await respById.json();
+          const obj = (json && typeof json === 'object' && !Array.isArray(json)) ? json : null;
+          if (!obj) continue;
+
+          const prop: any = obj;
+          if (!prop._id) prop._id = id;
+          allProperties.push(prop as StaysNetProperty);
+          foundSelected.add(id);
+        } catch {
+          // ignore
+        }
+      }
+    }
     
     while (hasMore) {
       console.log(`📡 [FETCH] Buscando página: skip=${skip}, limit=${limit}`);
@@ -189,16 +263,73 @@ export async function importStaysNetProperties(c: Context) {
         throw new Error(`Resposta da API não é um array. Tipo: ${typeof pageProperties}`);
       }
       
-      allProperties.push(...pageProperties);
+      scanned += pageProperties.length;
+
+      if (!sampleFromApi) {
+        sampleFromApi = pageProperties.slice(0, 3);
+      }
+
+      if (!hasSelected) {
+        allProperties.push(...pageProperties);
+      } else {
+        for (const p of pageProperties) {
+          if (!matchesSelected(p)) continue;
+          allProperties.push(p);
+
+          // Marcar quais IDs de seleção já foram encontrados.
+          // (1) match por `_id`/`id`
+          const ids = [p?._id, p?.id, p?._t_propertyMeta?._id, p?._t_propertyMeta?.id, p?.internalName, p?.name]
+            .map(normalizeId)
+            .filter(Boolean);
+          for (const id of ids) {
+            if (selectedSet.has(id)) foundSelected.add(id);
+          }
+        }
+      }
+
       hasMore = pageProperties.length === limit;
       skip += limit;
       pagesFetched++;
 
-      if (isBatchMode && pagesFetched >= reqMaxPages) {
+      // ✅ Se houver seleção, o objetivo é achar os IDs; não faz sentido parar cedo
+      // só por `maxPages` (isso gera falso ID_MISMATCH). Ainda assim, permitimos early-exit
+      // quando já achamos tudo o que foi solicitado.
+      if (hasSelected && foundSelected.size >= selectedSet.size) {
+        break;
+      }
+
+      if (!hasSelected && isBatchMode && pagesFetched >= reqMaxPages) {
         break;
       }
       
       console.log(`📥 [FETCH] ${pageProperties.length} properties nesta página. Total: ${allProperties.length}`);
+    }
+
+    if (hasSelected && allProperties.length === 0 && (sampleFromApi?.length || 0) > 0) {
+      console.error(`❌ [FILTER ERROR] Nenhuma property selecionada foi encontrada após varrer ${scanned} itens.`);
+
+      return c.json({
+        success: false,
+        error: 'ID_MISMATCH',
+        message: 'Os IDs selecionados não foram encontrados na API StaysNet',
+        details: {
+          selectedCount: selectedPropertyIds.length,
+          scanned,
+          pagesFetched,
+          limit,
+          startSkip: reqSkip,
+          sampleSelectedIds: selectedPropertyIds.slice(0, 3),
+          sampleApiIds: (sampleFromApi || []).slice(0, 3).map((p: any) => p._id),
+          sampleApiIdVariants: (sampleFromApi || []).slice(0, 3).map((p: any) => ({
+            _id: p?._id,
+            id: p?.id,
+            _t_propertyMeta__id: p?._t_propertyMeta?._id,
+            _t_propertyMeta_id: p?._t_propertyMeta?.id,
+            internalName: p?.internalName,
+            name: p?.name,
+          })),
+        },
+      }, 400);
     }
     
     // ========================================================================
@@ -210,14 +341,23 @@ export async function importStaysNetProperties(c: Context) {
     // A API pode representar inativo como:
     // - status: 'inactive'
     // - active: false
-    let properties: StaysNetProperty[] = allProperties.filter((p: any) => {
-      const status = typeof p?.status === 'string' ? p.status.toLowerCase().trim() : null;
-      if (status === 'inactive') return false;
-      if (typeof p?.active === 'boolean' && p.active === false) return false;
-      return true;
-    });
+    //
+    // ✅ EXCEÇÃO: quando selectedPropertyIds é informado, precisamos conseguir
+    // importar/matchear mesmo imóveis inativos (para resolver reservas históricas).
+    let properties: StaysNetProperty[];
+    if (selectedPropertyIds.length > 0) {
+      properties = allProperties;
+      console.log(`✅ [FETCH] selectedPropertyIds presente: pulando filtro anti-inativos (itens=${properties.length})`);
+    } else {
+      properties = allProperties.filter((p: any) => {
+        const status = typeof p?.status === 'string' ? p.status.toLowerCase().trim() : null;
+        if (status === 'inactive') return false;
+        if (typeof p?.active === 'boolean' && p.active === false) return false;
+        return true;
+      });
 
-    console.log(`✅ [FETCH] ${properties.length} properties elegíveis após filtro (anti-inativos)`);
+      console.log(`✅ [FETCH] ${properties.length} properties elegíveis após filtro (anti-inativos)`);
+    }
 
     // ========================================================================
     // STEP 3: FILTRAR APENAS AS PROPERTIES SELECIONADAS
@@ -225,6 +365,18 @@ export async function importStaysNetProperties(c: Context) {
     if (selectedPropertyIds.length > 0) {
       const before = properties.length;
       const propertiesBeforeFilter = [...properties]; // 🔍 Salvar cópia ANTES do filtro
+
+      const normalizeId = (v: any): string => {
+        if (v === null || v === undefined) return '';
+        return String(v).trim();
+      };
+
+      // IDs de seleção podem vir da reservation como `_idlisting`/`propertyId`.
+      // Na API de listings, esses IDs podem corresponder ao `listing._id` OU ao `listing._t_propertyMeta._id`.
+      // Por isso o filtro precisa aceitar múltiplas chaves.
+      const selectedSet = new Set(
+        selectedPropertyIds.map((x) => normalizeId(x)).filter(Boolean),
+      );
       
       // 🔍 DEBUG: Logar formato dos IDs ANTES do filtro
       console.error(`🔍 [DEBUG FILTER] Antes do filtro: ${before} properties`);
@@ -232,8 +384,24 @@ export async function importStaysNetProperties(c: Context) {
       console.error(`🔍 [DEBUG FILTER] Sample selected IDs:`, selectedPropertyIds.slice(0, 3));
       console.error(`🔍 [DEBUG FILTER] Tipo ID API: ${typeof propertiesBeforeFilter[0]?._id}`);
       console.error(`🔍 [DEBUG FILTER] Tipo ID selected: ${typeof selectedPropertyIds[0]}`);
-      
-      properties = properties.filter(p => selectedPropertyIds.includes(p._id));
+
+      properties = properties.filter((p: any) => {
+        const idCandidates = [
+          p?._id,
+          p?.id,
+          p?._t_propertyMeta?._id,
+          p?._t_propertyMeta?.id,
+          p?.internalName,
+          p?.name,
+        ]
+          .map(normalizeId)
+          .filter(Boolean);
+
+        for (const c of idCandidates) {
+          if (selectedSet.has(c)) return true;
+        }
+        return false;
+      });
       console.error(`🔍 [DEBUG FILTER] Depois do filtro: ${properties.length}/${before} properties`);
       
       if (properties.length === 0 && before > 0) {
@@ -241,7 +409,7 @@ export async function importStaysNetProperties(c: Context) {
         console.error(`   Isso significa que os IDs não batem.`);
         
         // Retornar erro claro
-        return new Response(JSON.stringify({
+        return c.json({
           success: false,
           error: 'ID_MISMATCH',
           message: 'Os IDs selecionados não foram encontrados na API StaysNet',
@@ -249,12 +417,17 @@ export async function importStaysNetProperties(c: Context) {
             selectedCount: selectedPropertyIds.length,
             apiCount: before,
             sampleSelectedIds: selectedPropertyIds.slice(0, 3),
-            sampleApiIds: propertiesBeforeFilter.slice(0, 3).map((p: any) => p._id)
-          }
-        }), { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+            sampleApiIds: propertiesBeforeFilter.slice(0, 3).map((p: any) => p._id),
+            sampleApiIdVariants: propertiesBeforeFilter.slice(0, 3).map((p: any) => ({
+              _id: p?._id,
+              id: p?.id,
+              _t_propertyMeta__id: p?._t_propertyMeta?._id,
+              _t_propertyMeta_id: p?._t_propertyMeta?.id,
+              internalName: p?.internalName,
+              name: p?.name,
+            })),
+          },
+        }, 400);
       }
     } else {
       console.log(`⚠️ [FILTER] Nenhum ID selecionado - importando TODAS as ${properties.length} properties`);

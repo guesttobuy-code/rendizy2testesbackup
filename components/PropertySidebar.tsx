@@ -14,6 +14,7 @@ interface PropertySidebarProps {
   properties: Property[];
   selectedProperties: string[];
   onToggleProperty: (id: string) => void;
+  onSetSelectedProperties?: (ids: string[]) => void;
   dateRange: { from: Date; to: Date };
   onDateRangeChange: (range: { from: Date; to: Date }) => void;
   selectedReservationTypes: string[];
@@ -26,6 +27,7 @@ export function PropertySidebar({
   properties, 
   selectedProperties, 
   onToggleProperty,
+  onSetSelectedProperties,
   dateRange,
   onDateRangeChange,
   selectedReservationTypes,
@@ -50,11 +52,17 @@ export function PropertySidebar({
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isPlatformOpen, setIsPlatformOpen] = useState(false);
 
+  const getPropertyLabel = (property: Property) =>
+    property.internalId || property.name || 'Sem nome';
+
   const filteredProperties = properties.filter(property => {
     if (!property) return false;
-    
-    const matchesSearch = (property.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-                         (property.location?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+
+    const query = searchQuery.toLowerCase();
+    const matchesSearch =
+      getPropertyLabel(property).toLowerCase().includes(query) ||
+      (property.title?.toLowerCase() || '').includes(query) ||
+      (property.location?.toLowerCase() || '').includes(query);
     const matchesTarifGroup = selectedTarifGroup === 'all' || property.tarifGroup === selectedTarifGroup;
     const matchesType = propertyTypes.length === 0 || propertyTypes.includes(property.type);
     const matchesTags = selectedTags.length === 0 || (property.tags && property.tags.some(tag => selectedTags.includes(tag)));
@@ -66,6 +74,14 @@ export function PropertySidebar({
   const allTags = Array.from(new Set(properties.flatMap(p => p?.tags || [])));
 
   const selectAll = () => {
+    const idsToAdd = filteredProperties.map((p) => p.id);
+
+    if (onSetSelectedProperties) {
+      const next = Array.from(new Set([...selectedProperties, ...idsToAdd]));
+      onSetSelectedProperties(next);
+      return;
+    }
+
     filteredProperties.forEach(p => {
       if (!selectedProperties.includes(p.id)) {
         onToggleProperty(p.id);
@@ -74,6 +90,14 @@ export function PropertySidebar({
   };
 
   const deselectAll = () => {
+    const idsToRemove = new Set(filteredProperties.map((p) => p.id));
+
+    if (onSetSelectedProperties) {
+      const next = selectedProperties.filter((id) => !idsToRemove.has(id));
+      onSetSelectedProperties(next);
+      return;
+    }
+
     filteredProperties.forEach(p => {
       if (selectedProperties.includes(p.id)) {
         onToggleProperty(p.id);
@@ -227,7 +251,9 @@ export function PropertySidebar({
                               variant="secondary" 
                               className="text-[10px] px-1.5 py-0"
                             >
-                              {(prop.name || 'Sem nome').length > 15 ? (prop.name || 'Sem nome').substring(0, 15) + '...' : (prop.name || 'Sem nome')}
+                              {getPropertyLabel(prop).length > 15
+                                ? getPropertyLabel(prop).substring(0, 15) + '...'
+                                : getPropertyLabel(prop)}
                             </Badge>
                           ))}
                           {selectedPropertiesData.length > 3 && (
@@ -252,7 +278,7 @@ export function PropertySidebar({
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                       <Input
                         type="text"
-                        placeholder="Buscar..."
+                        placeholder="Buscar por identificação interna..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-8 h-8 text-xs"
@@ -307,7 +333,7 @@ export function PropertySidebar({
                               onCheckedChange={() => onToggleProperty(property.id)}
                             />
                             <span className="text-[11px] text-gray-900 line-clamp-1 flex-1">
-                              {property.name || 'Sem nome'}
+                              {getPropertyLabel(property)}
                             </span>
                             {selectedProperties.includes(property.id) && (
                               <div className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />

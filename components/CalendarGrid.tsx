@@ -8,6 +8,7 @@ import { BulkRestrictionsModal } from './BulkRestrictionsModal';
 import { BulkMinNightsModal } from './BulkMinNightsModal';
 import { CalendarHeaderDates } from './CalendarHeaderDates';
 import { CalendarBulkRules } from './CalendarBulkRules';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface CalendarProps {
   currentMonth: Date;
@@ -135,8 +136,8 @@ const getReservationForPropertyAndDate = (
 ): Reservation | null => {
   return reservations.find(r => {
     if (r.propertyId !== propertyId) return false;
-    const checkIn = new Date(r.checkIn);
-    const checkOut = new Date(r.checkOut);
+    const checkIn = parseDateLocal((r as any).checkIn) || new Date(0);
+    const checkOut = parseDateLocal((r as any).checkOut) || new Date(0);
     checkIn.setHours(0, 0, 0, 0);
     checkOut.setHours(0, 0, 0, 0);
     const currentDate = new Date(date);

@@ -130,8 +130,9 @@ export function PropertySelector({ selectedProperties, onChange }: PropertySelec
             return (
               <Badge key={propertyId} variant="secondary" className="gap-1 pr-1">
                 <Building2 className="h-3 w-3" />
-                {property?.name || property?.code || propertyId}
+                {property?.code || property?.name || propertyId}
                 <button
+                  aria-label={`Remover imóvel ${property?.code || property?.name || propertyId}`}
                   onClick={() => removeProperty(propertyId)}
                   className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
                 >
@@ -176,6 +177,7 @@ export function PropertySelector({ selectedProperties, onChange }: PropertySelec
               type="checkbox"
               checked={showGlobalOption}
               onChange={handleGlobalToggle}
+              aria-label="Selecionar automação global (todos os imóveis)"
               className="h-4 w-4 rounded border-gray-300"
             />
             <label className="flex-1 text-sm cursor-pointer" onClick={handleGlobalToggle}>
@@ -189,7 +191,7 @@ export function PropertySelector({ selectedProperties, onChange }: PropertySelec
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar imóveis por nome ou código..."
+                  placeholder="Buscar por identificação interna (código)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-8"
@@ -264,13 +266,14 @@ export function PropertySelector({ selectedProperties, onChange }: PropertySelec
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleProperty(property.id)}
+                          aria-label={`Selecionar imóvel ${property.code || property.name || property.id}`}
                           className="h-4 w-4 rounded border-gray-300"
                           onClick={(e) => e.stopPropagation()}
                         />
                         <Building2 className="h-4 w-4 text-muted-foreground" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">
-                            {property.name || property.code || 'Sem nome'}
+                            {property.code || property.name || 'Sem nome'}
                           </div>
                           <div className="text-xs text-muted-foreground flex items-center gap-2">
                             {property.address?.city && (

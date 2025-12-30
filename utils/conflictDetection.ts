@@ -1,4 +1,5 @@
 import { Reservation } from '../App';
+import { formatYmdLocal, parseDateLocal } from './dateLocal';
 
 interface ConflictInfo {
   propertyId: string;
@@ -33,7 +34,8 @@ export function detectConflicts(
   const formatDatePtBr = (isoDate: string): string => {
     try {
       // isoDate vem como YYYY-MM-DD
-      return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('pt-BR');
+      const d = parseDateLocal(isoDate);
+      return d ? d.toLocaleDateString('pt-BR') : isoDate;
     } catch {
       return isoDate;
     }
@@ -41,8 +43,8 @@ export function detectConflicts(
 
   const formatReservationShort = (reservation: Reservation): string => {
     const guest = reservation.guestName || 'Hóspede';
-    const checkIn = reservation.checkIn ? new Date(reservation.checkIn).toLocaleDateString('pt-BR') : '—';
-    const checkOut = reservation.checkOut ? new Date(reservation.checkOut).toLocaleDateString('pt-BR') : '—';
+    const checkIn = reservation.checkIn ? (parseDateLocal(reservation.checkIn)?.toLocaleDateString('pt-BR') ?? '—') : '—';
+    const checkOut = reservation.checkOut ? (parseDateLocal(reservation.checkOut)?.toLocaleDateString('pt-BR') ?? '—') : '—';
     const idSuffix = reservation.id ? ` (${String(reservation.id).slice(-6)})` : '';
     return `${guest}${idSuffix} ${checkIn}→${checkOut}`;
   };
@@ -62,7 +64,7 @@ export function detectConflicts(
     
     // Itera do check-in até (check-out - 1 dia)
     while (current < end) {
-      dates.push(current.toISOString().split('T')[0]);
+      dates.push(formatYmdLocal(current));
       current.setDate(current.getDate() + 1);
     }
     
@@ -76,8 +78,9 @@ export function detectConflicts(
       continue;
     }
 
-    const checkIn = new Date(reservation.checkIn);
-    const checkOut = new Date(reservation.checkOut);
+    const checkIn = parseDateLocal(reservation.checkIn);
+    const checkOut = parseDateLocal(reservation.checkOut);
+    if (!checkIn || !checkOut) continue;
     const occupiedDates = getOccupiedDates(checkIn, checkOut);
 
     if (!occupancyMap.has(reservation.propertyId)) {
@@ -169,10 +172,12 @@ export function wouldCauseConflict(
       continue;
     }
 
-    const existingCheckIn = new Date(reservation.checkIn);
+    const existingCheckIn = parseDateLocal(reservation.checkIn);
+    if (!existingCheckIn) continue;
     existingCheckIn.setHours(0, 0, 0, 0);
     
-    const existingCheckOut = new Date(reservation.checkOut);
+    const existingCheckOut = parseDateLocal(reservation.checkOut);
+    if (!existingCheckOut) continue;
     existingCheckOut.setHours(0, 0, 0, 0);
 
     // LÓGICA HOTELEIRA: Verificar sobreposição

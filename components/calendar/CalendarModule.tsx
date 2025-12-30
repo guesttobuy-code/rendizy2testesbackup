@@ -118,6 +118,7 @@ export function CalendarModule({
                 prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
               );
             }}
+            onSetSelectedProperties={setSelectedProperties}
             dateRange={dateRange}
             onDateRangeChange={setDateRange}
             selectedReservationTypes={selectedReservationTypes}

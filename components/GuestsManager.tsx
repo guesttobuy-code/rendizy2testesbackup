@@ -47,6 +47,7 @@ import {
 } from './ui/select';
 import { toast } from 'sonner';
 import { guestsApi, type Guest as ApiGuest, type CreateGuestDTO } from '../utils/guestsApi';
+import { parseDateLocal } from '../utils/dateLocal';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -780,7 +781,7 @@ export function GuestsManager() {
                             <div className="flex items-center gap-2">
                               <Calendar className="h-3 w-3 text-gray-500" />
                               <span>
-                                {new Date(reservation.checkIn).toLocaleDateString('pt-BR')} - {new Date(reservation.checkOut).toLocaleDateString('pt-BR')}
+                                {(parseDateLocal(reservation.checkIn) ?? new Date(reservation.checkIn)).toLocaleDateString('pt-BR')} - {(parseDateLocal(reservation.checkOut) ?? new Date(reservation.checkOut)).toLocaleDateString('pt-BR')}
                               </span>
                               <span className="text-gray-500">({t('history.nights', { count: reservation.nights })})</span>
                             </div>

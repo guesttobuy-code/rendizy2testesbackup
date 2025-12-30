@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 // ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
 import type { Reservation } from '../types/reservation';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface ConflictInfo {
   propertyId: string;
@@ -50,7 +51,7 @@ export function ConflictAlert({ conflicts, onReservationClick, onDismiss }: Conf
                         {conflict.propertyName}
                       </p>
                       <p className="text-sm text-red-700 mt-1">
-                        Data conflitante: {new Date(conflict.date).toLocaleDateString('pt-BR', { 
+                        Data conflitante: {(parseDateLocal(conflict.date) ?? new Date(conflict.date)).toLocaleDateString('pt-BR', { 
                           day: '2-digit', 
                           month: 'long', 
                           year: 'numeric' 
@@ -77,7 +78,7 @@ export function ConflictAlert({ conflicts, onReservationClick, onDismiss }: Conf
                                   {reservation.guestName}
                                 </p>
                                 <p className="text-xs text-red-700 mt-0.5">
-                                  {new Date(reservation.checkIn).toLocaleDateString('pt-BR')} → {new Date(reservation.checkOut).toLocaleDateString('pt-BR')}
+                                  {(parseDateLocal(reservation.checkIn) ?? new Date(reservation.checkIn)).toLocaleDateString('pt-BR')} → {(parseDateLocal(reservation.checkOut) ?? new Date(reservation.checkOut)).toLocaleDateString('pt-BR')}
                                 </p>
                               </div>
                             </div>

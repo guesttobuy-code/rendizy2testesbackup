@@ -43,10 +43,10 @@ export function PropertySelector({
       if (response.success && response.data) {
         const selectOptions: MultiSelectOption[] = response.data.map(property => ({
           id: property.id,
-          label: property.name || property.code || `Imóvel ${property.id}`,
+          label: property.code || property.name || `Imóvel ${property.id}`,
           description: property.address
             ? `${property.address.street}, ${property.address.number} - ${property.address.neighborhood}, ${property.address.city}`
-            : property.code || '',
+            : property.name || property.code || '',
           icon: property.type === 'apartment' || property.type === 'studio' || property.type === 'loft' 
             ? <Building2 className="w-4 h-4" /> 
             : <Home className="w-4 h-4" />,
@@ -113,8 +113,8 @@ export function PropertySelector({
       selected={selected}
       onChange={handleChange}
       placeholder={placeholder}
-      searchPlaceholder="Buscar por nome, código ou endereço..."
-      emptyMessage={options.length === 0 ? "Nenhum imóvel encontrado" : "Digite para buscar imóveis..."}
+      searchPlaceholder="Buscar por identificação interna (código)..."
+      emptyMessage={options.length === 0 ? "Nenhum imóvel encontrado" : "Digite para buscar por identificação interna..."}
       className={className}
       disabled={disabled}
       maxDisplay={allowMultiple ? 2 : 1}

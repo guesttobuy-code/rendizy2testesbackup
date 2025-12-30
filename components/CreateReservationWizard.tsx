@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface CreateReservationWizardProps {
   open: boolean;
@@ -318,8 +319,8 @@ export function CreateReservationWizard({
           if (r.propertyId !== propId) return false;
           if (r.status === 'cancelled') return false; // Ignorar canceladas
           
-          const rCheckIn = new Date(r.checkIn);
-          const rCheckOut = new Date(r.checkOut);
+          const rCheckIn = parseDateLocal(r.checkIn) ?? new Date(r.checkIn);
+          const rCheckOut = parseDateLocal(r.checkOut) ?? new Date(r.checkOut);
           rCheckIn.setHours(0, 0, 0, 0);
           rCheckOut.setHours(0, 0, 0, 0);
           
@@ -348,8 +349,8 @@ export function CreateReservationWizard({
       if (blocksResponse.success && blocksResponse.data && blocksResponse.data.length > 0) {
         // Verificar se algum bloqueio sobrepõe com as datas
         blocksResponse.data.forEach((block: any) => {
-          const blockStart = new Date(block.startDate);
-          const blockEnd = new Date(block.endDate);
+          const blockStart = parseDateLocal(block.startDate) ?? new Date(block.startDate);
+          const blockEnd = parseDateLocal(block.endDate) ?? new Date(block.endDate);
           
           // Lógica hoteleira: check-in ocupa, check-out não ocupa
           const hasOverlap = checkIn < blockEnd && checkOut > blockStart;

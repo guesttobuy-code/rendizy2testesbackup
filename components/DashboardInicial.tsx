@@ -37,6 +37,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { Reservation, Property } from '../App';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface DashboardInicialProps {
   conflicts: any[];
@@ -107,19 +108,22 @@ export function DashboardInicial({
   );
 
   const checkInsToday = reservations.filter(r => {
-    const checkIn = new Date(r.checkIn);
+    const checkIn = parseDateLocal(r.checkIn);
+    if (!checkIn) return false;
     checkIn.setHours(0, 0, 0, 0);
     return checkIn.getTime() === today.getTime();
   });
 
   const checkOutsToday = reservations.filter(r => {
-    const checkOut = new Date(r.checkOut);
+    const checkOut = parseDateLocal(r.checkOut);
+    if (!checkOut) return false;
     checkOut.setHours(0, 0, 0, 0);
     return checkOut.getTime() === today.getTime();
   });
 
   const upcomingReservations = reservations.filter(r => {
-    const checkIn = new Date(r.checkIn);
+    const checkIn = parseDateLocal(r.checkIn);
+    if (!checkIn) return false;
     checkIn.setHours(0, 0, 0, 0);
     return checkIn > today && r.status !== 'cancelled';
   });
@@ -143,8 +147,9 @@ export function DashboardInicial({
     const totalDays = properties.length * 30;
     const bookedDays = reservations.reduce((sum, r) => {
       if (r.status !== 'confirmed') return sum;
-      const checkIn = new Date(r.checkIn);
-      const checkOut = new Date(r.checkOut);
+      const checkIn = parseDateLocal(r.checkIn);
+      const checkOut = parseDateLocal(r.checkOut);
+      if (!checkIn || !checkOut) return sum;
       const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
       return sum + nights;
     }, 0);
@@ -433,7 +438,7 @@ export function DashboardInicial({
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {new Date(reservation.checkIn).toLocaleDateString('pt-BR')}
+                            {(parseDateLocal(reservation.checkIn) ?? new Date(reservation.checkIn)).toLocaleDateString('pt-BR')}
                           </p>
                           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                             {reservation.nights} {reservation.nights === 1 ? 'noite' : 'noites'}

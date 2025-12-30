@@ -22,6 +22,7 @@ import { Label } from './ui/label';
 import { useState, useEffect } from 'react';
 import { reservationsApi } from '../utils/api';
 import { PropertyReservationsTransferModal } from './PropertyReservationsTransferModal';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface PropertyDeleteModalProps {
   open: boolean;
@@ -78,7 +79,7 @@ export function PropertyDeleteModal({
   const impact = {
     activeReservations: activeReservations.length,
     futureReservations: activeReservations.filter(r => 
-      new Date(r.checkIn) > new Date()
+      (parseDateLocal(r.checkIn) ?? new Date(r.checkIn)) > new Date()
     ).length,
     linkedMessages: 0, // TODO: buscar do backend quando implementado
     totalRevenue: activeReservations.reduce((sum, r) => sum + (r.pricing?.total || 0), 0)

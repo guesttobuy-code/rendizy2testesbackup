@@ -14,6 +14,7 @@ import { Calendar, Home, Plus, DollarSign, Users, MessageSquare, BarChart3 } fro
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { reservationsApi } from '../utils/api';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface DashboardInicialSimpleProps {
   conflicts?: any[];
@@ -79,13 +80,13 @@ export function DashboardInicialSimple({
     const reservationsOnDate = Array.isArray(conflict?.reservations) ? conflict.reservations : [];
 
     if (propertyName && date && reservationsOnDate.length > 0) {
-      const dateLabel = new Date(`${date}T00:00:00.000Z`).toLocaleDateString('pt-BR');
+      const dateLabel = parseDateLocal(date)?.toLocaleDateString('pt-BR') ?? String(date);
       const parts = reservationsOnDate
         .slice(0, 2)
         .map((r: any) => {
           const guest = r?.guestName || 'Hóspede';
-          const checkIn = r?.checkIn ? new Date(r.checkIn).toLocaleDateString('pt-BR') : '—';
-          const checkOut = r?.checkOut ? new Date(r.checkOut).toLocaleDateString('pt-BR') : '—';
+          const checkIn = r?.checkIn ? (parseDateLocal(r.checkIn)?.toLocaleDateString('pt-BR') ?? '—') : '—';
+          const checkOut = r?.checkOut ? (parseDateLocal(r.checkOut)?.toLocaleDateString('pt-BR') ?? '—') : '—';
           const idSuffix = r?.id ? ` (${String(r.id).slice(-6)})` : '';
           return `${guest}${idSuffix} ${checkIn}→${checkOut}`;
         });
@@ -365,8 +366,8 @@ export function DashboardInicialSimple({
                   <div>
                     <p className="text-sm font-medium">{reservation.guestName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(reservation.checkIn).toLocaleDateString('pt-BR')} -{' '}
-                      {new Date(reservation.checkOut).toLocaleDateString('pt-BR')}
+                      {(parseDateLocal(reservation.checkIn) ?? new Date(reservation.checkIn)).toLocaleDateString('pt-BR')} -{' '}
+                      {(parseDateLocal(reservation.checkOut) ?? new Date(reservation.checkOut)).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
                   <div className="text-right">

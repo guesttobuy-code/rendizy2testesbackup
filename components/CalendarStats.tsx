@@ -1,6 +1,7 @@
 import React from 'react';
 import { Property, Reservation } from '../App';
 import { TrendingUp, Calendar, DollarSign, Percent } from 'lucide-react';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface CalendarStatsProps {
   properties: Property[];
@@ -19,8 +20,9 @@ export function CalendarStats({ properties, reservations, currentMonth }: Calend
   const totalPossibleNights = properties.length * daysInMonth;
   
   const occupiedNights = reservations.reduce((acc, res) => {
-    const checkIn = new Date(res.checkIn);
-    const checkOut = new Date(res.checkOut);
+    const checkIn = parseDateLocal(res.checkIn);
+    const checkOut = parseDateLocal(res.checkOut);
+    if (!checkIn || !checkOut) return acc;
     
     // Only count if reservation is in current month
     if (checkIn.getMonth() === currentMonth.getMonth() || checkOut.getMonth() === currentMonth.getMonth()) {
@@ -35,14 +37,16 @@ export function CalendarStats({ properties, reservations, currentMonth }: Calend
 
   const totalRevenue = reservations
     .filter(res => {
-      const checkIn = new Date(res.checkIn);
+      const checkIn = parseDateLocal(res.checkIn);
+      if (!checkIn) return false;
       return checkIn.getMonth() === currentMonth.getMonth() && 
              checkIn.getFullYear() === currentMonth.getFullYear();
     })
     .reduce((acc, res) => acc + res.price, 0);
 
   const confirmedReservations = reservations.filter(res => {
-    const checkIn = new Date(res.checkIn);
+    const checkIn = parseDateLocal(res.checkIn);
+    if (!checkIn) return false;
     return res.status === 'confirmed' && 
            checkIn.getMonth() === currentMonth.getMonth() &&
            checkIn.getFullYear() === currentMonth.getFullYear();

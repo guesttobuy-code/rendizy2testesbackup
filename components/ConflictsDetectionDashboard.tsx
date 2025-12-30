@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface ConflictInfo {
   propertyId: string;
@@ -199,7 +200,7 @@ export function ConflictsDetectionDashboard() {
                             {conflict.propertyName}
                           </CardTitle>
                           <CardDescription className="text-red-600 font-medium mt-1">
-                            Conflito em {format(new Date(conflict.date), 'dd/MM/yyyy', { locale: ptBR })}
+                            Conflito em {format(parseDateLocal(conflict.date) ?? new Date(conflict.date), 'dd/MM/yyyy', { locale: ptBR })}
                           </CardDescription>
                         </div>
                         <Badge variant="destructive">
@@ -221,13 +222,13 @@ export function ConflictsDetectionDashboard() {
                             <div>
                               <span className="text-gray-500 block">Check-in</span>
                               <span className="font-medium">
-                                {format(new Date(reservation.checkIn), 'dd/MM/yyyy', { locale: ptBR })}
+                                {format(parseDateLocal(reservation.checkIn) ?? new Date(reservation.checkIn), 'dd/MM/yyyy', { locale: ptBR })}
                               </span>
                             </div>
                             <div>
                               <span className="text-gray-500 block">Check-out</span>
                               <span className="font-medium">
-                                {format(new Date(reservation.checkOut), 'dd/MM/yyyy', { locale: ptBR })}
+                                {format(parseDateLocal(reservation.checkOut) ?? new Date(reservation.checkOut), 'dd/MM/yyyy', { locale: ptBR })}
                               </span>
                             </div>
                             <div>

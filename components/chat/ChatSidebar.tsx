@@ -16,7 +16,10 @@ import type { UnifiedConversation } from './hooks/useChatData';
 
 interface Property {
   id: string;
-  title: string;
+  title?: string;
+  name?: string;
+  internalId?: string;
+  location?: string;
   address?: {
     street?: string;
     number?: string;
@@ -43,6 +46,7 @@ interface ChatSidebarProps {
   properties: Property[];
   selectedProperties: string[];
   onToggleProperty: (id: string) => void;
+  onSetSelectedProperties?: (ids: string[]) => void;
   dateRange: { from: Date; to: Date };
   onDateRangeChange: (range: { from: Date; to: Date }) => void;
   selectedStatuses: string[];
@@ -72,6 +76,7 @@ export function ChatSidebar({
   properties,
   selectedProperties,
   onToggleProperty,
+  onSetSelectedProperties,
   dateRange,
   onDateRangeChange,
   selectedStatuses,
@@ -97,6 +102,7 @@ export function ChatSidebar({
           properties={properties}
           selectedProperties={selectedProperties}
           onToggleProperty={onToggleProperty}
+          onSetSelectedProperties={onSetSelectedProperties}
           dateRange={dateRange}
           onDateRangeChange={onDateRangeChange}
           selectedStatuses={selectedStatuses}

@@ -29,6 +29,7 @@ import { AlertCircle, XCircle } from 'lucide-react';
 // ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
 import type { Reservation } from '../types/reservation';
 import { toast } from 'sonner';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface CancelReservationModalProps {
   isOpen: boolean;
@@ -59,7 +60,7 @@ export function CancelReservationModal({
 
   if (!reservation) return null;
 
-  const checkIn = new Date(reservation.checkIn);
+  const checkIn = parseDateLocal(reservation.checkIn) ?? new Date(reservation.checkIn);
   const today = new Date();
   const daysUntilCheckIn = Math.ceil((checkIn.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -145,7 +146,7 @@ export function CancelReservationModal({
               <div className="flex items-center gap-2 text-gray-700">
                 <span className="font-medium">Período:</span>
                 <span>
-                  {checkIn.toLocaleDateString('pt-BR')} - {new Date(reservation.checkOut).toLocaleDateString('pt-BR')}
+                  {checkIn.toLocaleDateString('pt-BR')} - {(parseDateLocal(reservation.checkOut) ?? new Date(reservation.checkOut)).toLocaleDateString('pt-BR')}
                 </span>
                 <span className="text-gray-500">({reservation.nights} {reservation.nights === 1 ? 'noite' : 'noites'})</span>
               </div>

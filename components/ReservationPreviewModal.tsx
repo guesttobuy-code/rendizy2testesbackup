@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import type { Reservation } from '../types/reservation';
 import { Calendar, User, DollarSign, Users, Moon, Building2, Mail, X } from 'lucide-react';
 import { Button } from './ui/button';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface ReservationPreviewModalProps {
   open: boolean;
@@ -21,8 +22,10 @@ export function ReservationPreviewModal({
 
   if (!reservation) return null;
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('pt-BR', {
+  const formatDate = (date: Date | string) => {
+    const d = parseDateLocal(date);
+    if (!d) return '—';
+    return d.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'short',
       year: 'numeric'

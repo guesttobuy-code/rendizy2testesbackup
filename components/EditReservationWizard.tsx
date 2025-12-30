@@ -10,6 +10,7 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Edit, AlertCircle 
 // ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
 import type { Reservation } from '../types/reservation';
 import { toast } from 'sonner';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface EditReservationWizardProps {
   open: boolean;
@@ -37,8 +38,8 @@ export function EditReservationWizard({
   useEffect(() => {
     if (reservation) {
       setGuestName(reservation.guestName);
-      setCheckIn(new Date(reservation.checkIn));
-      setCheckOut(new Date(reservation.checkOut));
+      setCheckIn(parseDateLocal(reservation.checkIn) ?? new Date(reservation.checkIn));
+      setCheckOut(parseDateLocal(reservation.checkOut) ?? new Date(reservation.checkOut));
       setTotalPrice(reservation.price);
     }
   }, [reservation]);

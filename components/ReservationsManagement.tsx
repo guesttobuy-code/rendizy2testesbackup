@@ -81,6 +81,20 @@ export function ReservationsManagement({
   const PAGE_SIZE = 20;
   const [paginationMode, setPaginationMode] = useState<'server' | 'client'>('server');
 
+  const getPropertyLabel = (property: Property): string => {
+    // Prefer internal identification (usually `code` in API-backed Property)
+    const code = typeof property.code === 'string' ? property.code.trim() : '';
+    if (code) return code;
+
+    // Some parts of the app may include `internalId` even if it's not typed here
+    const maybeInternalId = (property as any)?.internalId;
+    const internalId = typeof maybeInternalId === 'string' ? maybeInternalId.trim() : '';
+    if (internalId) return internalId;
+
+    const name = typeof property.name === 'string' ? property.name.trim() : '';
+    return name || 'Sem nome';
+  };
+
   const toNumber = (value: unknown, fallback = 0): number => {
     if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
     if (typeof value === 'string') {
@@ -956,9 +970,15 @@ export function ReservationsManagement({
   };
 
   // Property filter functions
-  const filteredProperties = properties.filter(property =>
-    property.name.toLowerCase().includes(propertySearchQuery.toLowerCase())
-  );
+  const filteredProperties = properties.filter((property) => {
+    const q = propertySearchQuery.trim().toLowerCase();
+    if (!q) return true;
+
+    const label = getPropertyLabel(property).toLowerCase();
+    const name = (property.name || '').toLowerCase();
+
+    return label.includes(q) || name.includes(q);
+  });
 
   const toggleProperty = (propertyId: string) => {
     setSelectedProperties(prev => 
@@ -1276,7 +1296,7 @@ export function ReservationsManagement({
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                         <Input
                           type="text"
-                          placeholder="Buscar..."
+                          placeholder="Buscar por identificação interna..."
                           value={propertySearchQuery}
                           onChange={(e) => setPropertySearchQuery(e.target.value)}
                           className="pl-8 h-8 text-xs"
@@ -1332,7 +1352,7 @@ export function ReservationsManagement({
                               />
                               <Home className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                               <span className="text-[11px] text-gray-900 dark:text-gray-100 line-clamp-1 flex-1">
-                                {property.name || 'Sem nome'}
+                                {getPropertyLabel(property)}
                               </span>
                               {selectedProperties.includes(property.id) && (
                                 <div className="w-1.5 h-1.5 rounded-full bg-purple-500 flex-shrink-0" />

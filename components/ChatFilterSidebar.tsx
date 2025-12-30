@@ -14,6 +14,7 @@ interface ChatFilterSidebarProps {
   properties: Property[];
   selectedProperties: string[];
   onToggleProperty: (id: string) => void;
+  onSetSelectedProperties?: (ids: string[]) => void;
   dateRange: { from: Date; to: Date };
   onDateRangeChange: (range: { from: Date; to: Date }) => void;
   selectedStatuses: string[];
@@ -30,6 +31,7 @@ export function ChatFilterSidebar({
   properties, 
   selectedProperties, 
   onToggleProperty,
+  onSetSelectedProperties,
   dateRange,
   onDateRangeChange,
   selectedStatuses,
@@ -55,15 +57,29 @@ export function ChatFilterSidebar({
   // Garantir que properties seja sempre um array
   const safeProperties = Array.isArray(properties) ? properties : [];
 
+  const getPropertyLabel = (property: Property) =>
+    property.internalId || property.name || 'Sem nome';
+
   const filteredProperties = safeProperties.filter(property => {
     if (!property) return false;
-    
-    const matchesSearch = (property.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-                         (property.location?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+
+    const query = searchQuery.toLowerCase();
+    const matchesSearch =
+      getPropertyLabel(property).toLowerCase().includes(query) ||
+      (property.title?.toLowerCase() || '').includes(query) ||
+      (property.location?.toLowerCase() || '').includes(query);
     return matchesSearch;
   });
 
   const selectAll = () => {
+    const idsToAdd = filteredProperties.map((p) => p.id);
+
+    if (onSetSelectedProperties) {
+      const next = Array.from(new Set([...selectedProperties, ...idsToAdd]));
+      onSetSelectedProperties(next);
+      return;
+    }
+
     filteredProperties.forEach(p => {
       if (!selectedProperties.includes(p.id)) {
         onToggleProperty(p.id);
@@ -72,6 +88,14 @@ export function ChatFilterSidebar({
   };
 
   const deselectAll = () => {
+    const idsToRemove = new Set(filteredProperties.map((p) => p.id));
+
+    if (onSetSelectedProperties) {
+      const next = selectedProperties.filter((id) => !idsToRemove.has(id));
+      onSetSelectedProperties(next);
+      return;
+    }
+
     filteredProperties.forEach(p => {
       if (selectedProperties.includes(p.id)) {
         onToggleProperty(p.id);
@@ -182,7 +206,9 @@ export function ChatFilterSidebar({
                                 variant="secondary" 
                                 className="text-[10px] px-1.5 py-0 flex items-center gap-1"
                               >
-                                {(prop.name || 'Sem nome').length > 12 ? (prop.name || 'Sem nome').substring(0, 12) + '...' : (prop.name || 'Sem nome')}
+                                {getPropertyLabel(prop).length > 12
+                                  ? getPropertyLabel(prop).substring(0, 12) + '...'
+                                  : getPropertyLabel(prop)}
                                 <X 
                                   className="h-2.5 w-2.5 cursor-pointer hover:text-red-600" 
                                   onClick={(e) => {
@@ -214,7 +240,7 @@ export function ChatFilterSidebar({
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                         <Input
                           type="text"
-                          placeholder="Buscar propriedades..."
+                          placeholder="Buscar por identificação interna..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="pl-8 h-8 text-xs"
@@ -269,7 +295,7 @@ export function ChatFilterSidebar({
                             onCheckedChange={() => onToggleProperty(property.id)}
                           />
                           <span className="text-[11px] text-gray-900 dark:text-gray-100 line-clamp-1 flex-1">
-                            {property.name || 'Sem nome'}
+                            {getPropertyLabel(property)}
                           </span>
                           {selectedProperties.includes(property.id) && (
                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />

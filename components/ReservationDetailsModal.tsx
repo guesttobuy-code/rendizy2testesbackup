@@ -51,6 +51,7 @@ import type { Reservation } from '../types/reservation';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { parseDateLocal } from '../utils/dateLocal';
 
 interface ReservationDetailsModalProps {
   isOpen: boolean;
@@ -235,8 +236,8 @@ export function ReservationDetailsModal({
   // Check-in ocupa o dia, check-out NÃO ocupa
   // Exemplo: 26/12 → 28/12 = 2 noites (26 e 27)
   // ✅ FIX: Converter strings para Date objects antes de usar .getTime()
-  const checkInDate = typeof reservation.checkIn === 'string' ? new Date(reservation.checkIn) : reservation.checkIn;
-  const checkOutDate = typeof reservation.checkOut === 'string' ? new Date(reservation.checkOut) : reservation.checkOut;
+  const checkInDate = parseDateLocal(reservation.checkIn) || new Date(0);
+  const checkOutDate = parseDateLocal(reservation.checkOut) || new Date(0);
   const rawNights = Math.floor((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
   const nights = Number.isFinite(rawNights) && rawNights > 0 ? rawNights : Math.max(reservation.nights || 1, 1);
   const baseStayAmount = reservation.pricing?.total ?? reservation.pricing?.baseTotal ?? reservation.price ?? 0;

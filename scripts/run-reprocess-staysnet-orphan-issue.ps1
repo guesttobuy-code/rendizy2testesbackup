@@ -161,6 +161,8 @@ if (-not $AnonKey) {
 if (-not $RendizyToken) {
   $candidateFiles = @(
     $RendizyTokenFile,
+    ".\\token.txt",
+    "..\\token.txt",
     ".\\rendizy-token.txt",
     "..\\rendizy-token.txt",
     "..\\get-full-token.txt",
