@@ -56,6 +56,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Corrigido: preload ESM agora usa `node --import ./scripts/setup-crypto.js`
   - Tailwind v4: removido `postcss.config.*` e migração para plugin `@tailwindcss/vite` no Vite (evita carregamento de PostCSS config no build)
   - Lockfile atualizado para garantir instalação de `@tailwindcss/vite` no Vercel
+
+- 🟡 **Workflow/Deploy: padronização de branch único em produção (main)**
+  - Política documentada em `RULES.md`: produção = `main`, branches temporários voltam via merge
+  - Reduz risco de divergência `localhost ≠ produção` quando o Vercel está configurado para buildar outro branch
+  - Ação operacional: garantir Vercel Production Branch = `main`
 - 🔴 **Issue #42**: Calendário com datas hardcoded (outubro→dezembro)
   - `contexts/CalendarContext.tsx` linhas 81-84
   - `dateRange.from` agora usa `new Date()` (data atual)

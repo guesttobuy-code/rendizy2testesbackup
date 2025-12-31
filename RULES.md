@@ -913,6 +913,36 @@ git checkout -b test-feature-xyz
 git checkout -- arquivo.ts
 ```
 
+#### 8.2.1 Política de branches (PADRÃO ÚNICO)
+
+✅ **Regra:** o branch de produção é **sempre** o `main`.
+
+- O Vercel deve estar configurado para build/deploy **somente** do `main` (Production Branch = `main`).
+- Branches de trabalho são temporários: `feat/*`, `fix/*`, `chore/*` (ou `test-*`), e **sempre** voltam para o `main` via merge.
+- Após merge validado, o branch temporário pode ser apagado.
+
+✅ **Regra:** não manter “2 branches principais” (ex.: `main` e `final-clean`) rodando em paralelo.
+Isso causa exatamente o problema clássico: *localhost ≠ produção* porque produção está buildando outro branch.
+
+#### 8.2.2 Como alinhar o `main` com um branch temporário
+
+✅ **Procedimento recomendado (seguro e auditável):** merge do branch no `main`.
+
+```bash
+git checkout main
+git pull
+git merge <branch-temporario>
+git push
+```
+
+⚠️ **Procedimento excepcional (só com permissão explícita):** forçar o `main` a ficar idêntico ao branch.
+
+```bash
+git checkout main
+git reset --hard <branch-temporario>
+git push --force-with-lease
+```
+
 ---
 
 ### 8.3 Supabase
