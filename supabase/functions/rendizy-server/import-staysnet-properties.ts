@@ -30,6 +30,7 @@ import { importPropertyPricing } from './import-staysnet-pricing.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 import { storeStaysnetRawObject } from './utils-staysnet-raw-store.ts';
+import { LISTING_AMENITIES, LOCATION_AMENITIES } from '../../../utils/amenities-categories.ts';
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
@@ -109,6 +110,72 @@ function normalizeTypeCode(input) {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
+}
+
+function normalizeAmenityKey(input: string): string {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\([^)]*\)/g, ' ') // remove parenthetical
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' e ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function buildCanonicalAmenityNameIndex(categories: Array<{ amenities: Array<{ id: string; name: string }> }>) {
+  const nameToId = new Map<string, string>();
+  const allIds = new Set<string>();
+  for (const cat of categories || []) {
+    for (const amenity of cat?.amenities || []) {
+      if (!amenity?.id) continue;
+      allIds.add(amenity.id);
+      // match by canonical id and by display name
+      nameToId.set(normalizeAmenityKey(amenity.id), amenity.id);
+      if (amenity.name) nameToId.set(normalizeAmenityKey(amenity.name), amenity.id);
+    }
+  }
+  return { nameToId, allIds };
+}
+
+function mapAmenityNamesToCanonicalIds(
+  names: string[],
+  primaryIndex: { nameToId: Map<string, string> },
+  fallbackIndex?: { nameToId: Map<string, string> },
+): string[] {
+  const out: string[] = [];
+  for (const rawName of names || []) {
+    const key = normalizeAmenityKey(rawName);
+    if (!key) continue;
+    const id = primaryIndex.nameToId.get(key) || fallbackIndex?.nameToId.get(key);
+    if (id) out.push(id);
+  }
+  return Array.from(new Set(out));
+}
+
+function mapStaysAmenityIdsToCanonicalIds(
+  staysIds: string[],
+  titleById: Map<string, string>,
+  primaryIndex: { nameToId: Map<string, string> },
+  fallbackIndex?: { nameToId: Map<string, string> },
+): string[] {
+  const out: string[] = [];
+  for (const rawId of staysIds || []) {
+    const id = String(rawId || '').trim();
+    if (!id) continue;
+    const title = titleById.get(id);
+    const candidates = [title, id].filter((v) => typeof v === 'string' && v.trim().length > 0) as string[];
+    let mapped: string | undefined;
+    for (const c of candidates) {
+      const key = normalizeAmenityKey(c);
+      mapped = primaryIndex.nameToId.get(key) || fallbackIndex?.nameToId.get(key);
+      if (mapped) break;
+    }
+    if (mapped) out.push(mapped);
+  }
+  return Array.from(new Set(out));
 }
 
 function pickMetaTitle(meta) {
@@ -334,6 +401,36 @@ async function sha256Hex(input) {
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+function stripHtmlToText(input: unknown): string {
+  return String(input || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function clampText(input: string, maxLen: number): string {
+  const s = String(input || '');
+  if (s.length <= maxLen) return s;
+  return s.slice(0, maxLen);
+}
+
+type WizardMultiLangText = { pt: string; en: string; es: string };
+
+function staysMultiLangToWizard(block: any, maxLen: number, opts?: { stripHtml?: boolean }): WizardMultiLangText | null {
+  const strip = opts?.stripHtml !== false;
+  const pick = (v: unknown) => {
+    const raw = strip ? stripHtmlToText(v) : String(v || '').trim();
+    return clampText(raw, maxLen);
+  };
+
+  const pt = pick(block?.pt_BR ?? block?.pt_PT ?? block?.pt ?? '');
+  const en = pick(block?.en_US ?? block?.en_GB ?? block?.en ?? '');
+  const es = pick(block?.es_ES ?? block?.es ?? '');
+
+  if (!pt && !en && !es) return null;
+  return { pt, en, es };
 }
 
 // ============================================================================
@@ -594,6 +691,99 @@ export async function importStaysNetProperties(c) {
     
     // Criar Basic Auth
     const credentials = btoa(`${config.apiKey}:${config.apiSecret || ''}`);
+    const staysHeaders = {
+      'Authorization': `Basic ${credentials}`,
+      'Accept': 'application/json',
+    };
+
+    // Índices canônicos (UI) para mapear amenities StaysNet -> IDs do checkbox
+    const canonicalLocationIndex = buildCanonicalAmenityNameIndex(LOCATION_AMENITIES as any);
+    const canonicalListingIndex = buildCanonicalAmenityNameIndex(LISTING_AMENITIES as any);
+
+    const tryParseTranslationArray = (json: unknown): any[] | null => {
+      if (Array.isArray(json)) return json;
+      if (json && typeof json === 'object') {
+        const j: any = json as any;
+        if (Array.isArray(j.data)) return j.data;
+        if (Array.isArray(j.amenities)) return j.amenities;
+        if (Array.isArray(j.propertyAmenities)) return j.propertyAmenities;
+        if (Array.isArray(j.listingAmenities)) return j.listingAmenities;
+        if (Array.isArray(j.items)) return j.items;
+      }
+      return null;
+    };
+
+    const pickTitleFromTranslationRow = (row: any): string | null => {
+      const metaTitle = pickMetaTitle(row);
+      if (metaTitle) return String(metaTitle).trim();
+      const title =
+        String(
+          row?.title?.pt_BR ||
+            row?.title?.pt_PT ||
+            row?.title?.en_US ||
+            row?.title?.es_ES ||
+            row?.name?.pt_BR ||
+            row?.name?.pt_PT ||
+            row?.name?.en_US ||
+            row?.name ||
+            ''
+        ).trim();
+      return title || null;
+    };
+
+    const fetchAmenityTranslationMap = async () => {
+      // Observação: StaysNet parece expor ao menos `property-amenities` oficialmente,
+      // mas alguns ambientes podem ter endpoints extras para amenities do listing.
+      // Fazemos best-effort e mesclamos tudo em um map (id -> title).
+      const endpointsToTry = [
+        '/translation/property-amenities',
+        '/translation/amenities',
+        '/translation/listing-amenities',
+      ];
+
+      const map = new Map<string, string>();
+      const sources: Array<{ endpoint: string; ok: boolean; count: number }> = [];
+
+      for (const endpoint of endpointsToTry) {
+        const url = `${config.baseUrl}${endpoint}`;
+        try {
+          const resp = await fetch(url, { headers: staysHeaders });
+          if (!resp.ok) {
+            sources.push({ endpoint, ok: false, count: 0 });
+            continue;
+          }
+
+          const json = await resp.json();
+          const arr = tryParseTranslationArray(json);
+          if (!arr) {
+            sources.push({ endpoint, ok: true, count: 0 });
+            continue;
+          }
+
+          let added = 0;
+          for (const row of arr) {
+            if (!row || typeof row !== 'object') continue;
+            const id = String((row as any)?._id ?? (row as any)?.id ?? '').trim();
+            if (!id) continue;
+            const title = pickTitleFromTranslationRow(row);
+            if (!title) continue;
+            if (!map.has(id)) {
+              map.set(id, title);
+              added++;
+            }
+          }
+          sources.push({ endpoint, ok: true, count: added });
+        } catch {
+          sources.push({ endpoint, ok: false, count: 0 });
+        }
+      }
+
+      return { map, sources };
+    };
+
+    // Fetch 1x (best-effort). Mesmo se falhar, seguimos com import e só não mapeamos checkboxes.
+    const translationFetch = await fetchAmenityTranslationMap();
+    const globalAmenityTitleById = translationFetch.map;
 
     const fetchListingDetailsById = async (listingIdRaw) => {
       const listingId = normalizeId(listingIdRaw);
@@ -601,12 +791,7 @@ export async function importStaysNetProperties(c) {
 
       const urlById = `${config.baseUrl}/content/listings/${encodeURIComponent(listingId)}`;
       try {
-        const resp = await fetch(urlById, {
-          headers: {
-            'Authorization': `Basic ${credentials}`,
-            'Accept': 'application/json',
-          },
-        });
+        const resp = await fetch(urlById, { headers: staysHeaders });
 
         if (!resp.ok) return null;
 
@@ -616,6 +801,49 @@ export async function importStaysNetProperties(c) {
           return json as Record<string, any>;
         }
         return null;
+      } catch {
+        return null;
+      }
+    };
+
+    const fetchPropertyAmenitiesById = async (propertyIdRaw) => {
+      const propertyId = normalizeId(propertyIdRaw);
+      if (!propertyId) return null;
+
+      const urlById = `${config.baseUrl}/content/properties/${encodeURIComponent(propertyId)}/amenities`;
+      try {
+        const resp = await fetch(urlById, { headers: staysHeaders });
+
+        if (!resp.ok) return null;
+
+        const json = await resp.json();
+        // Pode retornar:
+        // - array de amenities
+        // - objeto wrapper (ex: { amenities: [...] } ou { data: [...] })
+        const arr = Array.isArray(json)
+          ? json
+          : (Array.isArray((json as any)?.amenities) ? (json as any).amenities
+            : (Array.isArray((json as any)?.data) ? (json as any).data
+              : null));
+
+        if (!arr) return null;
+
+        const ids = arr
+          .map((a: any) => (a && typeof a === 'object' ? a._id : a))
+          .map((v) => (v === null || v === undefined ? '' : String(v).trim()))
+          .filter((v) => Boolean(v));
+
+        const titlesById = new Map<string, string>();
+        for (const a of arr) {
+          if (!a || typeof a !== 'object') continue;
+          const id = String((a as any)?._id ?? (a as any)?.id ?? '').trim();
+          if (!id) continue;
+          const title = pickMetaTitle(a) || String((a as any)?.title?.pt_BR || (a as any)?.title?.en_US || '').trim();
+          if (title) titlesById.set(id, title);
+        }
+
+        if (ids.length === 0) return { raw: json, ids: [], titlesById };
+        return { raw: json, ids, titlesById };
       } catch {
         return null;
       }
@@ -672,12 +900,7 @@ export async function importStaysNetProperties(c) {
       console.log(`📡 [FETCH] Buscando página: skip=${skip}, limit=${limit}`);
       
       const url = `${config.baseUrl}/content/listings?skip=${skip}&limit=${limit}`;
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Basic ${credentials}`,
-          'Accept': 'application/json'
-        }
-      });
+      const response = await fetch(url, { headers: staysHeaders });
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -948,6 +1171,71 @@ export async function importStaysNetProperties(c) {
               id: (propListPayload as any)?.id || (detail as any)?.id,
             } as any;
           }
+        }
+
+        // ====================================================================
+        // 2.0.6: FALLBACK PARA PROPERTY AMENITIES (local) QUANDO AUSENTE
+        // ====================================================================
+        // Em alguns ambientes, o detalhe do listing não retorna `propertyAmenities`.
+        // Tentamos buscar via endpoint oficial: /content/properties/:id/amenities.
+        try {
+          const hasPropertyAmenities = Array.isArray((prop as any)?.propertyAmenities)
+            && (prop as any).propertyAmenities.length > 0;
+
+          if (!hasPropertyAmenities) {
+            const candidatesRaw = [
+              (prop as any)?._t_propertyMeta?._id,
+              (prop as any)?._t_propertyMeta?.id,
+              (prop as any)?._id,
+              (prop as any)?.id,
+            ];
+
+            const candidates = candidatesRaw
+              .map(normalizeId)
+              .filter((v) => Boolean(v));
+
+            const tried = new Set<string>();
+            for (const candidateId of candidates) {
+              if (tried.has(candidateId)) continue;
+              tried.add(candidateId);
+
+              const fetchedAmenities = await fetchPropertyAmenitiesById(candidateId);
+              if (!fetchedAmenities) continue;
+
+              // Salvar RAW do endpoint de amenities também (soft-fail)
+              try {
+                const externalId = String((prop as any)._id || (prop as any).id || '').trim() || null;
+                const externalCode = String((prop as any).id || (prop as any).code || '').trim() || null;
+                const storeAmenities = await storeStaysnetRawObject({
+                  supabase,
+                  organizationId,
+                  domain: 'property-amenities',
+                  externalId: String(candidateId).trim() || externalId,
+                  externalCode,
+                  endpoint: `/content/properties/${String(candidateId).trim()}/amenities`,
+                  payload: fetchedAmenities.raw,
+                  fetchedAtIso: new Date().toISOString(),
+                });
+                if (!storeAmenities.ok) {
+                  console.warn(`⚠️ Falha ao salvar staysnet_raw_objects (property-amenities): ${storeAmenities.error}`);
+                }
+              } catch (e) {
+                console.warn(`⚠️ Falha inesperada ao salvar staysnet_raw_objects (property-amenities): ${e instanceof Error ? e.message : String(e)}`);
+              }
+
+              if (Array.isArray(fetchedAmenities.ids) && fetchedAmenities.ids.length > 0) {
+                // Normalizar para o formato visto no listing detail (array de { _id })
+                (prop as any).propertyAmenities = fetchedAmenities.ids.map((id) => ({ _id: id }));
+                // Se o endpoint retornar títulos, guarda para mapear para IDs canônicos do UI
+                if ((fetchedAmenities as any).titlesById && (fetchedAmenities as any).titlesById instanceof Map) {
+                  (prop as any)._tmp_propertyAmenitiesTitlesById = (fetchedAmenities as any).titlesById;
+                }
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ Falha inesperada ao buscar property amenities: ${e instanceof Error ? e.message : String(e)}`);
         }
 
         // ====================================================================
@@ -1818,17 +2106,20 @@ export async function importStaysNetProperties(c) {
 
         // === AMENIDADES E DESCRIÇÃO ===
         // Campo: comodidades (_t_amenitiesMeta array) - extrair _mstitle.pt_BR
+        let listingAmenityNamesFromMeta: string[] = [];
         if (prop._t_amenitiesMeta && Array.isArray(prop._t_amenitiesMeta) && prop._t_amenitiesMeta.length > 0) {
-          const amenitiesNames = prop._t_amenitiesMeta
-            .map((amenity: any) => amenity._mstitle?.pt_BR || amenity._mstitle?.en_US)
-            .filter((name: string) => name); // Remove nulls
-          
-          if (amenitiesNames.length > 0) {
+          listingAmenityNamesFromMeta = prop._t_amenitiesMeta
+            .map((amenity: any) => amenity?._mstitle?.pt_BR || amenity?._mstitle?.pt_PT || amenity?._mstitle?.en_US)
+            .map((v: any) => (v === null || v === undefined ? '' : String(v).trim()))
+            .filter((name: string) => Boolean(name));
+
+          if (listingAmenityNamesFromMeta.length > 0) {
+            const comodidadesHash = (await sha256Hex(JSON.stringify(listingAmenityNamesFromMeta))).slice(0, 12);
             await supabase.rpc('save_anuncio_field', {
               p_anuncio_id: anuncioId,
               p_field: 'comodidades',
-              p_value: amenitiesNames,
-              p_idempotency_key: `comodidades-${prop._id}`,
+              p_value: listingAmenityNamesFromMeta,
+              p_idempotency_key: `comodidades-${prop._id}-${comodidadesHash}`,
               p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
@@ -1845,15 +2136,292 @@ export async function importStaysNetProperties(c) {
             .filter((v) => Boolean(v));
 
           if (amenityIds.length > 0) {
+            const comodidadesIdsHash = (await sha256Hex(JSON.stringify(amenityIds))).slice(0, 12);
             await supabase.rpc('save_anuncio_field', {
               p_anuncio_id: anuncioId,
               p_field: 'comodidadesStaysnetIds',
               p_value: amenityIds,
-              p_idempotency_key: `comodidadesStaysnetIds-${prop._id}`,
+              p_idempotency_key: `comodidadesStaysnetIds-${prop._id}-${comodidadesIdsHash}`,
               p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
           }
+        }
+
+        // (2025-12) StaysNet traz dois conjuntos diferentes:
+        // - amenities: amenidades da unidade/acomodação (listing)
+        // - propertyAmenities: amenidades do local/propriedade (location)
+        // Persistimos ambos separadamente + espelhamos nos campos do wizard e campos normalizados.
+        const listingAmenityIds = (prop.amenities && Array.isArray(prop.amenities) ? prop.amenities : [])
+          .map((a: any) => (a && typeof a === 'object' ? a._id : a))
+          .map((v) => (v === null || v === undefined ? '' : String(v).trim()))
+          .filter((v) => Boolean(v));
+
+        const locationAmenityIds = (prop.propertyAmenities && Array.isArray(prop.propertyAmenities) ? prop.propertyAmenities : [])
+          .map((a: any) => (a && typeof a === 'object' ? a._id : a))
+          .map((v) => (v === null || v === undefined ? '' : String(v).trim()))
+          .filter((v) => Boolean(v));
+
+        // Build best-effort title map for this listing (global + local enrichment)
+        const amenityTitleById = new Map<string, string>(globalAmenityTitleById);
+        const injectedTitlesById: Map<string, string> | undefined = (prop as any)?._tmp_propertyAmenitiesTitlesById;
+        if (injectedTitlesById && injectedTitlesById instanceof Map) {
+          for (const [k, v] of injectedTitlesById.entries()) {
+            if (k && v) amenityTitleById.set(String(k), String(v));
+          }
+        }
+
+        // Canonical IDs (checkbox) mapping
+        const canonicalListingAmenityIds =
+          (listingAmenityNamesFromMeta.length > 0
+            ? mapAmenityNamesToCanonicalIds(listingAmenityNamesFromMeta, canonicalListingIndex, canonicalLocationIndex)
+            : [])
+          .filter(Boolean);
+        const canonicalListingFromIds = canonicalListingAmenityIds.length > 0
+          ? canonicalListingAmenityIds
+          : mapStaysAmenityIdsToCanonicalIds(listingAmenityIds, amenityTitleById, canonicalListingIndex, canonicalLocationIndex);
+
+        const canonicalLocationFromIds = mapStaysAmenityIdsToCanonicalIds(locationAmenityIds, amenityTitleById, canonicalLocationIndex, canonicalListingIndex);
+
+        if (listingAmenityIds.length > 0) {
+          const listingStaysHash = (await sha256Hex(JSON.stringify(listingAmenityIds))).slice(0, 12);
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'listingAmenitiesStaysnetIds',
+            p_value: listingAmenityIds,
+            p_idempotency_key: `listingAmenitiesStaysnetIds-${prop._id}-${listingStaysHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+
+        if (locationAmenityIds.length > 0) {
+          const locationStaysHash = (await sha256Hex(JSON.stringify(locationAmenityIds))).slice(0, 12);
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'locationAmenitiesStaysnetIds',
+            p_value: locationAmenityIds,
+            p_idempotency_key: `locationAmenitiesStaysnetIds-${prop._id}-${locationStaysHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+
+        // Persist canonical (UI) amenities + wizard fields the UI actually reads
+        if (canonicalListingFromIds.length > 0) {
+          const listingCanonicalHash = (await sha256Hex(JSON.stringify(canonicalListingFromIds))).slice(0, 12);
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'contentPropertyAmenities',
+            p_value: { listingAmenities: canonicalListingFromIds },
+            p_idempotency_key: `contentPropertyAmenities-${prop._id}-${listingCanonicalHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'listingAmenities',
+            p_value: canonicalListingFromIds,
+            p_idempotency_key: `listingAmenities-${prop._id}-${listingCanonicalHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'listing_amenities',
+            p_value: { tickableAmenities: canonicalListingFromIds },
+            p_idempotency_key: `listing_amenities-${prop._id}-${listingCanonicalHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+
+        if (canonicalLocationFromIds.length > 0) {
+          const locationCanonicalHash = (await sha256Hex(JSON.stringify(canonicalLocationFromIds))).slice(0, 12);
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'contentLocationAmenities',
+            p_value: { amenities: canonicalLocationFromIds },
+            p_idempotency_key: `contentLocationAmenities-${prop._id}-${locationCanonicalHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'locationAmenities',
+            p_value: canonicalLocationFromIds,
+            p_idempotency_key: `locationAmenities-${prop._id}-${locationCanonicalHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'location_amenities',
+            p_value: { tickableAmenities: canonicalLocationFromIds },
+            p_idempotency_key: `location_amenities-${prop._id}-${locationCanonicalHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+
+        const combinedCanonicalAmenityIds = [...new Set([...canonicalLocationFromIds, ...canonicalListingFromIds])];
+        if (combinedCanonicalAmenityIds.length > 0) {
+          const combinedCanonicalHash = (await sha256Hex(JSON.stringify(combinedCanonicalAmenityIds))).slice(0, 12);
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'amenities',
+            p_value: combinedCanonicalAmenityIds,
+            p_idempotency_key: `amenities-${prop._id}-${combinedCanonicalHash}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+
+        // ====================================================================
+        // STEP 07 (UI): CAMPOS DE DESCRIÇÃO (multilíngue)
+        // O FormularioAnuncio.tsx lê: descricao_titulo, notas_gerais, sobre_espaco,
+        // sobre_acesso, sobre_anfitriao, descricao_bairro, info_locomocao.
+        // No StaysNet, os blocos disponíveis costumam ser: _mstitle, _mssummary,
+        // _msdesc, _msnotes.
+        // ====================================================================
+        try {
+          const wizardTitle = staysMultiLangToWizard(prop._mstitle, 50, { stripHtml: false })
+            || { pt: clampText(String(prop.internalName || '').trim(), 50), en: '', es: '' };
+
+          // Preferir campos “bem separados” quando existirem.
+          const wizardAbout =
+            staysMultiLangToWizard(prop._msspace, 5000, { stripHtml: true })
+            || staysMultiLangToWizard(prop._msdesc, 5000, { stripHtml: true });
+          const wizardAccess = staysMultiLangToWizard(prop._msaccess, 5000, { stripHtml: true });
+          const wizardHostInteraction = staysMultiLangToWizard(prop._msinteraction, 5000, { stripHtml: true });
+          const wizardNeighborhood = staysMultiLangToWizard(prop._msneighborhood_overview, 5000, { stripHtml: true });
+          const wizardTransit = staysMultiLangToWizard(prop._mstransit, 5000, { stripHtml: true });
+          const wizardNotes =
+            staysMultiLangToWizard(prop._msnotes, 5000, { stripHtml: true })
+            || staysMultiLangToWizard(prop._mssummary, 5000, { stripHtml: true });
+          const wizardHouseRulesText = staysMultiLangToWizard(prop._mshouserules, 5000, { stripHtml: true });
+
+          if (wizardTitle && (wizardTitle.pt || wizardTitle.en || wizardTitle.es)) {
+            const h = (await sha256Hex(JSON.stringify(wizardTitle))).slice(0, 12);
+            const { error: wizardTitleErr } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'descricao_titulo',
+              p_value: wizardTitle,
+              p_idempotency_key: `descricao_titulo-${prop._id}-${h}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (wizardTitleErr) {
+              console.error(`      ❌ Erro ao salvar descricao_titulo: ${wizardTitleErr.message}`);
+            }
+          }
+
+          if (wizardAbout) {
+            const h = (await sha256Hex(JSON.stringify(wizardAbout))).slice(0, 12);
+            const { error: wizardAboutErr } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'sobre_espaco',
+              p_value: wizardAbout,
+              p_idempotency_key: `sobre_espaco-${prop._id}-${h}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (wizardAboutErr) {
+              console.error(`      ❌ Erro ao salvar sobre_espaco: ${wizardAboutErr.message}`);
+            }
+          }
+
+          if (wizardNotes) {
+            const h = (await sha256Hex(JSON.stringify(wizardNotes))).slice(0, 12);
+            const { error: wizardNotesErr } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'notas_gerais',
+              p_value: wizardNotes,
+              p_idempotency_key: `notas_gerais-${prop._id}-${h}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (wizardNotesErr) {
+              console.error(`      ❌ Erro ao salvar notas_gerais: ${wizardNotesErr.message}`);
+            }
+          }
+
+          if (wizardAccess) {
+            const h = (await sha256Hex(JSON.stringify(wizardAccess))).slice(0, 12);
+            const { error: wizardAccessErr } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'sobre_acesso',
+              p_value: wizardAccess,
+              p_idempotency_key: `sobre_acesso-${prop._id}-${h}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (wizardAccessErr) {
+              console.error(`      ❌ Erro ao salvar sobre_acesso: ${wizardAccessErr.message}`);
+            }
+          }
+
+          if (wizardHostInteraction) {
+            const h = (await sha256Hex(JSON.stringify(wizardHostInteraction))).slice(0, 12);
+            const { error: wizardHostInteractionErr } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'sobre_anfitriao',
+              p_value: wizardHostInteraction,
+              p_idempotency_key: `sobre_anfitriao-${prop._id}-${h}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (wizardHostInteractionErr) {
+              console.error(`      ❌ Erro ao salvar sobre_anfitriao: ${wizardHostInteractionErr.message}`);
+            }
+          }
+
+          if (wizardNeighborhood) {
+            const h = (await sha256Hex(JSON.stringify(wizardNeighborhood))).slice(0, 12);
+            const { error: wizardNeighborhoodErr } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'descricao_bairro',
+              p_value: wizardNeighborhood,
+              p_idempotency_key: `descricao_bairro-${prop._id}-${h}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (wizardNeighborhoodErr) {
+              console.error(`      ❌ Erro ao salvar descricao_bairro: ${wizardNeighborhoodErr.message}`);
+            }
+          }
+
+          if (wizardTransit) {
+            const h = (await sha256Hex(JSON.stringify(wizardTransit))).slice(0, 12);
+            const { error: wizardTransitErr } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'info_locomocao',
+              p_value: wizardTransit,
+              p_idempotency_key: `info_locomocao-${prop._id}-${h}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (wizardTransitErr) {
+              console.error(`      ❌ Erro ao salvar info_locomocao: ${wizardTransitErr.message}`);
+            }
+          }
+
+          if (wizardHouseRulesText) {
+            const h = (await sha256Hex(JSON.stringify(wizardHouseRulesText))).slice(0, 12);
+            const { error: wizardHouseRulesTextErr } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'houseRulesText',
+              p_value: wizardHouseRulesText,
+              p_idempotency_key: `houseRulesText-${prop._id}-${h}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (wizardHouseRulesTextErr) {
+              console.error(`      ❌ Erro ao salvar houseRulesText: ${wizardHouseRulesTextErr.message}`);
+            }
+          }
+        } catch (e) {
+          console.error(`      ❌ [EXCEPTION] Step 07 text fields mapping:`, e);
         }
 
         // Campo: descricao (_msdesc.pt_BR) - limpar HTML
@@ -1864,22 +2432,24 @@ export async function importStaysNetProperties(c) {
             .replace(/<[^>]*>/g, ' ') // Remove tags HTML
             .replace(/\s+/g, ' ')     // Remove espaços múltiplos
             .trim();
-          
+
+          const descHash = (await sha256Hex(descricaoLimpa)).slice(0, 12);
+
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'descricao',
             p_value: descricaoLimpa,
-            p_idempotency_key: `descricao-${prop._id}`,
+            p_idempotency_key: `descricao-${prop._id}-${descHash}`,
             p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
 
-          // UI usa `description`
+          // UI usa `description` (campo legado)
           await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'description',
             p_value: descricaoLimpa,
-            p_idempotency_key: `description-${prop._id}`,
+            p_idempotency_key: `description-${prop._id}-${descHash}`,
             p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
@@ -1939,22 +2509,24 @@ export async function importStaysNetProperties(c) {
           }
         }
 
-        // Campo: publicDescription (_msdesc multilíngue) - versões limpas
-        if (prop._msdesc) {
+        // Campo: publicDescription (resumo curto) - preferir _mssummary quando existir
+        const publicDescSource = prop._mssummary || prop._msdesc;
+        if (publicDescSource) {
           const publicDesc: any = {};
-          if (prop._msdesc.pt_BR) {
-            publicDesc.pt_BR = prop._msdesc.pt_BR.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 500);
+          if (publicDescSource.pt_BR) {
+            publicDesc.pt_BR = publicDescSource.pt_BR.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 500);
           }
-          if (prop._msdesc.en_US) {
-            publicDesc.en_US = prop._msdesc.en_US.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 500);
+          if (publicDescSource.en_US) {
+            publicDesc.en_US = publicDescSource.en_US.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 500);
           }
-          
+
           if (Object.keys(publicDesc).length > 0) {
+            const publicDescHash = (await sha256Hex(JSON.stringify(publicDesc))).slice(0, 12);
             await supabase.rpc('save_anuncio_field', {
               p_anuncio_id: anuncioId,
               p_field: 'publicDescription',
               p_value: publicDesc,
-              p_idempotency_key: `publicDescription-${prop._id}`,
+              p_idempotency_key: `publicDescription-${prop._id}-${publicDescHash}`,
               p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
             });
@@ -2118,6 +2690,11 @@ export async function importStaysNetProperties(c) {
       success: errors < fetched,
       method: 'import-properties',
       table: 'anuncios_ultimate',
+      debug: {
+        amenitiesTranslationCount: globalAmenityTitleById.size,
+        amenitiesTranslationSources: translationFetch.sources,
+        amenitiesTranslationSample: Array.from(globalAmenityTitleById.entries()).slice(0, 3),
+      },
       stats: {
         fetched,
         saved,
@@ -2129,6 +2706,10 @@ export async function importStaysNetProperties(c) {
       errorDetails: errors > 0 ? errorDetails : undefined,
       next,
       data: {
+        debug: {
+          amenitiesTranslationCount: globalAmenityTitleById.size,
+          amenitiesTranslationSources: translationFetch.sources,
+        },
         stats: {
           total: fetched,
           created,
