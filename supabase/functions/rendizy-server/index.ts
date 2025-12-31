@@ -128,6 +128,9 @@ app.use("*", logger());
 // ============================================================================
 app.route("/rendizy-server/make-server-67caf26a/auth", authApp);
 app.route("/rendizy-server/auth", authApp); // Compatibility
+// Alias sem prefixo: o frontend usa API_BASE=/functions/v1/rendizy-server e chama /auth/*
+app.route("/make-server-67caf26a/auth", authApp);
+app.route("/auth", authApp);
 
 // ============================================================================
 // ANÚNCIOS ULTIMATE (Properties Drafts/Publishing)

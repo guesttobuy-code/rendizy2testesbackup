@@ -1279,132 +1279,29 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# Criar Site de Imobiliária com RENDIZY
+  const aiPrompt = `# Criar Site de Imobiliária com RENDIZY (v1.3)
 
 ## Objetivo
-Criar um site moderno e responsivo para imobiliária de aluguel de temporada, locação e vendas, integrado ao backend RENDIZY.
+Criar um site moderno e responsivo para imobiliária (temporada/locação/venda) integrado ao **módulo de Sites de Clientes do RENDIZY**.
 
-## Especificações Técnicas
-
-### Stack
+## Stack
 - React 18+ com TypeScript
-- Tailwind CSS para estilização
-- Lucide React para ícones
-- ShadCN/UI para componentes (opcional)
+- Tailwind CSS
+- Lucide React
+- (Opcional) shadcn/ui
 
-### Estrutura de Dados do Backend RENDIZY
+## ⚠️ Integração REAL disponível hoje no backend
 
-#### 1. Propriedades (GET /properties)
-\`\`\`typescript
-interface Property {
-  id: string;
-  name: string;
-  description: string;
-  type: 'apartment' | 'house' | 'condo';
-  bedrooms: number;
-  bathrooms: number;
-  maxGuests: number;
-  area: number;
-  address: {
-    street: string;
-    number: string;
-    city: string;
-    state: string;
-    zipCode: string;
-  };
-  amenities: string[];
-  photos: string[];
-  pricing: {
-    dailyRate: number;
-    weeklyRate: number;
-    monthlyRate: number;
-    salePrice?: number;
-  };
-  availability: 'available' | 'rented' | 'sold';
-  features: {
-    shortTerm: boolean;
-    longTerm: boolean;
-    sale: boolean;
-  };
-}
-\`\`\`
+### Como o site acessa dados
+Quando o site é servido pelo RENDIZY em ` + "`/client-sites/serve/:domain`" + ` (preview), o backend injeta automaticamente:
+- ` + "`window.RENDIZY_CONFIG`" + ` com:
+  - ` + "`API_BASE_URL`" + ` (base do módulo client-sites)
+  - ` + "`SUBDOMAIN`" + ` (ex: "medhome")
+  - ` + "`ORGANIZATION_ID`" + `
+  - ` + "`SITE_NAME`" + `
+- ` + "`window.RENDIZY.getProperties()`" + ` (helper pronto)
 
-#### 2. Calendário (GET /calendar)
-\`\`\`typescript
-interface CalendarAvailability {
-  propertyId: string;
-  date: string;
-  status: 'available' | 'booked' | 'blocked';
-  price?: number;
-  minNights?: number;
-}
-\`\`\`
-
-#### 3. Reservas (POST /reservations)
-\`\`\`typescript
-interface ReservationRequest {
-  propertyId: string;
-  guestName: string;
-  guestEmail: string;
-  guestPhone: string;
-  checkIn: string;
-  checkOut: string;
-  guests: number;
-  totalPrice: number;
-}
-\`\`\`
-
-### Páginas Obrigatórias
-
-1. **Home** - Hero + busca + destaques
-2. **Propriedades** - Lista filtrada + busca avançada
-3. **Detalhes da Propriedade** - Galeria, info, calendário, formulário reserva
-4. **Sobre** - História da imobiliária
-5. **Contato** - Formulário + mapa
-
-### Funcionalidades Essenciais
-
-- ✅ Busca por cidade, datas, número de hóspedes
-- ✅ Filtros por tipo, preço, comodidades
-- ✅ Calendário de disponibilidade integrado
-- ✅ Formulário de reserva/cotação
-- ✅ Galeria de fotos responsiva
-- ✅ Mapa de localização (Google Maps ou Mapbox)
-- ✅ WhatsApp flutuante para contato
-- ✅ Sistema de favoritos (localStorage)
-- ✅ Compartilhamento em redes sociais
-
-### Configurações do Cliente (Variáveis)
-
-\`\`\`typescript
-const siteConfig = {
-  organizationId: "{{ORG_ID}}", // Será substituído
-  siteName: "{{SITE_NAME}}",
-  logo: "{{LOGO_URL}}",
-  primaryColor: "{{PRIMARY_COLOR}}",
-  secondaryColor: "{{SECONDARY_COLOR}}",
-  contactEmail: "{{CONTACT_EMAIL}}",
-  contactPhone: "{{CONTACT_PHONE}}",
-  whatsapp: "{{WHATSAPP}}",
-  socialMedia: {
-    facebook: "{{FACEBOOK}}",
-    instagram: "{{INSTAGRAM}}"
-  },
-  features: {
-    shortTerm: {{SHORT_TERM}},
-    longTerm: {{LONG_TERM}},
-    sale: {{SALE}}
-  }
-};
-\`\`\`
-
-### Integração com API RENDIZY
-
-Quando o site é servido pelo RENDIZY (\`/client-sites/serve/:subdomain\`), o backend injeta automaticamente:
-- \`window.RENDIZY_CONFIG\` (API_BASE_URL, ORGANIZATION_ID, SUBDOMAIN)
-- Helpers como \`window.RENDIZY.getProperties()\`
-
-Exemplo:
+Exemplo (use isso como padrão):
 
 \`\`\`ts
 const result = await window.RENDIZY.getProperties();
@@ -1413,24 +1310,80 @@ if (result.success) {
 }
 \`\`\`
 
-### Design Guidelines
+### Endpoint público existente (hoje)
+O único endpoint público padronizado para sites é **imóveis**:
 
-- **Moderno**: Gradientes suaves, animações sutis, espaçamento generoso
-- **Responsivo**: Mobile-first, breakpoints: 640px, 768px, 1024px, 1280px
-- **Acessível**: Contraste adequado, alt texts, navegação por teclado
-- **Performance**: Lazy loading de imagens, code splitting
-- **SEO**: Meta tags, structured data, sitemap
+- GET ` + "`${window.RENDIZY_CONFIG.API_BASE_URL}/api/${window.RENDIZY_CONFIG.SUBDOMAIN}/properties`" + `
 
-### Componentes Reutilizáveis
+Não assuma que existem endpoints públicos de calendário/bloqueios/reservas neste módulo.
 
-- PropertyCard
-- SearchBar
-- DateRangePicker
-- CalendarView
-- PhotoGallery
-- ContactForm
-- FilterSidebar
-- PropertyMap
+## Tipos reais de resposta (imóveis)
+
+O endpoint acima retorna:
+
+\`\`\`ts
+type ClientSiteApiResponse<T> = { success: boolean; data?: T; error?: string; details?: string };
+
+type ClientSiteProperty = {
+  id: string;
+  name: string;
+  code: string | null;
+  type: string | null;
+  status: string | null;
+  address: {
+    city: string | null;
+    state: string | null;
+    street: string | null;
+    number: string | null;
+    neighborhood: string | null;
+    zipCode: string | null;
+    country: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  };
+  pricing: {
+    basePrice: number;
+    currency: string;
+  };
+  capacity: {
+    bedrooms: number;
+    bathrooms: number;
+    maxGuests: number;
+    area: number | null;
+  };
+  description: string;
+  shortDescription: string | null;
+  photos: string[];
+  coverPhoto: string | null;
+  tags: string[];
+  amenities: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+\`\`\`
+
+## Páginas sugeridas (MVP)
+1. Home (hero + busca simples + destaques)
+2. Imóveis (listagem + filtros básicos)
+3. Detalhe do imóvel (galeria + info + CTA de contato)
+4. Sobre
+5. Contato (form + WhatsApp)
+
+## Funcionalidades essenciais (compatíveis com o backend atual)
+- ✅ Listar imóveis (via ` + "`window.RENDIZY.getProperties()`" + `)
+- ✅ Busca/filtro no front (cidade, hóspedes, tipo, faixa de preço) usando a lista retornada
+- ✅ Galeria de fotos
+- ✅ WhatsApp flutuante + CTA de contato
+- ✅ Favoritos (localStorage)
+- ✅ SEO básico (title/description)
+
+## Compilação e entrega (Bolt/v0)
+✅ Recomendado: peça para o Bolt compilar o site para produção e exportar um ZIP com ` + "`dist/`" + `.
+O RENDIZY serve melhor quando encontra ` + "`dist/index.html`" + ` no ZIP.
+
+## Regras
+- Não hardcode API URLs nem organizationId no código: use ` + "`window.RENDIZY_CONFIG`" + `.
+- Não use chaves privadas (service role) no site.
 
 Crie um site COMPLETO, FUNCIONAL e PROFISSIONAL seguindo essas especificações.`;
 

@@ -2539,7 +2539,7 @@ export default function FormularioAnuncio() {
                           type="button"
                           variant="outline"
                           onClick={() => buscarCep(formData.cep)}
-                          disabled={formData.cep.replace(/\D/g, '').length !== 8}
+                          disabled={String(formData.cep || '').replace(/\D/g, '').length !== 8}
                         >
                           Buscar
                         </Button>

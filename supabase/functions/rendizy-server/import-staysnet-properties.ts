@@ -99,7 +99,7 @@ const TIPO_ACOMODACAO_ALLOWED = new Set<string>([
   'treehouse',
 ]);
 
-function normalizeTypeCode(input: string): string {
+function normalizeTypeCode(input) {
   return input
     .trim()
     .toLowerCase()
@@ -111,7 +111,7 @@ function normalizeTypeCode(input: string): string {
     .replace(/^_+|_+$/g, '');
 }
 
-function pickMetaTitle(meta: any): string | null {
+function pickMetaTitle(meta) {
   const t = meta?._mstitle;
   if (!t || typeof t !== 'object') return null;
   return (
@@ -129,7 +129,7 @@ function pickMetaTitle(meta: any): string | null {
   );
 }
 
-function mapTipoLocalFromStays(prop: any): string | null {
+function mapTipoLocalFromStays(prop) {
   const title = pickMetaTitle(prop?._t_propertyTypeMeta) || pickMetaTitle(prop?._t_propertyTypeMeta?._mstitle);
   const raw = title || prop?.category || '';
   if (!raw) return null;
@@ -144,7 +144,7 @@ function mapTipoLocalFromStays(prop: any): string | null {
   return null;
 }
 
-function mapTipoAcomodacaoFromStays(prop: any): string | null {
+function mapTipoAcomodacaoFromStays(prop) {
   const title = pickMetaTitle(prop?._t_typeMeta) || pickMetaTitle(prop?._t_typeMeta?._mstitle);
   const raw = title || prop?.unitType || prop?.type || '';
   if (!raw) return null;
@@ -153,7 +153,7 @@ function mapTipoAcomodacaoFromStays(prop: any): string | null {
   return null;
 }
 
-function mapWizardSubtypeFromStays(prop: any): string | null {
+function mapWizardSubtypeFromStays(prop) {
   const raw = String(prop?.subtype || prop?.listingType || '').trim().toLowerCase();
   if (!raw) return null;
   if (raw === 'entire_home' || raw === 'entire_place') return 'entire_place';
@@ -162,54 +162,196 @@ function mapWizardSubtypeFromStays(prop: any): string | null {
   return null;
 }
 
-// ============================================================================
-// TIPOS - Estrutura COMPLETA da API StaysNet /content/listings
-// ============================================================================
-interface StaysNetProperty {
-  _id: string;
-  id?: string;
-
-  name?: string;
-  internalName?: string;
-
-  status?: string;
-  active?: boolean;
-  published?: boolean;
-
-  _mstitle?: Record<string, string>;
-  _t_propertyMeta?: { _id?: string; id?: string };
-  _t_propertyTypeMeta?: { _mstitle?: Record<string, string> };
-
-  subtype?: string;
-  category?: string;
-  listingType?: string;
-
-  _i_rooms?: number;
-  _f_bathrooms?: number;
-  _i_beds?: number;
-  _i_maxGuests?: number;
-  accommodates?: number;
-
-  bedroomCounts?: any;
-  address?: any;
-  coordinates?: any;
-  photos?: any[];
-  picture?: any;
-
-  amenities?: string[];
-  description?: string;
-  publicDescription?: any;
-  cleaningFee?: number;
-  importingBlockedStatus?: string;
-  timezone?: string;
-
-  [key: string]: any;
+function pickMsName(meta) {
+  const t = meta?._msname;
+  if (!t || typeof t !== 'object') return null;
+  return (
+    t.pt_BR ||
+    t.pt_PT ||
+    t.en_US ||
+    t.es_ES ||
+    t.de_DE ||
+    t.fr_FR ||
+    t.it_IT ||
+    t.sv_SE ||
+    t.ru_RU ||
+    t.el_GR ||
+    null
+  );
 }
+
+function normalizeLooseText(input) {
+  // Keep this intentionally simple for edge-runtime compatibility.
+  return String(input || '').trim().toLowerCase();
+}
+
+function mapRoomTypeFromLabel(label) {
+  const l = normalizeLooseText(label);
+
+  if (l.includes('suite') || l.includes('suíte')) return { type: 'suite', typeName: 'Suíte' };
+  if (l.includes('quarto')) return { type: 'quarto-duplo', typeName: 'Quarto Duplo/Std/Eco' };
+  if (l.includes('banheiro')) return { type: 'banheiro', typeName: 'Banheiro' };
+  if (l.includes('sala') || l.includes('lounge') || l.includes('tv')) return { type: 'sala-comum', typeName: 'Sala/Estar Comum' };
+  if (l.includes('varanda') || l.includes('terraco') || l.includes('terraço') || l.includes('sacada') || l.includes('balcony')) {
+    return { type: 'balcao', typeName: 'Balcão' };
+  }
+
+  // Fallback: colocar como "outras" e tentar um customName conhecido
+  const customCandidates = [
+    { match: /churrasqueira/i, value: 'Churrasqueira' },
+    { match: /jacuzzi|banheira/i, value: 'Jacuzzi' },
+    { match: /hidromassagem/i, value: 'Hidromassagem' },
+    { match: /cozinha/i, value: 'Cozinha' },
+    { match: /lavanderia/i, value: 'Lavanderia' },
+    { match: /piscina/i, value: 'Piscina' },
+    { match: /jardim/i, value: 'Jardim' },
+    { match: /deck/i, value: 'Deck' },
+    { match: /terra[cç]o/i, value: 'Terraço' },
+    { match: /varanda/i, value: 'Varanda' },
+    { match: /escritorio|escritório|office/i, value: 'Escritório' },
+    { match: /academia|fitness/i, value: 'Academia' },
+  ];
+
+  const hit = customCandidates.find((c) => c.match.test(label));
+  return { type: 'outras', typeName: 'Outras Dependências', customName: hit?.value };
+}
+
+function mapPhotoTagsFromLabel(label) {
+  // IMPORTANT: tags precisam bater com PHOTO_TAGS do frontend (strings exatas).
+  const l = normalizeLooseText(label);
+
+  if (l.includes('banheira') || l.includes('jacuzzi')) return ['Banheira/jacuzzi'];
+  if (l.includes('churrasqueira') || l.includes('bbq') || l.includes('parrilla')) return ['Churrasqueira'];
+  if (l.includes('cozinha')) return ['Cozinha'];
+  if (l.includes('banheiro')) return ['Banheiro'];
+  if (l.includes('quarto')) return ['Quarto'];
+  if (l.includes('sala') || l.includes('lounge') || l.includes('tv')) return ['Sala de estar'];
+  if (l.includes('varanda')) return ['Varanda'];
+  if (l.includes('terraco') || l.includes('terraço')) return ['Terraço'];
+  if (l.includes('piscina')) return ['Piscina'];
+  if (l.includes('jardim')) return ['Jardim'];
+  if (l.includes('fachada')) return ['Fachada'];
+  if (l.includes('entrada')) return ['Entrada'];
+  if (l.includes('estacionamento')) return ['Estacionamento'];
+
+  return [];
+}
+
+// ============================================================================
+// STEP 03 (UI) - CÔMODOS + FOTOS
+// - O FormularioAnuncio (frontend) espera `data.rooms: Room[]` com `photos: Photo[]`.
+// - A StaysNet fornece `_t_imagesMeta[]` com `_msname` (label) e `area`.
+// - Aqui criamos rooms agrupando por `_msname` (pt_BR/en_US) e anexamos fotos.
+// ============================================================================
+
+function normalizeRoomKey(input) {
+  return input
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\/\s*/g, ' / ')
+    .trim();
+}
+
+function simpleHashBase36(input) {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 33) ^ input.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function guessUiRoomType(label) {
+  const key = normalizeRoomKey(label);
+  if (!key) return 'outras';
+
+  if (key.includes('suite')) return 'suite';
+  if (key.includes('quarto') || key.includes('bedroom')) return 'quarto-duplo';
+  if (key.includes('estudio') || key.includes('studio') || key.includes('estúdio')) return 'estudio';
+  if (key.includes('banheiro') || key.includes('bathroom') || key.includes('wc')) {
+    if (key.includes('1/2') || key.includes('meio') || key.includes('lavabo')) return 'meio-banheiro';
+    return 'banheiro';
+  }
+  if (key.includes('sala') || key.includes('lounge') || key.includes('tv room') || key.includes('living')) return 'sala-comum';
+  if (key.includes('area comum') || key.includes('área comum') || key.includes('common area')) return 'area-comum';
+  if (key.includes('varanda') || key.includes('terraco') || key.includes('terraço') || key.includes('sacada') || key.includes('balcony') || key.includes('terrace')) return 'balcao';
+
+  return 'outras';
+}
+
+function buildUiRoomsFromImagesMeta(imagesMeta) {
+  if (!Array.isArray(imagesMeta) || imagesMeta.length === 0) return [];
+
+  const roomsByKey = new Map();
+  const photoIdsByRoomKey = new Map();
+
+  imagesMeta.forEach((img, idx) => {
+    const url = String(img?.url ?? '').trim();
+    if (!url) return;
+
+    const photoId = String(img?._id ?? img?.id ?? `img-${idx}`).trim();
+    const label = pickMsName(img?._msname) || String(img?.area ?? '').trim() || 'Fotos';
+    const roomKey = normalizeRoomKey(label);
+    const type = guessUiRoomType(label);
+    const roomId = `stays-room-${simpleHashBase36(roomKey || label)}`;
+
+    if (!roomsByKey.has(roomKey)) {
+      roomsByKey.set(roomKey, {
+        id: roomId,
+        type,
+        // IMPORTANTE: manter o label do Stays como nome visível do cômodo
+        // (UI usa customName || typeName)
+        typeName: label,
+        customName: '',
+        isShared: false,
+        beds: {},
+        photos: [],
+      });
+      photoIdsByRoomKey.set(roomKey, new Set<string>());
+    }
+
+    const seen = photoIdsByRoomKey.get(roomKey);
+    if (seen.has(photoId)) return;
+    seen.add(photoId);
+
+    const tags = [];
+    if (label) tags.push(label);
+    if (typeof img?.area === 'string' && img.area.trim()) {
+      tags.push(`area:${img.area.trim()}`);
+    }
+
+    roomsByKey.get(roomKey).photos.push({ id: photoId, url, tags });
+  });
+
+  return Array.from(roomsByKey.values()).filter((r) => r.photos.length > 0);
+}
+
+async function sha256Hex(input) {
+  const bytes = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// ============================================================================
+// ESTRUTURA DA API StaysNet /content/listings
+// Cada propriedade retorna:
+//   _id, name, internalName, status, active, published
+//   _mstitle, _t_propertyMeta, _t_propertyTypeMeta
+//   subtype, category, listingType
+//   _i_rooms, _f_bathrooms, _i_beds, _i_maxGuests, accommodates
+//   bedroomCounts, address, coordinates, photos, picture
+//   amenities, description, publicDescription, cleaningFee
+//   importingBlockedStatus, timezone
+// ============================================================================
 
 // ============================================================================
 // FUNÇÃO PRINCIPAL DE IMPORTAÇÃO
 // ============================================================================
-export async function importStaysNetProperties(c: Context) {
+export async function importStaysNetProperties(c) {
   console.log('\n═══════════════════════════════════════════════════');
   console.log('⚡ IMPORT STAYSNET - PROPERTIES (IMÓVEIS)');
   console.log('═══════════════════════════════════════════════════');
@@ -229,12 +371,12 @@ export async function importStaysNetProperties(c: Context) {
     // STEP 0: LER REQUEST BODY - selectedPropertyIds
     // ========================================================================
     const body = await c.req.json().catch(() => ({}));
-    const selectedPropertyIds: string[] = Array.isArray(body.selectedPropertyIds) 
+    const selectedPropertyIds = Array.isArray(body.selectedPropertyIds) 
       ? body.selectedPropertyIds 
       : [];
 
     const rawOrganizationIdFromBody = String((body as any)?.organizationId ?? (body as any)?.organization_id ?? '').trim();
-    const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+    const isUuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
     
     console.log(`📥 [REQUEST] Recebidos ${selectedPropertyIds.length} property IDs selecionados`);
     
@@ -298,7 +440,7 @@ export async function importStaysNetProperties(c: Context) {
     // Quando isso ocorre, resolvemos para externalIds.* (staysnet_listing_id/code) e
     // adicionamos esses candidatos ao conjunto de seleção.
 
-    const normalizeId = (v: any): string => {
+    const normalizeId = (v) => {
       if (v === null || v === undefined) return '';
       return String(v).trim();
     };
@@ -379,7 +521,7 @@ export async function importStaysNetProperties(c: Context) {
         const propertyId = normalizeId(externalIds?.staysnet_property_id);
         const listingCode = normalizeId(externalIds?.staysnet_listing_code);
 
-        const isMongoId = (v: string) => /^[a-f0-9]{24}$/i.test(v);
+        const isMongoId = (v) => /^[a-f0-9]{24}$/i.test(v);
 
         const candidates = (() => {
           if (listingId && isMongoId(listingId)) return [listingId];
@@ -422,7 +564,7 @@ export async function importStaysNetProperties(c: Context) {
 
     const hasSelected = selectedSet.size > 0;
 
-    const matchesSelected = (p: any): boolean => {
+    const matchesSelected = (p) => {
       const idCandidates = [
         p?._id,
         p?.id,
@@ -453,7 +595,7 @@ export async function importStaysNetProperties(c: Context) {
     // Criar Basic Auth
     const credentials = btoa(`${config.apiKey}:${config.apiSecret || ''}`);
 
-    const fetchListingDetailsById = async (listingIdRaw: unknown): Promise<Record<string, any> | null> => {
+    const fetchListingDetailsById = async (listingIdRaw) => {
       const listingId = normalizeId(listingIdRaw);
       if (!listingId) return null;
 
@@ -606,8 +748,8 @@ export async function importStaysNetProperties(c: Context) {
           limit,
           startSkip: reqSkip,
           sampleSelectedIds: selectedPropertyIds.slice(0, 3),
-          sampleApiIds: (sampleFromApi || []).slice(0, 3).map((p: any) => p._id),
-          sampleApiIdVariants: (sampleFromApi || []).slice(0, 3).map((p: any) => ({
+          sampleApiIds: (sampleFromApi || []).slice(0, 3).map((p) => p._id),
+          sampleApiIdVariants: (sampleFromApi || []).slice(0, 3).map((p) => ({
             _id: p?._id,
             id: p?.id,
             _t_propertyMeta__id: p?._t_propertyMeta?._id,
@@ -636,7 +778,7 @@ export async function importStaysNetProperties(c: Context) {
       properties = allProperties;
       console.log(`✅ [FETCH] selectedPropertyIds presente: pulando filtro anti-inativos (itens=${properties.length})`);
     } else {
-      properties = allProperties.filter((p: any) => {
+      properties = allProperties.filter((p) => {
         const status = typeof p?.status === 'string' ? p.status.toLowerCase().trim() : null;
         if (status === 'inactive') return false;
         if (typeof p?.active === 'boolean' && p.active === false) return false;
@@ -665,7 +807,7 @@ export async function importStaysNetProperties(c: Context) {
       console.error(`🔍 [DEBUG FILTER] Tipo ID selected: ${typeof selectedPropertyIds[0]}`);
       console.error(`🔍 [DEBUG FILTER] Resolved selectedSet size: ${selectedSet.size}`);
 
-      properties = properties.filter((p: any) => {
+      properties = properties.filter((p) => {
         const idCandidates = [
           p?._id,
           p?.id,
@@ -697,8 +839,8 @@ export async function importStaysNetProperties(c: Context) {
             selectedCount: selectedPropertyIds.length,
             apiCount: before,
             sampleSelectedIds: selectedPropertyIds.slice(0, 3),
-            sampleApiIds: propertiesBeforeFilter.slice(0, 3).map((p: any) => p._id),
-            sampleApiIdVariants: propertiesBeforeFilter.slice(0, 3).map((p: any) => ({
+            sampleApiIds: propertiesBeforeFilter.slice(0, 3).map((p) => p._id),
+            sampleApiIdVariants: propertiesBeforeFilter.slice(0, 3).map((p) => ({
               _id: p?._id,
               id: p?.id,
               _t_propertyMeta__id: p?._t_propertyMeta?._id,
@@ -1607,6 +1749,19 @@ export async function importStaysNetProperties(c: Context) {
           });
         }
 
+        // UI (Tour): cover_photo_id (o loader do FormularioAnuncio usa isso)
+        // Preferir `_idmainImage` quando disponível.
+        if (prop._idmainImage) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'cover_photo_id',
+            p_value: String(prop._idmainImage),
+            p_idempotency_key: `cover_photo_id-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+
         // Campo: fotos (_t_imagesMeta array)
         if (prop._t_imagesMeta && Array.isArray(prop._t_imagesMeta) && prop._t_imagesMeta.length > 0) {
           const photosData = prop._t_imagesMeta.map((photo: any, idx: number) => ({
@@ -1623,6 +1778,42 @@ export async function importStaysNetProperties(c: Context) {
             p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
+
+          // UI Step 03: rooms[] + photos[] (anexar fotos aos cômodos)
+          try {
+            const uiRooms = buildUiRoomsFromImagesMeta(prop._t_imagesMeta);
+            if (uiRooms.length > 0) {
+              const roomsHash = (await sha256Hex(JSON.stringify(uiRooms))).slice(0, 12);
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'rooms',
+                p_value: uiRooms,
+                p_idempotency_key: `rooms-${prop._id}-${roomsHash}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+
+              // UI Step 04: preferir cover_photo_id para resolver a capa dentro das rooms
+              const coverId = String(
+                (prop as any)?._idmainImage ||
+                  prop._t_imagesMeta.find((p) => String(p?.area || '').toLowerCase() === 'main')?._id ||
+                  prop._t_imagesMeta[0]?._id ||
+                  ''
+              ).trim();
+              if (coverId) {
+                await supabase.rpc('save_anuncio_field', {
+                  p_anuncio_id: anuncioId,
+                  p_field: 'cover_photo_id',
+                  p_value: coverId,
+                  p_idempotency_key: `cover_photo_id-${prop._id}-${coverId}`,
+                  p_organization_id: organizationId,
+                  p_user_id: DEFAULT_USER_ID
+                });
+              }
+            }
+          } catch (e) {
+            console.error(`      ❌ [EXCEPTION] build/save rooms from imagesMeta:`, e);
+          }
         }
 
         // === AMENIDADES E DESCRIÇÃO ===
@@ -1650,8 +1841,8 @@ export async function importStaysNetProperties(c: Context) {
             prop.amenities && Array.isArray(prop.amenities) && prop.amenities.length > 0) {
           const amenityIds = prop.amenities
             .map((a: any) => (a && typeof a === 'object' ? a._id : a))
-            .map((v: any) => (v === null || v === undefined ? '' : String(v).trim()))
-            .filter((v: string) => Boolean(v));
+            .map((v) => (v === null || v === undefined ? '' : String(v).trim()))
+            .filter((v) => Boolean(v));
 
           if (amenityIds.length > 0) {
             await supabase.rpc('save_anuncio_field', {
@@ -1692,6 +1883,60 @@ export async function importStaysNetProperties(c: Context) {
             p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
+
+          // UI (Step 03): rooms[] com photos[] (formato do FormularioAnuncio.tsx)
+          // Estratégia: agrupar fotos por `_msname` (ex.: "Varanda / Terraço", "Quarto", etc)
+          // e criar um cômodo por grupo.
+          try {
+            const groups = new Map();
+            for (const photo of prop._t_imagesMeta) {
+              const url = String(photo?.url || '').trim();
+              if (!url) continue;
+
+              const pid = String(photo?._id || '').trim() || `photo-${Math.random().toString(36).slice(2)}`;
+              const label = pickMsName(photo) || String(photo?.caption || '').trim() || 'Fotos';
+              const key = String(label || 'Fotos').trim();
+
+              const arr = groups.get(key) || [];
+              arr.push({ id: pid, url, label: key });
+              groups.set(key, arr);
+            }
+
+            const rooms: any[] = [];
+            let roomIndex = 0;
+            for (const [label, imgs] of groups.entries()) {
+              const mapped = mapRoomTypeFromLabel(label);
+              const roomId = `stays-room-${prop._id}-${roomIndex}`;
+              roomIndex++;
+
+              rooms.push({
+                id: roomId,
+                type: mapped.type,
+                typeName: mapped.typeName,
+                customName: mapped.customName,
+                isShared: false,
+                beds: {},
+                photos: imgs.map((img) => ({
+                  id: img.id,
+                  url: img.url,
+                  tags: mapPhotoTagsFromLabel(label),
+                })),
+              });
+            }
+
+            if (rooms.length > 0) {
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'rooms',
+                p_value: rooms,
+                p_idempotency_key: `rooms-${prop._id}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+            }
+          } catch (e) {
+            console.error(`      ❌ [EXCEPTION] rooms mapping from _t_imagesMeta:`, e);
+          }
         }
 
         // Campo: publicDescription (_msdesc multilíngue) - versões limpas
