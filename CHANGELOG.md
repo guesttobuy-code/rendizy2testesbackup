@@ -61,6 +61,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Política documentada em `RULES.md`: produção = `main`, branches temporários voltam via merge
   - Reduz risco de divergência `localhost ≠ produção` quando o Vercel está configurado para buildar outro branch
   - Ação operacional: garantir Vercel Production Branch = `main`
+  - Rotas: manter URL canônica `/functions/v1/rendizy-server/*` e tratar qualquer `/make-server-*` apenas como legado/compat temporária
 - 🔴 **Issue #42**: Calendário com datas hardcoded (outubro→dezembro)
   - `contexts/CalendarContext.tsx` linhas 81-84
   - `dateRange.from` agora usa `new Date()` (data atual)

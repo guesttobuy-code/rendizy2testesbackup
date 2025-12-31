@@ -443,7 +443,8 @@ git status
 
 ```
 ✅ CORRETO: /functions/v1/rendizy-server/{endpoint}
-❌ ERRADO: /make-server-67caf26a/{endpoint}
+⚠️ LEGADO (compat temporária): /functions/v1/rendizy-server/make-server-67caf26a/{endpoint}
+❌ ERRADO: /make-server-67caf26a/{endpoint}  (sem /functions/v1/rendizy-server)
 ❌ ERRADO: /server/{endpoint}
 ❌ ERRADO: /api/{endpoint}
 ```
@@ -451,7 +452,7 @@ git status
 **Por quê?**
 - `/functions/v1/` é padrão Supabase para Edge Functions
 - `rendizy-server` é nome da nossa function principal
-- Prefixos como `/make-server-*` eram de deploys antigos (Issue #49)
+- Prefixos como `/make-server-*` eram de deploys antigos; se existir alias dentro de `/functions/v1/rendizy-server/`, é apenas compat temporária e deve ser removido quando o frontend migrar
 
 **Referência:** Issue #49 (URL incorreta causava 404)
 
