@@ -107,7 +107,7 @@ function normalizeTypeCode(input) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/&/g, ' e ')
-    .replace(/[^a-z0-9]+/g, '_')
+      .replace(/[^a-z0-9]+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
 }
@@ -120,7 +120,7 @@ function normalizeAmenityKey(input: string): string {
     .replace(/\([^)]*\)/g, ' ') // remove parenthetical
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/&/g, ' e ')
-    .replace(/[^a-z0-9]+/g, '_')
+      .replace(/[^a-z0-9]+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
 }
@@ -781,9 +781,135 @@ export async function importStaysNetProperties(c) {
       return { map, sources };
     };
 
+    const normalizeCustomFieldLabel = (input: unknown): string => {
+      return String(input || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/[^a-z0-9 ]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const tryPickCustomFieldLabel = (row: any): string | null => {
+      if (!row || typeof row !== 'object') return null;
+      const metaTitle = pickMetaTitle(row) || pickMetaTitle(row?._mstitle) || pickMsName(row) || pickMsName(row?._msname);
+      if (metaTitle) return String(metaTitle).trim() || null;
+      const name = String(row?.label || row?.name || row?.title || row?.fieldName || '').trim();
+      return name || null;
+    };
+
+    const collectCustomFieldDefsDeep = (node: any, out: Array<{ id: string; label: string }>, depth = 0) => {
+      if (!node || depth > 6) return;
+      if (Array.isArray(node)) {
+        for (const item of node) collectCustomFieldDefsDeep(item, out, depth + 1);
+        return;
+      }
+      if (typeof node !== 'object') return;
+
+      const idRaw = (node as any)?.id ?? (node as any)?._id ?? (node as any)?.fieldId;
+      const label = tryPickCustomFieldLabel(node);
+      if (idRaw !== undefined && idRaw !== null && label) {
+        const id = String(idRaw).trim();
+        if (id) out.push({ id, label });
+      }
+
+      for (const v of Object.values(node)) {
+        if (v && (typeof v === 'object' || Array.isArray(v))) {
+          collectCustomFieldDefsDeep(v, out, depth + 1);
+        }
+      }
+    };
+
+    const fetchListingCustomFieldDefinitions = async () => {
+      const endpointsToTry = [
+        '/settings/custom-fields',
+        '/settings/customfields',
+        '/settings/listing/custom-fields',
+        '/settings/listing/customfields',
+        '/settings/listing-custom-fields',
+        '/settings/listingcustomfields',
+        '/content/custom-fields',
+        '/content/customfields',
+      ];
+
+      const byId = new Map<string, string>();
+      const sources: Array<{ endpoint: string; ok: boolean; count: number }> = [];
+
+      for (const endpoint of endpointsToTry) {
+        const url = `${config.baseUrl}${endpoint}`;
+        try {
+          const resp = await fetch(url, { headers: staysHeaders });
+          if (!resp.ok) {
+            sources.push({ endpoint, ok: false, count: 0 });
+            continue;
+          }
+
+          const json = await resp.json().catch(() => null);
+          const defs: Array<{ id: string; label: string }> = [];
+          collectCustomFieldDefsDeep(json, defs);
+          let added = 0;
+          for (const d of defs) {
+            if (!byId.has(d.id)) {
+              byId.set(d.id, d.label);
+              added++;
+            }
+          }
+          sources.push({ endpoint, ok: true, count: added });
+
+          // Se já encontrou uma quantidade razoável, pode parar cedo.
+          if (byId.size >= 10) break;
+        } catch {
+          sources.push({ endpoint, ok: false, count: 0 });
+        }
+      }
+      return { byId, sources };
+    };
+
     // Fetch 1x (best-effort). Mesmo se falhar, seguimos com import e só não mapeamos checkboxes.
     const translationFetch = await fetchAmenityTranslationMap();
     const globalAmenityTitleById = translationFetch.map;
+
+    // ========================================================================
+    // STEP 2.0b: Campos Personalizados (Descrição) - Settings do Rendizy + defs do StaysNet
+    // - O usuário configura em "Configurações > Locais e Anúncios > Campos personalizados".
+    // - O StaysNet envia `customFields: [{id, val}]` (id numérico) no listing.
+    // - Aqui fazemos best-effort para resolver id -> nome (via endpoints settings/content) e
+    //   casar por NOME com os campos configurados no Rendizy, salvando em
+    //   anuncios_ultimate.data.custom_description_fields_values (por field.id estável).
+    // ========================================================================
+    const rendizyCustomFieldIdByLabelKey = new Map<string, string>();
+    try {
+      const settingsRowRes = await supabase
+        .from('anuncios_ultimate')
+        .select('data')
+        .eq('organization_id', organizationId)
+        .eq('data->>__kind', 'settings')
+        .eq('data->>__settings_key', 'locations_listings')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const settingsEnvelope = (settingsRowRes as any)?.data?.data;
+      const settings = settingsEnvelope?.settings;
+      const customFields = settings?.customDescriptionFields;
+      if (Array.isArray(customFields)) {
+        for (const f of customFields) {
+          if (!f || typeof f !== 'object') continue;
+          const id = String((f as any).id || '').trim();
+          const label = String((f as any).label || '').trim();
+          if (!id || !label) continue;
+          rendizyCustomFieldIdByLabelKey.set(normalizeCustomFieldLabel(label), id);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const staysCustomFieldDefsFetch = await fetchListingCustomFieldDefinitions();
+    const staysCustomFieldLabelById = staysCustomFieldDefsFetch.byId;
 
     const fetchListingDetailsById = async (listingIdRaw) => {
       const listingId = normalizeId(listingIdRaw);
@@ -2422,6 +2548,103 @@ export async function importStaysNetProperties(c) {
           }
         } catch (e) {
           console.error(`      ❌ [EXCEPTION] Step 07 text fields mapping:`, e);
+        }
+
+        // ====================================================================
+        // STEP 07 (UI): CAMPOS PERSONALIZADOS (match por NOME)
+        // - UI salva por ID estável do campo (settings.customDescriptionFields[].id)
+        // - StaysNet envia `customFields: [{ id: number, val: string }]`
+        // - Resolvemos id->label via staysCustomFieldLabelById e casamos por label.
+        // ====================================================================
+        try {
+          if (rendizyCustomFieldIdByLabelKey.size > 0) {
+            const rawExisting = (existing as any)?.data?.custom_description_fields_values;
+            const existingParsed = (() => {
+              if (!rawExisting) return null;
+              try {
+                if (typeof rawExisting === 'string') return JSON.parse(rawExisting);
+                if (typeof rawExisting === 'object') return rawExisting;
+              } catch {
+                return null;
+              }
+              return null;
+            })();
+
+            const mergedValues: Record<string, WizardMultiLangText> = {};
+            if (existingParsed && typeof existingParsed === 'object') {
+              for (const [k, v] of Object.entries(existingParsed)) {
+                const vv = v as any;
+                mergedValues[String(k)] = {
+                  pt: String(vv?.pt || ''),
+                  en: String(vv?.en || ''),
+                  es: String(vv?.es || ''),
+                };
+              }
+            }
+
+            let details: any = null;
+            let customFieldsArr: any[] | null = Array.isArray((prop as any)?.customFields) ? (prop as any).customFields : null;
+            if (!customFieldsArr) {
+              details = await fetchListingDetailsById(prop._id);
+              customFieldsArr = Array.isArray(details?.customFields) ? details.customFields : null;
+            }
+
+            const meta: Record<string, { stays_custom_field_id: string; stays_label: string }> = {};
+
+            if (Array.isArray(customFieldsArr) && customFieldsArr.length > 0) {
+              for (const cf of customFieldsArr) {
+                if (!cf || typeof cf !== 'object') continue;
+                const staysFieldId = String((cf as any).id ?? (cf as any)._id ?? '').trim();
+                const valRaw = (cf as any).val ?? (cf as any).value ?? '';
+                const val = String(valRaw || '').trim();
+                if (!staysFieldId || !val) continue;
+
+                // Tentar resolver label (endpoint de definições)
+                let staysLabel = staysCustomFieldLabelById.get(staysFieldId);
+                
+                // Fallback: se não conseguiu label, usa o próprio ID como label (útil para seed manual)
+                if (!staysLabel) {
+                  staysLabel = `Stays customField ${staysFieldId}`;
+                }
+
+                const rendizyId = rendizyCustomFieldIdByLabelKey.get(normalizeCustomFieldLabel(staysLabel));
+                if (!rendizyId) continue;
+
+                mergedValues[rendizyId] = { pt: val, en: val, es: val };
+                meta[rendizyId] = { stays_custom_field_id: staysFieldId, stays_label: staysLabel };
+              }
+            }
+
+            if (Object.keys(meta).length > 0) {
+              const h = (await sha256Hex(JSON.stringify({ mergedValues, meta }))).slice(0, 12);
+
+              const { error: customValsErr } = await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'custom_description_fields_values',
+                p_value: mergedValues,
+                p_idempotency_key: `custom_description_fields_values-${prop._id}-${h}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID,
+              });
+              if (customValsErr) {
+                console.error(`      ❌ Erro ao salvar custom_description_fields_values: ${customValsErr.message}`);
+              }
+
+              const { error: customMetaErr } = await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'custom_description_fields_meta',
+                p_value: meta,
+                p_idempotency_key: `custom_description_fields_meta-${prop._id}-${h}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID,
+              });
+              if (customMetaErr) {
+                console.error(`      ❌ Erro ao salvar custom_description_fields_meta: ${customMetaErr.message}`);
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`      ❌ [EXCEPTION] Custom description fields mapping:`, e);
         }
 
         // Campo: descricao (_msdesc.pt_BR) - limpar HTML

@@ -27,7 +27,7 @@
  * ============================================================================
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Check, MapPin, Car, Wifi, Building, ImageIcon, Plus, Trash2, X, Eye, Star, Search, ChevronDown } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -48,6 +48,17 @@ import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
 const ANON_KEY = publicAnonKey;
+
+const SETTINGS_LOCATIONS_LISTINGS_URL = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/settings/locations-listings`;
+const CUSTOM_DESCRIPTION_VALUES_FIELD = 'custom_description_fields_values';
+
+type CustomDescriptionField = {
+  id: string;
+  label: string;
+  placeholder?: { pt?: string; en?: string; es?: string };
+  required?: boolean;
+  order?: number;
+};
 
 // ============================================================================
 // CONSTANTS - STEP 03
@@ -203,6 +214,7 @@ export default function FormularioAnuncio() {
   const [isSaving, setIsSaving] = useState(false);
   const [anuncioId] = useState<string | null>(id || null);
   const [activeTab, setActiveTab] = useState('basico');
+  const roomCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   
   // ============================================================================
   // STEP 01: BÁSICO - Estado unificado do formulário
@@ -358,6 +370,10 @@ export default function FormularioAnuncio() {
   
   // @MODALIDADE: [TODAS] - Informações de locomoção (5000 chars)
   const [infoLocomocao, setInfoLocomocao] = useState<MultiLangText>({ pt: '', en: '', es: '' });
+
+  const [customDescriptionFields, setCustomDescriptionFields] = useState<CustomDescriptionField[]>([]);
+  const [customDescriptionValues, setCustomDescriptionValues] = useState<Record<string, MultiLangText>>({});
+  const [customDescriptionLoadError, setCustomDescriptionLoadError] = useState<string | null>(null);
   
   // ============================================================================
   // STEP 08: RELACIONAMENTO - 4 CAMPOS
@@ -509,6 +525,57 @@ export default function FormularioAnuncio() {
       loadAnuncio();
     }
   }, [anuncioId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const resp = await fetch(SETTINGS_LOCATIONS_LISTINGS_URL, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok) {
+          throw new Error(data?.error || `HTTP ${resp.status}`);
+        }
+
+        const fieldsRaw = data?.settings?.customDescriptionFields;
+        const fields: CustomDescriptionField[] = Array.isArray(fieldsRaw)
+          ? fieldsRaw
+              .filter((f: any) => f && typeof f === 'object' && typeof f.id === 'string' && typeof f.label === 'string')
+              .map((f: any) => ({
+                id: f.id,
+                label: f.label,
+                placeholder: f.placeholder || undefined,
+                required: Boolean(f.required),
+                order: typeof f.order === 'number' ? f.order : 0,
+              }))
+          : [];
+
+        fields.sort((a, b) => (a.order || 0) - (b.order || 0) || a.label.localeCompare(b.label));
+
+        if (!cancelled) {
+          setCustomDescriptionFields(fields);
+          setCustomDescriptionLoadError(null);
+        }
+      } catch (err: any) {
+        console.error('❌ Falha ao carregar customDescriptionFields:', err);
+        if (!cancelled) {
+          setCustomDescriptionFields([]);
+          setCustomDescriptionLoadError(err?.message || 'Falha ao carregar campos personalizados');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   
   const loadAnuncio = async () => {
     setIsLoading(true);
@@ -612,6 +679,26 @@ export default function FormularioAnuncio() {
         }
         if (wizardData.info_locomocao) {
           setInfoLocomocao(parseMultiLangField(wizardData.info_locomocao));
+        }
+
+        // Carregar campos personalizados (Step 07) - valores por anúncio
+        const rawCustomDescValues = (wizardData as any)?.[CUSTOM_DESCRIPTION_VALUES_FIELD];
+        if (rawCustomDescValues) {
+          try {
+            const parsed = typeof rawCustomDescValues === 'string'
+              ? JSON.parse(rawCustomDescValues)
+              : rawCustomDescValues;
+
+            if (parsed && typeof parsed === 'object') {
+              const nextValues: Record<string, MultiLangText> = {};
+              for (const [fieldId, value] of Object.entries(parsed)) {
+                nextValues[fieldId] = parseMultiLangField(value);
+              }
+              setCustomDescriptionValues(nextValues);
+            }
+          } catch (err) {
+            console.error('❌ Erro ao parsear custom_description_fields_values:', err);
+          }
         }
         
         // Step 08: Relacionamento
@@ -1086,7 +1173,7 @@ export default function FormularioAnuncio() {
     
     // Scroll automático para o novo cômodo
     setTimeout(() => {
-      const newRoomElement = document.getElementById(`room-card-${newRoomId}`);
+      const newRoomElement = roomCardRefs.current[newRoomId];
       if (newRoomElement) {
         newRoomElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         // Highlight temporário
@@ -1454,6 +1541,16 @@ export default function FormularioAnuncio() {
       const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
       
       // Salvar cada campo multilíngue separadamente
+      const ids = new Set<string>([
+        ...customDescriptionFields.map((f) => f.id),
+        ...Object.keys(customDescriptionValues),
+      ]);
+      const customValuesToSave: Record<string, MultiLangText> = {};
+      for (const id of ids) {
+        const v = customDescriptionValues[id] || { pt: '', en: '', es: '' };
+        customValuesToSave[id] = { pt: v.pt || '', en: v.en || '', es: v.es || '' };
+      }
+
       const fields = [
         { field: 'descricao_titulo', value: JSON.stringify(descricaoTitulo) },
         { field: 'notas_gerais', value: JSON.stringify(notasGerais) },
@@ -1462,6 +1559,7 @@ export default function FormularioAnuncio() {
         { field: 'sobre_anfitriao', value: JSON.stringify(sobreAnfitriao) },
         { field: 'descricao_bairro', value: JSON.stringify(descricaoBairro) },
         { field: 'info_locomocao', value: JSON.stringify(infoLocomocao) },
+        { field: CUSTOM_DESCRIPTION_VALUES_FIELD, value: JSON.stringify(customValuesToSave) },
       ];
       
       for (const { field, value } of fields) {
@@ -2861,7 +2959,9 @@ export default function FormularioAnuncio() {
                     {formData.rooms.map((room, index) => (
                       <div 
                         key={room.id}
-                        id={`room-card-${room.id}`}
+                        ref={(el) => {
+                          roomCardRefs.current[room.id] = el;
+                        }}
                         className="bg-white rounded-lg shadow p-6 space-y-4"
                         onClick={() => setSelectedRoomIndex(index)}
                       >
@@ -3879,6 +3979,65 @@ export default function FormularioAnuncio() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Campos Personalizados (Configurações > Locais e Anúncios) */}
+                {customDescriptionLoadError && (
+                  <div className="text-xs text-red-500">
+                    ❌ Falha ao carregar campos personalizados: {customDescriptionLoadError}
+                  </div>
+                )}
+                {customDescriptionFields.map((field) => {
+                  const current = customDescriptionValues[field.id] || { pt: '', en: '', es: '' };
+                  const placeholder = field.placeholder?.[activeDescTab] || '';
+                  return (
+                    <Card key={field.id}>
+                      <CardContent className="pt-6">
+                        <div className="mb-4">
+                          <Label className="text-base font-semibold">
+                            {field.label}{field.required ? ' *' : ''}
+                          </Label>
+                        </div>
+
+                        <div className="flex gap-2 mb-3 border-b">
+                          {(['pt', 'en', 'es'] as const).map((lang) => (
+                            <button
+                              key={lang}
+                              type="button"
+                              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                                activeDescTab === lang ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'
+                              }`}
+                              onClick={() => setActiveDescTab(lang)}
+                            >
+                              {lang === 'pt' && '🇧🇷 PT'}
+                              {lang === 'en' && '🇺🇸 EN'}
+                              {lang === 'es' && '🇪🇸 ES'}
+                            </button>
+                          ))}
+                        </div>
+
+                        <Textarea
+                          placeholder={placeholder}
+                          value={current[activeDescTab]}
+                          onChange={(e) =>
+                            setCustomDescriptionValues((prev) => {
+                              const prevField = prev[field.id] || { pt: '', en: '', es: '' };
+                              return {
+                                ...prev,
+                                [field.id]: { ...prevField, [activeDescTab]: e.target.value },
+                              };
+                            })
+                          }
+                          className="min-h-[100px] resize-none"
+                          maxLength={5000}
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-red-500">❌ Emojis não permitidos</span>
+                          <span className="text-xs text-slate-500">{current[activeDescTab].length}/5000</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
 
                 {/* Botão Salvar */}
                 <div className="flex justify-end gap-3 pt-4">

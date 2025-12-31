@@ -7,7 +7,7 @@
  * @date 2025-10-28
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   Home,
@@ -49,6 +49,22 @@ import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { Textarea } from './ui/textarea';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
+const ANON_KEY = publicAnonKey;
+
+function safeRandomId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      // @ts-expect-error - TS lib may not include randomUUID depending on target
+      return crypto.randomUUID();
+    }
+  } catch {
+    // ignore
+  }
+  return `custom_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
 
 interface LocationsListingsSettingsConfig {
   // View Settings
@@ -121,6 +137,11 @@ interface LocationsListingsSettingsConfig {
 }
 
 export const LocationsListingsSettings = () => {
+  const settingsUrl = useMemo(
+    () => `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/settings/locations-listings`,
+    [],
+  );
+
   // TODO: Buscar do backend
   const [settings, setSettings] = useState<LocationsListingsSettingsConfig>({
     defaultView: 'individual',
@@ -177,12 +198,62 @@ export const LocationsListingsSettings = () => {
 
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const resp = await fetch(settingsUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok) {
+          throw new Error(data?.error || `HTTP ${resp.status}`);
+        }
+
+        if (!cancelled && data?.settings) {
+          setSettings((prev) => ({
+            ...prev,
+            ...data.settings,
+            // garante array
+            customDescriptionFields: Array.isArray(data.settings.customDescriptionFields)
+              ? data.settings.customDescriptionFields
+              : prev.customDescriptionFields,
+          }));
+        }
+      } catch (err: any) {
+        console.error('❌ Falha ao carregar settings (Locais e Anúncios):', err);
+        // Silencioso: mantém defaults
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsUrl]);
+
   const handleSave = async () => {
     setSaving(true);
     
     try {
-      // TODO: Salvar no backend
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const resp = await fetch(settingsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${ANON_KEY}`,
+        },
+        body: JSON.stringify({ settings }),
+      });
+
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        throw new Error(data?.error || `HTTP ${resp.status}`);
+      }
       
       toast.success('Configurações salvas com sucesso!');
     } catch (error) {
@@ -823,7 +894,7 @@ export const LocationsListingsSettings = () => {
           <Button
             onClick={() => {
               const newField = {
-                id: `custom_${Date.now()}`,
+                id: safeRandomId(),
                 label: '',
                 placeholder: {
                   pt: '',

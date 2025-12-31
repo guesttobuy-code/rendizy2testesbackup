@@ -459,6 +459,14 @@ git status
 
 ### 2.2 Endpoints Aprovados
 
+### ✅ Regra: URL canônica (Anúncios Ultimate)
+
+- **Canônico:** `/functions/v1/rendizy-server/anuncios-ultimate/*`
+- **Regra (Supabase Edge Functions):** o `pathname` recebido pelo Hono inclui o nome da function como prefixo. Portanto, dentro do `index.ts`, o módulo `anunciosApp` deve ser montado em `/rendizy-server/anuncios-ultimate/*`.
+- **Proibido (clientes/scripts):** chamar com prefixo duplicado (`/functions/v1/rendizy-server/rendizy-server/anuncios-ultimate/*`).
+  - Motivo: isso incentiva caminhos “duplos” e pode gerar URLs confusas do tipo `.../functions/v1/rendizy-server/rendizy-server/...`.
+  - Como o ambiente é 100% testes hoje, manteremos **um único padrão** para evitar dívida técnica.
+
 ```typescript
 // Backend (Edge Functions)
 /functions/v1/rendizy-server/anuncios-ultimate/lista
@@ -471,8 +479,8 @@ git status
 /functions/v1/rendizy-server/blocks/create
 
 // Frontend (rotas React Router)
-/anuncios-ultimate
-/anuncios-ultimate/lista
+/rendizy-server/anuncios-ultimate
+/rendizy-server/anuncios-ultimate/lista
 /calendario
 /reservas
 /configuracoes

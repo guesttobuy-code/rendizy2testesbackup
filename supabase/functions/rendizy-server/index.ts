@@ -135,6 +135,10 @@ app.route("/auth", authApp);
 // ============================================================================
 // ANÚNCIOS ULTIMATE (Properties Drafts/Publishing)
 // ============================================================================
+// URL CANÔNICA (externa): /functions/v1/rendizy-server/anuncios-ultimate/*
+// OBS: em produção, o pathname recebido pelo Hono inclui o nome da function como prefixo.
+// Então montamos o módulo em /rendizy-server/anuncios-ultimate/* para bater com:
+// /functions/v1/rendizy-server/anuncios-ultimate/*
 app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
 
 // ============================================================================
