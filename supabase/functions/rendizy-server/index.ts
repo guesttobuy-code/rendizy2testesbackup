@@ -71,7 +71,7 @@ function withCorsJson(c: any, payload: unknown) {
   // Esses handlers ficam ANTES do middleware global; então setamos CORS aqui também.
   c.header("Access-Control-Allow-Origin", "*");
   c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer");
   c.header("Access-Control-Max-Age", "86400");
   return c.json(payload);
 }
@@ -101,7 +101,7 @@ app.use("*", async (c, next) => {
   // Set CORS headers for ALL requests
   c.header("Access-Control-Allow-Origin", "*");
   c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer");
   c.header("Access-Control-Max-Age", "86400");
   
   // Handle preflight - retornar IMEDIATAMENTE sem processar mais nada
@@ -111,7 +111,7 @@ app.use("*", async (c, next) => {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer",
         "Access-Control-Max-Age": "86400",
       }
     });
@@ -279,6 +279,17 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/import/full", staysnetIm
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/debug", staysnetImportModalRoutes.debugRawStaysNet); // 🧪 DEBUG
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/SIMPLE", importStaysNetSimple); // ⚡ SIMPLES - INSERT direto
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/RPC", importStaysNetRPC); // ✅ USA RPC (igual FormularioAnuncio) - LEGACY
+
+// Compat extra: alguns frontends chamam sem prefixo /rendizy-server
+app.get("/make-server-67caf26a/settings/staysnet", staysnetRoutes.getStaysNetConfig);
+app.post("/make-server-67caf26a/settings/staysnet", staysnetRoutes.saveStaysNetConfig);
+app.post("/make-server-67caf26a/staysnet/test", staysnetRoutes.testStaysNetConnection);
+app.post("/make-server-67caf26a/staysnet/test-endpoint", staysnetRoutes.testStaysNetEndpoint);
+app.post("/make-server-67caf26a/staysnet/import/preview", staysnetImportModalRoutes.previewStaysNetImport);
+app.post("/make-server-67caf26a/staysnet/import/full", staysnetImportModalRoutes.importFullStaysNet);
+app.post("/make-server-67caf26a/staysnet/import/debug", staysnetImportModalRoutes.debugRawStaysNet);
+app.post("/make-server-67caf26a/staysnet/import/SIMPLE", importStaysNetSimple);
+app.post("/make-server-67caf26a/staysnet/import/RPC", importStaysNetRPC);
 app.post("/staysnet/webhook/:organizationId", staysnetWebhooksRoutes.receiveStaysNetWebhook);
 app.post("/rendizy-server/staysnet/webhook/:organizationId", staysnetWebhooksRoutes.receiveStaysNetWebhook);
 app.post("/staysnet/webhooks/process/:organizationId", staysnetWebhooksRoutes.processStaysNetWebhooks);
@@ -298,6 +309,14 @@ app.post("/rendizy-server/make-server-67caf26a/staysnet/import/guests", importSt
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/blocks", importStaysNetBlocks); // ⛔ Blocks → blocks
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/finance", importStaysNetFinance); // 💰 Finance RAW → staysnet_raw_objects
 app.get("/rendizy-server/make-server-67caf26a/staysnet/import/issues", listStaysNetImportIssues); // ⚠️ Issues abertas (ex: missing property mapping)
+
+// Compat extra: alguns frontends chamam sem prefixo /rendizy-server
+app.post("/make-server-67caf26a/staysnet/import/properties", importStaysNetProperties);
+app.post("/make-server-67caf26a/staysnet/import/reservations", importStaysNetReservations);
+app.post("/make-server-67caf26a/staysnet/import/guests", importStaysNetGuests);
+app.post("/make-server-67caf26a/staysnet/import/blocks", importStaysNetBlocks);
+app.post("/make-server-67caf26a/staysnet/import/finance", importStaysNetFinance);
+app.get("/make-server-67caf26a/staysnet/import/issues", listStaysNetImportIssues);
 // ============================================================================
 
 // ============================================================================
@@ -352,22 +371,21 @@ app.delete("/guests/:id", tenancyMiddleware, guestsRoutes.deleteGuest);
 // ============================================================================
 // DEFAULT HANDLERS
 // ============================================================================
-app.notFound((c) => c.json({ message: "Not Found" }, 404));
+app.notFound((c) => withCorsJson(c, { message: "Not Found" }));
 
 app.onError((err, c) => {
   console.error("Unhandled error:", err);
   const anyErr = err as any;
   const status = typeof anyErr?.status === 'number' ? anyErr.status : undefined;
   if (status && status >= 400 && status < 600) {
-    return c.json(
-      {
-        error: anyErr?.message || 'Error',
-        ...(anyErr?.details ? { details: anyErr.details } : {}),
-      },
-      status
-    );
+    c.status(status);
+    return withCorsJson(c, {
+      error: anyErr?.message || 'Error',
+      ...(anyErr?.details ? { details: anyErr.details } : {}),
+    });
   }
-  return c.json({ error: "Internal Server Error" }, 500);
+  c.status(500);
+  return withCorsJson(c, { error: "Internal Server Error" });
 });
 
 // ============================================================================
@@ -393,7 +411,7 @@ Deno.serve(async (req) => {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer",
         "Access-Control-Max-Age": "86400",
       }
     });
