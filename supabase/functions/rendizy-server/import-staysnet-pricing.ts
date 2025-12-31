@@ -55,7 +55,9 @@ export async function importPropertyPricing(
   anuncioId: string,
   staysHeaders: any,
   staysApiUrl: string,
-  supabase: any
+  supabase: any,
+  organizationId: string,
+  userId: string = DEFAULT_USER_ID
 ): Promise<{ success: boolean; camposImportados: number }> {
   
   console.log(`\n💰 [PRICING] Importando dados financeiros para listing ${listingId}...`);
@@ -90,8 +92,8 @@ export async function importPropertyPricing(
           p_field: 'precificacao',
           p_value: precificacao,
           p_idempotency_key: `precificacao-${listingId}`,
-          p_organization_id: DEFAULT_ORG_ID,
-          p_user_id: DEFAULT_USER_ID
+          p_organization_id: organizationId,
+          p_user_id: userId
         });
         
         if (!precError) {
@@ -111,8 +113,8 @@ export async function importPropertyPricing(
             p_field: 'currency',
             p_value: precificacao.currency,
             p_idempotency_key: `currency-${listingId}`,
-            p_organization_id: DEFAULT_ORG_ID,
-            p_user_id: DEFAULT_USER_ID
+            p_organization_id: organizationId,
+            p_user_id: userId
           });
           
           if (!currencyError) {
@@ -157,8 +159,8 @@ export async function importPropertyPricing(
           p_field: 'bookingSettings',
           p_value: bookingSettings,
           p_idempotency_key: `bookingSettings-${listingId}`,
-          p_organization_id: DEFAULT_ORG_ID,
-          p_user_id: DEFAULT_USER_ID
+          p_organization_id: organizationId,
+          p_user_id: userId
         });
         
         if (!bookingError) {
@@ -179,8 +181,8 @@ export async function importPropertyPricing(
             p_field: 'instantBooking',
             p_value: String(bookingSettings.instantBooking),
             p_idempotency_key: `instantBooking-${listingId}`,
-            p_organization_id: DEFAULT_ORG_ID,
-            p_user_id: DEFAULT_USER_ID
+            p_organization_id: organizationId,
+            p_user_id: userId
           });
         }
         
@@ -190,8 +192,8 @@ export async function importPropertyPricing(
             p_field: 'checkInTime',
             p_value: bookingSettings.checkInTime,
             p_idempotency_key: `checkInTime-${listingId}`,
-            p_organization_id: DEFAULT_ORG_ID,
-            p_user_id: DEFAULT_USER_ID
+            p_organization_id: organizationId,
+            p_user_id: userId
           });
           camposImportados++;
         }
@@ -202,8 +204,8 @@ export async function importPropertyPricing(
             p_field: 'checkOutTime',
             p_value: bookingSettings.checkOutTime,
             p_idempotency_key: `checkOutTime-${listingId}`,
-            p_organization_id: DEFAULT_ORG_ID,
-            p_user_id: DEFAULT_USER_ID
+            p_organization_id: organizationId,
+            p_user_id: userId
           });
           camposImportados++;
         }
@@ -242,8 +244,8 @@ export async function importPropertyPricing(
           p_field: 'houseRules',
           p_value: houseRules,
           p_idempotency_key: `houseRules-${listingId}`,
-          p_organization_id: DEFAULT_ORG_ID,
-          p_user_id: DEFAULT_USER_ID
+          p_organization_id: organizationId,
+          p_user_id: userId
         });
         
         if (!rulesError) {

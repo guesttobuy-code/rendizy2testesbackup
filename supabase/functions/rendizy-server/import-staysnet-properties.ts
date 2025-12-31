@@ -35,6 +35,134 @@ const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
 
 // ============================================================================
+// MAPEAMENTOS (UI Anúncio Ultimate)
+// - O frontend em components/anuncio-ultimate/FormularioAnuncio.tsx lê chaves
+//   como: title, tipoLocal, tipoAcomodacao, subtype, bedrooms, bathrooms, beds,
+//   guests, coverPhoto, description, e campos de endereço (rua/numero/etc).
+// - Este import mantém os campos legados já existentes e adiciona os campos
+//   esperados pelo formulário.
+// ============================================================================
+
+const TIPO_LOCAL_ALLOWED = new Set<string>([
+  'acomodacao_movel',
+  'albergue',
+  'apartamento',
+  'apartamento_residencial',
+  'bangalo',
+  'barco',
+  'barco_beira',
+  'boutique',
+  'cabana',
+  'cama_cafe',
+  'camping',
+  'casa',
+  'castelo',
+  'chale',
+  'chale_camping',
+  'condominio',
+  'estalagem',
+  'fazenda',
+  'hotel',
+  'hostel',
+  'iate',
+  'industrial',
+  'motel',
+  'pousada',
+  'residencia',
+  'resort',
+  'treehouse',
+  'villa',
+]);
+
+const TIPO_ACOMODACAO_ALLOWED = new Set<string>([
+  'apartamento',
+  'bangalo',
+  'cabana',
+  'camping',
+  'capsula',
+  'casa',
+  'casa_dormitorios',
+  'chale',
+  'condominio',
+  'dormitorio',
+  'estudio',
+  'holiday_home',
+  'hostel',
+  'hotel',
+  'iate',
+  'industrial',
+  'loft',
+  'quarto_compartilhado',
+  'quarto_inteiro',
+  'quarto_privado',
+  'suite',
+  'treehouse',
+]);
+
+function normalizeTypeCode(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' e ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function pickMetaTitle(meta: any): string | null {
+  const t = meta?._mstitle;
+  if (!t || typeof t !== 'object') return null;
+  return (
+    t.pt_BR ||
+    t.pt_PT ||
+    t.en_US ||
+    t.es_ES ||
+    t.de_DE ||
+    t.fr_FR ||
+    t.it_IT ||
+    t.sv_SE ||
+    t.ru_RU ||
+    t.el_GR ||
+    null
+  );
+}
+
+function mapTipoLocalFromStays(prop: any): string | null {
+  const title = pickMetaTitle(prop?._t_propertyTypeMeta) || pickMetaTitle(prop?._t_propertyTypeMeta?._mstitle);
+  const raw = title || prop?.category || '';
+  if (!raw) return null;
+  const code = normalizeTypeCode(raw);
+  if (TIPO_LOCAL_ALLOWED.has(code)) return code;
+
+  // Fallbacks comuns
+  if (code === 'apartamento_residencial' && TIPO_LOCAL_ALLOWED.has('apartamento_residencial')) return 'apartamento_residencial';
+  if (code.startsWith('apartamento') && TIPO_LOCAL_ALLOWED.has('apartamento')) return 'apartamento';
+  if (code.startsWith('casa') && TIPO_LOCAL_ALLOWED.has('casa')) return 'casa';
+  if (code.includes('boutique') && TIPO_LOCAL_ALLOWED.has('boutique')) return 'boutique';
+  return null;
+}
+
+function mapTipoAcomodacaoFromStays(prop: any): string | null {
+  const title = pickMetaTitle(prop?._t_typeMeta) || pickMetaTitle(prop?._t_typeMeta?._mstitle);
+  const raw = title || prop?.unitType || prop?.type || '';
+  if (!raw) return null;
+  const code = normalizeTypeCode(raw);
+  if (TIPO_ACOMODACAO_ALLOWED.has(code)) return code;
+  return null;
+}
+
+function mapWizardSubtypeFromStays(prop: any): string | null {
+  const raw = String(prop?.subtype || prop?.listingType || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === 'entire_home' || raw === 'entire_place') return 'entire_place';
+  if (raw === 'private_room') return 'private_room';
+  if (raw === 'shared_room') return 'shared_room';
+  return null;
+}
+
+// ============================================================================
 // TIPOS - Estrutura COMPLETA da API StaysNet /content/listings
 // ============================================================================
 interface StaysNetProperty {
@@ -104,6 +232,9 @@ export async function importStaysNetProperties(c: Context) {
     const selectedPropertyIds: string[] = Array.isArray(body.selectedPropertyIds) 
       ? body.selectedPropertyIds 
       : [];
+
+    const rawOrganizationIdFromBody = String((body as any)?.organizationId ?? (body as any)?.organization_id ?? '').trim();
+    const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
     
     console.log(`📥 [REQUEST] Recebidos ${selectedPropertyIds.length} property IDs selecionados`);
     
@@ -122,13 +253,29 @@ export async function importStaysNetProperties(c: Context) {
 
     console.log('🔧 [CONFIG] Carregando configuração StaysNet (runtime)...');
 
-    // ✅ Preferir organization_id real do usuário; fallback mantém compatibilidade
-    // com chamadas técnicas/sem sessão.
-    let organizationId = DEFAULT_ORG_ID;
+    // ✅ RISCO ZERO (multi-tenant): este import NÃO deve rodar sem contexto explícito de organização.
+    // Regras:
+    // - Se existe token/sessão do usuário, usamos getOrganizationIdOrThrow (e se falhar, erro).
+    // - Se NÃO existe sessão, só aceitamos body.organizationId explícito (scripts/rotinas).
+    // Observação: DEFAULT_ORG_ID pode ser um tenant real (ex.: admin master). O risco é cair nele
+    // implicitamente por falta de sessão; isso é proibido.
+    let organizationId: string | null = null;
     try {
       organizationId = await getOrganizationIdOrThrow(c);
     } catch {
-      // sem token/sessão → mantém DEFAULT_ORG_ID
+      // ignore
+    }
+
+    if (!organizationId) {
+      if (rawOrganizationIdFromBody && isUuid(rawOrganizationIdFromBody)) {
+        organizationId = rawOrganizationIdFromBody;
+      } else {
+        return c.json({
+          success: false,
+          error: 'ORG_REQUIRED',
+          message: 'organizationId obrigatório: envie sessão do usuário (X-Auth-Token/cookie/Authorization) ou informe body.organizationId explicitamente.'
+        }, 401);
+      }
     }
 
     console.log('🔧 [CONFIG] Organization ID:', organizationId);
@@ -139,6 +286,123 @@ export async function importStaysNetProperties(c: Context) {
     console.log('  - Base URL:', config.baseUrl);
     console.log('  - API Key:', config.apiKey?.substring(0, 4) + '****');
     console.log('  - API Secret:', config.apiSecret ? 'presente' : 'ausente');
+
+    // ========================================================================
+    // STEP 1.5: (RESOLUTION) TENTAR RESOLVER IDs INTERNOS -> IDs STAYS
+    // ========================================================================
+    // O modal normalmente envia IDs da Stays (listing._id ou listing.id).
+    // Porém, em alguns fluxos operacionais, pode ser útil informar:
+    // - anuncios_ultimate.id (UUID)
+    // - anuncios_ultimate.data.internalId
+    // - anuncios_ultimate.data.codigo
+    // Quando isso ocorre, resolvemos para externalIds.* (staysnet_listing_id/code) e
+    // adicionamos esses candidatos ao conjunto de seleção.
+
+    const normalizeId = (v: any): string => {
+      if (v === null || v === undefined) return '';
+      return String(v).trim();
+    };
+
+    const selectedSet = new Set(
+      selectedPropertyIds.map((x) => normalizeId(x)).filter(Boolean),
+    );
+
+    const resolvedSelectedFromDb: Record<string, string[]> = {};
+
+    const supabase = getSupabaseClient();
+
+    if (selectedSet.size > 0) {
+      for (const rawSelected of Array.from(selectedSet.values())) {
+        const selectedId = normalizeId(rawSelected);
+        if (!selectedId) continue;
+
+        // Evita loop/duplicação caso já seja um ID válido de Stays
+        // (Ainda assim, a resolução é segura; apenas evita queries desnecessárias.)
+        const looksLikeStaysMongoId = /^[a-f0-9]{24}$/i.test(selectedId);
+        if (looksLikeStaysMongoId) continue;
+
+        // 1) anuncios_ultimate.id
+        let row: any | null = null;
+        try {
+          const q1 = await supabase
+            .from('anuncios_ultimate')
+            .select('id,data')
+            .eq('organization_id', organizationId)
+            .eq('id', selectedId)
+            .limit(1);
+          if (!q1.error && Array.isArray(q1.data) && q1.data.length > 0) row = q1.data[0];
+        } catch {
+          // ignore
+        }
+
+        // 2) anuncios_ultimate.data.internalId
+        if (!row) {
+          try {
+            const q2 = await supabase
+              .from('anuncios_ultimate')
+              .select('id,data')
+              .eq('organization_id', organizationId)
+              .eq('data->>internalId', selectedId)
+              .limit(1);
+            if (!q2.error && Array.isArray(q2.data) && q2.data.length > 0) row = q2.data[0];
+          } catch {
+            // ignore
+          }
+        }
+
+        // 3) anuncios_ultimate.data.codigo
+        if (!row) {
+          try {
+            const q3 = await supabase
+              .from('anuncios_ultimate')
+              .select('id,data')
+              .eq('organization_id', organizationId)
+              .eq('data->>codigo', selectedId)
+              .limit(1);
+            if (!q3.error && Array.isArray(q3.data) && q3.data.length > 0) row = q3.data[0];
+          } catch {
+            // ignore
+          }
+        }
+
+        if (!row) continue;
+
+        const data: any = row?.data || null;
+        const externalIds: any = data?.externalIds || null;
+
+        // Preferir IDs canônicos para evitar importar coisas erradas.
+        // Regra:
+        // - Se tiver staysnet_listing_id (24-hex), usa só ele.
+        // - Senão, tenta staysnet_property_id se for 24-hex.
+        // - Só usa staysnet_listing_code como último recurso (é ambíguo para fetch-by-id).
+        const listingId = normalizeId(externalIds?.staysnet_listing_id);
+        const propertyId = normalizeId(externalIds?.staysnet_property_id);
+        const listingCode = normalizeId(externalIds?.staysnet_listing_code);
+
+        const isMongoId = (v: string) => /^[a-f0-9]{24}$/i.test(v);
+
+        const candidates = (() => {
+          if (listingId && isMongoId(listingId)) return [listingId];
+          if (propertyId && isMongoId(propertyId)) return [propertyId];
+          if (listingCode) return [listingCode];
+          return [] as string[];
+        })();
+
+        if (candidates.length === 0) continue;
+
+        resolvedSelectedFromDb[selectedId] = candidates;
+        for (const cId of candidates) selectedSet.add(cId);
+
+        // Importante: se o ID original era interno (UUID/codigo/internalId) e foi resolvido,
+        // removemos ele do conjunto para não forçar varredura completa/piorar matching.
+        selectedSet.delete(selectedId);
+      }
+
+      if (Object.keys(resolvedSelectedFromDb).length > 0) {
+        console.log('🔁 [RESOLVE] IDs resolvidos via anuncios_ultimate → Stays IDs');
+        console.log('   ', JSON.stringify(resolvedSelectedFromDb));
+      }
+    }
 
     // ========================================================================
     // STEP 2: BUSCAR TODAS AS PROPERTIES DA API STAYSNET (COM PAGINAÇÃO)
@@ -156,14 +420,6 @@ export async function importStaysNetProperties(c: Context) {
     const reqMaxPages = Math.max(0, Number.isFinite(reqMaxPagesRaw) ? reqMaxPagesRaw : 0);
     const isBatchMode = reqMaxPages > 0;
 
-    const normalizeId = (v: any): string => {
-      if (v === null || v === undefined) return '';
-      return String(v).trim();
-    };
-
-    const selectedSet = new Set(
-      selectedPropertyIds.map((x) => normalizeId(x)).filter(Boolean),
-    );
     const hasSelected = selectedSet.size > 0;
 
     const matchesSelected = (p: any): boolean => {
@@ -197,6 +453,32 @@ export async function importStaysNetProperties(c: Context) {
     // Criar Basic Auth
     const credentials = btoa(`${config.apiKey}:${config.apiSecret || ''}`);
 
+    const fetchListingDetailsById = async (listingIdRaw: unknown): Promise<Record<string, any> | null> => {
+      const listingId = normalizeId(listingIdRaw);
+      if (!listingId) return null;
+
+      const urlById = `${config.baseUrl}/content/listings/${encodeURIComponent(listingId)}`;
+      try {
+        const resp = await fetch(urlById, {
+          headers: {
+            'Authorization': `Basic ${credentials}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (!resp.ok) return null;
+
+        const json = await resp.json();
+        if (json && typeof json === 'object' && !Array.isArray(json)) {
+          // Alguns endpoints podem retornar wrapper. Mantemos o objeto completo.
+          return json as Record<string, any>;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
+
     // ========================================================================
     // STEP 2.1: (TARGET MODE) TENTAR BUSCA DIRETA POR ID
     // ========================================================================
@@ -208,6 +490,10 @@ export async function importStaysNetProperties(c: Context) {
       for (const rawId of Array.from(selectedSet.values())) {
         const id = normalizeId(rawId);
         if (!id) continue;
+
+        // Segurança: fetch-by-id só é confiável para o _id (24-hex).
+        // Evita buscar por códigos curtos que podem ser ambíguos.
+        if (!/^[a-f0-9]{24}$/i.test(id)) continue;
 
         // Evita repetir se já foi achado via outra via
         if (foundSelected.has(id)) continue;
@@ -314,6 +600,7 @@ export async function importStaysNetProperties(c: Context) {
         message: 'Os IDs selecionados não foram encontrados na API StaysNet',
         details: {
           selectedCount: selectedPropertyIds.length,
+          resolvedSelectedFromDb,
           scanned,
           pagesFetched,
           limit,
@@ -366,17 +653,9 @@ export async function importStaysNetProperties(c: Context) {
       const before = properties.length;
       const propertiesBeforeFilter = [...properties]; // 🔍 Salvar cópia ANTES do filtro
 
-      const normalizeId = (v: any): string => {
-        if (v === null || v === undefined) return '';
-        return String(v).trim();
-      };
-
       // IDs de seleção podem vir da reservation como `_idlisting`/`propertyId`.
-      // Na API de listings, esses IDs podem corresponder ao `listing._id` OU ao `listing._t_propertyMeta._id`.
-      // Por isso o filtro precisa aceitar múltiplas chaves.
-      const selectedSet = new Set(
-        selectedPropertyIds.map((x) => normalizeId(x)).filter(Boolean),
-      );
+      // Além disso, o STEP 1.5 pode ter resolvido IDs internos (UUID/internalId/codigo)
+      // para IDs Stays (externalIds.*). Por isso, aqui usamos o `selectedSet` já resolvido.
       
       // 🔍 DEBUG: Logar formato dos IDs ANTES do filtro
       console.error(`🔍 [DEBUG FILTER] Antes do filtro: ${before} properties`);
@@ -384,6 +663,7 @@ export async function importStaysNetProperties(c: Context) {
       console.error(`🔍 [DEBUG FILTER] Sample selected IDs:`, selectedPropertyIds.slice(0, 3));
       console.error(`🔍 [DEBUG FILTER] Tipo ID API: ${typeof propertiesBeforeFilter[0]?._id}`);
       console.error(`🔍 [DEBUG FILTER] Tipo ID selected: ${typeof selectedPropertyIds[0]}`);
+      console.error(`🔍 [DEBUG FILTER] Resolved selectedSet size: ${selectedSet.size}`);
 
       properties = properties.filter((p: any) => {
         const idCandidates = [
@@ -451,10 +731,9 @@ export async function importStaysNetProperties(c: Context) {
     // ========================================================================
     // STEP 4: SALVAR CADA PROPERTY EM anuncios_ultimate
     // ========================================================================
-    const supabase = getSupabaseClient();
-
     for (let i = 0; i < properties.length; i++) {
-      const prop = properties[i];
+      const propListPayload = properties[i];
+      let prop = propListPayload;
       const propertyName = prop.internalName || prop.name || prop._id;
 
       console.log(`\n[${i + 1}/${fetched}] 🏠 Processando: ${propertyName}`);
@@ -473,7 +752,7 @@ export async function importStaysNetProperties(c: Context) {
             externalId,
             externalCode,
             endpoint: '/content/listings',
-            payload: prop,
+            payload: propListPayload,
             fetchedAtIso: new Date().toISOString(),
           });
           if (!store.ok) {
@@ -481,6 +760,52 @@ export async function importStaysNetProperties(c: Context) {
           }
         } catch (e) {
           console.warn(`⚠️ Falha inesperada ao salvar staysnet_raw_objects (listings): ${e instanceof Error ? e.message : String(e)}`);
+        }
+
+        // ====================================================================
+        // 2.0.5: ENRIQUECER COM DETALHE POR ID (para fotos/amenities)
+        // ====================================================================
+        // Observação: em alguns ambientes, o endpoint de lista (`/content/listings`)
+        // pode não retornar `_t_imagesMeta` e/ou `_t_amenitiesMeta`. Para garantir
+        // persistência completa (ex.: fotos), buscamos o detalhe do listing quando
+        // os campos esperados não vierem.
+        const shouldEnrich =
+          (!prop._t_imagesMeta || !Array.isArray(prop._t_imagesMeta) || prop._t_imagesMeta.length === 0)
+          || (!prop._t_amenitiesMeta || !Array.isArray(prop._t_amenitiesMeta) || prop._t_amenitiesMeta.length === 0);
+
+        if (shouldEnrich) {
+          const listingId = (prop as any)?._id || (prop as any)?.id;
+          const detail = await fetchListingDetailsById(listingId);
+          if (detail) {
+            // Salvar RAW do endpoint de detalhe também (soft-fail)
+            try {
+              const externalId = String((prop as any)._id || (prop as any).id || '').trim() || null;
+              const externalCode = String((prop as any).id || (prop as any).code || '').trim() || null;
+              const storeDetail = await storeStaysnetRawObject({
+                supabase,
+                organizationId,
+                domain: 'listings',
+                externalId,
+                externalCode,
+                endpoint: `/content/listings/${String(listingId ?? '').trim()}`,
+                payload: detail,
+                fetchedAtIso: new Date().toISOString(),
+              });
+              if (!storeDetail.ok) {
+                console.warn(`⚠️ Falha ao salvar staysnet_raw_objects (listings detalhe): ${storeDetail.error}`);
+              }
+            } catch (e) {
+              console.warn(`⚠️ Falha inesperada ao salvar staysnet_raw_objects (listings detalhe): ${e instanceof Error ? e.message : String(e)}`);
+            }
+
+            // Merge: mantém `_id`/ids do item original, mas incorpora campos do detalhe
+            prop = {
+              ...detail,
+              ...propListPayload,
+              _id: (propListPayload as any)?._id || (detail as any)?._id,
+              id: (propListPayload as any)?.id || (detail as any)?.id,
+            } as any;
+          }
         }
 
         // ====================================================================
@@ -682,7 +1007,7 @@ export async function importStaysNetProperties(c: Context) {
           const { error: internalIdError } = await supabase.rpc('save_anuncio_field', {
             p_anuncio_id: anuncioId,
             p_field: 'internalId',
-            p_value: prop.internalName || prop._id,
+            p_value: prop.internalName || prop.id || prop._id,
             p_idempotency_key: `internal-${prop._id}`,
             p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
@@ -695,6 +1020,32 @@ export async function importStaysNetProperties(c: Context) {
         } catch (e) {
           console.error(`      ❌ [EXCEPTION] internalId CRASHED:`, e);
           console.error(`      Stack:`, e.stack);
+        }
+
+        // Campo: title (UI "Identificação Interna")
+        // O FormularioAnuncio usa `data.title` como rótulo/identificação interna.
+        console.log(`   🔧 [SAVE CAMPO #1b] Salvando title...`);
+        try {
+          const titleValue = prop.internalName || prop._mstitle?.pt_BR || prop._mstitle?.en_US || prop.name || prop.id || prop._id;
+          if (titleValue) {
+            const { error: titleError } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'title',
+              p_value: String(titleValue),
+              p_idempotency_key: `title-${prop._id}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (titleError) {
+              console.error(`      ❌ [ERRO] title: ${titleError.message}`);
+            } else {
+              console.log(`      ✅ title salvo`);
+            }
+          } else {
+            console.log(`      ⏭️ title PULADO (sem dados)`);
+          }
+        } catch (e) {
+          console.error(`      ❌ [EXCEPTION] title:`, e);
         }
 
         // Campo: externalIds (tracking e deduplicação)
@@ -769,14 +1120,16 @@ export async function importStaysNetProperties(c: Context) {
         
         console.log(`   🔧 [SAVE CAMPO #4] Continuando para próximos campos...`);
 
-        // Campo: tipoAcomodacao (entire_home, private_room, etc.) - subtype
-        console.log(`   🔧 [SAVE CAMPO #4a] tipoAcomodacao: prop.subtype = ${prop.subtype}`);
-        if (prop.subtype) {
+        // Campo: tipoAcomodacao (UI: apartamento/chale/holiday_home/etc)
+        // Preferir _t_typeMeta (ex.: "Holiday home") e mapear para o código esperado pelo select.
+        const mappedTipoAcomodacao = mapTipoAcomodacaoFromStays(prop);
+        console.log(`   🔧 [SAVE CAMPO #4a] tipoAcomodacao: mapped = ${mappedTipoAcomodacao}`);
+        if (mappedTipoAcomodacao) {
           try {
             const {error: tipoAcomodacaoError} = await supabase.rpc('save_anuncio_field', {
               p_anuncio_id: anuncioId,
               p_field: 'tipoAcomodacao',
-              p_value: prop.subtype,
+              p_value: mappedTipoAcomodacao,
               p_idempotency_key: `tipoAcomodacao-${prop._id}`,
               p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
@@ -784,7 +1137,7 @@ export async function importStaysNetProperties(c: Context) {
             if (tipoAcomodacaoError) {
               console.error(`      ❌ [ERRO] tipoAcomodacao: ${tipoAcomodacaoError.message}`);
             } else {
-              console.log(`      ✅ tipoAcomodacao salvo: ${prop.subtype}`);
+              console.log(`      ✅ tipoAcomodacao salvo: ${mappedTipoAcomodacao}`);
             }
           } catch (e) {
             console.error(`      ❌ [EXCEPTION] tipoAcomodacao:`, e);
@@ -793,14 +1146,15 @@ export async function importStaysNetProperties(c: Context) {
           console.log(`      ⏭️ tipoAcomodacao PULADO (sem dados)`);
         }
 
-        // Campo: tipoLocal (fallback categoria)
-        console.log(`   🔧 [SAVE CAMPO #4b] tipoLocal: prop.category = ${prop.category}`);
-        if (prop.category) {
+        // Campo: tipoLocal (UI: apartamento_residencial/casa/hotel/etc)
+        const mappedTipoLocal = mapTipoLocalFromStays(prop);
+        console.log(`   🔧 [SAVE CAMPO #4b] tipoLocal: mapped = ${mappedTipoLocal}`);
+        if (mappedTipoLocal) {
           try {
             const {error: tipoLocalError} = await supabase.rpc('save_anuncio_field', {
               p_anuncio_id: anuncioId,
               p_field: 'tipoLocal',
-              p_value: prop.category,
+              p_value: mappedTipoLocal,
               p_idempotency_key: `tipoLocal-${prop._id}`,
               p_organization_id: organizationId,
               p_user_id: DEFAULT_USER_ID
@@ -808,13 +1162,122 @@ export async function importStaysNetProperties(c: Context) {
             if (tipoLocalError) {
               console.error(`      ❌ [ERRO] tipoLocal: ${tipoLocalError.message}`);
             } else {
-              console.log(`      ✅ tipoLocal salvo: ${prop.category}`);
+              console.log(`      ✅ tipoLocal salvo: ${mappedTipoLocal}`);
             }
           } catch (e) {
             console.error(`      ❌ [EXCEPTION] tipoLocal:`, e);
           }
         } else {
           console.log(`      ⏭️ tipoLocal PULADO (sem dados)`);
+        }
+
+        // Campo: subtype (UI: entire_place/private_room/shared_room)
+        const mappedSubtype = mapWizardSubtypeFromStays(prop);
+        console.log(`   🔧 [SAVE CAMPO #4d] subtype (wizard): mapped = ${mappedSubtype}`);
+        if (mappedSubtype) {
+          try {
+            const { error: subtypeError } = await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'subtype',
+              p_value: mappedSubtype,
+              p_idempotency_key: `subtype-${prop._id}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+            if (subtypeError) {
+              console.error(`      ❌ [ERRO] subtype: ${subtypeError.message}`);
+            } else {
+              console.log(`      ✅ subtype salvo: ${mappedSubtype}`);
+            }
+          } catch (e) {
+            console.error(`      ❌ [EXCEPTION] subtype:`, e);
+          }
+        } else {
+          console.log(`      ⏭️ subtype PULADO (sem dados)`);
+        }
+
+        // Campo: modalidades (UI) - StaysNet normalmente é "temporada"
+        console.log(`   🔧 [SAVE CAMPO #4e] modalidades (default)`);
+        try {
+          const { error: modalidadesError } = await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'modalidades',
+            p_value: ['temporada'],
+            p_idempotency_key: `modalidades-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+          if (modalidadesError) {
+            console.error(`      ❌ [ERRO] modalidades: ${modalidadesError.message}`);
+          } else {
+            console.log(`      ✅ modalidades salvo`);
+          }
+        } catch (e) {
+          console.error(`      ❌ [EXCEPTION] modalidades:`, e);
+        }
+
+        // Campo: estrutura (UI) - default
+        console.log(`   🔧 [SAVE CAMPO #4f] estrutura (default)`);
+        try {
+          const { error: estruturaError } = await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'estrutura',
+            p_value: 'individual',
+            p_idempotency_key: `estrutura-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+          if (estruturaError) {
+            console.error(`      ❌ [ERRO] estrutura: ${estruturaError.message}`);
+          } else {
+            console.log(`      ✅ estrutura salvo`);
+          }
+        } catch (e) {
+          console.error(`      ❌ [EXCEPTION] estrutura:`, e);
+        }
+
+        // Campos numéricos (UI)
+        // FormularioAnuncio carrega `bedrooms/bathrooms/beds/guests`.
+        if (prop._i_rooms !== undefined) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'bedrooms',
+            p_value: Number(prop._i_rooms) || 0,
+            p_idempotency_key: `bedrooms-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+        if (prop._f_bathrooms !== undefined) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'bathrooms',
+            p_value: Number(prop._f_bathrooms) || 0,
+            p_idempotency_key: `bathrooms-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+        if (prop._i_beds !== undefined) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'beds',
+            p_value: Number(prop._i_beds) || 0,
+            p_idempotency_key: `beds-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+        }
+        const maxGuests = prop._i_maxGuests ?? prop.accommodates;
+        if (maxGuests !== undefined) {
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'guests',
+            p_value: Number(maxGuests) || 0,
+            p_idempotency_key: `guests-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
         }
 
         // Campo: listingType (Entire Place, Private Room, etc.)
@@ -989,6 +1452,121 @@ export async function importStaysNetProperties(c: Context) {
               p_user_id: DEFAULT_USER_ID
             });
           }
+
+          // ==================================================================
+          // UI (FormularioAnuncio) - chaves do Step 02
+          // ==================================================================
+          try {
+            const pais = (prop.address.countryCode === 'BR' || prop.address.country === 'BR' || !prop.address.countryCode)
+              ? 'Brasil'
+              : String(prop.address.countryCode || prop.address.country || '').trim();
+
+            const siglaEstado = String(prop.address.stateCode || '').trim();
+            const estadoNome = String(prop.address.state || '').trim();
+            const cep = String(prop.address.zip || prop.address.zipCode || '').trim();
+            const bairro = String(prop.address.region || prop.address.neighborhood || '').trim();
+            const rua = String(prop.address.street || '').trim();
+            const numero = String(prop.address.streetNumber || prop.address.number || '').trim();
+            const complemento = String(prop.address.additional || prop.address.complement || '').trim();
+
+            if (pais) {
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'pais',
+                p_value: pais,
+                p_idempotency_key: `pais-${prop._id}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+            }
+
+            if (siglaEstado) {
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'sigla_estado',
+                p_value: siglaEstado,
+                p_idempotency_key: `sigla_estado-${prop._id}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+            }
+
+            if (cep) {
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'cep',
+                p_value: cep,
+                p_idempotency_key: `cep-${prop._id}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+            }
+
+            if (bairro) {
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'bairro',
+                p_value: bairro,
+                p_idempotency_key: `bairro-${prop._id}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+            }
+
+            if (rua) {
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'rua',
+                p_value: rua,
+                p_idempotency_key: `rua-${prop._id}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+            }
+
+            if (numero) {
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'numero',
+                p_value: numero,
+                p_idempotency_key: `numero-${prop._id}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+            }
+
+            if (complemento) {
+              await supabase.rpc('save_anuncio_field', {
+                p_anuncio_id: anuncioId,
+                p_field: 'complemento',
+                p_value: complemento,
+                p_idempotency_key: `complemento-${prop._id}`,
+                p_organization_id: organizationId,
+                p_user_id: DEFAULT_USER_ID
+              });
+            }
+
+            // address legado (objeto) no formato esperado pelo loader
+            await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'address',
+              p_value: {
+                street: rua,
+                number: numero,
+                complement: complemento,
+                neighborhood: bairro,
+                city: String(prop.address.city || '').trim(),
+                state: siglaEstado || estadoNome,
+                zipCode: cep,
+                country: pais || 'Brasil'
+              },
+              p_idempotency_key: `address-${prop._id}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+          } catch (e) {
+            console.error(`      ❌ [EXCEPTION] UI address mapping:`, e);
+          }
         }
 
         // === LOCALIZAÇÃO ===
@@ -1014,6 +1592,16 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'fotoPrincipal',
             p_value: prop._t_mainImageMeta.url,
             p_idempotency_key: `fotoPrincipal-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+
+          // UI (Tour): coverPhoto
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'coverPhoto',
+            p_value: prop._t_mainImageMeta.url,
+            p_idempotency_key: `coverPhoto-${prop._id}`,
             p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
@@ -1056,6 +1644,27 @@ export async function importStaysNetProperties(c: Context) {
           }
         }
 
+        // Fallback (2025-12): alguns payloads não trazem `_t_amenitiesMeta`, mas trazem `amenities` (lista de ids).
+        // Para não perder informação, persistimos os IDs em um campo separado.
+        if ((!prop._t_amenitiesMeta || !Array.isArray(prop._t_amenitiesMeta) || prop._t_amenitiesMeta.length === 0) &&
+            prop.amenities && Array.isArray(prop.amenities) && prop.amenities.length > 0) {
+          const amenityIds = prop.amenities
+            .map((a: any) => (a && typeof a === 'object' ? a._id : a))
+            .map((v: any) => (v === null || v === undefined ? '' : String(v).trim()))
+            .filter((v: string) => Boolean(v));
+
+          if (amenityIds.length > 0) {
+            await supabase.rpc('save_anuncio_field', {
+              p_anuncio_id: anuncioId,
+              p_field: 'comodidadesStaysnetIds',
+              p_value: amenityIds,
+              p_idempotency_key: `comodidadesStaysnetIds-${prop._id}`,
+              p_organization_id: organizationId,
+              p_user_id: DEFAULT_USER_ID
+            });
+          }
+        }
+
         // Campo: descricao (_msdesc.pt_BR) - limpar HTML
         if (prop._msdesc?.pt_BR || prop._msdesc?.en_US) {
           const descricaoHtml = prop._msdesc.pt_BR || prop._msdesc.en_US;
@@ -1070,6 +1679,16 @@ export async function importStaysNetProperties(c: Context) {
             p_field: 'descricao',
             p_value: descricaoLimpa,
             p_idempotency_key: `descricao-${prop._id}`,
+            p_organization_id: organizationId,
+            p_user_id: DEFAULT_USER_ID
+          });
+
+          // UI usa `description`
+          await supabase.rpc('save_anuncio_field', {
+            p_anuncio_id: anuncioId,
+            p_field: 'description',
+            p_value: descricaoLimpa,
+            p_idempotency_key: `description-${prop._id}`,
             p_organization_id: organizationId,
             p_user_id: DEFAULT_USER_ID
           });
@@ -1174,7 +1793,8 @@ export async function importStaysNetProperties(c: Context) {
               anuncioId,
               staysHeaders,
               STAYS_API_URL,
-              supabase
+              supabase,
+              organizationId
             );
             
             if (result.success) {

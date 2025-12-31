@@ -323,14 +323,14 @@ export async function getReservationsKpis(c: Context) {
       .eq('check_out', today)
       .not('status', 'in', statusNotIn);
 
-    // In-house = imóveis ocupados hoje.
-    // Regra: contar DISTINCT property_id de reservas ativas hoje.
-    // Motivo: se houver duplicidade/overlap por imóvel, não pode inflar o KPI.
+    // In-house = imóveis ocupados AGORA (sem contar check-ins do próprio dia).
+    // Regra: contar DISTINCT property_id de reservas já iniciadas antes de hoje e ainda ativas.
+    // Motivo: no dashboard, check-ins de hoje já aparecem no card de check-in; manter métricas consistentes.
     const qInHouse = client
       .from('reservations')
       .select('property_id')
       .eq('organization_id', orgIdFinal)
-      .lte('check_in', today)
+      .lt('check_in', today)
       .gt('check_out', today)
       .not('status', 'in', statusNotIn);
 

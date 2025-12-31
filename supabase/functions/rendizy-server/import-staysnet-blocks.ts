@@ -275,24 +275,30 @@ export async function importStaysNetBlocks(c: Context) {
   try {
     const supabase = getSupabaseClient();
 
-    // ✅ Governança (igual import-reservations):
-    // Se existe token de usuário, NÃO pode cair no DEFAULT_ORG_ID.
-    const cookieHeader = c.req.header('Cookie') || '';
-    const hasUserToken = Boolean(c.req.header('X-Auth-Token') || cookieHeader.includes('rendizy-token='));
-
-    let organizationId = DEFAULT_ORG_ID;
-    if (hasUserToken) {
-      organizationId = await getOrganizationIdOrThrow(c);
-    } else {
-      try {
-        organizationId = await getOrganizationIdOrThrow(c);
-      } catch {
-        // sem sessão/token → mantém DEFAULT_ORG_ID (compat chamadas técnicas)
-      }
-    }
-
     // Default range: +-12 meses; override via query ou body
     const body: any = await c.req.json().catch(() => ({}));
+    const rawOrganizationIdFromBody = String(body?.organizationId ?? body?.organization_id ?? '').trim();
+    const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+    // ✅ RISCO ZERO (multi-tenant): tentar sessão (X-Auth-Token/cookie/Authorization), senão exigir org explícita.
+    let organizationId: string | null = null;
+    try {
+      organizationId = await getOrganizationIdOrThrow(c);
+    } catch {
+      // ignore
+    }
+
+    if (!organizationId) {
+      if (rawOrganizationIdFromBody && isUuid(rawOrganizationIdFromBody)) {
+        organizationId = rawOrganizationIdFromBody;
+      } else {
+        return c.json({
+          success: false,
+          error: 'ORG_REQUIRED',
+          message: 'organizationId obrigatório: envie sessão do usuário (X-Auth-Token/cookie/Authorization) ou informe body.organizationId explicitamente.'
+        }, 401);
+      }
+    }
 
 
     const selectedPropertyIds = Array.isArray(body?.selectedPropertyIds)
@@ -302,7 +308,7 @@ export async function importStaysNetBlocks(c: Context) {
         : [];
 
     // Seleção pode vir como IDs Stays (padrão do modal) ou UUID interno.
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const selectedInternalIdSet = new Set<string>();
     const selectedStaysIdSet = new Set<string>();
     for (const id of selectedPropertyIds) {

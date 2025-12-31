@@ -386,19 +386,27 @@ export async function importStaysNetGuests(c: Context) {
   try {
     const supabase = getSupabaseClient();
 
-    // ✅ Multi-tenant: pegar organization_id correto
-    // ⚠️ Se há token de usuário, não pode cair no DEFAULT_ORG_ID.
-    const cookieHeader = c.req.header('Cookie') || '';
-    const hasUserToken = Boolean(c.req.header('X-Auth-Token') || cookieHeader.includes('rendizy-token='));
+    const body = await c.req.json().catch(() => ({} as any));
+    const rawOrganizationIdFromBody = String((body as any)?.organizationId ?? (body as any)?.organization_id ?? '').trim();
+    const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
-    let orgId = DEFAULT_ORG_ID;
-    if (hasUserToken) {
+    // ✅ RISCO ZERO (multi-tenant): tentar sessão (X-Auth-Token/cookie/Authorization), senão exigir org explícita.
+    let orgId: string | null = null;
+    try {
       orgId = await getOrganizationIdOrThrow(c);
-    } else {
-      try {
-        orgId = await getOrganizationIdOrThrow(c);
-      } catch {
-        orgId = DEFAULT_ORG_ID;
+    } catch {
+      // ignore
+    }
+
+    if (!orgId) {
+      if (rawOrganizationIdFromBody && isUuid(rawOrganizationIdFromBody)) {
+        orgId = rawOrganizationIdFromBody;
+      } else {
+        return c.json({
+          success: false,
+          error: 'ORG_REQUIRED',
+          message: 'organizationId obrigatório: envie sessão do usuário (X-Auth-Token/cookie/Authorization) ou informe body.organizationId explicitamente.'
+        }, 401);
       }
     }
 
@@ -417,9 +425,8 @@ export async function importStaysNetGuests(c: Context) {
     const to = toDate.toISOString().split('T')[0];     // YYYY-MM-DD
     
     // Permitir override via body/query
-    const body = await c.req.json().catch(() => null as any);
-    const bodyFrom = body?.from || body?.startDate;
-    const bodyTo = body?.to || body?.endDate;
+    const bodyFrom = (body as any)?.from || (body as any)?.startDate;
+    const bodyTo = (body as any)?.to || (body as any)?.endDate;
     const fromFinal = String((c.req.query('from') || bodyFrom || from) ?? '').trim();
     const toFinal = String((c.req.query('to') || bodyTo || to) ?? '').trim();
     const rawDateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();

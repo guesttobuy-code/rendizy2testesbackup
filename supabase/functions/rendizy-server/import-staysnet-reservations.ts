@@ -632,20 +632,27 @@ export async function importStaysNetReservations(c: Context) {
   let missingPropertyIssueLastError: string | null = null;
 
   try {
-    // ✅ Preferir organization_id real do usuário (via sessions)
-    // ⚠️ IMPORTANTE: se há token de usuário, NÃO pode cair no DEFAULT_ORG_ID
-    // senão a UI “importa” mas grava no tenant errado (parece que não importou).
-    const cookieHeader = c.req.header('Cookie') || '';
-    const hasUserToken = Boolean(c.req.header('X-Auth-Token') || cookieHeader.includes('rendizy-token='));
+    const body: any = await c.req.json().catch(() => ({}));
+    const rawOrganizationIdFromBody = String(body?.organizationId ?? body?.organization_id ?? '').trim();
+    const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
-    let organizationId = DEFAULT_ORG_ID;
-    if (hasUserToken) {
+    // ✅ RISCO ZERO (multi-tenant): tentar sessão (X-Auth-Token/cookie/Authorization), senão exigir org explícita.
+    let organizationId: string | null = null;
+    try {
       organizationId = await getOrganizationIdOrThrow(c);
-    } else {
-      try {
-        organizationId = await getOrganizationIdOrThrow(c);
-      } catch {
-        // sem sessão/token → mantém DEFAULT_ORG_ID (compat chamadas técnicas)
+    } catch {
+      // ignore
+    }
+
+    if (!organizationId) {
+      if (rawOrganizationIdFromBody && isUuid(rawOrganizationIdFromBody)) {
+        organizationId = rawOrganizationIdFromBody;
+      } else {
+        return c.json({
+          success: false,
+          error: 'ORG_REQUIRED',
+          message: 'organizationId obrigatório: envie sessão do usuário (X-Auth-Token/cookie/Authorization) ou informe body.organizationId explicitamente.'
+        }, 401);
       }
     }
 
@@ -656,8 +663,6 @@ export async function importStaysNetReservations(c: Context) {
     
     // ✅ CORREÇÃO: API exige from, to, dateType (não startDate/endDate)
     // Default: últimos 12 meses e próximos 12 meses (override via querystring ou body)
-    const body: any = await c.req.json().catch(() => ({}));
-
     // ✅ (Opcional) Restringir importação aos imóveis selecionados na UI
     // Esperado: array de IDs StaysNet do listing (ex.: campo `_idlisting` nas reservations)
     const rawSelectedPropertyIds = Array.isArray(body?.selectedPropertyIds) ? body.selectedPropertyIds : [];

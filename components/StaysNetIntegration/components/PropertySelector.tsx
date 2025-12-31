@@ -32,7 +32,8 @@ export function PropertySelector({
 
   const getStableId = (p: StaysNetProperty): string => {
     const anyP: any = p as any;
-    return String(p.id || anyP?._id || '').trim();
+    // Prefer `_id` (listing primary id) when available.
+    return String(anyP?._id || (p as any)?._id || p.id || anyP?.id || '').trim();
   };
 
   const normalizeText = (value: unknown): string => {
