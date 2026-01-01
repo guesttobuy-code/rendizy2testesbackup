@@ -3,6 +3,7 @@ import { MainSidebar } from '../MainSidebar';
 import { LoadingProgress } from '../LoadingProgress';
 import { SettingsManager } from '../SettingsManager';
 import { cn } from '../ui/utils';
+import { useAuth } from '../../src/contexts/AuthContext';
 
 interface SettingsModuleProps {
   sidebarCollapsed: boolean;
@@ -21,6 +22,9 @@ export function SettingsModule({
   onSearchReservation,
   onAdvancedSearch,
 }: SettingsModuleProps) {
+  const { organization, user } = useAuth();
+  const organizationId = organization?.id || user?.organizationId;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       <LoadingProgress isLoading={initialLoading} />
@@ -40,8 +44,8 @@ export function SettingsModule({
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72',
         )}
       >
-        <div className="flex-1 overflow-auto">
-          <SettingsManager />
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <SettingsManager organizationId={organizationId} />
         </div>
       </div>
     </div>

@@ -66,6 +66,27 @@ export function useProperties() {
           const title = a.data?.title || a.title || 'Sem título';
           const internalId = a.data?.internalId || a.data?.internal_id || a.internalId || a.internal_id || '';
           const propertyId = a.id || '';
+          const pricing = a.data?.pricing || a.pricing || {};
+
+          const toNumberOrUndefined = (v: unknown): number | undefined => {
+            if (v === null || v === undefined) return undefined;
+            const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'));
+            if (!Number.isFinite(n)) return undefined;
+            return n;
+          };
+
+          const basePriceRaw =
+            pricing?.basePrice ??
+            pricing?.base_price ??
+            a.data?.basePrice ??
+            a.data?.base_price ??
+            a.data?.preco_base_noite ??
+            a.data?.precoBaseNoite ??
+            a.pricing_base_price ??
+            a.basePrice ??
+            a.base_price;
+
+          const basePrice = toNumberOrUndefined(basePriceRaw);
           const coverPhoto =
             a.data?.coverPhoto ||
             a.data?.cover_photo ||
@@ -81,6 +102,7 @@ export function useProperties() {
             title,
             internalId,
             coverPhoto,
+            basePrice,
             image: coverPhoto || 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=100&h=100&fit=crop',
             type: 'Imóvel',
             location: 'A definir',

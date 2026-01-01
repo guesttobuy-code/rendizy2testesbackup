@@ -112,22 +112,7 @@ const getDaysInMonth = (date: Date, dateRange?: { from: Date; to: Date }) => {
   return days;
 };
 
-// Mock base prices (por dia)
-const getBasePrice = (propertyId: string, date: Date): number => {
-  const dayOfWeek = date.getDay();
-  const isWeekend = dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0; // Fri, Sat, Sun
-  
-  const basePrices: Record<string, { weekday: number; weekend: number }> = {
-    '1': { weekday: 300, weekend: 400 },
-    '2': { weekday: 250, weekend: 350 },
-    '3': { weekday: 200, weekend: 280 },
-    '4': { weekday: 280, weekend: 380 }
-  };
-  
-  return isWeekend 
-    ? basePrices[propertyId]?.weekend || 300 
-    : basePrices[propertyId]?.weekday || 250;
-};
+
 
 const getReservationForPropertyAndDate = (
   propertyId: string,
@@ -284,6 +269,14 @@ export function Calendar({
   onReservationClick,
   onBlockClick
 }: CalendarProps) {
+  const formatPriceCell = (value: number | undefined | null): string => {
+    if (value === null || value === undefined) return '—';
+    const n = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(n)) return '—';
+    const rounded = Math.round(n * 100) / 100;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+  };
+
   // Coluna de imóveis redimensionável (splitter)
   const DEFAULT_LEFT_COL_WIDTH = 180;
   const MIN_LEFT_COL_WIDTH = 160;
@@ -1267,6 +1260,7 @@ export function Calendar({
                           </td>
                           {days.map((day, idx) => {
                             const isSelected = isDateInBasePriceSelection(property.id, day);
+                            const basePrice = property.basePrice;
                             return (
                               <td
                                 key={idx}
@@ -1277,7 +1271,7 @@ export function Calendar({
                                 onMouseEnter={() => handleBasePriceMouseEnter(property.id, day)}
                                 onMouseUp={handleBasePriceMouseUp}
                               >
-                                <span className="text-blue-600">398</span>
+                                <span className="text-blue-600">{formatPriceCell(basePrice)}</span>
                               </td>
                             );
                           })}
@@ -1296,6 +1290,8 @@ export function Calendar({
                           </td>
                           {days.map((day, idx) => {
                             const isSelected = isDateInWeekly7PriceSelection(property.id, day);
+                            const basePrice = property.basePrice;
+                            const weekly7 = typeof basePrice === 'number' ? basePrice * 0.98 : undefined;
                             return (
                               <td
                                 key={idx}
@@ -1306,7 +1302,7 @@ export function Calendar({
                                 onMouseEnter={() => handleWeekly7PriceMouseEnter(property.id, day)}
                                 onMouseUp={handleWeekly7PriceMouseUp}
                               >
-                                <span className="text-blue-600">390.04</span>
+                                <span className="text-blue-600">{formatPriceCell(weekly7)}</span>
                               </td>
                             );
                           })}
@@ -1325,6 +1321,8 @@ export function Calendar({
                           </td>
                           {days.map((day, idx) => {
                             const isSelected = isDateInCustom15PriceSelection(property.id, day);
+                            const basePrice = property.basePrice;
+                            const custom15 = typeof basePrice === 'number' ? basePrice * 0.96 : undefined;
                             return (
                               <td
                                 key={idx}
@@ -1335,7 +1333,7 @@ export function Calendar({
                                 onMouseEnter={() => handleCustom15PriceMouseEnter(property.id, day)}
                                 onMouseUp={handleCustom15PriceMouseUp}
                               >
-                                <span className="text-blue-600">382.08</span>
+                                <span className="text-blue-600">{formatPriceCell(custom15)}</span>
                               </td>
                             );
                           })}
@@ -1354,6 +1352,8 @@ export function Calendar({
                           </td>
                           {days.map((day, idx) => {
                             const isSelected = isDateInMonthly28PriceSelection(property.id, day);
+                            const basePrice = property.basePrice;
+                            const monthly28 = typeof basePrice === 'number' ? basePrice * 0.88 : undefined;
                             return (
                               <td
                                 key={idx}
@@ -1364,7 +1364,7 @@ export function Calendar({
                                 onMouseEnter={() => handleMonthly28PriceMouseEnter(property.id, day)}
                                 onMouseUp={handleMonthly28PriceMouseUp}
                               >
-                                <span className="text-blue-600">350.24</span>
+                                <span className="text-blue-600">{formatPriceCell(monthly28)}</span>
                               </td>
                             );
                           })}

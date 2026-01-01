@@ -16,7 +16,6 @@ import {
   Building2,
   Save,
   RotateCcw,
-  Copy,
   CheckCircle2,
   AlertCircle,
   ChevronDown,
@@ -39,7 +38,9 @@ import {
   Zap,
   CheckCircle,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -73,6 +74,7 @@ interface GlobalSettings {
   minimum_nights: any;
   advance_booking: any;
   additional_fees: any;
+  stay_discounts?: any;
   house_rules: any;
   communication: any;
   created_at: string;
@@ -90,6 +92,7 @@ interface ListingSettings {
     minimum_nights: boolean;
     advance_booking: boolean;
     additional_fees: boolean;
+    stay_discounts?: boolean;
     house_rules: boolean;
     communication: boolean;
   };
@@ -99,6 +102,7 @@ interface ListingSettings {
   minimum_nights?: any;
   advance_booking?: any;
   additional_fees?: any;
+  stay_discounts?: any;
   house_rules?: any;
   communication?: any;
   created_at: string;
@@ -121,6 +125,7 @@ export function SettingsManager({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
+  const [hasLoadedGlobalSettings, setHasLoadedGlobalSettings] = useState(false);
   const [listingSettings, setListingSettings] = useState<ListingSettings | null>(null);
   const [effectiveSettings, setEffectiveSettings] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['cancellation_policy']));
@@ -128,6 +133,29 @@ export function SettingsManager({
   useEffect(() => {
     loadSettings();
   }, [organizationId, listingId, mode]);
+
+  const getLocalStorageKey = (suffix: string) => {
+    const safeOrg = organizationId && organizationId !== 'undefined' ? organizationId : 'unknown-org';
+    return `rendizy:settings:${safeOrg}:${suffix}`;
+  };
+
+  const loadLocalJson = (key: string) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  };
+
+  const saveLocalJson = (key: string, value: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // ignore
+    }
+  };
 
   // ============================================================================
   // API CALLS
@@ -138,6 +166,7 @@ export function SettingsManager({
     if (isOfflineMode()) {
       console.log('📴 [OFFLINE] SettingsManager: não carregando settings');
       setLoading(false);
+      setHasLoadedGlobalSettings(false);
       return;
     }
     
@@ -162,7 +191,14 @@ export function SettingsManager({
         );
         const data = await response.json();
         if (data.success) {
-          setGlobalSettings(data.data);
+          const localDiscounts = loadLocalJson(getLocalStorageKey('stay_discounts'));
+          setGlobalSettings({
+            ...data.data,
+            ...(localDiscounts ? { stay_discounts: localDiscounts } : {})
+          });
+          setHasLoadedGlobalSettings(true);
+        } else {
+          setHasLoadedGlobalSettings(false);
         }
       } else if (mode === 'individual' && listingId) {
         // Carregar configurações do listing (efetivas)
@@ -187,6 +223,7 @@ export function SettingsManager({
       if (!isOfflineMode()) {
         toast.error('Erro ao carregar configurações');
       }
+      setHasLoadedGlobalSettings(false);
     } finally {
       setLoading(false);
     }
@@ -207,6 +244,19 @@ export function SettingsManager({
         return;
       }
 
+      // Evita enviar um objeto parcial (ex.: quando ainda não carregou do backend e estamos em modo "rascunho" local)
+      if (!hasLoadedGlobalSettings || !globalSettings.id || !globalSettings.organization_id) {
+        toast.error('Configurações globais ainda não carregaram; não é possível salvar agora');
+        return;
+      }
+
+      // Campos locais (ainda não persistidos pelo backend) não podem ser perdidos após o PUT.
+      // Ex.: stay_discounts é armazenado no localStorage.
+      const localStayDiscounts = globalSettings.stay_discounts;
+      if (localStayDiscounts !== undefined) {
+        saveLocalJson(getLocalStorageKey('stay_discounts'), localStayDiscounts);
+      }
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${organizationId}/settings/global`,
         {
@@ -223,7 +273,10 @@ export function SettingsManager({
       const data = await response.json();
       if (data.success) {
         toast.success('Configurações salvas com sucesso!');
-        setGlobalSettings(data.data);
+        setGlobalSettings({
+          ...data.data,
+          ...(localStayDiscounts !== undefined ? { stay_discounts: localStayDiscounts } : {})
+        });
       } else {
         toast.error(data.error || 'Erro ao salvar');
       }
@@ -320,30 +373,6 @@ export function SettingsManager({
     }
   };
 
-  const applyToAll = async () => {
-    if (!confirm('Aplicar configurações globais a TODOS os listings? Isso removerá todos os overrides.')) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${organizationId}/settings/apply-to-all`,
-        {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
-        }
-      );
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success(`Aplicado a ${data.data.affected_listings} listings!`);
-      }
-    } catch (error) {
-      console.error('Error applying to all:', error);
-      toast.error('Erro ao aplicar');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ============================================================================
   // HELPERS
@@ -373,6 +402,8 @@ export function SettingsManager({
         return Calendar;
       case 'additional_fees':
         return DollarSign;
+      case 'stay_discounts':
+        return DollarSign;
       case 'house_rules':
         return Home;
       case 'communication':
@@ -391,11 +422,13 @@ export function SettingsManager({
       case 'security_deposit':
         return 'Depósito / Caução';
       case 'minimum_nights':
-        return 'Noites Mínimas';
+        return 'Estadia mínima';
       case 'advance_booking':
         return 'Antecedência para Reserva';
       case 'additional_fees':
         return 'Taxas Adicionais';
+      case 'stay_discounts':
+        return 'Desconto por duração';
       case 'house_rules':
         return 'Regras da Casa';
       case 'communication':
@@ -566,6 +599,366 @@ export function SettingsManager({
     );
   };
 
+  const renderMinimumNights = (settings: any, isGlobal: boolean) => {
+    const data =
+      settings?.minimum_nights ??
+      ({
+        enabled: false,
+        default_min_nights: 1,
+        weekend_min_nights: undefined,
+        holiday_min_nights: undefined,
+        high_season_min_nights: undefined
+      } as any);
+
+    const update = (patch: any) => {
+      if (!isGlobal || !globalSettings) return;
+      setGlobalSettings({
+        ...globalSettings,
+        minimum_nights: {
+          ...data,
+          ...patch
+        }
+      });
+    };
+
+    const parsePositiveInt = (value: string, fallback: number) => {
+      const n = parseInt(value, 10);
+      return Number.isFinite(n) && n >= 1 ? n : fallback;
+    };
+
+    const parseOptionalPositiveInt = (value: string) => {
+      const n = parseInt(value, 10);
+      return Number.isFinite(n) && n >= 1 ? n : undefined;
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Estadia mínima (mínimo de noites)</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Defina o número mínimo de noites para confirmar uma reserva.
+            </p>
+          </div>
+          <Switch
+            checked={!!data.enabled}
+            onCheckedChange={(checked) => update({ enabled: checked })}
+            disabled={!isGlobal}
+          />
+        </div>
+
+        {data.enabled && (
+          <>
+            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <div className="flex gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="text-foreground mb-1">Informação</p>
+                  <p className="text-muted-foreground">
+                    Esta regra afeta reservas (criação/validação) e pode impactar disponibilidade.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Qual a estadia mínima para uma reserva?</Label>
+              <div className="mt-1 flex items-stretch max-w-md">
+                <div className="px-3 flex items-center rounded-l-md border border-border bg-muted text-xs text-muted-foreground">
+                  Min
+                </div>
+                <Input
+                  type="number"
+                  value={data.default_min_nights ?? 1}
+                  onChange={(e) => update({ default_min_nights: parsePositiveInt(e.target.value, 1) })}
+                  className="rounded-none border-l-0 border-r-0 bg-input border-border"
+                  disabled={!isGlobal}
+                  min={1}
+                />
+                <div className="px-3 flex items-center rounded-r-md border border-border bg-muted text-xs text-muted-foreground">
+                  noites
+                </div>
+              </div>
+            </div>
+
+            <Separator className="bg-border" />
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-xs">Fim de semana (opcional)</Label>
+                <Input
+                  type="number"
+                  value={data.weekend_min_nights ?? ''}
+                  onChange={(e) => update({ weekend_min_nights: parseOptionalPositiveInt(e.target.value) })}
+                  className="mt-1 bg-input border-border"
+                  placeholder="Ex.: 2"
+                  disabled={!isGlobal}
+                  min={1}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Feriados (opcional)</Label>
+                <Input
+                  type="number"
+                  value={data.holiday_min_nights ?? ''}
+                  onChange={(e) => update({ holiday_min_nights: parseOptionalPositiveInt(e.target.value) })}
+                  className="mt-1 bg-input border-border"
+                  placeholder="Ex.: 3"
+                  disabled={!isGlobal}
+                  min={1}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Alta temporada (opcional)</Label>
+                <Input
+                  type="number"
+                  value={data.high_season_min_nights ?? ''}
+                  onChange={(e) => update({ high_season_min_nights: parseOptionalPositiveInt(e.target.value) })}
+                  className="mt-1 bg-input border-border"
+                  placeholder="Ex.: 5"
+                  disabled={!isGlobal}
+                  min={1}
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderStayDiscounts = (settings: any, isGlobal: boolean) => {
+    const data =
+      settings?.stay_discounts ??
+      ({
+        enabled: false,
+        weekly: { min_nights: 7, discount_percent: 0 },
+        custom: { min_nights: 15, discount_percent: 0 },
+        monthly: { min_nights: 28, discount_percent: 0 },
+        rules: undefined
+      } as any);
+
+    const update = (patch: any) => {
+      // Se não é global (modo individual), não permitir edição
+      if (!isGlobal) {
+        return;
+      }
+      
+      const next = {
+        ...data,
+        ...patch
+      };
+      
+      // Persistir no localStorage sempre (mesmo se globalSettings ainda não carregou)
+      saveLocalJson(getLocalStorageKey('stay_discounts'), next);
+
+      // Atualizar state sempre, para não "travar" inputs controlados quando globalSettings ainda é null.
+      setGlobalSettings((prev) => ({
+        ...(prev ?? ({} as any)),
+        stay_discounts: next
+      }));
+    };
+
+    const parsePercent = (value: string, fallback: number) => {
+      const n = Number(String(value).replace(',', '.'));
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(0, Math.min(100, n));
+    };
+
+    const parseMinNights = (value: string, fallback: number) => {
+      const n = parseInt(value, 10);
+      return Number.isFinite(n) && n >= 1 ? n : fallback;
+    };
+
+    const ensureId = () => {
+      try {
+        // Browser support (https)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyCrypto: any = (globalThis as any).crypto;
+        if (anyCrypto?.randomUUID) return anyCrypto.randomUUID();
+      } catch {
+        // ignore
+      }
+      return `rule_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    };
+
+    const normalizedRules = (() => {
+      if (Array.isArray(data.rules) && data.rules.length) return data.rules;
+      return [
+        {
+          id: 'weekly',
+          label: 'Semanal',
+          min_nights: data.weekly?.min_nights ?? 7,
+          discount_percent: data.weekly?.discount_percent ?? 0,
+          preset: 'weekly'
+        },
+        {
+          id: 'custom',
+          label: 'Personalizado',
+          min_nights: data.custom?.min_nights ?? 15,
+          discount_percent: data.custom?.discount_percent ?? 0,
+          preset: 'custom'
+        },
+        {
+          id: 'monthly',
+          label: 'Mensal',
+          min_nights: data.monthly?.min_nights ?? 28,
+          discount_percent: data.monthly?.discount_percent ?? 0,
+          preset: 'monthly'
+        }
+      ];
+    })();
+
+    const updateRules = (rules: any[]) => {
+      // mantém os campos legados (weekly/custom/monthly) sincronizados quando possível
+      const nextWeekly = rules.find((r) => r.preset === 'weekly') ?? data.weekly;
+      const nextCustom = rules.find((r) => r.preset === 'custom') ?? data.custom;
+      const nextMonthly = rules.find((r) => r.preset === 'monthly') ?? data.monthly;
+
+      update({
+        enabled: true,
+        rules,
+        weekly: nextWeekly ? { min_nights: nextWeekly.min_nights, discount_percent: nextWeekly.discount_percent } : data.weekly,
+        custom: nextCustom ? { min_nights: nextCustom.min_nights, discount_percent: nextCustom.discount_percent } : data.custom,
+        monthly: nextMonthly ? { min_nights: nextMonthly.min_nights, discount_percent: nextMonthly.discount_percent } : data.monthly
+      });
+    };
+
+    const addCustomRule = () => {
+      const next = [
+        ...normalizedRules,
+        {
+          id: ensureId(),
+          label: 'Personalizado',
+          min_nights: 1,
+          discount_percent: 0
+        }
+      ];
+      updateRules(next);
+    };
+
+    const RuleRow = ({ rule }: { rule: any }) => {
+      const canDelete = !['weekly', 'custom', 'monthly'].includes(rule.id);
+
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+          <div className="md:col-span-4">
+            <Label className="text-xs">{rule.label || 'Desconto'}</Label>
+          </div>
+
+          <div className="md:col-span-4">
+            <div className="flex items-stretch">
+              <div className="px-3 flex items-center rounded-l-md border border-border bg-muted text-xs text-muted-foreground">
+                Min
+              </div>
+              <Input
+                type="number"
+                value={rule.min_nights ?? 1}
+                onChange={(e) => {
+                  const next = normalizedRules.map((r: any) =>
+                    r.id === rule.id ? { ...r, min_nights: parseMinNights(e.target.value, 1) } : r
+                  );
+                  updateRules(next);
+                }}
+                className="rounded-none border-l-0 border-r-0 bg-input border-border"
+                disabled={!isGlobal}
+                min={1}
+              />
+              <div className="px-3 flex items-center rounded-r-md border border-border bg-muted text-xs text-muted-foreground">
+                noites
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-3">
+            <div className="flex items-stretch">
+              <div className="px-3 flex items-center rounded-l-md border border-border bg-muted text-xs text-muted-foreground">
+                %
+              </div>
+              <Input
+                type="number"
+                value={rule.discount_percent ?? 0}
+                onChange={(e) => {
+                  const next = normalizedRules.map((r: any) =>
+                    r.id === rule.id ? { ...r, discount_percent: parsePercent(e.target.value, 0) } : r
+                  );
+                  updateRules(next);
+                }}
+                className="rounded-r-md border-l-0 bg-input border-border"
+                disabled={!isGlobal}
+                min={0}
+                max={100}
+                step={0.5}
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-1 flex justify-end">
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={!isGlobal || !canDelete}
+              onClick={() => {
+                const next = normalizedRules.filter((r: any) => r.id !== rule.id);
+                updateRules(next);
+              }}
+              className={canDelete ? 'text-muted-foreground hover:text-red-600' : 'opacity-0 pointer-events-none'}
+              title={canDelete ? 'Remover' : ''}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Desconto por período (duração da estadia)</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure descontos automáticos conforme a quantidade de noites reservadas.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!isGlobal}
+            onClick={(e) => {
+              // evita que o clique seja capturado por triggers/accordions/overlays
+              e.preventDefault();
+              e.stopPropagation();
+              addCustomRule();
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Definir desconto
+          </Button>
+        </div>
+
+        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="text-foreground mb-1">Informação</p>
+              <p className="text-muted-foreground">
+                Esses descontos devem ser aplicados no cálculo de preço das reservas.
+                (Tela criada agora; integração será conectada na etapa seguinte.)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {normalizedRules.map((rule: any) => (
+            <RuleRow key={rule.id} rule={rule} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderSection = (section: string, settings: any, isGlobal: boolean) => {
     const SectionIcon = getSectionIcon(section);
     const isExpanded = expandedSections.has(section);
@@ -616,8 +1009,10 @@ export function SettingsManager({
           <CardContent className="pt-4 border-t border-border">
             {section === 'cancellation_policy' && renderCancellationPolicy(settings, isGlobal)}
             {section === 'checkin_checkout' && renderCheckinCheckout(settings, isGlobal)}
+            {section === 'minimum_nights' && renderMinimumNights(settings, isGlobal)}
+            {section === 'stay_discounts' && renderStayDiscounts(settings, isGlobal)}
             {/* Outros renders aqui */}
-            {!['cancellation_policy', 'checkin_checkout'].includes(section) && (
+            {!['cancellation_policy', 'checkin_checkout', 'minimum_nights', 'stay_discounts'].includes(section) && (
               <p className="text-muted-foreground text-sm">Configurações de {getSectionName(section)}</p>
             )}
           </CardContent>
@@ -646,8 +1041,24 @@ export function SettingsManager({
     'minimum_nights',
     'advance_booking',
     'additional_fees',
+    'stay_discounts',
     'house_rules',
     'communication'
+  ];
+
+  const reservationSections = [
+    'cancellation_policy',
+    'checkin_checkout',
+    'minimum_nights',
+    'advance_booking',
+    'house_rules',
+    'communication'
+  ];
+
+  const pricingSections = [
+    'security_deposit',
+    'additional_fees',
+    'stay_discounts'
   ];
 
   const currentSettings = mode === 'global' ? globalSettings : effectiveSettings;
@@ -667,160 +1078,221 @@ export function SettingsManager({
         </div>
       </div>
 
-      {/* Tabs - Organizadas em dois níveis */}
-      <Tabs defaultValue="properties" className="w-full">
-        {/* Primeiro Nível - Configurações Principais */}
+      {/* Tabs - Organizadas por temas */}
+      <Tabs defaultValue="gerais" className="w-full">
         <div className="border-b border-border bg-muted">
-          <TabsList className="w-full justify-start bg-transparent rounded-none h-auto p-0">
+          <TabsList className="w-full max-w-full overflow-x-hidden flex-col sm:flex-row items-stretch justify-start bg-transparent rounded-none h-auto p-0">
             <TabsTrigger
-              value="properties"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
+              value="anuncios-ultimate"
+              className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-3 sm:px-6 py-2.5 sm:py-3"
             >
               <Home className="h-4 w-4 mr-2" />
-              Propriedades
+              Anúncios Ultimate
+            </TabsTrigger>
+            <TabsTrigger
+              value="reservas"
+              className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-3 sm:px-6 py-2.5 sm:py-3"
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Reservas
+            </TabsTrigger>
+            <TabsTrigger
+              value="precificacao"
+              className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-3 sm:px-6 py-2.5 sm:py-3"
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Precificação
             </TabsTrigger>
             <TabsTrigger
               value="chat"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
+              className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-3 sm:px-6 py-2.5 sm:py-3"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               Chat
             </TabsTrigger>
             <TabsTrigger
-              value="property-types"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
-            >
-              <Building2 className="h-4 w-4 mr-2" />
-              Tipos de Imóveis
-            </TabsTrigger>
-            <TabsTrigger
-              value="locations-listings"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3"
-            >
-              <Home className="h-4 w-4 mr-2" />
-              Locais e Anúncios
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        {/* Segundo Nível - Configurações Avançadas */}
-        <div className="border-b border-border bg-muted/50">
-          <TabsList className="w-full justify-start bg-transparent rounded-none h-auto p-0">
-            <TabsTrigger
-              value="location-amenities"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-6 py-2.5 text-sm"
-            >
-              <Building2 className="h-4 w-4 mr-2" />
-              Amenidades de Locais
-            </TabsTrigger>
-            <TabsTrigger
-              value="integrations"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-6 py-2.5 text-sm"
+              value="integracoes"
+              className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-3 sm:px-6 py-2.5 sm:py-3"
             >
               <Zap className="h-4 w-4 mr-2" />
               Integrações
             </TabsTrigger>
             <TabsTrigger
-              value="data-reconciliation"
-              className="data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-6 py-2.5 text-sm"
+              value="gerais"
+              className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-3 sm:px-6 py-2.5 sm:py-3"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Conciliação de Dados
+              <Settings className="h-4 w-4 mr-2" />
+              Configurações gerais
             </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* Properties Settings Tab */}
-        <TabsContent value="properties" className="mt-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl text-foreground flex items-center gap-3">
-                {mode === 'global' ? (
-                  <>
-                    <Globe className="h-5 w-5 text-blue-400" />
-                    Configurações Globais
-                  </>
-                ) : (
-                  <>
-                    <Building2 className="h-5 w-5 text-orange-400" />
-                    Configurações Individuais
-                  </>
-                )}
-              </h3>
-              <p className="text-muted-foreground text-sm mt-1">
-                {mode === 'global'
-                  ? 'Aplicadas a todos os listings da organização'
-                  : 'Override das configurações globais para este listing'}
-              </p>
+        {(() => {
+          const renderSettingsEditor = (editorSections: string[]) => (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl text-foreground flex items-center gap-3">
+                    {mode === 'global' ? (
+                      <>
+                        <Globe className="h-5 w-5 text-blue-400" />
+                        Configurações Globais
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="h-5 w-5 text-orange-400" />
+                        Configurações Individuais
+                      </>
+                    )}
+                  </h3>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    {mode === 'global'
+                      ? 'Aplicadas a todos os listings da organização'
+                      : 'Override das configurações globais para este listing'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {mode === 'individual' && (
+                    <Button variant="outline" onClick={resetToGlobal} disabled={loading}>
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Resetar para Global
+                    </Button>
+                  )}
+                  <Button
+                    onClick={mode === 'global' ? saveGlobalSettings : saveListingSettings}
+                    disabled={saving || (mode === 'global' && !hasLoadedGlobalSettings)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Salvar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {editorSections.map((section) => renderSection(section, currentSettings, mode === 'global'))}
+              </div>
             </div>
-            <div className="flex gap-2">
-              {mode === 'individual' && (
-                <Button variant="outline" onClick={resetToGlobal} disabled={loading}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Resetar para Global
-                </Button>
-              )}
-              {mode === 'global' && (
-                <Button variant="outline" onClick={applyToAll} disabled={loading}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Aplicar a Todos
-                </Button>
-              )}
-              <Button
-                onClick={mode === 'global' ? saveGlobalSettings : saveListingSettings}
-                disabled={saving}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Salvar
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+          );
 
-          {/* Sections */}
-          <div className="space-y-4">
-            {sections.map((section) => renderSection(section, currentSettings, mode === 'global'))}
-          </div>
-        </TabsContent>
+          return (
+            <>
+              {/* Anúncios Ultimate */}
+              <TabsContent value="anuncios-ultimate" className="mt-6">
+                <Tabs defaultValue="locations-listings" className="w-full">
+                  <div className="border-b border-border bg-muted/50">
+                    <TabsList className="w-full max-w-full overflow-x-hidden flex-col sm:flex-row items-stretch justify-start bg-transparent rounded-none h-auto p-0">
+                      <TabsTrigger
+                        value="locations-listings"
+                        className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
+                      >
+                        <Home className="h-4 w-4 mr-2" />
+                        Locais e Anúncios
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="property-types"
+                        className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
+                      >
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Tipos de Imóveis
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="location-amenities"
+                        className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
+                      >
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Amenidades de Locais
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
-        {/* Chat Settings Tab */}
-        <TabsContent value="chat" className="mt-6">
-          <ChatSettingsTab organizationId={organizationId} />
-        </TabsContent>
+                  <TabsContent value="locations-listings" className="mt-6">
+                    <LocationsListingsSettings />
+                  </TabsContent>
+                  <TabsContent value="property-types" className="mt-6">
+                    <PropertyTypesManager />
+                  </TabsContent>
+                  <TabsContent value="location-amenities" className="mt-6">
+                    <LocationAmenitiesSettings />
+                  </TabsContent>
+                </Tabs>
+              </TabsContent>
 
-        {/* Property Types Settings Tab */}
-        <TabsContent value="property-types" className="mt-6">
-          <PropertyTypesManager />
-        </TabsContent>
+              {/* Reservas */}
+              <TabsContent value="reservas" className="mt-6">
+                {renderSettingsEditor(reservationSections)}
+              </TabsContent>
 
-        {/* Locations & Listings Settings Tab */}
-        <TabsContent value="locations-listings" className="mt-6">
-          <LocationsListingsSettings />
-        </TabsContent>
+              {/* Precificação */}
+              <TabsContent value="precificacao" className="mt-6">
+                {renderSettingsEditor(pricingSections.length ? pricingSections : sections)}
+              </TabsContent>
 
-        {/* Location Amenities Settings Tab */}
-        <TabsContent value="location-amenities" className="mt-6">
-          <LocationAmenitiesSettings />
-        </TabsContent>
+              {/* Chat */}
+              <TabsContent value="chat" className="mt-6">
+                <ChatSettingsTab organizationId={organizationId} />
+              </TabsContent>
 
-        {/* Integrations Tab */}
-        <TabsContent value="integrations" className="mt-6">
-          <IntegrationsManager />
-        </TabsContent>
+              {/* Integrações (inclui Conciliação de Dados) */}
+              <TabsContent value="integracoes" className="mt-6">
+                <Tabs defaultValue="integrations" className="w-full">
+                  <div className="border-b border-border bg-muted/50">
+                    <TabsList className="w-full max-w-full overflow-x-hidden flex-col sm:flex-row items-stretch justify-start bg-transparent rounded-none h-auto p-0">
+                      <TabsTrigger
+                        value="integrations"
+                        className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
+                      >
+                        <Zap className="h-4 w-4 mr-2" />
+                        Integrações
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="data-reconciliation"
+                        className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Conciliação de Dados
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
-        {/* Data Reconciliation Tab */}
-        <TabsContent value="data-reconciliation" className="mt-6">
-          <DataReconciliationManager />
-        </TabsContent>
+                  <TabsContent value="integrations" className="mt-6">
+                    <IntegrationsManager />
+                  </TabsContent>
+                  <TabsContent value="data-reconciliation" className="mt-6">
+                    <DataReconciliationManager />
+                  </TabsContent>
+                </Tabs>
+              </TabsContent>
+
+              {/* Configurações gerais ("caixa de entrada" temporária) */}
+              <TabsContent value="gerais" className="mt-6">
+                <Card className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="text-card-foreground">Configurações gerais</CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      Use esta seção como destino temporário para configurações que ainda não se encaixam
+                      em Anúncios Ultimate, Reservas, Precificação, Chat ou Integrações.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Sem itens por enquanto.
+                    </p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </>
+          );
+        })()}
       </Tabs>
     </div>
   );

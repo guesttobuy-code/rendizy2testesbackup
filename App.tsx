@@ -158,6 +158,8 @@ export interface Property {
   image: string;
   /** Foto de capa (quando disponível). */
   coverPhoto?: string;
+  /** Preço base do anúncio (ex.: preco_base_noite / pricing.basePrice). */
+  basePrice?: number;
   type: string;
   location: string;
   tarifGroup: string;
