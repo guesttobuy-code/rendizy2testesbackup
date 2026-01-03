@@ -59,12 +59,13 @@ function NewGuestForm({ onCancel, onSuccess }: {
     setCreating(true);
     try {
       console.log('📤 Criando novo hóspede:', { firstName, lastName, email, phone });
-      const response = await guestsApi.create({
+      // ✅ Preferir ensure: se já existir na org, reutiliza; se não existir, cria
+      const response = await guestsApi.ensure({
         firstName,
         lastName,
+        fullName: `${firstName} ${lastName}`.trim(),
         email,
         phone,
-        source: 'direct' // ✅ CORREÇÃO v1.0.103.339: usar 'direct' ao invés de 'manual'
       });
 
       if (response.success && response.data) {
