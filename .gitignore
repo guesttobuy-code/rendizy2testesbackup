@@ -98,3 +98,6 @@ staysnet-raw-sample.json
 
 # --- Local exports (PII / auditoria) ---
 _reports/
+
+# --- Large patch artifacts (do not commit) ---
+docs/08-archive/_inventory/**/*.patch
