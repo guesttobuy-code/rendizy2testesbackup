@@ -19,9 +19,8 @@ interface FinancialIndividualPricingData {
   pricingMode: 'global' | 'individual';
   basePricePerNight: number;
   currency: string;
-  enableStayDiscounts: boolean;
-  weeklyDiscount: number;
-  monthlyDiscount: number;
+  enableDiscountPackages: boolean;
+  discountPackages: any;
   enableSeasonalPricing: boolean;
   seasonalPeriods: any[];
   enableWeekdayPricing: boolean;

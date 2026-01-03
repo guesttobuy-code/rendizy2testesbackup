@@ -62,6 +62,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Reduz risco de divergência `localhost ≠ produção` quando o Vercel está configurado para buildar outro branch
   - Ação operacional: garantir Vercel Production Branch = `main`
   - Rotas: manter URL canônica `/functions/v1/rendizy-server/*` e tratar qualquer `/make-server-*` apenas como legado/compat temporária
+
+- 🟡 **Precificação: migração de “permanência” → “pacotes de dias” (UI)**
+  - Wizard: step de precificação individual agora edita descontos via pacotes (weekly/monthly/custom) usando `DiscountPackagesEditor`
+  - Compat: mapeia dados legados (weekly/monthly) para regras (7/28 noites) ao carregar
+  - Doc canônica: `docs/04-modules/PRICING_DISCOUNT_PACKAGES.md`
 - 🔴 **Issue #42**: Calendário com datas hardcoded (outubro→dezembro)
   - `contexts/CalendarContext.tsx` linhas 81-84
   - `dateRange.from` agora usa `new Date()` (data atual)

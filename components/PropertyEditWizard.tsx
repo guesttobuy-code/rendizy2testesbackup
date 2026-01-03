@@ -66,6 +66,11 @@ import { ContentPhotosStep } from './wizard-steps/ContentPhotosStep';
 import { useRestoreDraft, useClearDraft } from '../hooks/useAutoSave';
 import { usePropertyActions } from '../hooks/usePropertyActions';
 
+import {
+  DEFAULT_DISCOUNT_PACKAGES_SETTINGS,
+  normalizeDiscountPackagesSettings,
+} from './pricing/DiscountPackagesEditor';
+
 // ============================================================================
 // DEFINIÇÃO DA ESTRUTURA DO WIZARD
 // ============================================================================
@@ -924,19 +929,38 @@ export function PropertyEditWizard({
 
     // FINANCIAL STEP 4: Precificação Individual de Temporada (financial-pricing)
     if (step.id === 'financial-pricing') {
+      const legacy: any = formData.financialIndividualPricing || {};
+
+      const legacyWeekly = Number(legacy.weeklyDiscount || 0);
+      const legacyMonthly = Number(legacy.monthlyDiscount || 0);
+      const hasLegacyDiscounts = Boolean(legacy.enableStayDiscounts) || legacyWeekly > 0 || legacyMonthly > 0;
+
+      const discountPackages = normalizeDiscountPackagesSettings(
+        legacy.discountPackages
+          ? legacy.discountPackages
+          : hasLegacyDiscounts
+            ? {
+                rules: [
+                  { id: 'weekly', preset: 'weekly', min_nights: 7, discount_percent: legacyWeekly },
+                  { id: 'monthly', preset: 'monthly', min_nights: 28, discount_percent: legacyMonthly },
+                ],
+              }
+            : DEFAULT_DISCOUNT_PACKAGES_SETTINGS
+      );
+
       return (
         <FinancialIndividualPricingStep
-          data={formData.financialIndividualPricing || {
-            pricingMode: 'global',
-            basePricePerNight: 0,
-            currency: 'BRL',
-            enableStayDiscounts: false,
-            weeklyDiscount: 0,
-            monthlyDiscount: 0,
-            enableSeasonalPricing: false,
-            seasonalPeriods: [],
-            enableWeekdayPricing: false,
-            weekdayPricing: {
+          data={{
+            ...legacy,
+            pricingMode: legacy.pricingMode || 'global',
+            basePricePerNight: legacy.basePricePerNight || 0,
+            currency: legacy.currency || 'BRL',
+            enableDiscountPackages: legacy.enableDiscountPackages ?? legacy.enableStayDiscounts ?? false,
+            discountPackages,
+            enableSeasonalPricing: legacy.enableSeasonalPricing ?? false,
+            seasonalPeriods: legacy.seasonalPeriods ?? [],
+            enableWeekdayPricing: legacy.enableWeekdayPricing ?? false,
+            weekdayPricing: legacy.weekdayPricing ?? {
               monday: 0,
               tuesday: 0,
               wednesday: 0,
@@ -945,8 +969,8 @@ export function PropertyEditWizard({
               saturday: 0,
               sunday: 0,
             },
-            enableSpecialDates: false,
-            specialDates: [],
+            enableSpecialDates: legacy.enableSpecialDates ?? false,
+            specialDates: legacy.specialDates ?? [],
           }}
           onChange={(data) => {
             setFormData({

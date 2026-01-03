@@ -6,7 +6,7 @@
  * FUNCIONALIDADES:
  * - Preço base por noite
  * - Períodos sazonais com preços específicos
- * - Descontos por permanência (semanal, mensal)
+ * - Descontos por pacote de dias (weekly/monthly/custom)
  * - Preços por dia da semana
  * - Datas especiais (feriados, eventos)
  * - Preview de calendário
@@ -42,6 +42,13 @@ import { Switch } from '../ui/switch';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+
+import {
+  DiscountPackagesEditor,
+  DEFAULT_DISCOUNT_PACKAGES_SETTINGS,
+  normalizeDiscountPackagesSettings,
+  type DiscountPackagesSettings,
+} from '../pricing/DiscountPackagesEditor';
 
 // ============================================================================
 // TYPES
@@ -84,10 +91,9 @@ interface FinancialIndividualPricingData {
   basePricePerNight: number;
   currency: string;
   
-  // Descontos por Permanência
-  enableStayDiscounts: boolean;
-  weeklyDiscount: number; // Percentual
-  monthlyDiscount: number; // Percentual
+  // Descontos por pacote de dias
+  enableDiscountPackages: boolean;
+  discountPackages: DiscountPackagesSettings;
   
   // Períodos Sazonais
   enableSeasonalPricing: boolean;
@@ -228,7 +234,7 @@ export function FinancialIndividualPricingStep({
         <DollarSign className="h-4 w-4" />
         <AlertDescription className="text-sm">
           Configure os preços de diárias para este anúncio específico. Você pode definir
-          preços sazonais, descontos por permanência e valores especiais para fins de
+          preços sazonais, descontos por pacote de dias e valores especiais para fins de
           semana e feriados.
         </AlertDescription>
       </Alert>
@@ -317,7 +323,7 @@ export function FinancialIndividualPricingStep({
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-border/50">
-                    <span className="text-xs text-muted-foreground">Descontos por permanência</span>
+                    <span className="text-xs text-muted-foreground">Descontos por pacote de dias</span>
                     <Badge variant="secondary" className="text-xs">
                       Configuração Global
                     </Badge>
@@ -410,7 +416,7 @@ export function FinancialIndividualPricingStep({
             </CardContent>
           </Card>
 
-          {/* 2. DESCONTOS POR PERMANÊNCIA */}
+          {/* 2. DESCONTOS POR PACOTE DE DIAS */}
           <Card className="border-l-4 border-orange-500">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -418,65 +424,33 @@ export function FinancialIndividualPricingStep({
                   <Percent className="h-5 w-5 text-orange-600" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-base">Descontos por Permanência</CardTitle>
+                  <CardTitle className="text-base">Descontos por pacote de dias</CardTitle>
                   <CardDescription className="text-xs mt-1">
-                    Incentive estadias mais longas
+                    Configure regras por número mínimo de noites
                   </CardDescription>
                 </div>
                 <Switch
-                  checked={data.enableStayDiscounts}
+                  checked={data.enableDiscountPackages}
                   onCheckedChange={(checked) =>
-                    handleFieldChange('enableStayDiscounts', checked)
+                    handleFieldChange('enableDiscountPackages', checked)
                   }
                 />
               </div>
             </CardHeader>
 
-            {data.enableStayDiscounts && (
+            {data.enableDiscountPackages && (
               <CardContent className="space-y-4">
-                {/* Desconto Semanal */}
-                <div className="space-y-2">
-                  <Label>Desconto Semanal (7+ noites)</Label>
-                  <div className="flex items-center border rounded-lg overflow-hidden max-w-xs">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={data.weeklyDiscount || ''}
-                      onChange={(e) =>
-                        handleFieldChange('weeklyDiscount', parseFloat(e.target.value) || 0)
-                      }
-                      className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                      placeholder="0"
-                    />
-                    <div className="px-3 py-2 bg-orange-50 border-l border-border">
-                      <span className="text-sm font-medium text-orange-700">%</span>
-                    </div>
-                  </div>
-                </div>
+                <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+                  <Info className="h-4 w-4 text-orange-600" />
+                  <AlertDescription className="text-xs">
+                    Regras são aplicadas por <strong>mínimo de noites</strong> (ex.: semanal=7, mensal=28).
+                  </AlertDescription>
+                </Alert>
 
-                {/* Desconto Mensal */}
-                <div className="space-y-2">
-                  <Label>Desconto Mensal (30+ noites)</Label>
-                  <div className="flex items-center border rounded-lg overflow-hidden max-w-xs">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={data.monthlyDiscount || ''}
-                      onChange={(e) =>
-                        handleFieldChange('monthlyDiscount', parseFloat(e.target.value) || 0)
-                      }
-                      className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                      placeholder="0"
-                    />
-                    <div className="px-3 py-2 bg-orange-50 border-l border-border">
-                      <span className="text-sm font-medium text-orange-700">%</span>
-                    </div>
-                  </div>
-                </div>
+                <DiscountPackagesEditor
+                  value={normalizeDiscountPackagesSettings(data.discountPackages || DEFAULT_DISCOUNT_PACKAGES_SETTINGS)}
+                  onChange={(next) => handleFieldChange('discountPackages', normalizeDiscountPackagesSettings(next))}
+                />
               </CardContent>
             )}
           </Card>

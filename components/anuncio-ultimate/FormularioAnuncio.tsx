@@ -445,15 +445,6 @@ export default function FormularioAnuncio() {
   // @MODALIDADE: [TEMPORADA] - Moeda utilizada
   const [moeda, setMoeda] = useState('BRL');
   
-  // @MODALIDADE: [TEMPORADA] - Desconto % para estadias longas
-  const [descontoLongaEstadia, setDescontoLongaEstadia] = useState(0);
-  
-  // @MODALIDADE: [TEMPORADA] - Desconto % para reservas semanais
-  const [descontoSemanal, setDescontoSemanal] = useState(0);
-  
-  // @MODALIDADE: [TEMPORADA] - Desconto % para reservas mensais
-  const [descontoMensal, setDescontoMensal] = useState(0);
-  
   // @MODALIDADE: [TEMPORADA] - Valor do depósito caução
   const [valorDeposito, setValorDeposito] = useState(0);
   
@@ -732,9 +723,6 @@ export default function FormularioAnuncio() {
         if (wizardData.modo_config_preco) setModoConfigPreco(wizardData.modo_config_preco as 'global' | 'individual');
         if (wizardData.regiao) setRegiao(wizardData.regiao);
         if (wizardData.moeda) setMoeda(wizardData.moeda);
-        if (wizardData.desconto_longa_estadia !== undefined) setDescontoLongaEstadia(Number(wizardData.desconto_longa_estadia) || 0);
-        if (wizardData.desconto_semanal !== undefined) setDescontoSemanal(Number(wizardData.desconto_semanal) || 0);
-        if (wizardData.desconto_mensal !== undefined) setDescontoMensal(Number(wizardData.desconto_mensal) || 0);
         if (wizardData.valor_deposito !== undefined) setValorDeposito(Number(wizardData.valor_deposito) || 0);
         if (wizardData.usar_precificacao_dinamica !== undefined) setUsarPrecificacaoDinamica(wizardData.usar_precificacao_dinamica === true);
         if (wizardData.taxa_limpeza !== undefined) setTaxaLimpeza(Number(wizardData.taxa_limpeza) || 0);
@@ -1766,9 +1754,10 @@ export default function FormularioAnuncio() {
         { field: 'modo_config_preco', value: modoConfigPreco },
         { field: 'regiao', value: regiao },
         { field: 'moeda', value: moeda },
-        { field: 'desconto_longa_estadia', value: descontoLongaEstadia },
-        { field: 'desconto_semanal', value: descontoSemanal },
-        { field: 'desconto_mensal', value: descontoMensal },
+        {
+          field: DISCOUNT_PACKAGES_OVERRIDE_FIELD,
+          value: useDiscountPackagesOverride ? normalizeDiscountPackagesSettings(discountPackagesOverride) : null,
+        },
         { field: 'valor_deposito', value: valorDeposito },
         { field: 'usar_precificacao_dinamica', value: usarPrecificacaoDinamica },
         { field: 'taxa_limpeza', value: taxaLimpeza },
@@ -4489,36 +4478,30 @@ export default function FormularioAnuncio() {
                 {/* Descontos */}
                 <Card>
                   <CardContent className="pt-6">
-                    <h4 className="font-semibold text-base mb-4">💰 Descontos por Permanência</h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>Longa Estadia (%)</Label>
-                        <Input
-                          type="number"
-                          value={descontoLongaEstadia}
-                          onChange={(e) => setDescontoLongaEstadia(Number(e.target.value))}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <Label>Desconto Semanal (%)</Label>
-                        <Input
-                          type="number"
-                          value={descontoSemanal}
-                          onChange={(e) => setDescontoSemanal(Number(e.target.value))}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <Label>Desconto Mensal (%)</Label>
-                        <Input
-                          type="number"
-                          value={descontoMensal}
-                          onChange={(e) => setDescontoMensal(Number(e.target.value))}
-                          placeholder="0"
-                        />
-                      </div>
+                    <h4 className="font-semibold text-base mb-4">📦 Descontos por pacote de dias</h4>
+
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="discount-packages-override"
+                        checked={useDiscountPackagesOverride}
+                        onCheckedChange={(checked) => setUseDiscountPackagesOverride(checked as boolean)}
+                      />
+                      <Label htmlFor="discount-packages-override" className="cursor-pointer">
+                        Usar descontos personalizados neste anúncio
+                      </Label>
                     </div>
+
+                    {!useDiscountPackagesOverride ? (
+                      <p className="text-xs text-slate-500">
+                        Usando a configuração global da organização (Configurações → Precificação → Descontos por pacote de dias).
+                      </p>
+                    ) : (
+                      <DiscountPackagesEditor
+                        value={discountPackagesOverride}
+                        onChange={setDiscountPackagesOverride}
+                        disabled={isSaving}
+                      />
+                    )}
                   </CardContent>
                 </Card>
 
@@ -4608,7 +4591,7 @@ export default function FormularioAnuncio() {
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Precificação Individual</h3>
                   <p className="text-sm text-slate-500">
-                    Configure preços base por noite e descontos por permanência
+                    Configure preços base por noite e regras de precificação
                   </p>
                 </div>
 
@@ -4629,36 +4612,6 @@ export default function FormularioAnuncio() {
                         Valor base para cálculo de diárias
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Descontos por Permanência */}
-                <Card>
-                  <CardContent className="pt-6">
-                    <h4 className="font-semibold text-base mb-4">📦 Descontos por pacote de dias</h4>
-
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Checkbox
-                        id="discount-packages-override"
-                        checked={useDiscountPackagesOverride}
-                        onCheckedChange={(checked) => setUseDiscountPackagesOverride(checked as boolean)}
-                      />
-                      <Label htmlFor="discount-packages-override" className="cursor-pointer">
-                        Usar descontos personalizados neste anúncio
-                      </Label>
-                    </div>
-
-                    {!useDiscountPackagesOverride ? (
-                      <p className="text-xs text-slate-500">
-                        Usando a configuração global da organização (Configurações → Precificação → Descontos por pacote de dias).
-                      </p>
-                    ) : (
-                      <DiscountPackagesEditor
-                        value={discountPackagesOverride}
-                        onChange={setDiscountPackagesOverride}
-                        disabled={isSaving}
-                      />
-                    )}
                   </CardContent>
                 </Card>
 
