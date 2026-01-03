@@ -236,12 +236,17 @@ export function CreateReservationWizard({
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
           'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        // Deixar mais explícito no console para debug
+        const msg = response.status === 401
+          ? 'HTTP 401 (não autorizado) ao carregar imóvel - token ausente/expirado?'
+          : `HTTP ${response.status}`;
+        throw new Error(msg);
       }
 
       const result = await response.json();

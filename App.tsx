@@ -619,10 +619,26 @@ function App() {
 
         let anuncios: any[] = [];
 
+        // ⚠️ Robustez: algumas respostas podem vir como 204/sem body (ou body vazio).
+        // Evitar response.json() nesses casos para não lançar exceção e disparar toast indevido.
         if (response.ok) {
-          const result = await response.json();
-          console.log('✅ Resposta da API de anúncios:', result);
-          anuncios = result.anuncios || [];
+          if (response.status === 204) {
+            console.log('ℹ️ API retornou 204 (sem conteúdo) para anúncios');
+          } else {
+            const contentType = response.headers.get('content-type') || '';
+            const rawText = await response.text();
+            if (!rawText.trim()) {
+              console.log('ℹ️ API retornou body vazio para anúncios');
+            } else if (!contentType.toLowerCase().includes('application/json')) {
+              console.warn('⚠️ API retornou content-type não JSON para anúncios:', contentType);
+              // Se o backend devolver HTML/texto, não quebrar o app; tratar como erro real.
+              throw new Error('Resposta inválida do servidor (esperado JSON)');
+            } else {
+              const result = JSON.parse(rawText);
+              console.log('✅ Resposta da API de anúncios:', result);
+              anuncios = result.anuncios || [];
+            }
+          }
         }
 
         if (anuncios && anuncios.length) {
@@ -673,8 +689,8 @@ function App() {
           setShowErrorBanner(true);
         }
         toast.error('Erro ao carregar imóveis. Verifique sua conexão.');
-        setProperties([]);
-        setSelectedProperties([]);
+        // ✅ Estabilidade: não “zerar” a lista de imóveis em falha temporária.
+        // Mantém o último estado bom para não quebrar a navegação (ex.: ao criar reserva no calendário).
       } finally {
         setLoadingProperties(false);
         setInitialLoading(false);

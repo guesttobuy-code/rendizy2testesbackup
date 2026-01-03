@@ -41,8 +41,22 @@ export function useProperties() {
       let anuncios: any[] = [];
 
       if (response.ok) {
-        const result = await response.json();
-        anuncios = result.anuncios || [];
+        if (response.status === 204) {
+          console.log('ℹ️ [useProperties] API retornou 204 (sem conteúdo)');
+        } else {
+          const contentType = response.headers.get('content-type') || '';
+          const rawText = await response.text();
+
+          if (!rawText.trim()) {
+            console.log('ℹ️ [useProperties] API retornou body vazio');
+          } else if (!contentType.toLowerCase().includes('application/json')) {
+            console.warn('⚠️ [useProperties] content-type não JSON:', contentType);
+            throw new Error('Resposta inválida do servidor (esperado JSON)');
+          } else {
+            const result = JSON.parse(rawText);
+            anuncios = result.anuncios || [];
+          }
+        }
       }
 
       if (anuncios && anuncios.length) {
