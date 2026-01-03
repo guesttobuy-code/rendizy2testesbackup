@@ -168,6 +168,8 @@ export function CreateReservationWizard({
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loadingGuests, setLoadingGuests] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Guest[] | null>(null);
+  const [searchingGuests, setSearchingGuests] = useState(false);
   const [showNewGuestForm, setShowNewGuestForm] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('installment');
   const [sendEmail, setSendEmail] = useState(true);
@@ -220,6 +222,36 @@ export function CreateReservationWizard({
       loadGuests();
     }
   }, [open, step]);
+
+  // ✅ Busca server-side (evita depender de lista completa no client)
+  useEffect(() => {
+    if (!open || step !== 2) return;
+
+    const q = searchTerm.trim();
+    if (!q) {
+      setSearchResults(null);
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      setSearchingGuests(true);
+      try {
+        const resp = await guestsApi.list({ search: q });
+        if (resp.success && resp.data) {
+          setSearchResults(resp.data);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (e) {
+        console.error('❌ Erro ao buscar hóspedes (server-side):', e);
+        setSearchResults([]);
+      } finally {
+        setSearchingGuests(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [open, step, searchTerm]);
 
   const loadProperty = async () => {
     if (!propertyId) return;
@@ -398,11 +430,15 @@ export function CreateReservationWizard({
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const filteredGuests = guests.filter(g => 
-    g.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    g.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    g.phone.includes(searchTerm)
-  );
+  const guestsToFilter = searchResults ?? guests;
+  const filteredGuests = guestsToFilter.filter(g => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return true;
+    const fullName = (g.fullName || '').toLowerCase();
+    const email = (g.email || '').toLowerCase();
+    const phone = (g.phone || '');
+    return fullName.includes(q) || email.includes(q) || phone.includes(searchTerm.trim());
+  });
 
   const handleNext = () => {
     if (step < 3) setStep(step + 1);
@@ -750,7 +786,7 @@ export function CreateReservationWizard({
 
                   <div className="space-y-2">
                     <Label>Resultados da busca:</Label>
-                    {loadingGuests ? (
+                    {loadingGuests || searchingGuests ? (
                       <div className="flex items-center justify-center p-8 border border-gray-200 rounded-lg">
                         <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                         <span className="ml-2 text-gray-600">Carregando hóspedes...</span>
