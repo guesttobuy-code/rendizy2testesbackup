@@ -55,11 +55,24 @@ interface AnuncioUltimate {
   updated_at: string;
 }
 
+// Garantir que valores sejam sempre strings (evitar objetos)
+function getStringValue(value: any): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null && 'text' in value) return (value as any).text;
+  if (typeof value === 'object' && value !== null && 'value' in value) return (value as any).value;
+  return String(value || '');
+}
+
 export const ListaAnuncios = () => {
   const [anuncios, setAnuncios] = useState<AnuncioUltimate[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const navigate = useNavigate();
+
+  const collator = useMemo(
+    () => new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true }),
+    []
+  );
 
   useEffect(() => {
     loadAnuncios();
@@ -90,7 +103,7 @@ export const ListaAnuncios = () => {
 
       // Fallback direto via REST se a função retornar vazio (ambiente ainda não deployado)
       if (!data || data.length === 0) {
-        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*`, {
+        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*&order=title.asc,id.asc`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
@@ -105,42 +118,20 @@ export const ListaAnuncios = () => {
         data = await rest.json();
       }
       
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('✅ Anúncios carregados - Total:', data.length);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      if (data.length > 0) {
-        const primeiro = data[0];
-        console.log('📊 ANÚNCIO COMPLETO [0]:', JSON.stringify(primeiro, null, 2));
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('🔍 CAMPO data:', primeiro.data);
-        console.log('🔍 TIPO de data:', typeof primeiro.data);
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
-        // Se data for string, tentar parsear
-        if (typeof primeiro.data === 'string') {
+      // Normalizar: alguns registros antigos podem vir com data como string
+      const normalized = (data || []).map((row: any) => {
+        const d = row?.data;
+        if (typeof d === 'string') {
           try {
-            const parsedData = JSON.parse(primeiro.data);
-            console.log('🔄 data parseado:', parsedData);
-            console.log('🏷️ InternalId após parse:', parsedData?.internalId);
-            console.log('📍 Address após parse:', parsedData?.address);
-          } catch (e) {
-            console.error('❌ Erro ao parsear data:', e);
+            return { ...row, data: JSON.parse(d) };
+          } catch {
+            return { ...row, data: {} };
           }
-        } else {
-          console.log('🏷️ InternalId direto:', primeiro.data?.internalId);
-          console.log('📍 Address direto:', primeiro.data?.address);
-          console.log('🛏️ Bedrooms direto:', primeiro.data?.bedrooms);
-          console.log('🛁 Bathrooms direto:', primeiro.data?.bathrooms);
-          console.log('🛏️ Beds direto:', primeiro.data?.beds);
-          console.log('👥 Guests direto:', primeiro.data?.guests);
         }
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('📊 Status:', primeiro.status);
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      }
-      
-      setAnuncios(data || []);
+        return row;
+      });
+
+      setAnuncios(normalized);
     } catch (error) {
       console.error('❌ Erro ao carregar anúncios:', error);
       toast.error('Erro ao carregar anúncios');
@@ -148,6 +139,23 @@ export const ListaAnuncios = () => {
       setLoading(false);
     }
   };
+
+  const sortedAnuncios = useMemo(() => {
+    const keyFor = (a: AnuncioUltimate): string => {
+      const raw = getStringValue((a as any)?.data?.title || '').trim();
+      // Sem título (ou vazio) vai para o final, mantendo ordem estável por id
+      if (!raw) return `\uffff\uffff\uffff-${a.id}`;
+      return raw;
+    };
+
+    return [...anuncios].sort((a, b) => {
+      const ka = keyFor(a);
+      const kb = keyFor(b);
+      const byTitle = collator.compare(ka, kb);
+      if (byTitle !== 0) return byTitle;
+      return String(a.id).localeCompare(String(b.id));
+    });
+  }, [anuncios, collator]);
 
   const handleCreateNew = () => {
     navigate('/anuncios-ultimate/novo');
@@ -243,14 +251,6 @@ export const ListaAnuncios = () => {
   const getPropertyTypeIcon = (type?: string) => {
     if (type === 'apartment' || type === 'loft') return Building2;
     return Home;
-  };
-
-  // Garantir que valores sejam sempre strings (evitar objetos)
-  const getStringValue = (value: any): string => {
-    if (typeof value === 'string') return value;
-    if (typeof value === 'object' && value !== null && 'text' in value) return value.text;
-    if (typeof value === 'object' && value !== null && 'value' in value) return value.value;
-    return String(value || '');
   };
 
   const isCompleto = (anuncio: AnuncioUltimate) => {
@@ -508,7 +508,7 @@ export const ListaAnuncios = () => {
               <p className="text-gray-500 dark:text-gray-400">Carregando anúncios...</p>
             </div>
           </div>
-        ) : anuncios.length === 0 ? (
+        ) : sortedAnuncios.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md px-6">
               <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-6">
@@ -533,19 +533,7 @@ export const ListaAnuncios = () => {
         ) : viewMode === 'grid' ? (
           <div className="p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {anuncios.map((anuncio, index) => {
-                // Log detalhado na renderização
-                console.log(`🎨 RENDERIZANDO CARD [${index}] - ID: ${anuncio.id}`);
-                console.log(`  📝 Title:`, anuncio.data?.title);
-                console.log(`  🏷️ InternalId:`, anuncio.data?.internalId);
-                console.log(`  📍 Address:`, anuncio.data?.address);
-                console.log(`  🛏️ Bedrooms:`, anuncio.data?.bedrooms);
-                console.log(`  🛁 Bathrooms:`, anuncio.data?.bathrooms);
-                console.log(`  🛏️ Beds:`, anuncio.data?.beds);
-                console.log(`  👥 Guests:`, anuncio.data?.guests);
-                console.log(`  📊 Status:`, anuncio.status);
-                console.log(`  📦 data completo:`, anuncio.data);
-                
+              {sortedAnuncios.map((anuncio) => {
                 const Icon = getPropertyTypeIcon(anuncio.data?.propertyType);
                 const completo = isCompleto(anuncio);
                 
@@ -708,7 +696,7 @@ export const ListaAnuncios = () => {
           // Lista View (simplificada)
           <div className="p-8">
             <div className="space-y-3">
-              {anuncios.map((anuncio) => (
+              {sortedAnuncios.map((anuncio) => (
                 <Card key={anuncio.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">

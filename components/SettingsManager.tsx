@@ -23,7 +23,6 @@ import {
   Loader2,
   Ban,
   Clock,
-  Shield,
   DollarSign,
   Calendar,
   Home,
@@ -39,7 +38,6 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  Plus,
   Trash2
 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -60,6 +58,8 @@ import { LocationAmenitiesSettings } from './LocationAmenitiesSettings';
 import { IntegrationsManager } from './IntegrationsManager';
 import { DataReconciliationManager } from './DataReconciliationManager';
 import { isOfflineMode } from '../utils/offlineConfig';
+import { CurrencySettingsCard } from './settings/CurrencySettingsCard';
+import { DiscountPackagesSettingsCard } from './settings/DiscountPackagesSettingsCard';
 
 // ============================================================================
 // TYPES
@@ -70,11 +70,8 @@ interface GlobalSettings {
   organization_id: string;
   cancellation_policy: any;
   checkin_checkout: any;
-  security_deposit: any;
   minimum_nights: any;
   advance_booking: any;
-  additional_fees: any;
-  stay_discounts?: any;
   house_rules: any;
   communication: any;
   created_at: string;
@@ -88,21 +85,15 @@ interface ListingSettings {
   overrides: {
     cancellation_policy: boolean;
     checkin_checkout: boolean;
-    security_deposit: boolean;
     minimum_nights: boolean;
     advance_booking: boolean;
-    additional_fees: boolean;
-    stay_discounts?: boolean;
     house_rules: boolean;
     communication: boolean;
   };
   cancellation_policy?: any;
   checkin_checkout?: any;
-  security_deposit?: any;
   minimum_nights?: any;
   advance_booking?: any;
-  additional_fees?: any;
-  stay_discounts?: any;
   house_rules?: any;
   communication?: any;
   created_at: string;
@@ -134,27 +125,13 @@ export function SettingsManager({
     loadSettings();
   }, [organizationId, listingId, mode]);
 
-  const getLocalStorageKey = (suffix: string) => {
-    const safeOrg = organizationId && organizationId !== 'undefined' ? organizationId : 'unknown-org';
-    return `rendizy:settings:${safeOrg}:${suffix}`;
-  };
-
-  const loadLocalJson = (key: string) => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  };
-
-  const saveLocalJson = (key: string, value: any) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // ignore
-    }
+  const getFunctionHeaders = (): Record<string, string> => {
+    const token = localStorage.getItem('rendizy-token');
+    return {
+      apikey: publicAnonKey,
+      Authorization: `Bearer ${publicAnonKey}`,
+      ...(token ? { 'X-Auth-Token': token } : {})
+    };
   };
 
   // ============================================================================
@@ -162,14 +139,6 @@ export function SettingsManager({
   // ============================================================================
 
   const loadSettings = async () => {
-    // Não carrega em modo offline
-    if (isOfflineMode()) {
-      console.log('📴 [OFFLINE] SettingsManager: não carregando settings');
-      setLoading(false);
-      setHasLoadedGlobalSettings(false);
-      return;
-    }
-    
     setLoading(true);
     try {
       // ⚠️ Evitar chamadas com organizationId indefinido
@@ -183,19 +152,17 @@ export function SettingsManager({
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${organizationId}/settings/global`,
           {
-            headers: {
-              apikey: publicAnonKey,
-              Authorization: `Bearer ${publicAnonKey}`,
-            }
+            headers: getFunctionHeaders()
           }
         );
         const data = await response.json();
+        if (!response.ok) {
+          console.error('[SettingsManager] Falha ao carregar settings global:', response.status, data);
+          setHasLoadedGlobalSettings(false);
+          return;
+        }
         if (data.success) {
-          const localDiscounts = loadLocalJson(getLocalStorageKey('stay_discounts'));
-          setGlobalSettings({
-            ...data.data,
-            ...(localDiscounts ? { stay_discounts: localDiscounts } : {})
-          });
+          setGlobalSettings(data.data);
           setHasLoadedGlobalSettings(true);
         } else {
           setHasLoadedGlobalSettings(false);
@@ -205,10 +172,7 @@ export function SettingsManager({
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/rendizy-server/listings/${listingId}/settings`,
           {
-            headers: {
-              apikey: publicAnonKey,
-              Authorization: `Bearer ${publicAnonKey}`,
-            }
+            headers: getFunctionHeaders()
           }
         );
         const data = await response.json();
@@ -219,10 +183,7 @@ export function SettingsManager({
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-      // Não mostra toast de erro em modo offline
-      if (!isOfflineMode()) {
-        toast.error('Erro ao carregar configurações');
-      }
+      toast.error('Erro ao carregar configurações');
       setHasLoadedGlobalSettings(false);
     } finally {
       setLoading(false);
@@ -231,11 +192,6 @@ export function SettingsManager({
 
   const saveGlobalSettings = async () => {
     if (!globalSettings) return;
-    
-    if (isOfflineMode()) {
-      toast.error('Salvamento não disponível em modo offline');
-      return;
-    }
 
     setSaving(true);
     try {
@@ -250,33 +206,24 @@ export function SettingsManager({
         return;
       }
 
-      // Campos locais (ainda não persistidos pelo backend) não podem ser perdidos após o PUT.
-      // Ex.: stay_discounts é armazenado no localStorage.
-      const localStayDiscounts = globalSettings.stay_discounts;
-      if (localStayDiscounts !== undefined) {
-        saveLocalJson(getLocalStorageKey('stay_discounts'), localStayDiscounts);
-      }
+      const payload = { ...(globalSettings as any) };
 
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${organizationId}/settings/global`,
         {
           method: 'PUT',
           headers: {
-            apikey: publicAnonKey,
-            Authorization: `Bearer ${publicAnonKey}`,
+            ...getFunctionHeaders(),
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(globalSettings)
+          body: JSON.stringify(payload)
         }
       );
 
       const data = await response.json();
       if (data.success) {
         toast.success('Configurações salvas com sucesso!');
-        setGlobalSettings({
-          ...data.data,
-          ...(localStayDiscounts !== undefined ? { stay_discounts: localStayDiscounts } : {})
-        });
+        setGlobalSettings(data.data);
       } else {
         toast.error(data.error || 'Erro ao salvar');
       }
@@ -298,7 +245,7 @@ export function SettingsManager({
         {
           method: 'PUT',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
+            ...getFunctionHeaders(),
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(listingSettings)
@@ -329,7 +276,7 @@ export function SettingsManager({
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/listings/${listingId}/settings/reset`,
         {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+          headers: getFunctionHeaders()
         }
       );
 
@@ -394,16 +341,10 @@ export function SettingsManager({
         return Ban;
       case 'checkin_checkout':
         return Clock;
-      case 'security_deposit':
-        return Shield;
       case 'minimum_nights':
         return Calendar;
       case 'advance_booking':
         return Calendar;
-      case 'additional_fees':
-        return DollarSign;
-      case 'stay_discounts':
-        return DollarSign;
       case 'house_rules':
         return Home;
       case 'communication':
@@ -419,16 +360,10 @@ export function SettingsManager({
         return 'Política de Cancelamento';
       case 'checkin_checkout':
         return 'Check-in / Check-out';
-      case 'security_deposit':
-        return 'Depósito / Caução';
       case 'minimum_nights':
         return 'Estadia mínima';
       case 'advance_booking':
         return 'Antecedência para Reserva';
-      case 'additional_fees':
-        return 'Taxas Adicionais';
-      case 'stay_discounts':
-        return 'Desconto por duração';
       case 'house_rules':
         return 'Regras da Casa';
       case 'communication':
@@ -727,238 +662,6 @@ export function SettingsManager({
     );
   };
 
-  const renderStayDiscounts = (settings: any, isGlobal: boolean) => {
-    const data =
-      settings?.stay_discounts ??
-      ({
-        enabled: false,
-        weekly: { min_nights: 7, discount_percent: 0 },
-        custom: { min_nights: 15, discount_percent: 0 },
-        monthly: { min_nights: 28, discount_percent: 0 },
-        rules: undefined
-      } as any);
-
-    const update = (patch: any) => {
-      // Se não é global (modo individual), não permitir edição
-      if (!isGlobal) {
-        return;
-      }
-      
-      const next = {
-        ...data,
-        ...patch
-      };
-      
-      // Persistir no localStorage sempre (mesmo se globalSettings ainda não carregou)
-      saveLocalJson(getLocalStorageKey('stay_discounts'), next);
-
-      // Atualizar state sempre, para não "travar" inputs controlados quando globalSettings ainda é null.
-      setGlobalSettings((prev) => ({
-        ...(prev ?? ({} as any)),
-        stay_discounts: next
-      }));
-    };
-
-    const parsePercent = (value: string, fallback: number) => {
-      const n = Number(String(value).replace(',', '.'));
-      if (!Number.isFinite(n)) return fallback;
-      return Math.max(0, Math.min(100, n));
-    };
-
-    const parseMinNights = (value: string, fallback: number) => {
-      const n = parseInt(value, 10);
-      return Number.isFinite(n) && n >= 1 ? n : fallback;
-    };
-
-    const ensureId = () => {
-      try {
-        // Browser support (https)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const anyCrypto: any = (globalThis as any).crypto;
-        if (anyCrypto?.randomUUID) return anyCrypto.randomUUID();
-      } catch {
-        // ignore
-      }
-      return `rule_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    };
-
-    const normalizedRules = (() => {
-      if (Array.isArray(data.rules) && data.rules.length) return data.rules;
-      return [
-        {
-          id: 'weekly',
-          label: 'Semanal',
-          min_nights: data.weekly?.min_nights ?? 7,
-          discount_percent: data.weekly?.discount_percent ?? 0,
-          preset: 'weekly'
-        },
-        {
-          id: 'custom',
-          label: 'Personalizado',
-          min_nights: data.custom?.min_nights ?? 15,
-          discount_percent: data.custom?.discount_percent ?? 0,
-          preset: 'custom'
-        },
-        {
-          id: 'monthly',
-          label: 'Mensal',
-          min_nights: data.monthly?.min_nights ?? 28,
-          discount_percent: data.monthly?.discount_percent ?? 0,
-          preset: 'monthly'
-        }
-      ];
-    })();
-
-    const updateRules = (rules: any[]) => {
-      // mantém os campos legados (weekly/custom/monthly) sincronizados quando possível
-      const nextWeekly = rules.find((r) => r.preset === 'weekly') ?? data.weekly;
-      const nextCustom = rules.find((r) => r.preset === 'custom') ?? data.custom;
-      const nextMonthly = rules.find((r) => r.preset === 'monthly') ?? data.monthly;
-
-      update({
-        enabled: true,
-        rules,
-        weekly: nextWeekly ? { min_nights: nextWeekly.min_nights, discount_percent: nextWeekly.discount_percent } : data.weekly,
-        custom: nextCustom ? { min_nights: nextCustom.min_nights, discount_percent: nextCustom.discount_percent } : data.custom,
-        monthly: nextMonthly ? { min_nights: nextMonthly.min_nights, discount_percent: nextMonthly.discount_percent } : data.monthly
-      });
-    };
-
-    const addCustomRule = () => {
-      const next = [
-        ...normalizedRules,
-        {
-          id: ensureId(),
-          label: 'Personalizado',
-          min_nights: 1,
-          discount_percent: 0
-        }
-      ];
-      updateRules(next);
-    };
-
-    const RuleRow = ({ rule }: { rule: any }) => {
-      const canDelete = !['weekly', 'custom', 'monthly'].includes(rule.id);
-
-      return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-          <div className="md:col-span-4">
-            <Label className="text-xs">{rule.label || 'Desconto'}</Label>
-          </div>
-
-          <div className="md:col-span-4">
-            <div className="flex items-stretch">
-              <div className="px-3 flex items-center rounded-l-md border border-border bg-muted text-xs text-muted-foreground">
-                Min
-              </div>
-              <Input
-                type="number"
-                value={rule.min_nights ?? 1}
-                onChange={(e) => {
-                  const next = normalizedRules.map((r: any) =>
-                    r.id === rule.id ? { ...r, min_nights: parseMinNights(e.target.value, 1) } : r
-                  );
-                  updateRules(next);
-                }}
-                className="rounded-none border-l-0 border-r-0 bg-input border-border"
-                disabled={!isGlobal}
-                min={1}
-              />
-              <div className="px-3 flex items-center rounded-r-md border border-border bg-muted text-xs text-muted-foreground">
-                noites
-              </div>
-            </div>
-          </div>
-
-          <div className="md:col-span-3">
-            <div className="flex items-stretch">
-              <div className="px-3 flex items-center rounded-l-md border border-border bg-muted text-xs text-muted-foreground">
-                %
-              </div>
-              <Input
-                type="number"
-                value={rule.discount_percent ?? 0}
-                onChange={(e) => {
-                  const next = normalizedRules.map((r: any) =>
-                    r.id === rule.id ? { ...r, discount_percent: parsePercent(e.target.value, 0) } : r
-                  );
-                  updateRules(next);
-                }}
-                className="rounded-r-md border-l-0 bg-input border-border"
-                disabled={!isGlobal}
-                min={0}
-                max={100}
-                step={0.5}
-              />
-            </div>
-          </div>
-
-          <div className="md:col-span-1 flex justify-end">
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={!isGlobal || !canDelete}
-              onClick={() => {
-                const next = normalizedRules.filter((r: any) => r.id !== rule.id);
-                updateRules(next);
-              }}
-              className={canDelete ? 'text-muted-foreground hover:text-red-600' : 'opacity-0 pointer-events-none'}
-              title={canDelete ? 'Remover' : ''}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      );
-    };
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Desconto por período (duração da estadia)</Label>
-            <p className="text-xs text-muted-foreground mt-1">
-              Configure descontos automáticos conforme a quantidade de noites reservadas.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!isGlobal}
-            onClick={(e) => {
-              // evita que o clique seja capturado por triggers/accordions/overlays
-              e.preventDefault();
-              e.stopPropagation();
-              addCustomRule();
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Definir desconto
-          </Button>
-        </div>
-
-        <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-          <div className="flex gap-3">
-            <AlertCircle className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="text-foreground mb-1">Informação</p>
-              <p className="text-muted-foreground">
-                Esses descontos devem ser aplicados no cálculo de preço das reservas.
-                (Tela criada agora; integração será conectada na etapa seguinte.)
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {normalizedRules.map((rule: any) => (
-            <RuleRow key={rule.id} rule={rule} />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const renderSection = (section: string, settings: any, isGlobal: boolean) => {
     const SectionIcon = getSectionIcon(section);
     const isExpanded = expandedSections.has(section);
@@ -1010,9 +713,8 @@ export function SettingsManager({
             {section === 'cancellation_policy' && renderCancellationPolicy(settings, isGlobal)}
             {section === 'checkin_checkout' && renderCheckinCheckout(settings, isGlobal)}
             {section === 'minimum_nights' && renderMinimumNights(settings, isGlobal)}
-            {section === 'stay_discounts' && renderStayDiscounts(settings, isGlobal)}
             {/* Outros renders aqui */}
-            {!['cancellation_policy', 'checkin_checkout', 'minimum_nights', 'stay_discounts'].includes(section) && (
+            {!['cancellation_policy', 'checkin_checkout', 'minimum_nights'].includes(section) && (
               <p className="text-muted-foreground text-sm">Configurações de {getSectionName(section)}</p>
             )}
           </CardContent>
@@ -1037,11 +739,8 @@ export function SettingsManager({
   const sections = [
     'cancellation_policy',
     'checkin_checkout',
-    'security_deposit',
     'minimum_nights',
     'advance_booking',
-    'additional_fees',
-    'stay_discounts',
     'house_rules',
     'communication'
   ];
@@ -1053,12 +752,6 @@ export function SettingsManager({
     'advance_booking',
     'house_rules',
     'communication'
-  ];
-
-  const pricingSections = [
-    'security_deposit',
-    'additional_fees',
-    'stay_discounts'
   ];
 
   const currentSettings = mode === 'global' ? globalSettings : effectiveSettings;
@@ -1160,7 +853,7 @@ export function SettingsManager({
                   )}
                   <Button
                     onClick={mode === 'global' ? saveGlobalSettings : saveListingSettings}
-                    disabled={saving || (mode === 'global' && !hasLoadedGlobalSettings)}
+                    disabled={saving}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     {saving ? (
@@ -1234,7 +927,10 @@ export function SettingsManager({
 
               {/* Precificação */}
               <TabsContent value="precificacao" className="mt-6">
-                {renderSettingsEditor(pricingSections.length ? pricingSections : sections)}
+                <div className="space-y-6">
+                  <DiscountPackagesSettingsCard organizationId={organizationId} />
+                  <CurrencySettingsCard organizationId={organizationId} />
+                </div>
               </TabsContent>
 
               {/* Chat */}
@@ -1280,7 +976,7 @@ export function SettingsManager({
                     <CardTitle className="text-card-foreground">Configurações gerais</CardTitle>
                     <CardDescription className="text-muted-foreground">
                       Use esta seção como destino temporário para configurações que ainda não se encaixam
-                      em Anúncios Ultimate, Reservas, Precificação, Chat ou Integrações.
+                      em Anúncios Ultimate, Reservas, Chat ou Integrações.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

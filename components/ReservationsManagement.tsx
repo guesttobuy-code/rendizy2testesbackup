@@ -441,7 +441,7 @@ export function ReservationsManagement({
       }
 
       if (!anuncios || anuncios.length === 0) {
-        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*`, {
+        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*&order=title.asc,id.asc`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
@@ -457,6 +457,7 @@ export function ReservationsManagement({
       }
 
       if (anuncios && anuncios.length) {
+        const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
         const mappedProperties = anuncios.map((a: any) => ({
           id: a.id,
           name: a.data?.title || a.title || 'Sem título',
@@ -465,6 +466,16 @@ export function ReservationsManagement({
           type: a.data?.tipo || 'apartment',
           ...a.data
         }));
+
+        mappedProperties.sort((a: any, b: any) => {
+          const ta = String(a.title || a.name || '').trim();
+          const tb = String(b.title || b.name || '').trim();
+          const ka = ta ? ta : `\uffff\uffff\uffff-${a.id}`;
+          const kb = tb ? tb : `\uffff\uffff\uffff-${b.id}`;
+          const byTitle = collator.compare(ka, kb);
+          if (byTitle !== 0) return byTitle;
+          return String(a.id).localeCompare(String(b.id));
+        });
         
         setProperties(mappedProperties);
         console.log(`✅ [ReservationsManagement] ${mappedProperties.length} imóveis carregados de Anúncios Ultimate`);

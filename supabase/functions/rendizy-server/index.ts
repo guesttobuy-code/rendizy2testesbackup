@@ -61,6 +61,8 @@ import { importStaysNetFinance } from "./import-staysnet-finance.ts"; // ✅ MOD
 import { listStaysNetImportIssues } from "./import-staysnet-issues.ts"; // ✅ MODULAR: Issues (reservas sem imóvel)
 import chatApp from "./routes-chat.ts";
 import { whatsappEvolutionRoutes } from "./routes-whatsapp-evolution.ts";
+import * as currencySettingsRoutes from "./routes-currency-settings.ts";
+import { registerDiscountPackagesRoutes } from "./routes-discount-packages.ts";
 
 const app = new Hono();
 
@@ -146,6 +148,21 @@ app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
 // ============================================================================
 app.route("/rendizy-server/client-sites", clientSitesApp);
 app.route("/rendizy-server/make-server-67caf26a/client-sites", clientSitesApp); // compat
+
+// ============================================================================
+// CURRENCY SETTINGS (Configurações > Precificação > Moedas)
+// ============================================================================
+app.get("/organizations/:id/currency-settings", currencySettingsRoutes.getOrganizationCurrencySettings);
+app.put("/organizations/:id/currency-settings", currencySettingsRoutes.updateOrganizationCurrencySettings);
+
+// Compat com prefixo /rendizy-server
+app.get("/rendizy-server/organizations/:id/currency-settings", currencySettingsRoutes.getOrganizationCurrencySettings);
+app.put("/rendizy-server/organizations/:id/currency-settings", currencySettingsRoutes.updateOrganizationCurrencySettings);
+
+// ============================================================================
+// DISCOUNT PACKAGES (Configurações > Precificação > Descontos por pacote de dias)
+// ============================================================================
+registerDiscountPackagesRoutes(app);
 
 // ============================================================================
 // RESERVATIONS

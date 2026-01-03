@@ -46,7 +46,7 @@ export function useProperties() {
       }
 
       if (!anuncios || anuncios.length === 0) {
-        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*`, {
+        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*&order=title.asc,id.asc`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
@@ -62,6 +62,7 @@ export function useProperties() {
       }
 
       if (anuncios && anuncios.length) {
+        const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
         const properties: Property[] = anuncios.map((a: any) => {
           const title = a.data?.title || a.title || 'Sem título';
           const internalId = a.data?.internalId || a.data?.internal_id || a.internalId || a.internal_id || '';
@@ -110,6 +111,17 @@ export function useProperties() {
             tags: []
           };
         }).filter((p: Property) => p.id);
+
+        // Ordenação fixa: alfabética por name/title + desempate por id
+        properties.sort((a, b) => {
+          const ta = String(a.title || a.name || '').trim();
+          const tb = String(b.title || b.name || '').trim();
+          const ka = ta ? ta : `\uffff\uffff\uffff-${a.id}`;
+          const kb = tb ? tb : `\uffff\uffff\uffff-${b.id}`;
+          const byTitle = collator.compare(ka, kb);
+          if (byTitle !== 0) return byTitle;
+          return String(a.id).localeCompare(String(b.id));
+        });
 
         console.log(`✅ [useProperties] ${properties.length} imóveis carregados`);
         return properties;

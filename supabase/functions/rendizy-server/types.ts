@@ -136,6 +136,11 @@ export interface Property {
     weeklyDiscount: number; // 7+ noites (ex: 10 = 10%)
     biweeklyDiscount: number; // 15+ noites (ex: 15 = 15%)
     monthlyDiscount: number; // 28+ noites (ex: 20 = 20%)
+
+    // 🆕 Descontos por pacote de dias (regras ilimitadas)
+    // Quando presente, deve ser usado para calcular o desconto aplicável por quantidade de noites.
+    // Mantém compatibilidade com tiers acima (weekly/biweekly/monthly) para UI/relatórios.
+    discountPackagesRules?: Array<{ minNights: number; discountPercent: number }>;
   };
 
   // Restrições

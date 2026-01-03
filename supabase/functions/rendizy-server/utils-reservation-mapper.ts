@@ -8,7 +8,7 @@
  * @updated 2025-11-17 - Migração de KV Store para SQL Tables
  */
 
-import type { Reservation } from './types.ts';
+import type { Platform, Reservation } from './types.ts';
 
 function moneyToCents(value: unknown, fallbackCents = 0): number {
   if (value === null || value === undefined || value === '') return fallbackCents;
@@ -150,8 +150,16 @@ export function sqlToReservation(row: any): Reservation {
     staysRaw?.guest?.email ||
     'Hóspede';
 
-  const mapPlatformFromRaw = (input: unknown): string => {
-    if (!input) return '';
+  const normalizePlatform = (input: unknown): Platform | null => {
+    const v = String(input || '').trim().toLowerCase();
+    if (v === 'airbnb' || v === 'booking' || v === 'decolar' || v === 'direct' || v === 'other') {
+      return v as Platform;
+    }
+    return null;
+  };
+
+  const mapPlatformFromRaw = (input: unknown): Platform | null => {
+    if (!input) return null;
     const token = (() => {
       if (typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean') return String(input);
       if (typeof input === 'object') {
@@ -165,7 +173,7 @@ export function sqlToReservation(row: any): Reservation {
     if (s.includes('booking')) return 'booking';
     if (s.includes('decolar')) return 'decolar';
     if (s.includes('direct')) return 'direct';
-    return '';
+    return null;
   };
 
   const platformCandidates = [
@@ -177,8 +185,8 @@ export function sqlToReservation(row: any): Reservation {
     staysRaw?.partner,
   ];
 
-  let platform = String(row.platform || '').trim();
-  if (!platform || platform === 'other') {
+  let platform: Platform = normalizePlatform(row.platform) ?? 'other';
+  if (platform === 'other') {
     for (const c of platformCandidates) {
       const mapped = mapPlatformFromRaw(c);
       if (mapped) {
@@ -186,7 +194,7 @@ export function sqlToReservation(row: any): Reservation {
         break;
       }
     }
-    if (!platform) platform = row.platform || 'other';
+    if (!platform) platform = normalizePlatform(row.platform) ?? 'other';
   }
   
   return {

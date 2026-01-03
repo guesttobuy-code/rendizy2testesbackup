@@ -9,6 +9,54 @@ import { BulkMinNightsModal } from './BulkMinNightsModal';
 import { CalendarHeaderDates } from './CalendarHeaderDates';
 import { CalendarBulkRules } from './CalendarBulkRules';
 import { parseDateLocal } from '../utils/dateLocal';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
+
+type DiscountPackagePreset = 'weekly' | 'monthly' | 'custom';
+
+type DiscountPackageRule = {
+  id: string;
+  preset: DiscountPackagePreset;
+  min_nights: number;
+  discount_percent: number;
+};
+
+type DiscountPackagesSettings = {
+  rules: DiscountPackageRule[];
+};
+
+const DEFAULT_DISCOUNT_PACKAGES_SETTINGS: DiscountPackagesSettings = {
+  rules: [
+    { id: 'weekly', preset: 'weekly', min_nights: 7, discount_percent: 2 },
+    { id: 'custom_15', preset: 'custom', min_nights: 15, discount_percent: 4 },
+    { id: 'monthly', preset: 'monthly', min_nights: 28, discount_percent: 12 }
+  ]
+};
+
+function getFunctionHeaders(): Record<string, string> {
+  const token = localStorage.getItem('rendizy-token');
+  return {
+    apikey: publicAnonKey,
+    Authorization: `Bearer ${publicAnonKey}`,
+    ...(token ? { 'X-Auth-Token': token } : {})
+  };
+}
+
+function buildDiscountLabel(rule: DiscountPackageRule): string {
+  const nn = String(rule.min_nights ?? 0).padStart(2, '0');
+  if (rule.preset === 'weekly') return `Semanal 07 (R$)`;
+  if (rule.preset === 'monthly') return `Mensal 28 (R$)`;
+  return `Personalizado ${nn} (R$)`;
+}
+
+function discountColorClasses(preset: DiscountPackagePreset): { rowBg: string; stickyBg: string; text: string; iconText: string; hoverBg: string } {
+  if (preset === 'weekly') {
+    return { rowBg: 'bg-cyan-50', stickyBg: 'bg-cyan-50', text: 'text-cyan-700', iconText: 'text-cyan-600', hoverBg: 'bg-cyan-50 hover:bg-cyan-100' };
+  }
+  if (preset === 'monthly') {
+    return { rowBg: 'bg-teal-50', stickyBg: 'bg-teal-50', text: 'text-teal-700', iconText: 'text-teal-600', hoverBg: 'bg-teal-50 hover:bg-teal-100' };
+  }
+  return { rowBg: 'bg-purple-50', stickyBg: 'bg-purple-50', text: 'text-purple-700', iconText: 'text-purple-600', hoverBg: 'bg-purple-50 hover:bg-purple-100' };
+}
 
 interface CalendarProps {
   currentMonth: Date;
@@ -269,6 +317,27 @@ export function Calendar({
   onReservationClick,
   onBlockClick
 }: CalendarProps) {
+  const propertyCollator = useMemo(
+    () => new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true }),
+    []
+  );
+
+  const sortedProperties = useMemo(() => {
+    const keyFor = (p: Property): string => {
+      const raw = String((p as any)?.internalId || (p as any)?.name || '').trim();
+      if (!raw) return `\uffff\uffff\uffff-${String((p as any)?.id ?? '')}`;
+      return raw;
+    };
+
+    return [...(properties || [])].sort((a, b) => {
+      const ka = keyFor(a);
+      const kb = keyFor(b);
+      const byName = propertyCollator.compare(ka, kb);
+      if (byName !== 0) return byName;
+      return String((a as any)?.id ?? '').localeCompare(String((b as any)?.id ?? ''));
+    });
+  }, [properties, propertyCollator]);
+
   const formatPriceCell = (value: number | undefined | null): string => {
     if (value === null || value === undefined) return '—';
     const n = typeof value === 'number' ? value : Number(value);
@@ -368,25 +437,81 @@ export function Calendar({
   const [bulkMinNightsModalOpen, setBulkMinNightsModalOpen] = useState(false);
   const [selectedBulkDates, setSelectedBulkDates] = useState<{ start: Date; end: Date } | null>(null);
 
+  // Discount packages (Semanal 07 / Personalizado NN / Mensal 28)
+  const [discountPackages, setDiscountPackages] = useState<DiscountPackagesSettings>(DEFAULT_DISCOUNT_PACKAGES_SETTINGS);
+
   // Base price row selection states
   const [basePriceSelectionStart, setBasePriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
   const [basePriceSelectionEnd, setBasePriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
   const [isSelectingBasePrice, setIsSelectingBasePrice] = useState(false);
 
-  // Semanal 07 price row selection states
-  const [weekly7PriceSelectionStart, setWeekly7PriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
-  const [weekly7PriceSelectionEnd, setWeekly7PriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
-  const [isSelectingWeekly7Price, setIsSelectingWeekly7Price] = useState(false);
+  // Discount package price row selection (generic)
+  const [packagePriceSelectionStart, setPackagePriceSelectionStart] = useState<{ key: string; propertyId: string; date: Date } | null>(null);
+  const [packagePriceSelectionEnd, setPackagePriceSelectionEnd] = useState<{ key: string; propertyId: string; date: Date } | null>(null);
+  const [isSelectingPackagePrice, setIsSelectingPackagePrice] = useState(false);
 
-  // Personalizado 15 price row selection states
-  const [custom15PriceSelectionStart, setCustom15PriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
-  const [custom15PriceSelectionEnd, setCustom15PriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
-  const [isSelectingCustom15Price, setIsSelectingCustom15Price] = useState(false);
+  const normalizePackageRows = (settings: unknown): DiscountPackageRule[] => {
+    const rules = Array.isArray((settings as any)?.rules) ? ((settings as any).rules as DiscountPackageRule[]) : [];
+    return rules
+      .map((r) => ({
+        ...r,
+        min_nights: r.preset === 'weekly' ? 7 : r.preset === 'monthly' ? 28 : Math.max(1, Math.round(Number((r as any).min_nights || 1))),
+        discount_percent: Math.min(100, Math.max(0, Number((r as any).discount_percent || 0)))
+      }))
+      .sort((a, b) => a.min_nights - b.min_nights);
+  };
 
-  // Mensal 28 price row selection states
-  const [monthly28PriceSelectionStart, setMonthly28PriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
-  const [monthly28PriceSelectionEnd, setMonthly28PriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
-  const [isSelectingMonthly28Price, setIsSelectingMonthly28Price] = useState(false);
+  const orgPackageRows = useMemo(() => normalizePackageRows(discountPackages), [discountPackages]);
+
+  const packageRowsByPropertyId = useMemo(() => {
+    const map = new Map<string, DiscountPackageRule[]>();
+
+    for (const p of sortedProperties) {
+      const rawOverride = (p as any)?.discountPackagesOverride;
+
+      let override: any = rawOverride;
+      if (typeof override === 'string') {
+        try {
+          override = JSON.parse(override);
+        } catch {
+          override = null;
+        }
+      }
+
+      const effective = override && Array.isArray(override?.rules) ? override : discountPackages;
+      map.set(String((p as any)?.id ?? ''), normalizePackageRows(effective));
+    }
+
+    return map;
+  }, [sortedProperties, discountPackages]);
+
+  useEffect(() => {
+    const loadDiscountPackages = async () => {
+      try {
+        const meUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/auth/me`;
+        const meResp = await fetch(meUrl, { headers: getFunctionHeaders() });
+        const meData = await meResp.json();
+
+        if (!meResp.ok || !meData?.success) {
+          return;
+        }
+
+        const orgId = String(meData?.user?.organizationId ?? meData?.user?.organization?.id ?? '').trim();
+        if (!orgId) return;
+
+        const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${orgId}/discount-packages`;
+        const resp = await fetch(url, { headers: getFunctionHeaders() });
+        const data = await resp.json();
+        if (!resp.ok || !data?.success) return;
+
+        setDiscountPackages((data.settings ?? DEFAULT_DISCOUNT_PACKAGES_SETTINGS) as DiscountPackagesSettings);
+      } catch {
+        // silent: calendar should remain usable
+      }
+    };
+
+    loadDiscountPackages();
+  }, []);
 
   const togglePropertyExpansion = (propertyId: string) => {
     setExpandedProperties(prev => {
@@ -680,108 +805,37 @@ export function Calendar({
     return date >= start && date <= end;
   };
 
-  // Weekly 7 Price handlers
-  const handleWeekly7PriceMouseDown = (propertyId: string, date: Date) => {
-    setWeekly7PriceSelectionStart({ propertyId, date });
-    setIsSelectingWeekly7Price(true);
+  // Discount package price handlers (generic)
+  const handlePackagePriceMouseDown = (key: string, propertyId: string, date: Date) => {
+    setPackagePriceSelectionStart({ key, propertyId, date });
+    setIsSelectingPackagePrice(true);
   };
 
-  const handleWeekly7PriceMouseEnter = (propertyId: string, date: Date) => {
-    if (isSelectingWeekly7Price && weekly7PriceSelectionStart && weekly7PriceSelectionStart.propertyId === propertyId) {
-      setWeekly7PriceSelectionEnd({ propertyId, date });
+  const handlePackagePriceMouseEnter = (key: string, propertyId: string, date: Date) => {
+    if (isSelectingPackagePrice && packagePriceSelectionStart && packagePriceSelectionStart.key === key && packagePriceSelectionStart.propertyId === propertyId) {
+      setPackagePriceSelectionEnd({ key, propertyId, date });
     }
   };
 
-  const handleWeekly7PriceMouseUp = () => {
-    if (weekly7PriceSelectionStart && weekly7PriceSelectionEnd) {
-      const start = weekly7PriceSelectionStart.date < weekly7PriceSelectionEnd.date ? weekly7PriceSelectionStart.date : weekly7PriceSelectionEnd.date;
-      const end = weekly7PriceSelectionStart.date > weekly7PriceSelectionEnd.date ? weekly7PriceSelectionStart.date : weekly7PriceSelectionEnd.date;
-      onPriceEdit(weekly7PriceSelectionStart.propertyId, start, end);
-    } else if (weekly7PriceSelectionStart) {
-      onPriceEdit(weekly7PriceSelectionStart.propertyId, weekly7PriceSelectionStart.date, weekly7PriceSelectionStart.date);
+  const handlePackagePriceMouseUp = () => {
+    if (packagePriceSelectionStart && packagePriceSelectionEnd) {
+      const start = packagePriceSelectionStart.date < packagePriceSelectionEnd.date ? packagePriceSelectionStart.date : packagePriceSelectionEnd.date;
+      const end = packagePriceSelectionStart.date > packagePriceSelectionEnd.date ? packagePriceSelectionStart.date : packagePriceSelectionEnd.date;
+      onPriceEdit(packagePriceSelectionStart.propertyId, start, end);
+    } else if (packagePriceSelectionStart) {
+      onPriceEdit(packagePriceSelectionStart.propertyId, packagePriceSelectionStart.date, packagePriceSelectionStart.date);
     }
-    setWeekly7PriceSelectionStart(null);
-    setWeekly7PriceSelectionEnd(null);
-    setIsSelectingWeekly7Price(false);
+    setPackagePriceSelectionStart(null);
+    setPackagePriceSelectionEnd(null);
+    setIsSelectingPackagePrice(false);
   };
 
-  const isDateInWeekly7PriceSelection = (propertyId: string, date: Date) => {
-    if (!weekly7PriceSelectionStart || weekly7PriceSelectionStart.propertyId !== propertyId) return false;
-    if (!weekly7PriceSelectionEnd) return date.getTime() === weekly7PriceSelectionStart.date.getTime();
-    
-    const start = weekly7PriceSelectionStart.date < weekly7PriceSelectionEnd.date ? weekly7PriceSelectionStart.date : weekly7PriceSelectionEnd.date;
-    const end = weekly7PriceSelectionStart.date > weekly7PriceSelectionEnd.date ? weekly7PriceSelectionStart.date : weekly7PriceSelectionEnd.date;
-    
-    return date >= start && date <= end;
-  };
+  const isDateInPackagePriceSelection = (key: string, propertyId: string, date: Date) => {
+    if (!packagePriceSelectionStart || packagePriceSelectionStart.key !== key || packagePriceSelectionStart.propertyId !== propertyId) return false;
+    if (!packagePriceSelectionEnd) return date.getTime() === packagePriceSelectionStart.date.getTime();
 
-  // Custom 15 Price handlers
-  const handleCustom15PriceMouseDown = (propertyId: string, date: Date) => {
-    setCustom15PriceSelectionStart({ propertyId, date });
-    setIsSelectingCustom15Price(true);
-  };
-
-  const handleCustom15PriceMouseEnter = (propertyId: string, date: Date) => {
-    if (isSelectingCustom15Price && custom15PriceSelectionStart && custom15PriceSelectionStart.propertyId === propertyId) {
-      setCustom15PriceSelectionEnd({ propertyId, date });
-    }
-  };
-
-  const handleCustom15PriceMouseUp = () => {
-    if (custom15PriceSelectionStart && custom15PriceSelectionEnd) {
-      const start = custom15PriceSelectionStart.date < custom15PriceSelectionEnd.date ? custom15PriceSelectionStart.date : custom15PriceSelectionEnd.date;
-      const end = custom15PriceSelectionStart.date > custom15PriceSelectionEnd.date ? custom15PriceSelectionStart.date : custom15PriceSelectionEnd.date;
-      onPriceEdit(custom15PriceSelectionStart.propertyId, start, end);
-    } else if (custom15PriceSelectionStart) {
-      onPriceEdit(custom15PriceSelectionStart.propertyId, custom15PriceSelectionStart.date, custom15PriceSelectionStart.date);
-    }
-    setCustom15PriceSelectionStart(null);
-    setCustom15PriceSelectionEnd(null);
-    setIsSelectingCustom15Price(false);
-  };
-
-  const isDateInCustom15PriceSelection = (propertyId: string, date: Date) => {
-    if (!custom15PriceSelectionStart || custom15PriceSelectionStart.propertyId !== propertyId) return false;
-    if (!custom15PriceSelectionEnd) return date.getTime() === custom15PriceSelectionStart.date.getTime();
-    
-    const start = custom15PriceSelectionStart.date < custom15PriceSelectionEnd.date ? custom15PriceSelectionStart.date : custom15PriceSelectionEnd.date;
-    const end = custom15PriceSelectionStart.date > custom15PriceSelectionEnd.date ? custom15PriceSelectionStart.date : custom15PriceSelectionEnd.date;
-    
-    return date >= start && date <= end;
-  };
-
-  // Monthly 28 Price handlers
-  const handleMonthly28PriceMouseDown = (propertyId: string, date: Date) => {
-    setMonthly28PriceSelectionStart({ propertyId, date });
-    setIsSelectingMonthly28Price(true);
-  };
-
-  const handleMonthly28PriceMouseEnter = (propertyId: string, date: Date) => {
-    if (isSelectingMonthly28Price && monthly28PriceSelectionStart && monthly28PriceSelectionStart.propertyId === propertyId) {
-      setMonthly28PriceSelectionEnd({ propertyId, date });
-    }
-  };
-
-  const handleMonthly28PriceMouseUp = () => {
-    if (monthly28PriceSelectionStart && monthly28PriceSelectionEnd) {
-      const start = monthly28PriceSelectionStart.date < monthly28PriceSelectionEnd.date ? monthly28PriceSelectionStart.date : monthly28PriceSelectionEnd.date;
-      const end = monthly28PriceSelectionStart.date > monthly28PriceSelectionEnd.date ? monthly28PriceSelectionStart.date : monthly28PriceSelectionEnd.date;
-      onPriceEdit(monthly28PriceSelectionStart.propertyId, start, end);
-    } else if (monthly28PriceSelectionStart) {
-      onPriceEdit(monthly28PriceSelectionStart.propertyId, monthly28PriceSelectionStart.date, monthly28PriceSelectionStart.date);
-    }
-    setMonthly28PriceSelectionStart(null);
-    setMonthly28PriceSelectionEnd(null);
-    setIsSelectingMonthly28Price(false);
-  };
-
-  const isDateInMonthly28PriceSelection = (propertyId: string, date: Date) => {
-    if (!monthly28PriceSelectionStart || monthly28PriceSelectionStart.propertyId !== propertyId) return false;
-    if (!monthly28PriceSelectionEnd) return date.getTime() === monthly28PriceSelectionStart.date.getTime();
-    
-    const start = monthly28PriceSelectionStart.date < monthly28PriceSelectionEnd.date ? monthly28PriceSelectionStart.date : monthly28PriceSelectionEnd.date;
-    const end = monthly28PriceSelectionStart.date > monthly28PriceSelectionEnd.date ? monthly28PriceSelectionStart.date : monthly28PriceSelectionEnd.date;
-    
+    const start = packagePriceSelectionStart.date < packagePriceSelectionEnd.date ? packagePriceSelectionStart.date : packagePriceSelectionEnd.date;
+    const end = packagePriceSelectionStart.date > packagePriceSelectionEnd.date ? packagePriceSelectionStart.date : packagePriceSelectionEnd.date;
     return date >= start && date <= end;
   };
 
@@ -811,14 +865,12 @@ export function Calendar({
       if (isSelectingGlobalRestrictions) handleGlobalRestrictionsMouseUp();
       if (isSelectingGlobalMinNights) handleGlobalMinNightsMouseUp();
       if (isSelectingBasePrice) handleBasePriceMouseUp();
-      if (isSelectingWeekly7Price) handleWeekly7PriceMouseUp();
-      if (isSelectingCustom15Price) handleCustom15PriceMouseUp();
-      if (isSelectingMonthly28Price) handleMonthly28PriceMouseUp();
+      if (isSelectingPackagePrice) handlePackagePriceMouseUp();
     };
 
     document.addEventListener('mouseup', handleGlobalMouseUp);
     return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [isSelecting, isSelectingMinNights, isSelectingEmpty, isSelectingGlobalPrice, isSelectingGlobalRestrictions, isSelectingGlobalMinNights, isSelectingBasePrice, isSelectingWeekly7Price, isSelectingCustom15Price, isSelectingMonthly28Price]);
+  }, [isSelecting, isSelectingMinNights, isSelectingEmpty, isSelectingGlobalPrice, isSelectingGlobalRestrictions, isSelectingGlobalMinNights, isSelectingBasePrice, isSelectingPackagePrice]);
 
   return (
     <div className="relative h-full w-full overflow-auto">
@@ -826,7 +878,7 @@ export function Calendar({
         {/* ✅ FIX v1.0.103.428: Headers + Tabela em estrutura simples */}
         <TooltipProvider>
         {/* Header das Datas - STICKY TOP-0 */}
-        <CalendarHeaderDates days={days} />
+        <CalendarHeaderDates days={days} leftColWidth={leftColWidth} />
 
         {/* Tabela com Regras em Lote e Propriedades */}
         <table className="w-max min-w-full border-collapse bg-white">
@@ -884,8 +936,9 @@ export function Calendar({
 
             {/* ✅ FIX v1.0.103.426: Corpo da tabela - ROLA */}
             <tbody>
-              {properties.map((property) => {
+              {sortedProperties.map((property) => {
                 const isExpanded = expandedProperties.has(property.id);
+                const packageRowsForProperty = packageRowsByPropertyId.get(property.id) ?? orgPackageRows;
                 
                 return (
                   <React.Fragment key={property.id}>
@@ -1277,98 +1330,46 @@ export function Calendar({
                           })}
                         </tr>
 
-                        {/* Semanal 07 (R$) row */}
-                        <tr className="border-b border-gray-100 bg-cyan-50">
-                          <td
-                            className="sticky left-0 z-30 bg-cyan-50 border-r border-gray-200 p-1 pl-12"
-                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
-                          >
-                            <div className="flex items-center gap-2 text-xs text-cyan-700">
-                              <span className="text-cyan-600">📅</span>
-                              <span>Semanal 07 (R$)</span>
-                            </div>
-                          </td>
-                          {days.map((day, idx) => {
-                            const isSelected = isDateInWeekly7PriceSelection(property.id, day);
-                            const basePrice = property.basePrice;
-                            const weekly7 = typeof basePrice === 'number' ? basePrice * 0.98 : undefined;
-                            return (
+                        {/* Discount packages rows (Semanal 07 / Personalizado NN / Mensal 28) */}
+                        {packageRowsForProperty.map((rule) => {
+                          const classes = discountColorClasses(rule.preset);
+                          const icon = rule.preset === 'weekly' ? '📅' : rule.preset === 'monthly' ? '📆' : '⭐';
+                          const label = buildDiscountLabel(rule);
+                          return (
+                            <tr key={rule.id} className={`border-b border-gray-100 ${classes.rowBg}`}>
                               <td
-                                key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
-                                  isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-cyan-50 hover:bg-cyan-100'
-                                }`}
-                                onMouseDown={() => handleWeekly7PriceMouseDown(property.id, day)}
-                                onMouseEnter={() => handleWeekly7PriceMouseEnter(property.id, day)}
-                                onMouseUp={handleWeekly7PriceMouseUp}
+                                className={`sticky left-0 z-30 ${classes.stickyBg} border-r border-gray-200 p-1 pl-12`}
+                                style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
                               >
-                                <span className="text-blue-600">{formatPriceCell(weekly7)}</span>
+                                <div className={`flex items-center gap-2 text-xs ${classes.text}`}>
+                                  <span className={classes.iconText}>{icon}</span>
+                                  <span>{label}</span>
+                                </div>
                               </td>
-                            );
-                          })}
-                        </tr>
-
-                        {/* Personalizado 15 (R$) row */}
-                        <tr className="border-b border-gray-100 bg-purple-50">
-                          <td
-                            className="sticky left-0 z-30 bg-purple-50 border-r border-gray-200 p-1 pl-12"
-                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
-                          >
-                            <div className="flex items-center gap-2 text-xs text-purple-700">
-                              <span className="text-purple-600">⭐</span>
-                              <span>Personalizado 15 (R$)</span>
-                            </div>
-                          </td>
-                          {days.map((day, idx) => {
-                            const isSelected = isDateInCustom15PriceSelection(property.id, day);
-                            const basePrice = property.basePrice;
-                            const custom15 = typeof basePrice === 'number' ? basePrice * 0.96 : undefined;
-                            return (
-                              <td
-                                key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
-                                  isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-purple-50 hover:bg-purple-100'
-                                }`}
-                                onMouseDown={() => handleCustom15PriceMouseDown(property.id, day)}
-                                onMouseEnter={() => handleCustom15PriceMouseEnter(property.id, day)}
-                                onMouseUp={handleCustom15PriceMouseUp}
-                              >
-                                <span className="text-blue-600">{formatPriceCell(custom15)}</span>
-                              </td>
-                            );
-                          })}
-                        </tr>
-
-                        {/* Mensal 28 (R$) row */}
-                        <tr className="border-b border-gray-200 bg-teal-50">
-                          <td
-                            className="sticky left-0 z-30 bg-teal-50 border-r border-gray-200 p-1 pl-12"
-                            style={{ width: `${leftColWidth}px`, minWidth: `${leftColWidth}px`, maxWidth: `${leftColWidth}px` }}
-                          >
-                            <div className="flex items-center gap-2 text-xs text-teal-700">
-                              <span className="text-teal-600">📆</span>
-                              <span>Mensal 28 (R$)</span>
-                            </div>
-                          </td>
-                          {days.map((day, idx) => {
-                            const isSelected = isDateInMonthly28PriceSelection(property.id, day);
-                            const basePrice = property.basePrice;
-                            const monthly28 = typeof basePrice === 'number' ? basePrice * 0.88 : undefined;
-                            return (
-                              <td
-                                key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
-                                  isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-teal-50 hover:bg-teal-100'
-                                }`}
-                                onMouseDown={() => handleMonthly28PriceMouseDown(property.id, day)}
-                                onMouseEnter={() => handleMonthly28PriceMouseEnter(property.id, day)}
-                                onMouseUp={handleMonthly28PriceMouseUp}
-                              >
-                                <span className="text-blue-600">{formatPriceCell(monthly28)}</span>
-                              </td>
-                            );
-                          })}
-                        </tr>
+                              {days.map((day, idx) => {
+                                const isSelected = isDateInPackagePriceSelection(rule.id, property.id, day);
+                                const basePrice = property.basePrice;
+                                const discounted =
+                                  typeof basePrice === 'number'
+                                    ? basePrice * (1 - (Number(rule.discount_percent || 0) / 100))
+                                    : undefined;
+                                return (
+                                  <td
+                                    key={idx}
+                                    className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
+                                      isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : classes.hoverBg
+                                    }`}
+                                    onMouseDown={() => handlePackagePriceMouseDown(rule.id, property.id, day)}
+                                    onMouseEnter={() => handlePackagePriceMouseEnter(rule.id, property.id, day)}
+                                    onMouseUp={handlePackagePriceMouseUp}
+                                  >
+                                    <span className="text-blue-600">{formatPriceCell(discounted)}</span>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
                       </>
                     )}
                   </React.Fragment>
@@ -1433,10 +1434,10 @@ export function Calendar({
             onClose={() => setBulkPriceModalOpen(false)}
             startDate={selectedBulkDates.start}
             endDate={selectedBulkDates.end}
-            properties={properties}
+            properties={sortedProperties}
             onSave={(data) => {
               console.log('Bulk Price Condition saved:', data);
-              console.log('Properties affected:', properties.map(p => p.id));
+              console.log('Properties affected:', sortedProperties.map(p => p.id));
               // TODO: Implement bulk price condition logic for selected properties only
             }}
           />
@@ -1446,10 +1447,10 @@ export function Calendar({
             onClose={() => setBulkRestrictionsModalOpen(false)}
             startDate={selectedBulkDates.start}
             endDate={selectedBulkDates.end}
-            properties={properties}
+            properties={sortedProperties}
             onSave={(data) => {
               console.log('Bulk Restrictions saved:', data);
-              console.log('Properties affected:', properties.map(p => p.id));
+              console.log('Properties affected:', sortedProperties.map(p => p.id));
               // TODO: Implement bulk restrictions logic for selected properties only
             }}
           />
@@ -1459,10 +1460,10 @@ export function Calendar({
             onClose={() => setBulkMinNightsModalOpen(false)}
             startDate={selectedBulkDates.start}
             endDate={selectedBulkDates.end}
-            properties={properties}
+            properties={sortedProperties}
             onSave={(data) => {
               console.log('Bulk Min Nights saved:', data);
-              console.log('Properties affected:', properties.map(p => p.id));
+              console.log('Properties affected:', sortedProperties.map(p => p.id));
               // TODO: Implement bulk min nights logic for selected properties only
             }}
           />

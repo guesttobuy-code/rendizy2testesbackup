@@ -262,13 +262,17 @@ export async function listReservations(c: Context) {
       })
     );
   } catch (error) {
-    console.error('❌ [listReservations] ERRO COMPLETO:', error);
-    console.error('❌ [listReservations] Stack:', error?.stack);
-    logError('Error listing reservations', error);
-    return c.json(errorResponse('Failed to list reservations', { 
-      details: error?.message || String(error),
-      stack: error?.stack?.split('\n').slice(0, 3).join('\n') 
-    }), 500);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('❌ [listReservations] ERRO COMPLETO:', err);
+    console.error('❌ [listReservations] Stack:', err.stack);
+    logError('Error listing reservations', err);
+    return c.json(
+      errorResponse('Failed to list reservations', {
+        details: err.message,
+        stack: err.stack?.split('\n').slice(0, 3).join('\n'),
+      }),
+      500
+    );
   }
 }
 
@@ -758,16 +762,40 @@ function calculateReservationPrice(
   let appliedTier: 'base' | 'weekly' | 'biweekly' | 'monthly' = 'base';
   let discountPercent = 0;
 
-  // Determinar tier aplicável
-  if (nights >= 28) {
-    appliedTier = 'monthly';
-    discountPercent = property.pricing.monthlyDiscount;
-  } else if (nights >= 15) {
-    appliedTier = 'biweekly';
-    discountPercent = property.pricing.biweeklyDiscount;
-  } else if (nights >= 7) {
-    appliedTier = 'weekly';
-    discountPercent = property.pricing.weeklyDiscount;
+  // ✅ NOVO: regras ilimitadas por pacote de dias
+  const rules = Array.isArray((property as any)?.pricing?.discountPackagesRules)
+    ? ((property as any).pricing.discountPackagesRules as Array<{ minNights: number; discountPercent: number }>).
+        map((r) => ({
+          minNights: Math.max(1, Math.round(Number(r?.minNights ?? 1))),
+          discountPercent: Math.min(100, Math.max(0, Number(r?.discountPercent ?? 0)))
+        }))
+        .sort((a, b) => a.minNights - b.minNights)
+    : [];
+
+  if (rules.length > 0) {
+    const applicable = rules.filter((r) => nights >= r.minNights);
+    const best = applicable.length > 0 ? applicable[applicable.length - 1] : null;
+    if (best) {
+      discountPercent = best.discountPercent;
+      if (best.minNights >= 28) appliedTier = 'monthly';
+      else if (best.minNights >= 15) appliedTier = 'biweekly';
+      else if (best.minNights >= 7) appliedTier = 'weekly';
+      else appliedTier = 'base';
+    }
+  }
+
+  // Fallback: tiers fixos (legado)
+  if (rules.length === 0) {
+    if (nights >= 28) {
+      appliedTier = 'monthly';
+      discountPercent = property.pricing.monthlyDiscount;
+    } else if (nights >= 15) {
+      appliedTier = 'biweekly';
+      discountPercent = property.pricing.biweeklyDiscount;
+    } else if (nights >= 7) {
+      appliedTier = 'weekly';
+      discountPercent = property.pricing.weeklyDiscount;
+    }
   }
 
   // Calcular preço por noite com desconto
@@ -858,6 +886,82 @@ export async function createReservation(c: Context) {
     // ✅ Extrair dados de pricing do campo data (JSONB)
     const propertyData = propertyRow.data || {};
     const basePrice = propertyData.preco_base_noite || propertyData.valor_aluguel || 100; // Fallback
+
+    // ✅ NOVO: Descontos por pacote de dias
+    type DiscountPackagePreset = 'weekly' | 'monthly' | 'custom';
+    type DiscountPackageRule = { preset: DiscountPackagePreset; min_nights: number; discount_percent: number };
+
+    const normalizeDiscountRules = (input: any): DiscountPackageRule[] => {
+      const rules = Array.isArray(input?.rules) ? input.rules : [];
+      const coerced = rules
+        .map((r: any) => {
+          const presetRaw = String(r?.preset ?? 'custom');
+          const preset: DiscountPackagePreset = presetRaw === 'weekly' || presetRaw === 'monthly' || presetRaw === 'custom' ? presetRaw : 'custom';
+          const minNightsRaw = Number(r?.min_nights ?? 0);
+          const minNights = preset === 'weekly' ? 7 : preset === 'monthly' ? 28 : Math.max(1, Math.round(Number.isFinite(minNightsRaw) ? minNightsRaw : 1));
+
+          const pctRaw = Number(r?.discount_percent ?? 0);
+          const pct = Number.isFinite(pctRaw) ? Math.min(100, Math.max(0, pctRaw)) : 0;
+
+          return { preset, min_nights: minNights, discount_percent: pct } as DiscountPackageRule;
+        })
+        .sort((a: DiscountPackageRule, b: DiscountPackageRule) => a.min_nights - b.min_nights);
+
+      return coerced;
+    };
+
+    let weeklyDiscount = Number(propertyData.desconto_semanal || 0);
+    let monthlyDiscount = Number(propertyData.desconto_mensal || 0);
+    let biweeklyDiscount = 0;
+    let discountPackagesRules: Array<{ minNights: number; discountPercent: number }> = [];
+
+    try {
+      let effectiveSettings: any = null;
+
+      // Prefer override do anúncio
+      const override = (propertyData as any)?.discount_packages_override;
+      if (override) {
+        effectiveSettings = override;
+      } else {
+        // Fallback: config global da organização
+        const { data: orgRow } = await client
+          .from('organizations')
+          .select('metadata')
+          .eq('id', propertyRow.organization_id)
+          .maybeSingle();
+
+        const orgSettings = (orgRow as any)?.metadata?.discount_packages;
+        if (orgSettings) effectiveSettings = orgSettings;
+      }
+
+      const rules = normalizeDiscountRules(effectiveSettings);
+      const weekly = rules.find((r) => r.preset === 'weekly');
+      const monthly = rules.find((r) => r.preset === 'monthly');
+      const custom = rules.filter((r) => r.preset === 'custom');
+
+      // Regras completas (inclui weekly/custom/monthly) para cálculo por noites
+      if (rules.length > 0) {
+        discountPackagesRules = rules.map((r) => ({ minNights: r.min_nights, discountPercent: r.discount_percent }));
+      }
+
+      if (weekly) weeklyDiscount = weekly.discount_percent;
+      if (monthly) monthlyDiscount = monthly.discount_percent;
+
+      // Mantém compatibilidade com pricing atual (biweeklyDiscount), usando a regra custom mais próxima de 15 noites
+      if (custom.length > 0) {
+        const target = 15;
+        const best = custom.reduce((acc, cur) => {
+          if (!acc) return cur;
+          const d1 = Math.abs(acc.min_nights - target);
+          const d2 = Math.abs(cur.min_nights - target);
+          return d2 < d1 ? cur : acc;
+        }, null as DiscountPackageRule | null);
+        biweeklyDiscount = best?.discount_percent ?? 0;
+      }
+    } catch (err) {
+      // fallback silencioso para descontos legados
+      console.warn('⚠️ [createReservation] Falha ao resolver discount packages, usando descontos legados:', err);
+    }
     
     // ✅ Converter para Property (TypeScript) temporariamente para calcular preço
     const property: Property = {
@@ -865,9 +969,10 @@ export async function createReservation(c: Context) {
       pricing: {
         basePrice: basePrice,
         currency: propertyData.moeda || 'BRL',
-        weeklyDiscount: propertyData.desconto_semanal || 0,
-        biweeklyDiscount: 0,
-        monthlyDiscount: propertyData.desconto_mensal || 0,
+        weeklyDiscount,
+        biweeklyDiscount,
+        monthlyDiscount,
+        ...(discountPackagesRules.length > 0 ? { discountPackagesRules } : {}),
       },
     } as Property;
 

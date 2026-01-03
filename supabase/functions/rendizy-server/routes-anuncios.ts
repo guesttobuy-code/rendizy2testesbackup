@@ -95,7 +95,9 @@ app.get("/lista", async (c) => {
       .select("*")
       // Não retornar registros internos de settings/config
       .neq('data->>__kind', SETTINGS_KIND)
-      .order("updated_at", { ascending: false });
+      // Ordenação fixa (não muda ao editar/atualizar): alfabética por título + desempate por id
+      .order("title", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true });
 
     if (error) {
       console.error("❌ Erro ao listar anúncios:", error);

@@ -44,6 +44,13 @@ import { Badge } from '../ui/badge';
 import { toast } from 'sonner';
 import { LOCATION_AMENITIES, LISTING_AMENITIES } from '../../utils/amenities-categories';
 
+import {
+  DiscountPackagesEditor,
+  DEFAULT_DISCOUNT_PACKAGES_SETTINGS,
+  normalizeDiscountPackagesSettings,
+  type DiscountPackagesSettings,
+} from '../pricing/DiscountPackagesEditor';
+
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
@@ -51,6 +58,7 @@ const ANON_KEY = publicAnonKey;
 
 const SETTINGS_LOCATIONS_LISTINGS_URL = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/settings/locations-listings`;
 const CUSTOM_DESCRIPTION_VALUES_FIELD = 'custom_description_fields_values';
+const DISCOUNT_PACKAGES_OVERRIDE_FIELD = 'discount_packages_override';
 
 type CustomDescriptionField = {
   id: string;
@@ -468,15 +476,10 @@ export default function FormularioAnuncio() {
   
   // @MODALIDADE: [TEMPORADA] - Preço base por diária
   const [precoBaseNoite, setPrecoBaseNoite] = useState(0);
-  
-  // @MODALIDADE: [TEMPORADA] - Desconto % para 2+ noites
-  const [descontoPermanencia2Noites, setDescontoPermanencia2Noites] = useState(0);
-  
-  // @MODALIDADE: [TEMPORADA] - Desconto % para 7+ noites
-  const [descontoPermanencia7Noites, setDescontoPermanencia7Noites] = useState(0);
-  
-  // @MODALIDADE: [TEMPORADA] - Desconto % para 30+ noites
-  const [descontoPermanencia30Noites, setDescontoPermanencia30Noites] = useState(0);
+
+  // @MODALIDADE: [TEMPORADA] - Override de descontos por pacote de dias (por anúncio)
+  const [useDiscountPackagesOverride, setUseDiscountPackagesOverride] = useState(false);
+  const [discountPackagesOverride, setDiscountPackagesOverride] = useState<DiscountPackagesSettings>(DEFAULT_DISCOUNT_PACKAGES_SETTINGS);
   
   // @MODALIDADE: [TEMPORADA] - Array de períodos sazonais (alta/baixa)
   const [periodosSazonais, setPeriodosSazonais] = useState<any[]>([]);
@@ -733,9 +736,22 @@ export default function FormularioAnuncio() {
         
         // Step 11: Precificação Individual
         if (wizardData.preco_base_noite !== undefined) setPrecoBaseNoite(Number(wizardData.preco_base_noite) || 0);
-        if (wizardData.desconto_permanencia_2_noites !== undefined) setDescontoPermanencia2Noites(Number(wizardData.desconto_permanencia_2_noites) || 0);
-        if (wizardData.desconto_permanencia_7_noites !== undefined) setDescontoPermanencia7Noites(Number(wizardData.desconto_permanencia_7_noites) || 0);
-        if (wizardData.desconto_permanencia_30_noites !== undefined) setDescontoPermanencia30Noites(Number(wizardData.desconto_permanencia_30_noites) || 0);
+        {
+          const rawOverride = (wizardData as any)?.[DISCOUNT_PACKAGES_OVERRIDE_FIELD];
+          if (rawOverride !== undefined && rawOverride !== null && rawOverride !== '') {
+            try {
+              const parsed = typeof rawOverride === 'string' ? JSON.parse(rawOverride) : rawOverride;
+              if (parsed && typeof parsed === 'object') {
+                setUseDiscountPackagesOverride(true);
+                setDiscountPackagesOverride(normalizeDiscountPackagesSettings(parsed as DiscountPackagesSettings));
+              }
+            } catch (err) {
+              console.error('❌ Erro ao parsear discount_packages_override:', err);
+            }
+          } else {
+            setUseDiscountPackagesOverride(false);
+          }
+        }
         if (wizardData.periodos_sazonais) setPeriodosSazonais(wizardData.periodos_sazonais || []);
         if (wizardData.precos_dia_semana) setPrecosDiaSemana(wizardData.precos_dia_semana || {});
         if (wizardData.datas_especiais) setDatasEspeciais(wizardData.datas_especiais || []);
@@ -1779,9 +1795,10 @@ export default function FormularioAnuncio() {
       
       const fields = [
         { field: 'preco_base_noite', value: precoBaseNoite },
-        { field: 'desconto_permanencia_2_noites', value: descontoPermanencia2Noites },
-        { field: 'desconto_permanencia_7_noites', value: descontoPermanencia7Noites },
-        { field: 'desconto_permanencia_30_noites', value: descontoPermanencia30Noites },
+        {
+          field: DISCOUNT_PACKAGES_OVERRIDE_FIELD,
+          value: useDiscountPackagesOverride ? normalizeDiscountPackagesSettings(discountPackagesOverride) : null,
+        },
         { field: 'periodos_sazonais', value: periodosSazonais },
         { field: 'precos_dia_semana', value: precosDiaSemana },
         { field: 'datas_especiais', value: datasEspeciais },
@@ -1809,6 +1826,13 @@ export default function FormularioAnuncio() {
 
       console.log('✅ Precificação individual salva!');
       toast.success('✅ Precificação salva!');
+
+      try {
+        localStorage.setItem('rendizy:propertiesRefresh', String(Date.now()));
+        window.dispatchEvent(new Event('rendizy:properties:refresh'));
+      } catch {
+        // ignore
+      }
       return true;
 
     } catch (error) {
@@ -2057,8 +2081,17 @@ export default function FormularioAnuncio() {
               Voltar
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
                 {id ? 'Editar Anúncio' : 'Novo Anúncio'}
+                {(formData.internalId?.trim() || formData.title?.trim()) ? (
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-medium text-slate-700 bg-white"
+                    title={formData.internalId?.trim() || formData.title?.trim()}
+                  >
+                    {formData.internalId?.trim() || formData.title?.trim()}
+                  </Badge>
+                ) : null}
               </h1>
               <p className="text-sm text-slate-500">
                 Progresso: {completedTabs.length}/17 seções • Conteúdo (7) + Financeiro (5) + Configurações (5)
@@ -4571,36 +4604,30 @@ export default function FormularioAnuncio() {
                 {/* Descontos por Permanência */}
                 <Card>
                   <CardContent className="pt-6">
-                    <h4 className="font-semibold text-base mb-4">📅 Descontos por Permanência</h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>2 Noites (%)</Label>
-                        <Input
-                          type="number"
-                          value={descontoPermanencia2Noites}
-                          onChange={(e) => setDescontoPermanencia2Noites(Number(e.target.value))}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <Label>7 Noites (%)</Label>
-                        <Input
-                          type="number"
-                          value={descontoPermanencia7Noites}
-                          onChange={(e) => setDescontoPermanencia7Noites(Number(e.target.value))}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <Label>30 Noites (%)</Label>
-                        <Input
-                          type="number"
-                          value={descontoPermanencia30Noites}
-                          onChange={(e) => setDescontoPermanencia30Noites(Number(e.target.value))}
-                          placeholder="0"
-                        />
-                      </div>
+                    <h4 className="font-semibold text-base mb-4">📦 Descontos por pacote de dias</h4>
+
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="discount-packages-override"
+                        checked={useDiscountPackagesOverride}
+                        onCheckedChange={(checked) => setUseDiscountPackagesOverride(checked as boolean)}
+                      />
+                      <Label htmlFor="discount-packages-override" className="cursor-pointer">
+                        Usar descontos personalizados neste anúncio
+                      </Label>
                     </div>
+
+                    {!useDiscountPackagesOverride ? (
+                      <p className="text-xs text-slate-500">
+                        Usando a configuração global da organização (Configurações → Precificação → Descontos por pacote de dias).
+                      </p>
+                    ) : (
+                      <DiscountPackagesEditor
+                        value={discountPackagesOverride}
+                        onChange={setDiscountPackagesOverride}
+                        disabled={isSaving}
+                      />
+                    )}
                   </CardContent>
                 </Card>
 

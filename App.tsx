@@ -160,6 +160,8 @@ export interface Property {
   coverPhoto?: string;
   /** Preço base do anúncio (ex.: preco_base_noite / pricing.basePrice). */
   basePrice?: number;
+  /** Override por anúncio (salvo em anuncios_ultimate.data.discount_packages_override). */
+  discountPackagesOverride?: any;
   type: string;
   location: string;
   tarifGroup: string;
@@ -597,8 +599,7 @@ function App() {
   }, []);
 
   // Load properties from Anúncios Ultimate - ✅ HABILITADO v1.0.103.335
-  useEffect(() => {
-    const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
       setLoadingProperties(true);
       console.log('🔄 Carregando imóveis de Anúncios Ultimate...');
 
@@ -625,7 +626,7 @@ function App() {
 
         // Fallback REST direto se função devolver vazio (ambiente ainda não deployado)
         if (!anuncios || anuncios.length === 0) {
-          const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*`, {
+          const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*&order=title.asc,id.asc`, {
             headers: {
               'apikey': ANON_KEY,
               'Authorization': `Bearer ${ANON_KEY}`,
@@ -642,19 +643,22 @@ function App() {
         }
 
         if (anuncios && anuncios.length) {
-          console.log('📋 Estrutura dos anúncios recebidos:', anuncios);
+          const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
           const apiProperties = anuncios.map((a: any) => {
-            // Extrai título do objeto data ou diretamente
             const title = a.data?.title || a.title || 'Sem título';
             const propertyId = a.id || '';
-            
-            console.log(`🏠 Processando anúncio: ${propertyId} - ${title}`);
-            
+            const internalId = a.data?.internalId || a.data?.internal_id || a.data?.identificacao_interna;
+            const basePriceRaw = a.data?.preco_base_noite ?? a.data?.basePrice ?? a.data?.base_price;
+            const basePrice = basePriceRaw === null || basePriceRaw === undefined ? undefined : Number(basePriceRaw);
             return {
               id: propertyId,
               name: title,
+              title,
+              internalId: typeof internalId === 'string' ? internalId : undefined,
               image: a.data?.photos?.[0] || 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=100&h=100&fit=crop',
+              basePrice: Number.isFinite(basePrice) ? basePrice : undefined,
+              discountPackagesOverride: a.data?.discount_packages_override,
               type: 'Imóvel',
               location: 'A definir',
               tarifGroup: 'Ultimate',
@@ -662,8 +666,17 @@ function App() {
             };
           }).filter((p: Property) => p.id);
 
+          apiProperties.sort((a: any, b: any) => {
+            const ta = String(a.name || '').trim();
+            const tb = String(b.name || '').trim();
+            const ka = ta ? ta : `\uffff\uffff\uffff-${a.id}`;
+            const kb = tb ? tb : `\uffff\uffff\uffff-${b.id}`;
+            const byTitle = collator.compare(ka, kb);
+            if (byTitle !== 0) return byTitle;
+            return String(a.id).localeCompare(String(b.id));
+          });
+
           console.log(`✅ ${apiProperties.length} imóveis carregados de Anúncios Ultimate`);
-          console.log('📦 Imóveis processados:', apiProperties);
           setProperties(apiProperties);
           setSelectedProperties(apiProperties.map((p: Property) => p.id));
         } else {
@@ -683,10 +696,30 @@ function App() {
         setLoadingProperties(false);
         setInitialLoading(false);
       }
+    }, [errorBannerDismissed]);
+
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties]);
+
+  useEffect(() => {
+    const onRefresh = () => {
+      loadProperties();
     };
 
-    loadProperties();
-  }, [errorBannerDismissed]);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'rendizy:propertiesRefresh') {
+        loadProperties();
+      }
+    };
+
+    window.addEventListener('rendizy:properties:refresh' as any, onRefresh as any);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('rendizy:properties:refresh' as any, onRefresh as any);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [loadProperties]);
 
   // Load reservations from API - ✅ HABILITADO v1.0.103.308
   useEffect(() => {
