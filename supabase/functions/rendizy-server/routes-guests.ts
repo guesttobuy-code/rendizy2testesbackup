@@ -334,7 +334,8 @@ export async function ensureGuestForOrganization(c: Context) {
       notes: undefined,
       createdAt: now,
       updatedAt: now,
-      source: 'global_ensure',
+      // ✅ CHECK constraint: guests.source IN ('airbnb','booking','decolar','direct','other')
+      source: 'other',
     };
 
     const sqlRow = guestToSql(guest, organizationId);
