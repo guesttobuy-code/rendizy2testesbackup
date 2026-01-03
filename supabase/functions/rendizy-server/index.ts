@@ -531,6 +531,8 @@ app.post(
 // ============================================================================
 // ⚠️ Guests dependem do tenancyMiddleware (getTenant/getOrganizationId)
 app.get("/rendizy-server/guests", tenancyMiddleware, guestsRoutes.listGuests);
+app.get("/rendizy-server/guests/global-search", tenancyMiddleware, guestsRoutes.globalSearchGuests);
+app.post("/rendizy-server/guests/ensure", tenancyMiddleware, guestsRoutes.ensureGuestForOrganization);
 app.get("/rendizy-server/guests/:id", tenancyMiddleware, guestsRoutes.getGuest);
 app.post("/rendizy-server/guests", tenancyMiddleware, guestsRoutes.createGuest);
 app.put("/rendizy-server/guests/:id", tenancyMiddleware, guestsRoutes.updateGuest);
@@ -538,6 +540,8 @@ app.delete("/rendizy-server/guests/:id", tenancyMiddleware, guestsRoutes.deleteG
 
 // Alias sem prefixo: base /functions/v1/rendizy-server
 app.get("/guests", tenancyMiddleware, guestsRoutes.listGuests);
+app.get("/guests/global-search", tenancyMiddleware, guestsRoutes.globalSearchGuests);
+app.post("/guests/ensure", tenancyMiddleware, guestsRoutes.ensureGuestForOrganization);
 app.get("/guests/:id", tenancyMiddleware, guestsRoutes.getGuest);
 app.post("/guests", tenancyMiddleware, guestsRoutes.createGuest);
 app.put("/guests/:id", tenancyMiddleware, guestsRoutes.updateGuest);

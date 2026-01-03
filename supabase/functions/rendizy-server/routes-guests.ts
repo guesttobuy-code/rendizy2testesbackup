@@ -63,6 +63,33 @@ export async function listGuests(c: Context) {
       query = query.eq('is_blacklisted', blacklisted);
     }
     
+    // Filtro por busca (texto)
+    // ✅ IMPORTANTE: aplicar no SQL para escalar (evita carregar tudo e filtrar em memória)
+    const search = (c.req.query('search') || '').trim();
+    if (search) {
+      const q = sanitizeString(search).trim().toLowerCase();
+      const qDigits = q.replace(/\D+/g, '');
+      // PostgREST OR syntax (supabase-js): "col.op.value,col.op.value"
+      const clauses: string[] = [];
+      const like = `%${q.replace(/,/g, ' ')}%`;
+      clauses.push(`first_name.ilike.${like}`);
+      clauses.push(`last_name.ilike.${like}`);
+      clauses.push(`name.ilike.${like}`);
+      clauses.push(`email.ilike.${like}`);
+      if (qDigits) {
+        clauses.push(`phone.ilike.%${qDigits}%`);
+        clauses.push(`cpf.ilike.%${qDigits}%`);
+      } else {
+        clauses.push(`phone.ilike.${like}`);
+      }
+      query = query.or(clauses.join(','));
+    }
+
+    // Limite (protege performance em orgs com muitos hóspedes)
+    const limitRaw = c.req.query('limit');
+    const limit = Math.max(1, Math.min(200, limitRaw ? Number(limitRaw) : (search ? 50 : 200)));
+    query = query.limit(Number.isFinite(limit) ? limit : (search ? 50 : 200));
+
     // Ordenar por nome (first_name, last_name)
     query = query.order('first_name', { ascending: true });
     query = query.order('last_name', { ascending: true });
@@ -75,17 +102,7 @@ export async function listGuests(c: Context) {
     }
     
     // ✅ Converter resultados SQL para Guest (TypeScript)
-    let guests = (rows || []).map(sqlToGuest);
-
-    // Filtro por busca (texto) - precisa ser feito em memória
-    const search = c.req.query('search');
-    if (search) {
-      guests = guests.filter(g => 
-        matchesSearch(g.fullName, search) ||
-        matchesSearch(g.email, search) ||
-        matchesSearch(g.phone, search)
-      );
-    }
+    const guests = (rows || []).map(sqlToGuest);
 
     logInfo(`Found ${guests.length} guests`);
 
@@ -98,6 +115,246 @@ export async function listGuests(c: Context) {
       details: error?.message || String(error),
       stack: error?.stack?.split('\n').slice(0, 3).join('\n') 
     }), 500);
+  }
+}
+
+// ============================================================================
+// BUSCA GLOBAL (cross-org) POR IDENTIFICADORES (email/telefone/cpf)
+// ============================================================================
+
+type GlobalGuestSuggestion = Guest & {
+  isGlobalSuggestion?: boolean;
+  cpf?: string;
+};
+
+function normalizeDigits(v: string): string {
+  return (v || '').replace(/\D+/g, '');
+}
+
+function looksLikeEmail(v: string): boolean {
+  return v.includes('@') && v.includes('.');
+}
+
+/**
+ * Busca global por hóspedes em outras organizações.
+ * ⚠️ Deliberadamente restrita: só ativa com email OU telefone/CPF (dígitos).
+ * Isso evita enumeração por nome.
+ */
+export async function globalSearchGuests(c: Context) {
+  try {
+    const tenant = getTenant(c);
+    const client = getSupabaseClient(c);
+
+    const raw = (c.req.query('search') || '').trim();
+    const search = sanitizeString(raw).trim();
+    const digits = normalizeDigits(search);
+    const isEmail = looksLikeEmail(search);
+    const isPhoneLike = digits.length >= 8;
+    const isCpfLike = digits.length === 11;
+
+    if (!search) {
+      return c.json(successResponse([]));
+    }
+
+    // Regras anti-enumeração (mínimo de informação forte)
+    if (!isEmail && !isPhoneLike && !isCpfLike) {
+      logInfo(`[globalSearchGuests] blocked weak query for tenant ${tenant.username}`);
+      return c.json(successResponse([]));
+    }
+
+    const limitRaw = c.req.query('limit');
+    const limit = Math.max(1, Math.min(20, limitRaw ? Number(limitRaw) : 20));
+
+    let query = client
+      .from('guests')
+      .select('first_name,last_name,email,phone,cpf')
+      .limit(Number.isFinite(limit) ? limit : 20);
+
+    const clauses: string[] = [];
+    if (isEmail) {
+      const q = search.toLowerCase().replace(/,/g, ' ');
+      clauses.push(`email.ilike.%${q}%`);
+    }
+    if (digits) {
+      clauses.push(`phone.ilike.%${digits}%`);
+      clauses.push(`cpf.ilike.%${digits}%`);
+    }
+
+    if (clauses.length === 0) {
+      return c.json(successResponse([]));
+    }
+    query = query.or(clauses.join(','));
+
+    // Ordena levemente para determinismo
+    query = query.order('first_name', { ascending: true });
+    query = query.order('last_name', { ascending: true });
+
+    const { data: rows, error } = await query;
+    if (error) {
+      console.error('❌ [globalSearchGuests] SQL error:', error);
+      return c.json(errorResponse('Erro ao buscar hóspedes (global)', { details: error.message }), 500);
+    }
+
+    const seen = new Set<string>();
+    const suggestions: GlobalGuestSuggestion[] = [];
+
+    for (const r of rows || []) {
+      const email = (r.email || '').toString().trim().toLowerCase();
+      const phone = (r.phone || '').toString().trim();
+      const cpf = (r.cpf || '').toString().trim();
+      const key = [
+        email ? `e:${email}` : '',
+        phone ? `p:${normalizeDigits(phone)}` : '',
+        cpf ? `c:${normalizeDigits(cpf)}` : '',
+      ].filter(Boolean).join('|');
+
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+
+      const firstName = (r.first_name || '').toString();
+      const lastName = (r.last_name || '').toString();
+      const fullName = `${firstName} ${lastName}`.trim() || 'Sem nome';
+
+      suggestions.push({
+        id: `global:${key}`,
+        firstName,
+        lastName,
+        fullName,
+        email: email || '',
+        phone: phone || '',
+        cpf: cpf || undefined,
+        stats: {
+          totalReservations: 0,
+          totalNights: 0,
+          totalSpent: 0,
+          averageRating: undefined,
+          lastStayDate: undefined,
+        },
+        preferences: undefined,
+        tags: [],
+        isBlacklisted: false,
+        notes: undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        source: 'global_suggestion',
+        isGlobalSuggestion: true,
+      });
+    }
+
+    return c.json(successResponse(suggestions));
+  } catch (error) {
+    console.error('❌ [globalSearchGuests] ERRO COMPLETO:', error);
+    return c.json(errorResponse('Failed to global-search guests', { details: error?.message || String(error) }), 500);
+  }
+}
+
+// ============================================================================
+// GARANTIR HÓSPEDE NA ORGANIZAÇÃO ATUAL (a partir de sugestão global)
+// ============================================================================
+
+export async function ensureGuestForOrganization(c: Context) {
+  try {
+    const tenant = getTenant(c);
+    const client = getSupabaseClient(c);
+    const organizationId = await getOrganizationIdForRequest(c);
+
+    const body = await c.req.json<{
+      firstName?: string;
+      lastName?: string;
+      fullName?: string;
+      email?: string;
+      phone?: string;
+      cpf?: string;
+    }>();
+
+    const email = body.email ? sanitizeEmail(body.email) : '';
+    const phone = body.phone ? sanitizePhone(body.phone) : '';
+    const cpf = body.cpf ? sanitizeCPF(body.cpf) : '';
+
+    // Requer identificador forte (pra não virar criação por digitação de nome)
+    if ((!email || !isValidEmail(email)) && (!phone || !isValidPhone(phone)) && (!cpf || cpf.length < 11)) {
+      return c.json(validationErrorResponse('Email/telefone/CPF válido é obrigatório para reutilizar hóspede'), 400);
+    }
+
+    // 1) Tenta achar hóspede existente nesta organização
+    let existingQuery = client
+      .from('guests')
+      .select(GUEST_SELECT_FIELDS)
+      .eq('organization_id', organizationId);
+
+    const ors: string[] = [];
+    if (email && isValidEmail(email)) ors.push(`email.ilike.${email.toLowerCase()}`);
+    const digits = normalizeDigits(phone);
+    if (digits && digits.length >= 8) ors.push(`phone.ilike.%${digits}%`);
+    const cpfDigits = normalizeDigits(cpf);
+    if (cpfDigits && cpfDigits.length === 11) ors.push(`cpf.ilike.%${cpfDigits}%`);
+    if (ors.length > 0) existingQuery = existingQuery.or(ors.join(','));
+
+    const { data: foundRows, error: findError } = await existingQuery.limit(1);
+    if (findError) {
+      console.error('❌ [ensureGuestForOrganization] SQL error finding guest:', findError);
+      return c.json(errorResponse('Erro ao verificar hóspede existente', { details: findError.message }), 500);
+    }
+    if (foundRows && foundRows.length > 0) {
+      return c.json(successResponse(sqlToGuest(foundRows[0])));
+    }
+
+    // 2) Cria hóspede novo nesta organização (com dados reaproveitados)
+    const firstName = sanitizeString(body.firstName || (body.fullName || '').split(' ')[0] || '');
+    const lastName = sanitizeString(body.lastName || (body.fullName || '').split(' ').slice(1).join(' ') || '');
+    if (!firstName) {
+      return c.json(validationErrorResponse('First name is required'), 400);
+    }
+    if (!email || !isValidEmail(email)) {
+      return c.json(validationErrorResponse('Valid email is required'), 400);
+    }
+    if (!phone || !isValidPhone(phone)) {
+      return c.json(validationErrorResponse('Valid phone is required'), 400);
+    }
+
+    const id = generateGuestId();
+    const now = getCurrentDateTime();
+    const guest: Guest = {
+      id,
+      firstName,
+      lastName,
+      fullName: generateFullName(firstName, lastName),
+      email,
+      phone,
+      cpf: cpf || undefined,
+      passport: undefined,
+      rg: undefined,
+      address: undefined,
+      birthDate: undefined,
+      nationality: undefined,
+      language: 'pt-BR',
+      stats: { totalReservations: 0, totalNights: 0, totalSpent: 0 },
+      preferences: undefined,
+      tags: [],
+      isBlacklisted: false,
+      notes: undefined,
+      createdAt: now,
+      updatedAt: now,
+      source: 'global_ensure',
+    };
+
+    const sqlRow = guestToSql(guest, organizationId);
+    const { data: inserted, error: insertError } = await client
+      .from('guests')
+      .insert(sqlRow)
+      .select(GUEST_SELECT_FIELDS)
+      .single();
+
+    if (insertError) {
+      console.error('❌ [ensureGuestForOrganization] SQL error inserting guest:', insertError);
+      return c.json(errorResponse('Erro ao criar hóspede', { details: insertError.message }), 500);
+    }
+
+    logInfo(`✅ [ensureGuestForOrganization] created guest ${guest.id} for org ${organizationId} (tenant ${tenant.username})`);
+    return c.json(successResponse(sqlToGuest(inserted)));
+  } catch (error) {
+    console.error('❌ [ensureGuestForOrganization] ERRO COMPLETO:', error);
+    return c.json(errorResponse('Failed to ensure guest', { details: error?.message || String(error) }), 500);
   }
 }
 

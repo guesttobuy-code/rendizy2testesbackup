@@ -870,6 +870,33 @@ export const guestsApi = {
     return apiRequest<Guest[]>(`/guests${query ? '?' + query : ''}`);
   },
 
+  // Busca global (cross-org) por identificadores (email/telefone/CPF)
+  // Retorna sugestões com o mesmo shape de Guest, mas com `id` do tipo `global:*`.
+  globalSearch: async (filters: {
+    search: string;
+    limit?: number;
+  }): Promise<ApiResponse<Array<Guest & { isGlobalSuggestion?: boolean; cpf?: string }>>> => {
+    const params = new URLSearchParams();
+    params.set('search', filters.search);
+    if (filters.limit !== undefined) params.set('limit', String(filters.limit));
+    return apiRequest(`/guests/global-search?${params.toString()}`);
+  },
+
+  // Garante que o hóspede exista na organização atual (cria se necessário)
+  ensure: async (data: {
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    cpf?: string;
+  }): Promise<ApiResponse<Guest>> => {
+    return apiRequest<Guest>('/guests/ensure', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
   // Buscar hóspede por ID
   get: async (id: string): Promise<ApiResponse<Guest>> => {
     return apiRequest<Guest>(`/guests/${id}`);

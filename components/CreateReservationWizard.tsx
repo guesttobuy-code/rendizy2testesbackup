@@ -33,6 +33,8 @@ interface Guest {
   fullName: string;
   email: string;
   phone: string;
+  cpf?: string;
+  isGlobalSuggestion?: boolean;
 }
 
 // Novo componente para criar hóspede
@@ -236,12 +238,35 @@ export function CreateReservationWizard({
     const t = setTimeout(async () => {
       setSearchingGuests(true);
       try {
-        const resp = await guestsApi.list({ search: q });
-        if (resp.success && resp.data) {
-          setSearchResults(resp.data);
-        } else {
-          setSearchResults([]);
+        // 1) Busca local (sempre)
+        const localResp = await guestsApi.list({ search: q });
+        const local = localResp.success && localResp.data ? localResp.data : [];
+
+        // 2) Busca global (só quando houver identificador forte: email ou dígitos)
+        const digits = q.replace(/\D+/g, '');
+        const looksLikeEmail = q.includes('@') && q.includes('.');
+        const looksLikePhoneOrCpf = digits.length >= 8;
+
+        let global: Guest[] = [];
+        if (looksLikeEmail || looksLikePhoneOrCpf) {
+          const globalResp = await guestsApi.globalSearch({ search: q, limit: 20 });
+          if (globalResp.success && globalResp.data) {
+            global = globalResp.data as any;
+          }
         }
+
+        // 3) Merge (local primeiro) e remove globais duplicados por email/telefone
+        const localEmails = new Set(local.map(g => (g.email || '').toLowerCase()).filter(Boolean));
+        const localPhones = new Set(local.map(g => (g.phone || '').replace(/\D+/g, '')).filter(Boolean));
+        const globalFiltered = global.filter(g => {
+          const e = (g.email || '').toLowerCase();
+          const p = (g.phone || '').replace(/\D+/g, '');
+          if (e && localEmails.has(e)) return false;
+          if (p && localPhones.has(p)) return false;
+          return true;
+        });
+
+        setSearchResults([...local, ...globalFiltered]);
       } catch (e) {
         console.error('❌ Erro ao buscar hóspedes (server-side):', e);
         setSearchResults([]);
@@ -800,13 +825,46 @@ export function CreateReservationWizard({
                         {filteredGuests.map(guest => (
                           <div
                             key={guest.id}
-                            onClick={() => setSelectedGuest(guest)}
+                                onClick={async () => {
+                                  // Sugestão global: cria/garante hóspede local antes de selecionar
+                                  if ((guest as any).isGlobalSuggestion) {
+                                    try {
+                                      setSearchingGuests(true);
+                                      const ensured = await guestsApi.ensure({
+                                        firstName: guest.firstName,
+                                        lastName: guest.lastName,
+                                        fullName: guest.fullName,
+                                        email: guest.email,
+                                        phone: guest.phone,
+                                        cpf: (guest as any).cpf,
+                                      });
+                                      if (ensured.success && ensured.data) {
+                                        setSelectedGuest(ensured.data);
+                                        setGuests(prev => {
+                                          const exists = prev.some(g => g.id === ensured.data!.id);
+                                          return exists ? prev : [ensured.data!, ...prev];
+                                        });
+                                      } else {
+                                        toast.error(ensured.error || 'Erro ao reutilizar hóspede');
+                                      }
+                                    } catch (err) {
+                                      console.error('❌ Erro ao garantir hóspede:', err);
+                                      toast.error('Erro ao reutilizar hóspede');
+                                    } finally {
+                                      setSearchingGuests(false);
+                                    }
+                                    return;
+                                  }
+
+                                  setSelectedGuest(guest);
+                                }}
                             role="button"
                             tabIndex={0}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
-                                setSelectedGuest(guest);
+                                    // Mantém comportamento simples no teclado (sem ensure)
+                                    setSelectedGuest(guest);
                               }
                             }}
                             className={`w-full p-4 text-left hover:bg-gray-50 transition-colors cursor-pointer ${
