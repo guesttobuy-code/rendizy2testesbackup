@@ -74,7 +74,6 @@ export async function listGuests(c: Context) {
       const like = `%${q.replace(/,/g, ' ')}%`;
       clauses.push(`first_name.ilike.${like}`);
       clauses.push(`last_name.ilike.${like}`);
-      clauses.push(`name.ilike.${like}`);
       clauses.push(`email.ilike.${like}`);
       if (qDigits) {
         clauses.push(`phone.ilike.%${qDigits}%`);

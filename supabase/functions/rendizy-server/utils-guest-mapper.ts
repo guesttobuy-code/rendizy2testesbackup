@@ -19,7 +19,6 @@ export function guestToSql(guest: Guest, organizationId: string): any {
     organization_id: organizationId, // ✅ Multi-tenant: sempre usar organization_id do tenant
     
     // Dados pessoais
-    name: guest.fullName || `${guest.firstName || ''} ${guest.lastName || ''}`.trim(), // ✅ CORREÇÃO: Preencher campo legado 'name'
     first_name: guest.firstName,
     last_name: guest.lastName,
     email: guest.email,
