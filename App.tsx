@@ -95,6 +95,7 @@ import { toast } from 'sonner';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
+import { TopUserMenu } from './components/TopUserMenu';
 
 import { initAutoRecovery } from './utils/autoRecovery';
 import { DealsModule } from './components/crm/DealsModule';
@@ -624,24 +625,6 @@ function App() {
           anuncios = result.anuncios || [];
         }
 
-        // Fallback REST direto se função devolver vazio (ambiente ainda não deployado)
-        if (!anuncios || anuncios.length === 0) {
-          const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*&order=title.asc,id.asc`, {
-            headers: {
-              'apikey': ANON_KEY,
-              'Authorization': `Bearer ${ANON_KEY}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          if (!rest.ok) {
-            throw new Error(`HTTP ${rest.status}`);
-          }
-
-          anuncios = await rest.json();
-          console.log('✅ Resposta REST de anúncios:', anuncios?.length);
-        }
-
         if (anuncios && anuncios.length) {
           const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
@@ -1067,6 +1050,7 @@ function App() {
             {/* Componentes globais - sempre presentes */}
             <BuildLogger />
             <Toaster />
+            <TopUserMenu />
 
             <Suspense fallback={<LoadingProgress isLoading={true} />}>
               <Routes>

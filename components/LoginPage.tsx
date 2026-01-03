@@ -9,6 +9,8 @@ import { Alert, AlertDescription } from './ui/alert';
 import { toast } from 'sonner';
 import { useAuth } from '../src/contexts/AuthContext';
 import { Logo } from './Logo';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { confirmPasswordRecovery, requestPasswordRecovery } from '../services/authService';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -16,6 +18,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState<'request' | 'confirm'>('request');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryToken, setRecoveryToken] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [recoveryNewPassword, setRecoveryNewPassword] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
   
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -97,6 +108,87 @@ export default function LoginPage() {
   const handleQuickLogin = (user: string, pass: string) => {
     setUsername(user);
     setPassword(pass);
+  };
+
+  const resetRecoveryState = () => {
+    setRecoveryStep('request');
+    setRecoveryEmail('');
+    setRecoveryToken('');
+    setRecoveryCode('');
+    setRecoveryNewPassword('');
+    setRecoveryLoading(false);
+    setRecoveryError('');
+  };
+
+  const handleOpenRecovery = () => {
+    resetRecoveryState();
+    setRecoveryOpen(true);
+  };
+
+  const handleRequestRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecoveryError('');
+    setRecoveryLoading(true);
+
+    try {
+      const isLocalhost =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+      const res = await requestPasswordRecovery(recoveryEmail, isLocalhost);
+      if (!res.success) {
+        setRecoveryError(res.error || res.message || 'Não foi possível solicitar a recuperação');
+        return;
+      }
+
+      const token = res.data?.recoveryToken || '';
+      const code = res.data?.recoveryCode || '';
+
+      if (token) setRecoveryToken(token);
+      if (code) setRecoveryCode(code);
+
+      toast.success('✅ Solicitação criada', {
+        description: token ? 'Use o código/token para confirmar.' : 'Verifique seu e-mail para o código de recuperação.'
+      });
+
+      setRecoveryStep('confirm');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao solicitar recuperação';
+      setRecoveryError(msg);
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const handleConfirmRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecoveryError('');
+    setRecoveryLoading(true);
+
+    try {
+      const res = await confirmPasswordRecovery({
+        token: recoveryToken,
+        code: recoveryCode,
+        newPassword: recoveryNewPassword,
+      });
+
+      if (!res.success) {
+        setRecoveryError(res.error || res.message || 'Não foi possível redefinir a senha');
+        return;
+      }
+
+      toast.success('✅ Senha atualizada', {
+        description: 'Você já pode fazer login com a nova senha.'
+      });
+
+      setRecoveryOpen(false);
+      setPassword('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao confirmar recuperação';
+      setRecoveryError(msg);
+    } finally {
+      setRecoveryLoading(false);
+    }
   };
 
   return (
@@ -214,6 +306,18 @@ export default function LoginPage() {
                   'Entrar'
                 )}
               </Button>
+
+              <div className="flex items-center justify-end">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="px-0 text-sm"
+                  onClick={handleOpenRecovery}
+                  disabled={loading}
+                >
+                  Esqueci minha senha
+                </Button>
+              </div>
             </form>
           </CardContent>
 
@@ -256,6 +360,137 @@ export default function LoginPage() {
           RENDIZY v1.0.103.260 - Multi-Tenant SaaS
         </div>
       </div>
+
+      <Dialog
+        open={recoveryOpen}
+        onOpenChange={(open) => {
+          setRecoveryOpen(open);
+          if (!open) resetRecoveryState();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Recuperação de senha</DialogTitle>
+            <DialogDescription>
+              {recoveryStep === 'request'
+                ? 'Informe o e-mail do usuário para receber um código de recuperação.'
+                : 'Informe o token/código e defina a nova senha.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {recoveryError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{recoveryError}</AlertDescription>
+            </Alert>
+          )}
+
+          {recoveryStep === 'request' ? (
+            <form onSubmit={handleRequestRecovery} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="recoveryEmail">E-mail</Label>
+                <Input
+                  id="recoveryEmail"
+                  type="email"
+                  placeholder="ex: usuario@empresa.com"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  disabled={recoveryLoading}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setRecoveryOpen(false)} disabled={recoveryLoading}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={recoveryLoading}>
+                  {recoveryLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    'Enviar código'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <form onSubmit={handleConfirmRecovery} className="space-y-4">
+              <div className="grid gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="recoveryToken">Token</Label>
+                  <Input
+                    id="recoveryToken"
+                    type="text"
+                    placeholder="Cole o token"
+                    value={recoveryToken}
+                    onChange={(e) => setRecoveryToken(e.target.value)}
+                    disabled={recoveryLoading}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="recoveryCode">Código (6 dígitos)</Label>
+                  <Input
+                    id="recoveryCode"
+                    type="text"
+                    placeholder="000000"
+                    value={recoveryCode}
+                    onChange={(e) => setRecoveryCode(e.target.value)}
+                    disabled={recoveryLoading}
+                    required
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="recoveryNewPassword">Nova senha</Label>
+                  <Input
+                    id="recoveryNewPassword"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={recoveryNewPassword}
+                    onChange={(e) => setRecoveryNewPassword(e.target.value)}
+                    disabled={recoveryLoading}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setRecoveryStep('request');
+                    setRecoveryError('');
+                  }}
+                  disabled={recoveryLoading}
+                >
+                  Voltar
+                </Button>
+                <Button type="submit" disabled={recoveryLoading}>
+                  {recoveryLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    'Redefinir senha'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

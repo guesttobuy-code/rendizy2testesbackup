@@ -291,10 +291,13 @@ export function TenantManagement() {
       console.log('🔑 Project ID:', projectId);
       
       // Tentar carregar organizações com retry automático (reduzido para 2 tentativas)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
       const response = await fetchWithRetry(url, {
         headers: {
+          'apikey': publicAnonKey,
           'Authorization': `Bearer ${publicAnonKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token ? { 'X-Auth-Token': token } : {})
         },
         maxRetries: 2,
         retryDelay: 1000,

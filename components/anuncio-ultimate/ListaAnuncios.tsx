@@ -100,23 +100,6 @@ export const ListaAnuncios = () => {
         const response = await res.json();
         data = response.anuncios || [];
       }
-
-      // Fallback direto via REST se a função retornar vazio (ambiente ainda não deployado)
-      if (!data || data.length === 0) {
-        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*&order=title.asc,id.asc`, {
-          headers: {
-            'apikey': ANON_KEY,
-            'Authorization': `Bearer ${ANON_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!rest.ok) {
-          throw new Error(`HTTP ${rest.status}`);
-        }
-
-        data = await rest.json();
-      }
       
       // Normalizar: alguns registros antigos podem vir com data como string
       const normalized = (data || []).map((row: any) => {
@@ -171,13 +154,15 @@ export const ListaAnuncios = () => {
 
   const handleStatusChange = async (anuncio: AnuncioUltimate, newStatus: 'inactive' | 'draft' | 'active') => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncio.id}`, {
+      const token = localStorage.getItem('rendizy-token');
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncio.id}`, {
         method: 'PATCH',
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
+          'X-Auth-Token': token || '',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status: newStatus })
       });
@@ -202,11 +187,13 @@ export const ListaAnuncios = () => {
     }
 
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncio.id}`, {
+      const token = localStorage.getItem('rendizy-token');
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncio.id}`, {
         method: 'DELETE',
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': token || '',
           'Content-Type': 'application/json'
         }
       });

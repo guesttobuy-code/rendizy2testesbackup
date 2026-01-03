@@ -467,7 +467,7 @@ https://{projectId}.supabase.co/functions/v1/make-server-67caf26a/...
 
 ### Validação:
 
-Toda PR/mudança deve passar por:
+Toda mudança deve passar por:
 
 1. ✅ Código salva no Supabase? **SIM**
 2. ✅ Dados persistem após reload? **SIM**

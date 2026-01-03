@@ -121,6 +121,29 @@ export interface UserResponse {
   error?: string;
 }
 
+export interface PasswordRecoveryRequestResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  code?: string;
+  data?: {
+    requestId?: string;
+    expiresAt?: string;
+    recoveryToken?: string;
+    recoveryCode?: string;
+    organizationId?: string;
+    organizationName?: string;
+    organizationSlug?: string;
+  };
+}
+
+export interface PasswordRecoveryConfirmResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  code?: string;
+}
+
 /**
  * Normaliza objeto retornado pelo backend (aceita data em raiz ou em data.data).
  */
@@ -279,6 +302,86 @@ export async function getCurrentUser(): Promise<UserResponse> {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erro ao buscar usuário',
+    };
+  }
+}
+
+/**
+ * Solicita recuperação de senha por e-mail.
+ * Em DEV (localhost), pode passar debug=true para receber token/código na resposta.
+ */
+export async function requestPasswordRecovery(email: string, debug = false): Promise<PasswordRecoveryRequestResponse> {
+  try {
+    const gatewayHeaders = getSupabaseGatewayHeaders();
+    const response = await fetch(`${API_BASE}/auth/recovery/request`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...gatewayHeaders,
+        ...(debug ? { 'X-Recovery-Debug': '1' } : {}),
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const raw = contentType.includes('application/json') ? await response.json() : { success: false, error: await response.text() };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: raw?.error || raw?.message || `Erro HTTP ${response.status}`,
+        code: raw?.code,
+        data: raw?.data,
+      };
+    }
+
+    return {
+      success: !!raw?.success,
+      message: raw?.message,
+      data: raw?.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao solicitar recuperação de senha',
+    };
+  }
+}
+
+/**
+ * Confirma recuperação usando token + código e define nova senha.
+ */
+export async function confirmPasswordRecovery(params: { token: string; code: string; newPassword: string }): Promise<PasswordRecoveryConfirmResponse> {
+  try {
+    const gatewayHeaders = getSupabaseGatewayHeaders();
+    const response = await fetch(`${API_BASE}/auth/recovery/confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...gatewayHeaders,
+      },
+      body: JSON.stringify(params),
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const raw = contentType.includes('application/json') ? await response.json() : { success: false, error: await response.text() };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: raw?.error || raw?.message || `Erro HTTP ${response.status}`,
+        code: raw?.code,
+      };
+    }
+
+    return {
+      success: !!raw?.success,
+      message: raw?.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao confirmar recuperação de senha',
     };
   }
 }

@@ -23,12 +23,12 @@ code "docs/dev-logs/$(Get-Date -Format 'yyyy-MM-dd')_*.md"
 - [ ] Frontend rodando? `http://localhost:3001`
 - [ ] Backend Supabase conectado? (verificar console)
 - [ ] Há erros no terminal?
-- [ ] Qual branch Git estou? `git branch --show-current`
+- [ ] Qual branch Git estou? `git branch --show-current` (deve ser `main`)
 
 ### 3. 📋 IDENTIFICAR TAREFAS PENDENTES (1 minuto)
 - [ ] Ler Issue #41: Ativar `/calendario-v2` route
 - [ ] Ler Issue #42: Corrigir datas hardcoded no CalendarContext.tsx
-- [ ] Verificar se há trabalho em andamento (branches abertos)
+- [ ] Verificar se há trabalho em andamento (mudanças locais / working tree suja)
 
 ### 4. 🎯 CONFIRMAR COM USUÁRIO (sempre perguntar)
 - "Em que você quer trabalhar agora?"
@@ -61,7 +61,7 @@ Se for começar nova tarefa:
 
 ### 🔑 INFORMAÇÕES CRÍTICAS:
 - **StaysNet**: Usa `X-Auth-Token` (NÃO Bearer)
-- **Tabela principal**: `anuncios_drafts` (NÃO properties)
+- **Tabela principal**: `anuncios_ultimate` (tabela única; não existe tabela separada de rascunhos)
 - **Arquitetura**: Modular em cápsulas (não monolítico)
 - **Commits**: Conventional Commits obrigatório
 
@@ -315,7 +315,7 @@ npm run check-duplicates
 - Hooks / CI recomendados:
   - Pré-commit: usar `husky` ou um hook Git simples que execute `npm run check-duplicates` antes do commit.
   - CI: rodar `npm run check-duplicates` e `npx -p typescript tsc --noEmit` como etapas bloqueantes antes do merge.
-  - Política: qualquer reativação de arquivo em `offline_archives/` precisa de revisão explícita e um comentário no PR justificando a reativação.
+  - Política: qualquer reativação de arquivo em `offline_archives/` precisa de revisão explícita e um comentário no commit/issue justificando a reativação.
 
 - Observações finais sobre este arquivo (`Ligando os motores.md`):
   - Eu revisei o conteúdo e reorganizei/clarifiquei a seção de automação e a política de remoção de duplicatas (acima).
@@ -1330,7 +1330,7 @@ Deno.test("🔒 WhatsApp - Cadeado de Validação: Frontend pode conectar", asyn
 
 #### **PASSO 4: Modificar com Segurança** 🛡️
 ```
-1. Criar branch de feature
+1. Confirmar que está no branch `main`
 2. Modificar código mantendo contrato (ou criar v2)
 3. Atualizar testes se necessário
 4. Validar que testes passam
@@ -2004,7 +2004,7 @@ Pronto! Agora é só seguir o checklist e começar a sessão. 💪
 
 - `rg "^<<<<<<<"` no workspace: nenhum marcador de merge permitido.
 - `.\verificar-antes-de-deploy.ps1`: usa o diretório atual e bloqueia se encontrar marcadores.
-- `.\validar-regras.ps1`: sempre antes de commit/PR.
+- `.\validar-regras.ps1`: sempre antes de commit/push.
 - Se tocar em rotas/contratos críticos (WhatsApp, CRM, Reservas, Financeiro), consultar `FUNCIONALIDADES_CRITICAS.md` e rodar o check de rotas/contratos (ex.: `npm run check:critical-routes`, se existir).
 - CORS/Login: não alterar enquanto estiver funcionando (origin "*", sem credentials, token no header/localStorage).
 - Persistência: não reintroduzir KV para dados permanentes; seguir migrations oficiais com RLS.

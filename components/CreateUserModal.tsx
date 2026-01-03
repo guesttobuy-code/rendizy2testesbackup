@@ -53,11 +53,14 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
   const loadOrganizations = async () => {
     setLoadingOrgs(true);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            ...(token ? { 'X-Auth-Token': token } : {})
           }
         }
       );
@@ -88,13 +91,16 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
         throw new Error('Selecione uma imobiliária');
       }
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/users`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            ...(token ? { 'X-Auth-Token': token } : {})
           },
           body: JSON.stringify({
             ...formData,

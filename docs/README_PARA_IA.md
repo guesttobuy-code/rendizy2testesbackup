@@ -7,6 +7,9 @@
 
 ## 🚨 LEIA ANTES DE MODIFICAR CÓDIGO
 
+⚠️ **Governança de documentação (obrigatório)**: antes de criar qualquer `.md`, siga
+📄 [`docs/03-conventions/DOCS_GOVERNANCE.md`](docs/03-conventions/DOCS_GOVERNANCE.md)
+
 ### 🔒 Arquivos Críticos (Leitura Obrigatória)
 
 #### 1. **CORS e Integração de Módulos**
@@ -58,21 +61,21 @@
 ### 📖 Documentos de Referência
 
 #### 4. **Arquitetura de Anúncios**
-📄 [`ARQUITETURA_ANUNCIO_ULTIMATE.md`](ARQUITETURA_ANUNCIO_ULTIMATE.md)
+📄 [`docs/02-architecture/ARQUITETURA_ANUNCIO_ULTIMATE.md`](docs/02-architecture/ARQUITETURA_ANUNCIO_ULTIMATE.md)
 
 Arquitetura completa do sistema de anúncios com JSONB + RPC atômica.
 
 ---
 
 #### 5. **Histórico de Vitórias**
-📄 [`Ligando os motores único.md`](Ligando%20os%20motores%20único.md)
+📄 [`docs/resumos/LIGANDO_OS_MOTORES_UNICO.md`](docs/resumos/LIGANDO_OS_MOTORES_UNICO.md)
 
 Histórico de problemas resolvidos e lições aprendidas.
 
 ---
 
 #### 6. **Login e Autenticação**
-📄 [`LOGIN_VITORIAS_CONSOLIDADO.md`](LOGIN_VITORIAS_CONSOLIDADO.md)
+📄 [`docs/05-operations/LOGIN_VITORIAS_CONSOLIDADO.md`](docs/05-operations/LOGIN_VITORIAS_CONSOLIDADO.md)
 
 Como login funciona e o que NÃO fazer.
 
@@ -168,11 +171,8 @@ docs/
 │   └── SETUP_COMPLETO.md                         ⭐ Seção 4.4 - CORS
 │
 └── (raiz)/
-    ├── ARQUITETURA_ANUNCIO_ULTIMATE.md           Exemplo completo
-    ├── PROPOSTA_ARQUITETURA_PERSISTENCIA.md      Repository Pattern
-    ├── Ligando os motores único.md               Histórico
-    ├── LOGIN_VITORIAS_CONSOLIDADO.md             Auth
-    └── CHANGELOG_BLINDAGEM.md                    Mudanças recentes
+  ├── (evitar criar .md na raiz)                Ver DOCS_GOVERNANCE
+  └── (exceções via whitelist)                  ROOT_MD_WHITELIST.txt
 ```
 
 ---

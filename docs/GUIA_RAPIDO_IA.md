@@ -29,7 +29,7 @@ Esse arquivo é o **mapa do projeto**. Contém:
 📋 **[docs/WORKFLOW_DESENVOLVIMENTO.md](WORKFLOW_DESENVOLVIMENTO.md)**
 
 Explica como trabalhar no projeto:
-- Como criar branches
+- Política de Git (branch único: `main`)
 - Padrão de commits
 - Como documentar mudanças
 - Testes obrigatórios
@@ -116,9 +116,9 @@ headers: {
 
 ### **3. Sistema de Anúncios**
 ```sql
--- ✅ Sistema ATIVO: anuncios_drafts (Sistema Ultimate)
--- Tabela: anuncios_drafts
--- FK de reservations: property_id → anuncios_drafts.id
+-- ✅ Sistema ATIVO: anuncios_ultimate (Sistema Ultimate)
+-- Tabela única: anuncios_ultimate
+-- Não existe tabela separada de rascunhos
 
 -- ❌ Sistema DESCONTINUADO: properties (Wizard antigo)
 -- Não usar mais!
@@ -188,7 +188,7 @@ grep -r "calendário" docs/dev-logs/
 - [ ] Sei POR QUE mudar?
 
 ### **4. Executar mudança:**
-- [ ] Criar branch `feat/` ou `fix/`
+- [ ] Confirmar que está no branch `main`
 - [ ] Fazer mudanças incrementais
 - [ ] Commitar com mensagem descritiva
 - [ ] Documentar no dev-log
@@ -259,7 +259,7 @@ export async function createReservation(c: Context) {
 ### **Problema: Reserva não é criada (FK error)**
 ```sql
 -- CAUSA: FK aponta para tabela errada (properties)
--- SOLUÇÃO: FK deve apontar para anuncios_drafts
+-- SOLUÇÃO: FK deve apontar para anuncios_ultimate
 ```
 
 ---

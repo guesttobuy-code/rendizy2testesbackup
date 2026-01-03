@@ -71,7 +71,7 @@ Evitar:
 - Alterar rotas/paths sem atualizar o service + este documento.
 - “Refatorar” fallback de erro para `[]` nos hooks.
 
-## Checklist de validação (antes de merge)
+## Checklist de validação (antes de push)
 
 1) Rodar smoke test blocks:
 - `pwsh .\TEST-STAYSNET-MODULAR.ps1 -IncludeBlocks -MaxPages 3 -MaxBatches 5`

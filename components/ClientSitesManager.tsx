@@ -1279,7 +1279,7 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# Criar Site de Imobiliária com RENDIZY (v1.3)
+  const aiPrompt = `# Criar Site de Imobiliária com RENDIZY (v1.4)
 
 ## Objetivo
 Criar um site moderno e responsivo para imobiliária (temporada/locação/venda) integrado ao **módulo de Sites de Clientes do RENDIZY**.
@@ -1291,6 +1291,11 @@ Criar um site moderno e responsivo para imobiliária (temporada/locação/venda)
 - (Opcional) shadcn/ui
 
 ## ⚠️ Integração REAL disponível hoje no backend
+
+### Ambiente de execução (importante)
+- O site roda como **HTML/JS estático** (SPA) servido pelo RENDIZY.
+- Quando você abre o build localmente (ex: abrir o arquivo do build direto no navegador), ` + "`window.RENDIZY_CONFIG`" + ` pode não existir. O site deve **degradar com elegância** (exibir estado vazio/erro amigável) e não quebrar.
+- Este site é público: não use cookies nem autenticação no browser.
 
 ### Como o site acessa dados
 Quando o site é servido pelo RENDIZY em ` + "`/client-sites/serve/:domain`" + ` (preview), o backend injeta automaticamente:
@@ -1316,6 +1321,7 @@ O único endpoint público padronizado para sites é **imóveis**:
 - GET ` + "`${window.RENDIZY_CONFIG.API_BASE_URL}/api/${window.RENDIZY_CONFIG.SUBDOMAIN}/properties`" + `
 
 Não assuma que existem endpoints públicos de calendário/bloqueios/reservas neste módulo.
+Não use endpoints privados (ex: rotas que exigem header ` + "`X-Auth-Token`" + `). Este site deve funcionar sem token.
 
 ## Tipos reais de resposta (imóveis)
 
@@ -1362,6 +1368,13 @@ type ClientSiteProperty = {
 };
 \`\`\`
 
+## Convenções de UI (use estes campos)
+- Imagem principal: ` + "`coverPhoto`" + ` (fallback: primeira de ` + "`photos`" + `)
+- Localização: ` + "`address.city`" + ` + ` + "`address.state`" + `
+- Preço: ` + "`pricing.basePrice`" + ` + ` + "`pricing.currency`" + `
+- Hóspedes: ` + "`capacity.maxGuests`" + `
+- Quartos/banheiros: ` + "`capacity.bedrooms`" + ` / ` + "`capacity.bathrooms`" + `
+
 ## Páginas sugeridas (MVP)
 1. Home (hero + busca simples + destaques)
 2. Imóveis (listagem + filtros básicos)
@@ -1380,6 +1393,11 @@ type ClientSiteProperty = {
 ## Compilação e entrega (Bolt/v0)
 ✅ Recomendado: peça para o Bolt compilar o site para produção e exportar um ZIP com ` + "`dist/`" + `.
 O RENDIZY serve melhor quando encontra ` + "`dist/index.html`" + ` no ZIP.
+
+### Regras de build (para assets funcionarem no RENDIZY)
+- Garanta que os assets do build usem caminhos **relativos** (evite ` + "`/assets/...`" + ` absoluto).
+- Se usar Vite, configure ` + "`base: './'`" + `.
+- O ZIP deve conter somente o build (ex: ` + "`dist/`" + ` com ` + "`index.html`" + ` e ` + "`assets/`" + `). Não inclua ` + "`node_modules/`" + `.
 
 ## Regras
 - Não hardcode API URLs nem organizationId no código: use ` + "`window.RENDIZY_CONFIG`" + `.

@@ -1,5 +1,8 @@
 # CHANGELOG v1.0.103.406
 
+> Nota (atual): o sistema de anúncios usa **tabela única** `anuncios_ultimate`.
+> Qualquer menção a "tabela de drafts" abaixo deve ser considerada **legado/histórico**.
+
 ## Backend / Supabase Edge (rendizy-server)
 - Habilitado `deno.json` com `nodeModulesDir:auto` e `deno check` passando no entrypoint minimal.
 - `getSupabaseClient` agora aceita contexto opcional; KV Store ganhou generics para `get/mget/getByPrefix`.
@@ -16,4 +19,5 @@
 - Apagados logs locais `tmp_vite_dev.log` e `vite-dev.log` para reduzir ruido.
 - Criado `_archive/untracked-docs` e movidos arquivos `.md/.txt/.log` nao rastreados para nao poluir commits futuros.
 - Ajustado fetch dos anúncios/immóveis para sempre enviar `Authorization: Bearer <anon>` + `apikey` (funções Supabase exigem header de auth), incluindo hooks e telas (lista, reservas, calendar).
-- Adicionado fallback direto ao REST `anuncios_drafts` quando a função `anuncios-ultimate/lista` retornar vazia, garantindo carregamento dos 161 anúncios em ambientes legados.
+- (Legado) Foi experimentado fallback direto ao REST quando a função `anuncios-ultimate/lista` retornava vazia, para destravar ambientes antigos.
+	- Atual: **não** usar fallback REST para anúncios no app; a tabela canônica é `anuncios_ultimate` e o acesso deve ser via Edge com tenancy.

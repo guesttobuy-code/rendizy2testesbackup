@@ -72,14 +72,17 @@ npm run preview
 
 ### **Git**
 ```powershell
-# Criar nova branch
-git checkout -b feat/minha-feature
+# (Política do projeto) Trabalhar SOMENTE no branch main
+git checkout main
+
+# Atualizar main (use o remote correto: normalmente `testes` ou `origin`)
+git pull <remote> main
 
 # Commit com padrão
 git commit -m "feat(modulo): descrição"
 
 # Push
-git push origin feat/minha-feature
+git push <remote> main
 ```
 
 ---

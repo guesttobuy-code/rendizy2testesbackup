@@ -50,7 +50,7 @@ import * as staysnetRoutes from "./routes-staysnet.ts";
 import * as staysnetWebhooksRoutes from "./routes-staysnet-webhooks.ts";
 import * as staysnetImportModalRoutes from "./routes-staysnet-import-modal.ts";
 import * as dataReconciliationRoutes from "./routes-data-reconciliation.ts";
-import { tenancyMiddleware } from "./utils-tenancy.ts";
+import { tenancyMiddleware, isSuperAdmin } from "./utils-tenancy.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
 import { importStaysNetRPC } from "./import-staysnet-RPC.ts"; // ✅ Adicionado 23/12/2025
 import { importStaysNetProperties } from "./import-staysnet-properties.ts"; // ✅ MODULAR: Properties separadas
@@ -63,6 +63,8 @@ import chatApp from "./routes-chat.ts";
 import { whatsappEvolutionRoutes } from "./routes-whatsapp-evolution.ts";
 import * as currencySettingsRoutes from "./routes-currency-settings.ts";
 import { registerDiscountPackagesRoutes } from "./routes-discount-packages.ts";
+import * as organizationsRoutes from "./routes-organizations.ts";
+import usersApp from "./routes-users.ts";
 
 const app = new Hono();
 
@@ -163,6 +165,162 @@ app.put("/rendizy-server/organizations/:id/currency-settings", currencySettingsR
 // DISCOUNT PACKAGES (Configurações > Precificação > Descontos por pacote de dias)
 // ============================================================================
 registerDiscountPackagesRoutes(app);
+
+// ============================================================================
+// ORGANIZATIONS & USERS (Admin Master)
+// ============================================================================
+function ensureSuperAdmin(c: any) {
+  if (!isSuperAdmin(c)) {
+    c.status(403);
+    return withCorsJson(c, { success: false, error: "Forbidden" });
+  }
+  return null;
+}
+
+// Canonical: /functions/v1/rendizy-server/organizations -> pathname interno: /rendizy-server/organizations
+app.get("/rendizy-server/organizations", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.listOrganizations(c);
+});
+app.get("/rendizy-server/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganization(c);
+});
+app.get("/rendizy-server/organizations/slug/:slug", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganizationBySlug(c);
+});
+app.post("/rendizy-server/organizations", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.createOrganization(c);
+});
+app.patch("/rendizy-server/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.updateOrganization(c);
+});
+app.delete("/rendizy-server/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.deleteOrganization(c);
+});
+app.get("/rendizy-server/organizations/:id/stats", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganizationStats(c);
+});
+
+// Compat: alguns scripts/clients usam prefixo make-server
+app.get("/rendizy-server/make-server-67caf26a/organizations", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.listOrganizations(c);
+});
+app.get("/rendizy-server/make-server-67caf26a/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganization(c);
+});
+app.get("/rendizy-server/make-server-67caf26a/organizations/slug/:slug", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganizationBySlug(c);
+});
+app.post("/rendizy-server/make-server-67caf26a/organizations", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.createOrganization(c);
+});
+app.patch("/rendizy-server/make-server-67caf26a/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.updateOrganization(c);
+});
+app.delete("/rendizy-server/make-server-67caf26a/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.deleteOrganization(c);
+});
+app.get("/rendizy-server/make-server-67caf26a/organizations/:id/stats", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganizationStats(c);
+});
+
+// Settings globais (multi-tenant): resolve org via token; não exige superadmin.
+app.get("/rendizy-server/organizations/:id/settings/global", tenancyMiddleware, organizationsRoutes.getOrganizationSettings);
+app.put("/rendizy-server/organizations/:id/settings/global", tenancyMiddleware, organizationsRoutes.updateOrganizationSettings);
+
+// Alias sem prefixo /rendizy-server (compat)
+app.get("/organizations", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.listOrganizations(c);
+});
+app.get("/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganization(c);
+});
+app.get("/organizations/slug/:slug", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganizationBySlug(c);
+});
+app.post("/organizations", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.createOrganization(c);
+});
+app.patch("/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.updateOrganization(c);
+});
+app.delete("/organizations/:id", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.deleteOrganization(c);
+});
+app.get("/organizations/:id/stats", tenancyMiddleware, async (c) => {
+  const forbidden = ensureSuperAdmin(c);
+  if (forbidden) return forbidden;
+  return await organizationsRoutes.getOrganizationStats(c);
+});
+app.get("/organizations/:id/settings/global", tenancyMiddleware, organizationsRoutes.getOrganizationSettings);
+app.put("/organizations/:id/settings/global", tenancyMiddleware, organizationsRoutes.updateOrganizationSettings);
+
+// Compat extra make-server (settings globais)
+app.get(
+  "/rendizy-server/make-server-67caf26a/organizations/:id/settings/global",
+  tenancyMiddleware,
+  organizationsRoutes.getOrganizationSettings
+);
+app.put(
+  "/rendizy-server/make-server-67caf26a/organizations/:id/settings/global",
+  tenancyMiddleware,
+  organizationsRoutes.updateOrganizationSettings
+);
+app.get(
+  "/make-server-67caf26a/organizations/:id/settings/global",
+  tenancyMiddleware,
+  organizationsRoutes.getOrganizationSettings
+);
+app.put(
+  "/make-server-67caf26a/organizations/:id/settings/global",
+  tenancyMiddleware,
+  organizationsRoutes.updateOrganizationSettings
+);
+
+// Users (Admin Master)
+app.route("/rendizy-server/users", usersApp);
+app.route("/users", usersApp);
+app.route("/rendizy-server/make-server-67caf26a/users", usersApp);
+app.route("/make-server-67caf26a/users", usersApp);
 
 // ============================================================================
 // RESERVATIONS

@@ -440,22 +440,6 @@ export function ReservationsManagement({
         anuncios = result.anuncios || [];
       }
 
-      if (!anuncios || anuncios.length === 0) {
-        const rest = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?select=*&order=title.asc,id.asc`, {
-          headers: {
-            'apikey': ANON_KEY,
-            'Authorization': `Bearer ${ANON_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!rest.ok) {
-          throw new Error(`HTTP ${rest.status}`);
-        }
-
-        anuncios = await rest.json();
-      }
-
       if (anuncios && anuncios.length) {
         const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
         const mappedProperties = anuncios.map((a: any) => ({

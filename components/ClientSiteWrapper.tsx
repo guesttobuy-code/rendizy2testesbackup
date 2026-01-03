@@ -2,6 +2,22 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { parseDateLocal } from '../utils/dateLocal';
 
+type RendizyInjectedConfig = {
+  API_BASE_URL: string;
+  SUBDOMAIN: string;
+  ORGANIZATION_ID: string;
+  SITE_NAME: string;
+};
+
+declare global {
+  interface Window {
+    RENDIZY_CONFIG?: RendizyInjectedConfig;
+    RENDIZY?: {
+      getProperties?: () => Promise<any>;
+    };
+  }
+}
+
 // ============================================================
 // TIPOS
 // ============================================================
@@ -164,6 +180,37 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const getEdgeHeaders = (contentType?: string): Record<string, string> => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${publicAnonKey}`,
+      'Content-Type': contentType || 'application/json'
+    };
+    if (token) {
+      headers['X-Auth-Token'] = token;
+    }
+    return headers;
+  };
+
+  const mapClientSitePropertyToTemplateProperty = (p: any): Property => {
+    const city = p?.address?.city;
+    const state = p?.address?.state;
+    const location = [city, state].filter(Boolean).join(' - ');
+    return {
+      id: p.id,
+      name: p.name,
+      description: p.shortDescription ?? p.description,
+      location: location || '',
+      price: Number(p?.pricing?.basePrice ?? 0),
+      images: Array.isArray(p?.photos) ? p.photos : [],
+      amenities: Array.isArray(p?.amenities) ? p.amenities : [],
+      bedrooms: Number(p?.capacity?.bedrooms ?? 0),
+      bathrooms: Number(p?.capacity?.bathrooms ?? 0),
+      maxGuests: Number(p?.capacity?.maxGuests ?? 0),
+      mode: []
+    };
+  };
+
   // Carregar configurações do site
   useEffect(() => {
     loadSiteConfig();
@@ -173,13 +220,35 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
     try {
       setLoading(true);
 
+      // ✅ Modo público real: quando servido por /client-sites/serve/*,
+      // o backend injeta window.RENDIZY_CONFIG e window.RENDIZY.getProperties().
+      const injected = typeof window !== 'undefined' ? window.RENDIZY_CONFIG : undefined;
+      if (injected?.API_BASE_URL && injected?.SUBDOMAIN) {
+        setSiteConfig({
+          organizationId: injected.ORGANIZATION_ID,
+          siteName: injected.SITE_NAME,
+          injected
+        });
+
+        const result = window.RENDIZY?.getProperties
+          ? await window.RENDIZY.getProperties()
+          : await fetch(
+              `${injected.API_BASE_URL}/api/${injected.SUBDOMAIN}/properties`,
+              { headers: { Authorization: `Bearer ${publicAnonKey}` } }
+            ).then(r => r.json());
+
+        if (result?.success && Array.isArray(result.data)) {
+          setProperties(result.data.map(mapClientSitePropertyToTemplateProperty));
+        }
+        return;
+      }
+
       // 1. Buscar config do site
       const configResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites?organizationId=${organizationId}`,
+        `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites?organization_id=${organizationId}`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           }
         }
       );
@@ -214,8 +283,7 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/properties?organizationId=${organizationId}&mode=${modesQuery}`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           }
         }
       );
@@ -236,6 +304,17 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
 
   const searchProperties = async (filters: any): Promise<Property[]> => {
     try {
+      // ✅ Se temos dados já carregados (modo público), filtrar localmente
+      if (properties.length > 0) {
+        const location = (filters?.location || '').toString().toLowerCase().trim();
+        const guests = Number(filters?.guests ?? 0);
+        return properties.filter((p) => {
+          if (location && !p.location.toLowerCase().includes(location)) return false;
+          if (guests && p.maxGuests < guests) return false;
+          return true;
+        });
+      }
+
       const queryParams = new URLSearchParams({
         organizationId,
         ...filters
@@ -245,8 +324,7 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/properties?${queryParams}`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           }
         }
       );
@@ -265,8 +343,7 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/properties/${id}`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           }
         }
       );
@@ -289,8 +366,7 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/calendar/availability?propertyId=${propertyId}&startDate=${checkIn}&endDate=${checkOut}`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           }
         }
       );
@@ -314,8 +390,7 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           },
           body: JSON.stringify({
             propertyId,
@@ -362,8 +437,7 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           },
           body: JSON.stringify({
             ...reservation,
@@ -407,8 +481,7 @@ export function ClientSiteWrapper({ organizationId, children }: ClientSiteWrappe
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           },
           body: JSON.stringify({
             organizationId,
@@ -481,14 +554,26 @@ function calculateNights(checkIn: string, checkOut: string): number {
  */
 export async function detectOrganizationIdByDomain(): Promise<string | null> {
   try {
+    // ✅ Quando servido por /client-sites/serve/*, isso é injetado no HTML.
+    if (typeof window !== 'undefined' && window.RENDIZY_CONFIG?.ORGANIZATION_ID) {
+      return window.RENDIZY_CONFIG.ORGANIZATION_ID;
+    }
+
     const hostname = window.location.hostname;
+
+    // Este endpoint é protegido (exige X-Auth-Token). Só funciona em contexto autenticado.
+    const token = localStorage.getItem('rendizy-token');
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${publicAnonKey}`,
+      'Content-Type': 'application/json'
+    };
+    if (token) headers['X-Auth-Token'] = token;
 
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/by-domain/${hostname}`,
       {
         headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'Content-Type': 'application/json'
+          ...headers
         }
       }
     );

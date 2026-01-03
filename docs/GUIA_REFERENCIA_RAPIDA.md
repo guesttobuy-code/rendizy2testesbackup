@@ -33,14 +33,16 @@ npm test
 
 ### **Git**
 ```powershell
-# Nova branch
-git checkout -b feat/nome
+# Garantir main atualizado (SOMENTE main)
+git checkout main
+git pull
 
 # Commit padrão
 git commit -m "feat(modulo): descrição"
 
-# Push
-git push origin feat/nome
+# Push main
+# (ex.: git push testes main)
+git push <remote> main
 ```
 
 ### **Supabase**
@@ -127,10 +129,7 @@ test(modulo): adicionar testes
 
 ### **Branches**
 ```
-feat/nome-da-feature
-fix/nome-do-bug
-docs/nome-da-doc
-refactor/nome-refactor
+main  # branch único do projeto
 ```
 
 ### **TypeScript**
@@ -205,7 +204,7 @@ VITE_STAYSNET_ACCOUNT_NAME=[nome]
 
 ## 💡 DICAS PROFISSIONAIS
 
-1. **Sempre use branches** - Nunca commite direto na main
+1. **Branch único: main** - Trabalhe direto na `main`
 2. **Commits descritivos** - Explique o "porquê", não só o "o quê"
 3. **Documente enquanto trabalha** - Não deixe para depois
 4. **Teste antes de commitar** - Evite quebrar o build

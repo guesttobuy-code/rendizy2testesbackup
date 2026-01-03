@@ -86,7 +86,7 @@ docs/
 - **ARQUITETURA_ANUNCIO_ULTIMATE.md** - Módulo de anúncios
   - Estrutura JSONB
   - Sistema de tabs vs wizard
-  - Migration de properties → anuncios_drafts
+  - Tabela única: `anuncios_ultimate` (não existe tabela separada de rascunhos)
 
 - **ARQUITETURA_ESCALAVEL_SAAS.md** - Arquitetura SaaS multi-tenant
   - Row Level Security (RLS)
@@ -143,7 +143,7 @@ docs/
 - ✅ Antes de criar novo arquivo
 - ✅ Antes de commitar código
 - ✅ Dúvidas sobre nomenclatura
-- ✅ Revisar PR de outros devs
+- ✅ Revisar mudanças antes de push
 
 ---
 
@@ -455,7 +455,7 @@ RESUMO_SESSAO_[DATA].md
 4. Perguntar com contexto completo
 
 **Para Sugestões de Melhoria da Documentação:**
-- Abrir issue ou PR com proposta
+- Abrir issue ou enviar commit com proposta
 - Seguir padrões existentes
 
 ---

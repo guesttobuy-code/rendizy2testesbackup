@@ -95,7 +95,7 @@ npx supabase functions logs rendizy-server --tail
 
 | Data | Arquivo | Descrição | Aplicada? |
 |------|---------|-----------|-----------|
-| 2024-12-18 | `20241218_ALINHAMENTO_COMPLETO_SCHEMA.sql` | FK para anuncios_drafts | ✅ |
+| 2024-12-18 | `20241218_ALINHAMENTO_COMPLETO_SCHEMA.sql` | FK para anuncios_ultimate | ✅ |
 | 2024-12-14 | `20241214_create_reservations_table.sql` | Tabela reservations | ✅ |
 | 2024-12-13 | `20251213_anuncio_ultimate_v2.sql` | Sistema Ultimate | ✅ |
 

@@ -109,6 +109,16 @@ interface Session {
   lastActivity: string;
 }
 
+interface PasswordRecoveryRequestRow {
+  id: string;
+  user_id: string;
+  code_hash: string;
+  token_hash: string;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+}
+
 // Helper: Gerar hash de senha
 function hashPassword(password: string): string {
   return createHash('sha256').update(password).digest('hex');
@@ -136,6 +146,32 @@ function generateToken(bytes = 64): string {
   return Array.from(randomBytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+function normalizeEmail(email: string): string {
+  return String(email || '').trim().toLowerCase();
+}
+
+function isValidEmail(email: string): boolean {
+  const value = normalizeEmail(email);
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(value);
+}
+
+function sha256Hex(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function generate6DigitCode(): string {
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  const n = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  const code = (n % 900000) + 100000;
+  return String(code);
+}
+
+function getRecoveryDebugEnabled(c: any): boolean {
+  return String(c.req.header('X-Recovery-Debug') || '').trim() === '1';
 }
 
 // ❌ REMOVIDO: initializeSuperAdmin() - SuperAdmins agora são criados na migration SQL
@@ -192,7 +228,8 @@ app.post('/login', async (c) => {
       }, 400);
     }
 
-    console.log('👤 Login attempt:', { username });
+    const identifier = String(username).trim().toLowerCase();
+    console.log('👤 Login attempt:', { username: identifier });
     // ✅ ARQUITETURA SQL: Buscar usuário da tabela SQL ao invés de KV Store
     const supabase = getSupabaseClient();
 
@@ -217,7 +254,8 @@ app.post('/login', async (c) => {
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
-      .eq('username', username)
+      .or(`username.ilike.${identifier},email.ilike.${identifier}`)
+      .limit(1)
       .maybeSingle();
 
     if (userError) {
@@ -231,7 +269,7 @@ app.post('/login', async (c) => {
 
     // Se não encontrou usuário, retornar erro
     if (!user) {
-      console.log('❌ Usuário não encontrado:', username);
+      console.log('❌ Usuário não encontrado:', identifier);
       console.log('📋 Usuários disponíveis na tabela:', allUsers?.map(u => u.username) || []);
       return c.json({
         success: false,
@@ -247,7 +285,7 @@ app.post('/login', async (c) => {
       // ✅ ARQUITETURA SQL: Verificar senha usando hash do banco
       const computedHash = hashPassword(password);
       console.log('🔍 Verificando senha:', {
-        username,
+        username: identifier,
         passwordProvided: password ? 'SIM' : 'NÃO',
         passwordLength: password?.length,
         passwordRaw: password,
@@ -465,6 +503,213 @@ app.post('/login', async (c) => {
       success: false,
       error: error instanceof Error ? error.message : 'Erro ao fazer login'
     }, 500);
+  }
+});
+
+// ============================================================================
+// RECUPERAÇÃO DE SENHA
+//  - POST /auth/recovery/request  { email }
+//  - POST /auth/recovery/confirm  { token, code, newPassword }
+//
+// Observação: atualmente não há provider de e-mail integrado.
+// Em DEV você pode passar header "X-Recovery-Debug: 1" para receber code/token na resposta.
+// ============================================================================
+
+app.post('/recovery/request', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({} as any));
+    const email = normalizeEmail(body?.email);
+
+    if (!email || !isValidEmail(email)) {
+      return c.json({
+        success: false,
+        error: 'Informe um e-mail válido para recuperação'
+      }, 400);
+    }
+
+    const supabase = getSupabaseClient();
+
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, email, username, name, type, status, organization_id')
+      .ilike('email', email)
+      .limit(1)
+      .maybeSingle();
+
+    if (userError) {
+      console.error('❌ [recovery/request] Erro ao buscar usuário:', userError);
+      return c.json({ success: false, error: 'Erro ao buscar usuário' }, 500);
+    }
+
+    if (!user) {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('id, name, slug, email')
+        .ilike('email', email)
+        .limit(1)
+        .maybeSingle();
+
+      if (orgError) {
+        console.error('❌ [recovery/request] Erro ao buscar organização por email:', orgError);
+      }
+
+      if (org) {
+        return c.json({
+          success: false,
+          error: 'Este e-mail está cadastrado na imobiliária, mas não existe usuário com este e-mail. Peça ao Admin Master para criar o usuário da imobiliária.',
+          code: 'ORGANIZATION_EMAIL_NO_USER',
+          data: { organizationId: org.id, organizationName: org.name, organizationSlug: org.slug }
+        }, 404);
+      }
+
+      return c.json({
+        success: false,
+        error: 'Nenhum usuário cadastrado com este e-mail',
+        code: 'USER_EMAIL_NOT_FOUND'
+      }, 404);
+    }
+
+    if (user.status && String(user.status).toLowerCase() !== 'active') {
+      return c.json({
+        success: false,
+        error: 'Usuário está inativo/suspenso. Contate o suporte.'
+      }, 403);
+    }
+
+    const code = generate6DigitCode();
+    const token = generateToken(32);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    const codeHash = sha256Hex(code);
+    const tokenHash = sha256Hex(token);
+
+    const requestIp = c.req.header('x-forwarded-for') || c.req.header('cf-connecting-ip') || null;
+    const userAgent = c.req.header('user-agent') || null;
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('password_recovery_requests')
+      .insert({
+        user_id: user.id,
+        code_hash: codeHash,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+        request_ip: requestIp,
+        user_agent: userAgent
+      })
+      .select('id, expires_at')
+      .maybeSingle();
+
+    if (insertError) {
+      console.error('❌ [recovery/request] Erro ao inserir recovery request:', insertError);
+      return c.json({
+        success: false,
+        error: 'Erro ao criar solicitação de recuperação'
+      }, 500);
+    }
+
+    const debug = getRecoveryDebugEnabled(c);
+
+    return c.json({
+      success: true,
+      message: 'Solicitação de recuperação criada. Verifique seu e-mail para o código de recuperação.',
+      data: {
+        requestId: inserted?.id,
+        expiresAt: inserted?.expires_at,
+        ...(debug ? { recoveryToken: token, recoveryCode: code } : {})
+      }
+    });
+  } catch (e) {
+    console.error('❌ [recovery/request] Erro inesperado:', e);
+    return c.json({ success: false, error: 'Erro inesperado ao solicitar recuperação' }, 500);
+  }
+});
+
+app.post('/recovery/confirm', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({} as any));
+    const token = String(body?.token || '').trim();
+    const code = String(body?.code || '').trim();
+    const newPassword = String(body?.newPassword || '').trim();
+
+    if (!token || token.length < 10) {
+      return c.json({ success: false, error: 'Token de recuperação inválido' }, 400);
+    }
+    if (!code || !/^\d{6}$/.test(code)) {
+      return c.json({ success: false, error: 'Código inválido (use 6 dígitos)' }, 400);
+    }
+    if (!newPassword || newPassword.length < 4) {
+      return c.json({ success: false, error: 'Nova senha inválida (mínimo 4 caracteres)' }, 400);
+    }
+
+    const supabase = getSupabaseClient();
+
+    const tokenHash = sha256Hex(token);
+    const codeHash = sha256Hex(code);
+
+    const { data: reqRow, error: reqError } = await supabase
+      .from('password_recovery_requests')
+      .select('*')
+      .eq('token_hash', tokenHash)
+      .is('used_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (reqError) {
+      console.error('❌ [recovery/confirm] Erro ao buscar recovery request:', reqError);
+      return c.json({ success: false, error: 'Erro ao validar recuperação' }, 500);
+    }
+
+    if (!reqRow) {
+      return c.json({
+        success: false,
+        error: 'Recuperação inválida ou expirada',
+        code: 'RECOVERY_INVALID_OR_EXPIRED'
+      }, 400);
+    }
+
+    if ((reqRow as any).code_hash !== codeHash) {
+      return c.json({
+        success: false,
+        error: 'Código de recuperação incorreto',
+        code: 'RECOVERY_CODE_INVALID'
+      }, 401);
+    }
+
+    const passwordHash = hashPassword(newPassword);
+    const { error: updateUserError } = await supabase
+      .from('users')
+      .update({ password_hash: passwordHash, updated_at: new Date().toISOString() })
+      .eq('id', (reqRow as any).user_id);
+
+    if (updateUserError) {
+      console.error('❌ [recovery/confirm] Erro ao atualizar senha:', updateUserError);
+      return c.json({ success: false, error: 'Erro ao atualizar senha' }, 500);
+    }
+
+    const { error: deleteSessionsError } = await supabase
+      .from('sessions')
+      .delete()
+      .eq('user_id', (reqRow as any).user_id);
+
+    if (deleteSessionsError) {
+      console.warn('⚠️ [recovery/confirm] Não foi possível invalidar sessões:', deleteSessionsError);
+    }
+
+    const { error: markUsedError } = await supabase
+      .from('password_recovery_requests')
+      .update({ used_at: new Date().toISOString() })
+      .eq('id', (reqRow as any).id);
+
+    if (markUsedError) {
+      console.warn('⚠️ [recovery/confirm] Não foi possível marcar recovery como usado:', markUsedError);
+    }
+
+    return c.json({ success: true, message: 'Senha atualizada com sucesso' });
+  } catch (e) {
+    console.error('❌ [recovery/confirm] Erro inesperado:', e);
+    return c.json({ success: false, error: 'Erro inesperado ao confirmar recuperação' }, 500);
   }
 });
 

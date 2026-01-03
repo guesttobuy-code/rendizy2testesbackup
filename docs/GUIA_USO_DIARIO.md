@@ -15,7 +15,7 @@
 
 **O que acontece automaticamente:**
 - ✅ Atualiza branch main
-- ✅ Cria branch `feat/calendario-v2-ativar`
+- ✅ Mantém tudo no `main` (branch único)
 - ✅ Copia template de log
 - ✅ Abre log no VS Code
 
@@ -138,7 +138,6 @@ TOTAL: ~12 minutos/dia
 PS> .\start-task.ps1 "calendario-v2-ativar"
 🚀 Iniciando nova tarefa: calendario-v2-ativar
 📥 Atualizando branch main...
-🌿 Criando branch: feat/calendario-v2-ativar
 📝 Criando log: docs/dev-logs/2024-12-20_calendario-v2-ativar.md
 ✏️  Abrindo log no VS Code...
 

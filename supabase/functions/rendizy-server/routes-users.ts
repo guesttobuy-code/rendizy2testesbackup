@@ -2,8 +2,18 @@ import { Hono } from 'npm:hono';
 import { createHash } from 'node:crypto';
 import * as kv from './kv_store.tsx';
 import { getSupabaseClient } from './kv_store.tsx';
+import { tenancyMiddleware, isSuperAdmin, getTenant } from './utils-tenancy.ts';
 
 const app = new Hono();
+
+// 🔒 Proteção: endpoints de users são restritos ao Admin Master
+app.use('*', tenancyMiddleware);
+app.use('*', async (c, next) => {
+  if (!isSuperAdmin(c)) {
+    return c.json({ success: false, error: 'Forbidden' }, 403);
+  }
+  await next();
+});
 
 // Tipos
 interface User {
@@ -31,6 +41,16 @@ function generateId(prefix: string): string {
 // Helper: Hash de senha (SHA256)
 function hashPassword(password: string): string {
   return createHash('sha256').update(password).digest('hex');
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function generateTemporaryPassword(): string {
+  // Não retornamos isso para o cliente; serve apenas para satisfazer password_hash NOT NULL.
+  // 2 UUIDs → alta entropia.
+  return `${crypto.randomUUID()}${crypto.randomUUID()}`;
 }
 
 // Helper: Obter permissões padrão por role
@@ -210,23 +230,27 @@ app.post('/', async (c) => {
       organizationId,
       name,
       email,
-      username, // Novo: username opcional (se não fornecido, usa email)
-      password, // Novo: senha opcional (se fornecido, cria como 'active')
+      password, // senha opcional (se não fornecida, usuário fica invited e terá senha temporária)
       role = 'staff',
       status, // Se password fornecido, será 'active', senão 'invited'
       createdBy
     } = body;
 
+    const tenant = getTenant(c);
+    const createdByValue = tenant.userId; // UUID do usuário autenticado (compatível com colunas uuid/text)
+
     // Validações
-    if (!organizationId || !name || !email || !createdBy) {
+    if (!organizationId || !name || !email) {
       return c.json({
         success: false,
-        error: 'organizationId, name, email, and createdBy are required'
+        error: 'organizationId, name, and email are required'
       }, 400);
     }
 
+    const emailNormalized = normalizeEmail(email);
+
     // Validar email
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(emailNormalized)) {
       return c.json({
         success: false,
         error: 'Invalid email format'
@@ -249,26 +273,29 @@ app.post('/', async (c) => {
       }, 404);
     }
 
-    // Verificar se email já existe na organização no SQL
-    const { data: existingUserByEmail, error: userByEmailError } = await supabase
+    // Padrão: username = email (normalizado)
+    const finalUsername = emailNormalized;
+
+    // Verificar se email/username já existe (global)
+    const { data: existingUser, error: existingError } = await supabase
       .from('users')
-      .select('id')
-      .eq('email', email.toLowerCase())
-      .eq('organization_id', organizationId)
+      .select('id, email, username, organization_id')
+      .or(`email.eq.${emailNormalized},username.eq.${finalUsername}`)
+      .limit(1)
       .maybeSingle();
 
-    if (userByEmailError) {
-      console.error('❌ Erro ao verificar email existente:', userByEmailError);
+    if (existingError) {
+      console.error('❌ Erro ao verificar usuário existente:', existingError);
       return c.json({
         success: false,
-        error: 'Database error checking email'
+        error: 'Database error checking existing user'
       }, 500);
     }
 
-    if (existingUserByEmail) {
+    if (existingUser) {
       return c.json({
         success: false,
-        error: 'User with this email already exists in this organization'
+        error: 'Já existe um usuário com este email'
       }, 409);
     }
 
@@ -295,106 +322,51 @@ app.post('/', async (c) => {
       }, 403);
     }
 
-    // ✅ NOVO: Determinar status e username
+    // Determinar status
     const finalStatus = password ? 'active' : (status || 'invited');
-    const finalUsername = username || email.split('@')[0]; // Usa email se username não fornecido
-
-    // ✅ NOVO: Se password fornecido, criar no SQL com senha hashada
-    if (password) {
-      const passwordHash = hashPassword(password);
-      const now = new Date().toISOString();
-
-      // Verificar se username já existe
-      const { data: existingUserByUsername } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', finalUsername)
-        .maybeSingle();
-
-      if (existingUserByUsername) {
-        return c.json({
-          success: false,
-          error: 'Username já está em uso'
-        }, 409);
-      }
-
-      // Criar no SQL
-      const { data: sqlUser, error: sqlError } = await supabase
-        .from('users')
-        .insert({
-          username: finalUsername,
-          email: email.toLowerCase(),
-          name,
-          password_hash: passwordHash,
-          type: role === 'owner' ? 'imobiliaria' : 'staff',
-          status: finalStatus,
-          organization_id: organizationId,
-          created_by: createdBy,
-          created_at: now,
-          updated_at: now
-        })
-        .select()
-        .single();
-
-      if (sqlError) {
-        console.error('❌ Erro ao criar usuário no SQL:', sqlError);
-        return c.json({
-          success: false,
-          error: `Erro ao criar usuário: ${sqlError.message}`
-        }, 500);
-      }
-
-      console.log(`✅ User created in SQL: ${email} in org ${organization.slug} (${sqlUser.id})`);
-
-      // Converter para formato esperado pelo frontend
-      const user: User = {
-        id: sqlUser.id,
-        organizationId: sqlUser.organization_id,
-        name: sqlUser.name,
-        email: sqlUser.email,
-        role,
-        status: sqlUser.status as 'active' | 'invited' | 'suspended',
-        createdAt: sqlUser.created_at,
-        createdBy: sqlUser.created_by || createdBy,
-        permissions: getDefaultPermissions(role)
-      };
-
-      return c.json({
-        success: true,
-        data: user
-      }, 201);
-    }
-
-    // Se não tem password, criar no KV Store (compatibilidade)
-    const id = generateId('user');
+    const finalPassword = password || generateTemporaryPassword();
+    const passwordHash = hashPassword(finalPassword);
     const now = new Date().toISOString();
 
+    // Criar no SQL (sempre)
+    const { data: sqlUser, error: sqlError } = await supabase
+      .from('users')
+      .insert({
+        username: finalUsername,
+        email: emailNormalized,
+        name,
+        password_hash: passwordHash,
+        type: role === 'owner' || role === 'admin' ? 'imobiliaria' : 'staff',
+        status: finalStatus,
+        organization_id: organizationId,
+        created_by: createdByValue,
+        created_at: now,
+        updated_at: now
+      })
+      .select()
+      .single();
+
+    if (sqlError) {
+      console.error('❌ Erro ao criar usuário no SQL:', sqlError);
+      return c.json({
+        success: false,
+        error: `Erro ao criar usuário: ${sqlError.message}`
+      }, 500);
+    }
+
+    console.log(`✅ User created in SQL: ${emailNormalized} in org ${organization.slug} (${sqlUser.id})`);
+
     const user: User = {
-      id,
-      organizationId,
-      name,
-      email: email.toLowerCase(),
+      id: sqlUser.id,
+      organizationId: sqlUser.organization_id,
+      name: sqlUser.name,
+      email: sqlUser.email,
       role,
-      status: finalStatus,
-      createdAt: now,
-      createdBy,
+      status: sqlUser.status as 'active' | 'invited' | 'suspended',
+      createdAt: sqlUser.created_at,
+      createdBy: sqlUser.created_by || createdBy,
       permissions: getDefaultPermissions(role)
     };
-
-    // Se for convite, adicionar data de convite
-    if (finalStatus === 'invited') {
-      user.invitedAt = now;
-    }
-
-    // Se for ativo, adicionar data de entrada
-    if (finalStatus === 'active') {
-      user.joinedAt = now;
-    }
-
-    // Salvar no KV store
-    await kv.set(`user:${id}`, user);
-
-    console.log(`✅ User created in KV: ${email} in org ${organization.slug} (${id})`);
 
     return c.json({
       success: true,

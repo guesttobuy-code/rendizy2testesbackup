@@ -106,11 +106,17 @@ function extractUserTokenFromRequest(c: any): string | undefined {
   const tokenFromHeader = c.req.header("X-Auth-Token");
   if (tokenFromHeader) return tokenFromHeader;
 
-  // ✅ PRIORIDADE 2: Cookie HttpOnly (quando aplicável)
-  const cookieHeader = c.req.header("Cookie") || "";
-  const cookies = parseCookies(cookieHeader);
-  const tokenFromCookie = cookies["rendizy-token"];
-  if (tokenFromCookie) return tokenFromCookie;
+  // ✅ PRIORIDADE 2 (OPCIONAL): Cookie HttpOnly
+  // ⚠️ IMPORTANTE: por padrão, DESABILITADO para reduzir risco de um site de cliente
+  // (servido no mesmo origin do Supabase Functions) conseguir usar a sessão de um admin.
+  // Habilite somente se você souber exatamente o que está fazendo.
+  const allowCookieAuth = (Deno.env.get("ENABLE_CLIENT_SITES_COOKIE_AUTH") || "").toLowerCase() === "true";
+  if (allowCookieAuth) {
+    const cookieHeader = c.req.header("Cookie") || "";
+    const cookies = parseCookies(cookieHeader);
+    const tokenFromCookie = cookies["rendizy-token"];
+    if (tokenFromCookie) return tokenFromCookie;
+  }
 
   // ⚠️ NÃO usar Authorization aqui (normalmente contém o anonKey do Supabase)
   return undefined;
@@ -1703,13 +1709,37 @@ app.post("/:organizationId/upload-archive", async (c) => {
     let uploadedCount = 0;
     let skippedCount = 0;
 
-    for (const [zipPath, zipFile] of Object.entries(zip.files)) {
+    const isSafePath = (p: string): boolean => {
+      if (!p) return false;
+      // Normalizar separadores
+      const path = p.replace(/\\/g, "/");
+      // Bloquear NUL, paths absolutos e drive letters
+      if (path.includes("\u0000")) return false;
+      if (path.startsWith("/")) return false;
+      if (/^[a-zA-Z]:\//.test(path)) return false;
+      // Bloquear traversal
+      const parts = path.split("/").filter(Boolean);
+      if (parts.some((seg) => seg === ".." || seg === ".")) return false;
+      return true;
+    };
+
+    const MAX_EXTRACTED_FILES = 2000;
+
+    for (const [zipPathRaw, zipFile] of Object.entries(zip.files)) {
+      const zipPath = (zipPathRaw || "").replace(/\\/g, "/");
+
       // Ignorar diretórios e arquivos ocultos
       if (
         zipFile.dir ||
         zipPath.startsWith(".") ||
         zipPath.includes("__MACOSX")
       ) {
+        continue;
+      }
+
+      // Segurança: recusar paths suspeitos no ZIP
+      if (!isSafePath(zipPath)) {
+        skippedCount++;
         continue;
       }
 
@@ -1728,6 +1758,34 @@ app.post("/:organizationId/upload-archive", async (c) => {
         if (pathParts.length > 1 && pathParts[0].includes("project")) {
           normalizedPath = pathParts.slice(1).join("/");
         }
+      }
+
+      // ✅ Segurança + consistência: só extrair arquivos do dist/
+      // (evita expor src/, configs, etc)
+      const normalizedLower = normalizedPath.toLowerCase();
+      if (!normalizedLower.startsWith("dist/")) {
+        skippedCount++;
+        continue;
+      }
+
+      // Segurança: bloquear traversal também depois da normalização
+      if (!isSafePath(normalizedPath)) {
+        skippedCount++;
+        continue;
+      }
+
+      // Segurança: não publicar sourcemaps (evita expor código fonte)
+      if (normalizedLower.endsWith(".map")) {
+        skippedCount++;
+        continue;
+      }
+
+      // Anti-DoS: limite de arquivos extraídos
+      if (uploadedCount >= MAX_EXTRACTED_FILES) {
+        console.warn(
+          `[CLIENT-SITES] ⚠️ Limite de extração atingido (${MAX_EXTRACTED_FILES}). Ignorando o restante.`
+        );
+        break;
       }
 
       const storagePath = `${organizationId}/extracted/${normalizedPath}`;
@@ -1872,6 +1930,22 @@ app.post("/:organizationId/upload-archive-from-url", async (c) => {
     const auth = await requireOrganizationAccess(c, organizationId);
     if (auth instanceof Response) return auth;
 
+    // 🔒 Segurança: este endpoint pode ser usado para SSRF.
+    // Mantemos DESABILITADO por padrão e, quando habilitado, exigimos superadmin.
+    const enabled = (Deno.env.get("ENABLE_CLIENT_SITES_ARCHIVE_FROM_URL") || "").toLowerCase() === "true";
+    if (!enabled) {
+      return c.json(
+        {
+          success: false,
+          error: "Endpoint desabilitado por segurança",
+        },
+        403
+      );
+    }
+    if (!auth.isSuperAdmin) {
+      return c.json({ success: false, error: "Acesso negado" }, 403);
+    }
+
     const body = await c.req.json();
     const url = (body?.url as string | undefined)?.trim();
     const source = (body?.source as string | undefined) || "custom";
@@ -1931,7 +2005,18 @@ app.post("/:organizationId/upload-archive-from-url", async (c) => {
       source,
     });
 
-    const fetchResponse = await fetch(url);
+    // Validar URL (mínimo): apenas https
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return c.json({ success: false, error: "URL inválida" }, 400);
+    }
+    if (parsedUrl.protocol !== "https:") {
+      return c.json({ success: false, error: "Somente URLs https são permitidas" }, 400);
+    }
+
+    const fetchResponse = await fetch(parsedUrl.toString());
 
     if (!fetchResponse.ok) {
       console.error(
@@ -1946,6 +2031,19 @@ app.post("/:organizationId/upload-archive-from-url", async (c) => {
         },
         502
       );
+    }
+
+    // Anti-DoS: limite por content-length (quando disponível)
+    const contentLengthHeader = fetchResponse.headers.get("content-length");
+    if (contentLengthHeader) {
+      const size = Number(contentLengthHeader);
+      const max = 50 * 1024 * 1024; // 50MB
+      if (Number.isFinite(size) && size > max) {
+        return c.json(
+          { success: false, error: "Arquivo remoto muito grande" },
+          413
+        );
+      }
     }
 
     const arrayBuffer = await fetchResponse.arrayBuffer();
@@ -2342,6 +2440,12 @@ app.get("/assets/:subdomain/*", async (c) => {
       );
     }
 
+    // Segurança: bloquear traversal e paths estranhos
+    const unsafe = assetPath.includes("\u0000") || assetPath.includes("\\") || assetPath.split("/").includes("..") || assetPath.startsWith("/");
+    if (unsafe) {
+      return c.json({ success: false, error: "Caminho inválido" }, 400);
+    }
+
     // Buscar site por subdomain do SQL
     const supabase = getSupabaseClient();
 
@@ -2382,150 +2486,66 @@ app.get("/assets/:subdomain/*", async (c) => {
     // Buscar arquivo no ZIP (tentar diferentes variações do caminho)
     // Normalizar assetPath (remover barra inicial se houver)
     const normalizedPath = assetPath.replace(/^\//, "");
-    const fileName = normalizedPath.split("/").pop() || normalizedPath;
+    const normalizedLower = normalizedPath.toLowerCase();
 
-    // ✅ ESTRATÉGIA: Buscar pelo nome do arquivo primeiro, depois pelo caminho completo
-    // Isso resolve o problema de ZIPs com estrutura de pastas variável
-    const allZipFiles = Object.keys(zip.files).filter((f) => !zip.files[f].dir);
+    // ✅ Segurança: servir APENAS conteúdos dentro de dist/
+    // (evita exfiltração de src/, configs, etc)
+    const baseNormalized = normalizedLower.startsWith("dist/")
+      ? normalizedPath
+      : `dist/${normalizedPath}`;
 
-    console.log(`[CLIENT-SITES] Procurando arquivo: ${fileName}`);
     console.log(`[CLIENT-SITES] Caminho normalizado: ${normalizedPath}`);
 
     let file: any = null;
     let foundPath: string | null = null;
 
-    // 1. Buscar pelo nome do arquivo (mais robusto - funciona independente da estrutura)
-    const filesByName = allZipFiles.filter((f) => f.endsWith(fileName));
-    if (filesByName.length > 0) {
-      // Se encontrou pelo nome, verificar se o caminho também corresponde (prioridade)
-      const exactMatch = filesByName.find(
-        (f) =>
-          f.includes("dist") && f.includes("assets") && f.endsWith(fileName)
+    const possiblePaths = [
+      baseNormalized,
+      `dist/${baseNormalized.replace(/^dist\//, "")}`,
+      `dist/dist/${baseNormalized.replace(/^dist\//, "")}`,
+    ];
+
+    // Adicionar variações com prefixos de pasta raiz
+    const allZipDirs = Object.keys(zip.files).filter((f) => zip.files[f].dir);
+    const rootDirs = allZipDirs
+      .map((d) => d.split("/")[0])
+      .filter((d, i, arr) => arr.indexOf(d) === i && d)
+      .slice(0, 3); // Limitar a 3 para performance
+
+    for (const rootDir of rootDirs) {
+      possiblePaths.push(
+        `${rootDir}/${baseNormalized}`,
+        `${rootDir}/project/${baseNormalized}`,
+        `${rootDir}/project/dist/${baseNormalized.replace(/^dist\//, "")}`,
+        `${rootDir}/project/dist/dist/${baseNormalized.replace(/^dist\//, "")}`,
+        `${rootDir}/dist/${baseNormalized.replace(/^dist\//, "")}`,
+        `${rootDir}/dist/dist/${baseNormalized.replace(/^dist\//, "")}`
       );
-      if (exactMatch) {
-        foundPath = exactMatch;
-        file = zip.files[exactMatch];
-        console.log(
-          `[CLIENT-SITES] ✅ Asset encontrado pelo nome (match exato): ${foundPath}`
-        );
-      } else {
-        // Usar o primeiro encontrado
-        foundPath = filesByName[0];
-        file = zip.files[foundPath];
-        console.log(
-          `[CLIENT-SITES] ✅ Asset encontrado pelo nome: ${foundPath}`
-        );
-      }
     }
 
-    // 2. Se não encontrou pelo nome, tentar pelo caminho completo (fallback)
-    if (!file) {
-      const possiblePaths = [
-        normalizedPath,
-        `dist/${normalizedPath}`,
-        `dist/dist/${normalizedPath}`, // Caso especial: dist dentro de dist
-        `src/${normalizedPath}`,
-        `public/${normalizedPath}`,
-      ];
+    console.log(
+      `[CLIENT-SITES] Tentando ${possiblePaths.length} caminhos possíveis...`
+    );
 
-      // Adicionar variações com prefixos de pasta raiz
-      const allZipDirs = Object.keys(zip.files).filter((f) => zip.files[f].dir);
-      const rootDirs = allZipDirs
-        .map((d) => d.split("/")[0])
-        .filter((d, i, arr) => arr.indexOf(d) === i && d)
-        .slice(0, 3); // Limitar a 3 para performance
-
-      for (const rootDir of rootDirs) {
-        possiblePaths.push(
-          `${rootDir}/${normalizedPath}`,
-          `${rootDir}/project/${normalizedPath}`,
-          `${rootDir}/project/dist/${normalizedPath}`,
-          `${rootDir}/project/dist/dist/${normalizedPath}`,
-          `${rootDir}/dist/${normalizedPath}`,
-          `${rootDir}/dist/dist/${normalizedPath}`
+    for (const path of possiblePaths) {
+      const zipFile = zip.files[path];
+      if (zipFile && !zipFile.dir) {
+        file = zipFile;
+        foundPath = path;
+        console.log(
+          `[CLIENT-SITES] ✅ Asset encontrado pelo caminho: ${foundPath}`
         );
-      }
-
-      console.log(
-        `[CLIENT-SITES] Tentando ${possiblePaths.length} caminhos possíveis...`
-      );
-
-      for (const path of possiblePaths) {
-        const zipFile = zip.files[path];
-        if (zipFile && !zipFile.dir) {
-          file = zipFile;
-          foundPath = path;
-          console.log(
-            `[CLIENT-SITES] ✅ Asset encontrado pelo caminho: ${foundPath}`
-          );
-          break;
-        }
+        break;
       }
     }
 
     if (!file) {
       console.warn(`[CLIENT-SITES] Asset não encontrado: ${assetPath}`);
       console.warn(`[CLIENT-SITES] Caminhos tentados:`, possiblePaths);
-
-      // Listar TODOS os arquivos do ZIP para debug (não apenas os primeiros 20)
-      const allZipFiles = Object.keys(zip.files).filter(
-        (f) => !zip.files[f].dir
-      );
-      const allZipDirs = Object.keys(zip.files).filter((f) => zip.files[f].dir);
-
-      console.warn(
-        `[CLIENT-SITES] Total de arquivos no ZIP: ${allZipFiles.length}`
-      );
-      console.warn(
-        `[CLIENT-SITES] Total de diretórios no ZIP: ${allZipDirs.length}`
-      );
-      console.warn(
-        `[CLIENT-SITES] Estrutura de diretórios:`,
-        allZipDirs.slice(0, 30)
-      );
-      console.warn(
-        `[CLIENT-SITES] Arquivos que contêm 'assets' ou 'index':`,
-        allZipFiles
-          .filter(
-            (f) =>
-              f.toLowerCase().includes("assets") ||
-              f.toLowerCase().includes("index")
-          )
-          .slice(0, 30)
-      );
-      console.warn(
-        `[CLIENT-SITES] Todos os arquivos do ZIP (primeiros 100):`,
-        allZipFiles.slice(0, 100)
-      );
-
-      // Tentar encontrar arquivos similares (por nome, não por caminho)
-      const fileName = assetPath.split("/").pop() || assetPath;
-      const similarFiles = allZipFiles.filter((f) =>
-        f.toLowerCase().includes(fileName.toLowerCase())
-      );
-
       return c.json(
         {
           success: false,
-          error: "Asset não encontrado no ZIP",
-          debug: {
-            requestedPath: assetPath,
-            normalizedPath: normalizedPath,
-            fileName: fileName,
-            triedPaths: possiblePaths,
-            totalFilesInZip: allZipFiles.length,
-            totalDirsInZip: allZipDirs.length,
-            directories: allZipDirs.slice(0, 30),
-            filesWithAssetsOrIndex: allZipFiles
-              .filter(
-                (f) =>
-                  f.toLowerCase().includes("assets") ||
-                  f.toLowerCase().includes("index")
-              )
-              .slice(0, 30),
-            similarFiles: similarFiles.slice(0, 10),
-            allFiles: allZipFiles.slice(0, 100), // Primeiros 100 para não exceder limite
-          },
+          error: "Asset não encontrado",
         },
         404
       );

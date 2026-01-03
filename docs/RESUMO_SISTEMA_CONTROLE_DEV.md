@@ -30,7 +30,7 @@
 | Git + Conventional Commits | Versionamento semântico | 📝 Documentado |
 | CHANGELOG.md | Histórico cronológico | ✅ Criado |
 | GitHub Issues | Tracking de tarefas | 📝 Sugerido |
-| Pull Requests | Code review | 📝 Sugerido |
+| Revisão de código | Auto-review/pair review | 📝 Sugerido |
 
 **Arquivos criados:**
 - ✅ [CHANGELOG.md](../CHANGELOG.md) - Histórico de versões
@@ -76,7 +76,8 @@ docs/
 
 ### **1. ANTES DE COMEÇAR**
 ```bash
-git checkout -b feat/nome-feature
+git checkout main
+git pull <remote> main
 cp docs/DEV_LOG_TEMPLATE.md docs/dev-logs/2024-MM-DD_tarefa.md
 # Editar log com objetivo e contexto
 ```
@@ -95,8 +96,8 @@ git commit -m "feat(modulo): adicionar funcionalidade X
 ### **3. AO FINALIZAR**
 ```bash
 # Atualizar CHANGELOG.md
-# Push + criar Pull Request
-# Mergear após review
+# Push no main (use o remote correto: normalmente `testes` ou `origin`)
+git push <remote> main
 ```
 
 ---

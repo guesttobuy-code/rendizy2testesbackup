@@ -3,7 +3,7 @@
 ## Sintoma
 - Frontend recebendo `401` em:
   - `.../functions/v1/rendizy-server/*` (ex.: `anuncios-ultimate/lista`, `guests`, `reservations`, `calendar`)
-  - `.../rest/v1/*` (ex.: `anuncios_drafts?select=*`)
+  - `.../rest/v1/*` (ex.: `anuncios_ultimate?select=*`)
 - Login falhando com mensagem do app sobre `VITE_SUPABASE_ANON_KEY`.
 
 ## Causa raiz (encontrada no workspace)

@@ -45,6 +45,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { Alert, AlertDescription } from './ui/alert';
+import { Label } from './ui/label';
 import { CreateOrganizationModal } from './CreateOrganizationModal';
 import { CreateUserModal } from './CreateUserModal';
 import { ReservationsManagement } from './ReservationsManagement';
@@ -93,6 +96,15 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [showUsersModal, setShowUsersModal] = useState(false);
+  const [selectedOrgForUsers, setSelectedOrgForUsers] = useState<Organization | null>(null);
+  const [usersError, setUsersError] = useState<string | null>(null);
+
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
   
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -108,11 +120,14 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
   const loadOrganizations = async () => {
     setLoading(true);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            ...(token ? { 'X-Auth-Token': token } : {})
           }
         }
       );
@@ -120,6 +135,9 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
       const result = await response.json();
       if (result.success) {
         setOrganizations(result.data || []);
+      } else {
+        console.error('Organizations API returned error:', result?.error || result);
+        toast.error('Erro ao carregar imobiliárias');
       }
     } catch (error) {
       console.error('Error loading organizations:', error);
@@ -131,22 +149,31 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
 
   const loadUsers = async (organizationId?: string) => {
     setLoading(true);
+    setUsersError(null);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
       const url = organizationId 
         ? `https://${projectId}.supabase.co/functions/v1/rendizy-server/users?organizationId=${organizationId}`
         : `https://${projectId}.supabase.co/functions/v1/rendizy-server/users`;
 
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${publicAnonKey}`
+          'apikey': publicAnonKey,
+          'Authorization': `Bearer ${publicAnonKey}`,
+          ...(token ? { 'X-Auth-Token': token } : {})
         }
       });
 
       const result = await response.json();
       if (result.success) {
         setUsers(result.data || []);
+      } else {
+        setUsersError(result?.error || 'Erro ao carregar usuários');
+        console.error('Users API returned error:', result?.error || result);
+        toast.error('Erro ao carregar usuários');
       }
     } catch (error) {
+      setUsersError('Erro ao carregar usuários');
       console.error('Error loading users:', error);
       toast.error('Erro ao carregar usuários');
     } finally {
@@ -160,12 +187,15 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
     }
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${org.id}`,
         {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            ...(token ? { 'X-Auth-Token': token } : {})
           }
         }
       );
@@ -190,9 +220,65 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
   };
 
   const handleViewUsers = (orgId: string) => {
+    const org = organizations.find((o) => o.id === orgId) || null;
+    setSelectedOrgForUsers(org);
+    setUsers([]);
+    setUsersError(null);
+    setShowUsersModal(true);
     loadUsers(orgId);
-    // Aqui você poderia abrir um drawer ou modal mostrando os usuários
-    toast.info('Carregando usuários...');
+  };
+
+  const handleOpenChangePassword = (user: User) => {
+    setSelectedUserForPassword(user);
+    setNewPassword('');
+    setShowChangePasswordModal(true);
+  };
+
+  const handleSavePassword = async () => {
+    if (!selectedUserForPassword) return;
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Senha inválida', { description: 'Use pelo menos 6 caracteres.' });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/rendizy-server/users/${selectedUserForPassword.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            ...(token ? { 'X-Auth-Token': token } : {})
+          },
+          body: JSON.stringify({ password: newPassword })
+        }
+      );
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result?.error || 'Erro ao alterar senha');
+      }
+
+      toast.success('Senha atualizada com sucesso');
+      setShowChangePasswordModal(false);
+      setSelectedUserForPassword(null);
+      setNewPassword('');
+
+      if (selectedOrgForUsers?.id) {
+        loadUsers(selectedOrgForUsers.id);
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast.error('Erro ao alterar senha', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   // Stats calculados
@@ -598,6 +684,140 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
         }}
         preselectedOrgId={selectedOrgForUser}
       />
+
+      <Dialog
+        open={showUsersModal}
+        onOpenChange={(open) => {
+          setShowUsersModal(open);
+          if (!open) {
+            setUsers([]);
+            setUsersError(null);
+            setSelectedOrgForUsers(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[900px]">
+          <DialogHeader>
+            <DialogTitle>Usuários da Imobiliária</DialogTitle>
+            <DialogDescription>
+              {selectedOrgForUsers ? (
+                <span>
+                  {selectedOrgForUsers.name} ({selectedOrgForUsers.email})
+                </span>
+              ) : (
+                'Visualize os usuários cadastrados'
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loading ? (
+            <div className="py-8 text-center text-gray-500">Carregando...</div>
+          ) : usersError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{usersError}</AlertDescription>
+            </Alert>
+          ) : users.length === 0 ? (
+            <div className="py-8 text-center text-gray-500">
+              Nenhum usuário cadastrado para esta imobiliária.
+            </div>
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Criado em</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell className="font-medium">{u.name}</TableCell>
+                      <TableCell className="text-sm text-gray-600 dark:text-gray-400">{u.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{u.role}</Badge>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(u.status)}</TableCell>
+                      <TableCell className="text-sm text-gray-500">
+                        {new Date(u.createdAt).toLocaleDateString('pt-BR')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => handleOpenChangePassword(u)}>
+                          Mudar Senha
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+
+          <DialogFooter>
+            {selectedOrgForUsers?.id ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedOrgForUser(selectedOrgForUsers.id);
+                  setShowCreateUserModal(true);
+                }}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Adicionar Usuário
+              </Button>
+            ) : null}
+            <Button variant="secondary" onClick={() => setShowUsersModal(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showChangePasswordModal}
+        onOpenChange={(open) => {
+          setShowChangePasswordModal(open);
+          if (!open) {
+            setSelectedUserForPassword(null);
+            setNewPassword('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Mudar senha do usuário</DialogTitle>
+            <DialogDescription>
+              {selectedUserForPassword ? selectedUserForPassword.email : 'Selecione um usuário'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password">Nova senha</Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Digite a nova senha"
+              disabled={changingPassword}
+            />
+            <p className="text-xs text-gray-500">Mínimo de 6 caracteres.</p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowChangePasswordModal(false)} disabled={changingPassword}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSavePassword} disabled={changingPassword}>
+              {changingPassword ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -5,13 +5,36 @@
 
 import { Hono } from "npm:hono";
 import { getSupabaseClient } from "./kv_store.tsx";
+import { getTenant, isSuperAdmin, tenancyMiddleware } from "./utils-tenancy.ts";
 
 const app = new Hono();
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
-const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000000';
 const SETTINGS_KIND = 'settings';
 const SETTINGS_KEY_LOCATIONS_LISTINGS = 'locations_listings';
+
+app.use('*', tenancyMiddleware);
+
+function resolveOrgId(c: any): string {
+  const tenant = getTenant(c);
+
+  // ✅ Para superadmin, permitir override explícito (já existia na API), mas nunca para imobiliária.
+  if (tenant.type === 'superadmin') {
+    const qOrg = c.req.query('organization_id');
+    return qOrg || tenant.imobiliariaId || DEFAULT_ORG_ID;
+  }
+
+  const orgId = tenant.imobiliariaId;
+  if (!orgId) {
+    throw new Error('organization_id ausente no tenant');
+  }
+  return orgId;
+}
+
+function resolveUserId(c: any): string {
+  const tenant = getTenant(c);
+  return tenant.userId;
+}
 
 function defaultLocationsListingsSettings() {
   return {
@@ -89,12 +112,13 @@ async function findSettingsRow(
 app.get("/lista", async (c) => {
   try {
     const supabase = getSupabaseClient(c);
+    const organizationId = resolveOrgId(c);
 
     const { data, error } = await supabase
-      .from("anuncios_ultimate")
+      // ✅ Tabela principal do sistema (docs): anuncios_drafts
+      .from("anuncios_drafts")
       .select("*")
-      // Não retornar registros internos de settings/config
-      .neq('data->>__kind', SETTINGS_KIND)
+      .eq('organization_id', organizationId)
       // Ordenação fixa (não muda ao editar/atualizar): alfabética por título + desempate por id
       .order("title", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
@@ -120,7 +144,7 @@ app.get("/lista", async (c) => {
 app.get('/settings/locations-listings', async (c) => {
   try {
     const supabase = getSupabaseClient(c);
-    const orgId = c.req.query('organization_id') || DEFAULT_ORG_ID;
+    const orgId = resolveOrgId(c);
     const row = await findSettingsRow(supabase, orgId, SETTINGS_KEY_LOCATIONS_LISTINGS);
     const settings = (row?.data as any)?.settings || defaultLocationsListingsSettings();
     return c.json({ ok: true, organization_id: orgId, settings });
@@ -139,8 +163,12 @@ app.post('/settings/locations-listings', async (c) => {
     const body = await c.req.json();
     const supabase = getSupabaseClient(c);
 
-    const orgId = body?.organization_id || DEFAULT_ORG_ID;
-    const userId = body?.user_id || DEFAULT_USER_ID;
+    const tenantOrgId = resolveOrgId(c);
+    const tenantUserId = resolveUserId(c);
+
+    // ✅ Compat: superadmin pode especificar org/user (já existia), mas imobiliária não.
+    const orgId = isSuperAdmin(c) ? (body?.organization_id || tenantOrgId) : tenantOrgId;
+    const userId = isSuperAdmin(c) ? (body?.user_id || tenantUserId) : tenantUserId;
     const settings = body?.settings;
 
     if (!settings || typeof settings !== 'object') {
@@ -196,12 +224,14 @@ app.get("/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const supabase = getSupabaseClient(c);
+    const organizationId = resolveOrgId(c);
 
-    // Busca em anuncios_ultimate
+    // Busca em anuncios_drafts (tabela principal)
     const { data, error } = await supabase
-      .from("anuncios_ultimate")
-      .select("id, data, organization_id, user_id, status, completion_percentage, step_completed, title, created_at, updated_at")
+      .from("anuncios_drafts")
+      .select("id, data, organization_id, user_id, status, completion_percentage, step_completed, title, last_edited_field, last_edited_at, created_at, updated_at")
       .eq("id", id)
+      .eq('organization_id', organizationId)
       .single();
 
     if (error) {
@@ -226,21 +256,25 @@ app.post("/create", async (c) => {
     const body = await c.req.json();
     const supabase = getSupabaseClient(c);
 
-    const { organization_id, user_id, initial = {} } = body;
+    const organizationId = resolveOrgId(c);
+    const userId = resolveUserId(c);
+    const { id, initial = {} } = body || {};
 
     const payload: any = {
+      ...(id ? { id } : {}),
+      organization_id: organizationId,
+      user_id: userId,
       data: initial,
       status: "draft",
       completion_percentage: 0,
       step_completed: 1,
       title: initial.title || "Sem título",
+      last_edited_field: null,
+      last_edited_at: new Date().toISOString(),
     };
 
-    if (organization_id) payload.organization_id = organization_id;
-    if (user_id) payload.user_id = user_id;
-
     const { data, error } = await supabase
-      .from("anuncios_ultimate")
+      .from("anuncios_drafts")
       .insert(payload)
       .select()
       .single();
@@ -274,13 +308,14 @@ app.post("/save-field", async (c) => {
       field,
       value,
       idempotency_key,
-      organization_id,
-      user_id,
     } = body;
 
     if (!field) {
       return c.json({ error: "field_required" }, 400);
     }
+
+    const organizationId = resolveOrgId(c);
+    const userId = resolveUserId(c);
 
     // Chama RPC wrapper V1→V2
     const { data, error } = await supabase.rpc("save_anuncio_field", {
@@ -288,8 +323,8 @@ app.post("/save-field", async (c) => {
       p_field: field,
       p_value: value === undefined ? null : value,
       p_idempotency_key: idempotency_key || null,
-      p_organization_id: organization_id || null,
-      p_user_id: user_id || null,
+      p_organization_id: organizationId,
+      p_user_id: userId,
     });
 
     if (error) {
@@ -306,6 +341,77 @@ app.post("/save-field", async (c) => {
     return c.json({ ok: true, anuncio: result });
   } catch (err: any) {
     console.error("❌ [save-field] Erro interno:", err);
+    return c.json({ error: err?.message || String(err) }, 500);
+  }
+});
+
+/**
+ * PATCH /anuncios-ultimate/:id
+ * Atualiza campos do registro (sem permitir trocar organization_id/user_id).
+ */
+app.patch('/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json().catch(() => ({}));
+    const supabase = getSupabaseClient(c);
+    const organizationId = resolveOrgId(c);
+
+    const update: any = {
+      updated_at: new Date().toISOString(),
+      last_edited_at: new Date().toISOString(),
+    };
+
+    if (typeof body?.title === 'string') update.title = body.title;
+    if (body?.data && typeof body.data === 'object') update.data = body.data;
+    if (typeof body?.status === 'string') update.status = body.status;
+    if (typeof body?.completion_percentage === 'number') update.completion_percentage = body.completion_percentage;
+    if (typeof body?.step_completed === 'number') update.step_completed = body.step_completed;
+    if (typeof body?.last_edited_field === 'string') update.last_edited_field = body.last_edited_field;
+
+    const { data, error } = await supabase
+      .from('anuncios_drafts')
+      .update(update)
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select('id, data, organization_id, user_id, status, completion_percentage, step_completed, title, last_edited_field, last_edited_at, created_at, updated_at')
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error('❌ [PATCH /:id] Erro ao atualizar anúncio:', error);
+      return c.json({ error: 'update_failed', details: error }, 500);
+    }
+
+    return c.json({ ok: true, anuncio: data });
+  } catch (err: any) {
+    console.error('❌ [PATCH /:id] Erro interno:', err);
+    return c.json({ error: err?.message || String(err) }, 500);
+  }
+});
+
+/**
+ * DELETE /anuncios-ultimate/:id
+ * Exclui anúncio do tenant.
+ */
+app.delete('/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const supabase = getSupabaseClient(c);
+    const organizationId = resolveOrgId(c);
+
+    const { error } = await supabase
+      .from('anuncios_drafts')
+      .delete()
+      .eq('id', id)
+      .eq('organization_id', organizationId);
+
+    if (error) {
+      console.error('❌ [DELETE /:id] Erro ao excluir anúncio:', error);
+      return c.json({ error: 'delete_failed', details: error }, 500);
+    }
+
+    return c.json({ ok: true });
+  } catch (err: any) {
+    console.error('❌ [DELETE /:id] Erro interno:', err);
     return c.json({ error: err?.message || String(err) }, 500);
   }
 });

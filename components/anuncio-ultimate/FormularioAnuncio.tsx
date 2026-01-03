@@ -534,10 +534,13 @@ export default function FormularioAnuncio() {
 
     (async () => {
       try {
+        const token = localStorage.getItem('rendizy-token');
         const resp = await fetch(SETTINGS_LOCATIONS_LISTINGS_URL, {
           method: 'GET',
           headers: {
+            'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
             'Accept': 'application/json',
           },
         });
@@ -583,18 +586,22 @@ export default function FormularioAnuncio() {
   const loadAnuncio = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncioId}&select=*`, {
+      const token = localStorage.getItem('rendizy-token');
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncioId}`, {
         headers: {
           'apikey': ANON_KEY,
-          'Authorization': `Bearer ${ANON_KEY}`
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': token || '',
+          'Content-Type': 'application/json'
         }
       });
       
       if (!response.ok) throw new Error('Erro ao carregar anúncio');
       
-      const data = await response.json();
-      if (data[0]?.data) {
-        const wizardData = data[0].data;
+      const payload = await response.json();
+      const row = payload?.anuncio;
+      if (row?.data) {
+        const wizardData = row.data;
         
         // Mapear campos do wizard antigo (português) para estrutura nova (inglês)
         const mappedData: FormData = {
@@ -1076,11 +1083,14 @@ export default function FormularioAnuncio() {
       ];
       
       for (const { field, value } of fieldsToSave) {
+        const token = localStorage.getItem('rendizy-token');
         const response = await fetch(url, {
           method: 'POST',
           headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${ANON_KEY}` 
+            'Content-Type': 'application/json',
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify({ 
             anuncio_id: anuncioId, 
@@ -1135,11 +1145,14 @@ export default function FormularioAnuncio() {
       ];
       
       for (const { field, value } of fieldsToSave) {
+        const token = localStorage.getItem('rendizy-token');
         const response = await fetch(url, {
           method: 'POST',
           headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${ANON_KEY}` 
+            'Content-Type': 'application/json',
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify({ 
             anuncio_id: anuncioId, 
@@ -1430,8 +1443,10 @@ export default function FormularioAnuncio() {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${ANON_KEY}` 
+          'Content-Type': 'application/json',
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
         },
         body: JSON.stringify({ 
           anuncio_id: anuncioId, 
@@ -1474,7 +1489,9 @@ export default function FormularioAnuncio() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${ANON_KEY}`
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
         },
         body: JSON.stringify({
           anuncio_id: anuncioId,
@@ -1517,7 +1534,9 @@ export default function FormularioAnuncio() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${ANON_KEY}`
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
         },
         body: JSON.stringify({
           anuncio_id: anuncioId,
@@ -1579,11 +1598,14 @@ export default function FormularioAnuncio() {
       ];
       
       for (const { field, value } of fields) {
+        const token = localStorage.getItem('rendizy-token');
         const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify({
             anuncio_id: anuncioId,
@@ -1633,11 +1655,14 @@ export default function FormularioAnuncio() {
       ];
       
       for (const { field, value } of fields) {
+        const token = localStorage.getItem('rendizy-token');
         const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify({
             anuncio_id: anuncioId,
@@ -1690,11 +1715,14 @@ export default function FormularioAnuncio() {
       ];
 
       for (const { field, value } of fields) {
+        const token = localStorage.getItem('rendizy-token');
         const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify({
             anuncio_id: anuncioId,
@@ -1749,11 +1777,14 @@ export default function FormularioAnuncio() {
       ];
 
       for (const { field, value } of fields) {
+        const token = localStorage.getItem('rendizy-token');
         const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify({
             anuncio_id: anuncioId,
@@ -1805,11 +1836,14 @@ export default function FormularioAnuncio() {
       ];
 
       for (const { field, value } of fields) {
+        const token = localStorage.getItem('rendizy-token');
         const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify({
             anuncio_id: anuncioId,
@@ -1866,11 +1900,14 @@ export default function FormularioAnuncio() {
       ];
 
       for (const { field, value } of fields) {
+        const token = localStorage.getItem('rendizy-token');
         const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify({
             anuncio_id: anuncioId,
@@ -1906,35 +1943,26 @@ export default function FormularioAnuncio() {
       // ✅ NOVO ANÚNCIO: Criar com INSERT
       if (!anuncioId) {
         const novoId = crypto.randomUUID();
-        
-        // Obter user_id e organization_id do localStorage
-        const userDataStr = localStorage.getItem('user');
-        const userData = userDataStr ? JSON.parse(userDataStr) : null;
-        const userId = userData?.id || '00000000-0000-0000-0000-000000000002';
-        const organizationId = userData?.organization?.id || '00000000-0000-0000-0000-000000000000';
-        
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate`, {
+        const token = localStorage.getItem('rendizy-token');
+
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/create`, {
           method: 'POST',
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
+            'X-Auth-Token': token || '',
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             id: novoId,
-            organization_id: organizationId,
-            user_id: userId,
-            title: formData.title || 'Sem título',
-            data: formData,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            initial: formData,
           })
         });
         
-        if (!response.ok) throw new Error('Erro ao criar anúncio');
-        
-        const [created] = await response.json();
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(data?.error || data?.message || `Erro ao criar anúncio (HTTP ${response.status})`);
+        }
         toast.success('✅ Rascunho criado com sucesso!');
         calculateProgress(formData);
         
@@ -1944,22 +1972,25 @@ export default function FormularioAnuncio() {
       }
       
       // ✅ ANÚNCIO EXISTENTE: Atualizar com PATCH
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_ultimate?id=eq.${anuncioId}`, {
+      const token = localStorage.getItem('rendizy-token');
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncioId}`, {
         method: 'PATCH',
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
+          'X-Auth-Token': token || '',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           title: formData.title || 'Sem título',
           data: formData,
-          updated_at: new Date().toISOString()
         })
       });
       
-      if (!response.ok) throw new Error('Erro ao salvar');
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || data?.message || `Erro ao salvar (HTTP ${response.status})`);
+      }
       
       toast.success('✅ Anúncio salvo com sucesso!');
       calculateProgress(formData);

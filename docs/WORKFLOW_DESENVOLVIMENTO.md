@@ -14,8 +14,9 @@ Este documento define o **processo padrão** para desenvolvimento no Rendizy, ga
 ### 1️⃣ ANTES DE COMEÇAR
 
 ```bash
-# 1. Criar branch de feature
-git checkout -b feat/nome-da-feature
+# 1. Garantir branch principal atualizado (SOMENTE main)
+git checkout main
+git pull
 
 # 2. Criar log de desenvolvimento
 cp docs/DEV_LOG_TEMPLATE.md docs/dev-logs/YYYY-MM-DD_nome-tarefa.md
@@ -169,17 +170,14 @@ git diff
 git add .
 git commit -m "docs: atualizar CHANGELOG e logs de desenvolvimento"
 
-# 4. Push da branch
-git push origin feat/calendario-v2
-
-# 5. Criar Pull Request (GitHub)
-# Título: "feat(calendario): ativar calendário v2 com React Query"
-# Descrição: Colar conteúdo do dev-log
+# 4. Push do main
+# (ex.: git push testes main)
+git push <remote> main
 ```
 
 ---
 
-## 📊 CHECKLIST FINAL (Antes de Mergear)
+## 📊 CHECKLIST FINAL (Antes de Pushar)
 
 ```markdown
 ### Código
@@ -200,10 +198,9 @@ git push origin feat/calendario-v2
 - [ ] Docs de API atualizadas (se mudou endpoints)
 
 ### Git
-- [ ] Branch atualizada com main
+- [ ] Branch atual é `main`
 - [ ] Sem conflitos
-- [ ] Pull Request criado
-- [ ] Issues relacionadas linkadas
+- [ ] Issues relacionadas linkadas (se existirem)
 ```
 
 ---
@@ -215,12 +212,13 @@ git push origin feat/calendario-v2
 ```bash
 # 1. ROLLBACK IMEDIATO
 git revert HEAD
-git push origin main
+git push <remote> main
 
-# 2. Criar HOTFIX
-git checkout -b hotfix/nome-do-problema
+# 2. Hotfix direto no main (sem branches)
 # ... fazer correção ...
-git commit -m "hotfix: descrição do problema"
+git add .
+git commit -m "fix: descrição do problema"
+git push <remote> main
 
 # 3. Documentar incidente
 cat > docs/incidents/YYYY-MM-DD_nome-incidente.md <<EOF
@@ -254,14 +252,14 @@ EOF
 
 ### ✅ FAZER:
 - Commits pequenos e frequentes
-- Branches por feature
+- Trabalhar direto na `main` (branch único)
 - Documentar ANTES de codificar
 - Testar ANTES de commitar
-- Revisar próprio código antes de PR
+- Revisar próprio código antes de push
 
 ### ❌ NÃO FAZER:
 - Commits genéricos ("fix", "update", "changes")
-- Trabalhar direto na main
+- Criar branches/PRs neste repo (política: branch único)
 - Commitar sem testar
 - Deixar TODOs sem issue
 - Código comentado sem explicação
@@ -300,8 +298,9 @@ EOF
 
 ### Dia 1 - Início
 ```bash
-# 1. Criar branch
-git checkout -b feat/calendario-v2
+# 1. Garantir main atualizado
+git checkout main
+git pull
 
 # 2. Criar log
 cp docs/DEV_LOG_TEMPLATE.md docs/dev-logs/2024-12-20_ativar-calendario-v2.md
@@ -334,27 +333,19 @@ git add CHANGELOG.md docs/
 git commit -m "docs: atualizar CHANGELOG e dev-log do dia"
 
 # 9. Push
-git push origin feat/calendario-v2
+git push <remote> main
 ```
 
 ### Dia 2 - Finalização
 ```bash
-# 10. Criar Pull Request no GitHub
-# Título: feat(calendario): ativar calendário v2
-# Corpo: Colar resumo do dev-log
+# 10. Push final no main
+git push <remote> main
 
-# 11. Review + aprovar
-
-# 12. Merge
-git checkout main
-git merge feat/calendario-v2
-git push origin main
-
-# 13. Tag de versão
+# 11. Tag de versão
 git tag v1.0.103.406
 git push --tags
 
-# 14. Atualizar CHANGELOG (mover Unreleased → versão)
+# 12. Atualizar CHANGELOG (mover Unreleased → versão)
 vim CHANGELOG.md
 git commit -m "chore: release v1.0.103.406"
 ```
