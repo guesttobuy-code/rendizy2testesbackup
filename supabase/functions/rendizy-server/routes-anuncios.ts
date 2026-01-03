@@ -6,34 +6,32 @@
 import { Hono } from "npm:hono";
 import { getSupabaseClient } from "./kv_store.tsx";
 import { getTenant, isSuperAdmin, tenancyMiddleware } from "./utils-tenancy.ts";
+import { getOrganizationIdForRequest, RENDIZY_MASTER_ORG_ID } from './utils-multi-tenant.ts';
 
 const app = new Hono();
 
-const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const SETTINGS_KIND = 'settings';
 const SETTINGS_KEY_LOCATIONS_LISTINGS = 'locations_listings';
 
 app.use('*', tenancyMiddleware);
 
-function resolveOrgId(c: any): string {
-  const tenant = getTenant(c);
-
-  // ✅ Para superadmin, permitir override explícito (já existia na API), mas nunca para imobiliária.
-  if (tenant.type === 'superadmin') {
-    const qOrg = c.req.query('organization_id');
-    return qOrg || tenant.imobiliariaId || DEFAULT_ORG_ID;
-  }
-
-  const orgId = tenant.imobiliariaId;
-  if (!orgId) {
-    throw new Error('organization_id ausente no tenant');
-  }
-  return orgId;
+async function resolveOrgId(c: any): Promise<string> {
+  // ✅ REGRA MESTRE (multi-tenant): nunca retornar dados sem organization_id.
+  // Superadmin: por padrão, sempre usa org master (RENDIZY_MASTER_ORG_ID).
+  // Usuário normal: org vem da sessão/token.
+  return await getOrganizationIdForRequest(c);
 }
 
 function resolveUserId(c: any): string {
   const tenant = getTenant(c);
   return tenant.userId;
+}
+
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  );
 }
 
 function defaultLocationsListingsSettings() {
@@ -112,15 +110,17 @@ async function findSettingsRow(
 app.get("/lista", async (c) => {
   try {
     const supabase = getSupabaseClient(c);
-    const organizationId = resolveOrgId(c);
+    const organizationId = await resolveOrgId(c);
 
     const { data, error } = await supabase
-      // ✅ Tabela principal do sistema (docs): anuncios_drafts
-      .from("anuncios_drafts")
-      .select("*")
+      // ✅ Tabela oficial do sistema: anuncios_ultimate (NÃO existe anuncios_drafts)
+      .from("anuncios_ultimate")
+      .select("id,data,status,organization_id,user_id,created_at,updated_at")
       .eq('organization_id', organizationId)
-      // Ordenação fixa (não muda ao editar/atualizar): alfabética por título + desempate por id
-      .order("title", { ascending: true, nullsFirst: false })
+      // Excluir registros internos de settings (mantém anúncios normais onde __kind é NULL)
+      .or(`data->>__kind.is.null,data->>__kind.neq.${SETTINGS_KIND}`)
+      // Ordenação estável (frontend ordena por título localmente)
+      .order("updated_at", { ascending: false, nullsFirst: false })
       .order("id", { ascending: true });
 
     if (error) {
@@ -144,7 +144,7 @@ app.get("/lista", async (c) => {
 app.get('/settings/locations-listings', async (c) => {
   try {
     const supabase = getSupabaseClient(c);
-    const orgId = resolveOrgId(c);
+    const orgId = await resolveOrgId(c);
     const row = await findSettingsRow(supabase, orgId, SETTINGS_KEY_LOCATIONS_LISTINGS);
     const settings = (row?.data as any)?.settings || defaultLocationsListingsSettings();
     return c.json({ ok: true, organization_id: orgId, settings });
@@ -163,7 +163,7 @@ app.post('/settings/locations-listings', async (c) => {
     const body = await c.req.json();
     const supabase = getSupabaseClient(c);
 
-    const tenantOrgId = resolveOrgId(c);
+    const tenantOrgId = await resolveOrgId(c);
     const tenantUserId = resolveUserId(c);
 
     // ✅ Compat: superadmin pode especificar org/user (já existia), mas imobiliária não.
@@ -223,13 +223,16 @@ app.post('/settings/locations-listings', async (c) => {
 app.get("/:id", async (c) => {
   try {
     const id = c.req.param("id");
+    if (!isUuid(id)) {
+      return c.json({ error: 'invalid_id' }, 400);
+    }
     const supabase = getSupabaseClient(c);
-    const organizationId = resolveOrgId(c);
+    const organizationId = await resolveOrgId(c);
 
-    // Busca em anuncios_drafts (tabela principal)
     const { data, error } = await supabase
-      .from("anuncios_drafts")
-      .select("id, data, organization_id, user_id, status, completion_percentage, step_completed, title, last_edited_field, last_edited_at, created_at, updated_at")
+      // ✅ Tabela canônica: anuncios_ultimate
+      .from("anuncios_ultimate")
+      .select("id, data, organization_id, user_id, status, created_at, updated_at")
       .eq("id", id)
       .eq('organization_id', organizationId)
       .single();
@@ -256,27 +259,31 @@ app.post("/create", async (c) => {
     const body = await c.req.json();
     const supabase = getSupabaseClient(c);
 
-    const organizationId = resolveOrgId(c);
+    const organizationId = await resolveOrgId(c);
     const userId = resolveUserId(c);
     const { id, initial = {} } = body || {};
+
+    if (id != null && !isUuid(id)) {
+      return c.json({ error: 'invalid_id' }, 400);
+    }
+
+    if (initial != null && typeof initial !== 'object') {
+      return c.json({ error: 'initial_must_be_object' }, 400);
+    }
 
     const payload: any = {
       ...(id ? { id } : {}),
       organization_id: organizationId,
       user_id: userId,
       data: initial,
+      // O frontend usa status (draft/active/inactive). Mantemos draft como default.
       status: "draft",
-      completion_percentage: 0,
-      step_completed: 1,
-      title: initial.title || "Sem título",
-      last_edited_field: null,
-      last_edited_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
-      .from("anuncios_drafts")
+      .from("anuncios_ultimate")
       .insert(payload)
-      .select()
+      .select('id, data, organization_id, user_id, status, created_at, updated_at')
       .single();
 
     if (error) {
@@ -314,7 +321,7 @@ app.post("/save-field", async (c) => {
       return c.json({ error: "field_required" }, 400);
     }
 
-    const organizationId = resolveOrgId(c);
+    const organizationId = await resolveOrgId(c);
     const userId = resolveUserId(c);
 
     // Chama RPC wrapper V1→V2
@@ -352,28 +359,27 @@ app.post("/save-field", async (c) => {
 app.patch('/:id', async (c) => {
   try {
     const id = c.req.param('id');
+    if (!isUuid(id)) {
+      return c.json({ error: 'invalid_id' }, 400);
+    }
     const body = await c.req.json().catch(() => ({}));
     const supabase = getSupabaseClient(c);
-    const organizationId = resolveOrgId(c);
+    const organizationId = await resolveOrgId(c);
 
     const update: any = {
       updated_at: new Date().toISOString(),
-      last_edited_at: new Date().toISOString(),
     };
-
-    if (typeof body?.title === 'string') update.title = body.title;
     if (body?.data && typeof body.data === 'object') update.data = body.data;
     if (typeof body?.status === 'string') update.status = body.status;
-    if (typeof body?.completion_percentage === 'number') update.completion_percentage = body.completion_percentage;
-    if (typeof body?.step_completed === 'number') update.step_completed = body.step_completed;
-    if (typeof body?.last_edited_field === 'string') update.last_edited_field = body.last_edited_field;
+    // Atualiza user_id para rastrear autoria da última alteração (não permite trocar org)
+    update.user_id = resolveUserId(c);
 
     const { data, error } = await supabase
-      .from('anuncios_drafts')
+      .from('anuncios_ultimate')
       .update(update)
       .eq('id', id)
       .eq('organization_id', organizationId)
-      .select('id, data, organization_id, user_id, status, completion_percentage, step_completed, title, last_edited_field, last_edited_at, created_at, updated_at')
+      .select('id, data, organization_id, user_id, status, created_at, updated_at')
       .maybeSingle();
 
     if (error || !data) {
@@ -395,11 +401,14 @@ app.patch('/:id', async (c) => {
 app.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
+    if (!isUuid(id)) {
+      return c.json({ error: 'invalid_id' }, 400);
+    }
     const supabase = getSupabaseClient(c);
-    const organizationId = resolveOrgId(c);
+    const organizationId = await resolveOrgId(c);
 
     const { error } = await supabase
-      .from('anuncios_drafts')
+      .from('anuncios_ultimate')
       .delete()
       .eq('id', id)
       .eq('organization_id', organizationId);

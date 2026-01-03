@@ -118,6 +118,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - 🔴 **Issue #48**: Lista Anúncios Ultimate retornava apenas 2 registros ao invés de 159
 - 🔴 **Issue #50**: Lista de reservas não carregava (500) mesmo com dados no banco
   - Causa raiz: rotas de `/reservations` estavam sem `tenancyMiddleware`, gerando `TenantContext não encontrado`
+
+- 🔒 **Multi-tenant (Anúncios Ultimate): remover uso de tabela legada**
+  - `supabase/functions/rendizy-server/routes-anuncios.ts`: rotas `GET /:id`, `POST /create`, `PATCH /:id`, `DELETE /:id` agora usam somente `anuncios_ultimate`
+  - Mantém filtro obrigatório por `organization_id` (isolamento de tenants) e valida UUID em rotas por `:id`
+  - Documento canônico: `docs/03-conventions/MULTI_TENANCY_CANONICAL.md`
   - `supabase/functions/rendizy-server/index.ts`: aplicado `tenancyMiddleware` em GET/POST/PUT/DELETE de reservas
   - Nota de teste: Edge Gateway exige `Authorization: Bearer <anonKey>` e o token de sessão real em `X-Auth-Token`
   - Segurança: removida rota local de reimportação e referência a arquivo não versionado (evita risco de credenciais hardcoded)
