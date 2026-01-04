@@ -116,6 +116,15 @@ Correção aplicada no proxy Vercel (patch in-flight do JS compilado): derivar `
 Observação importante:
 - Isso é um workaround de compatibilidade com bundle legado/compilado. A solução “limpa” é alinhar o shape no backend ou rebuild do site.
 
+### 4.4 Capacidade (hóspedes) vinha como 0 apesar das camas indicarem 3
+
+No caso MedHome, o anúncio tinha inventário de camas em `anuncios_ultimate.data.rooms[].beds` (ex.: casal + solteiro), mas o site recebia `maxGuests=0`.
+
+Correções aplicadas:
+
+- Backend (`rendizy-public`) passa a **derivar `maxGuests` a partir das camas** e publicar em `capacity.maxGuests` no DTO.
+- Backfill no `anuncios_ultimate.data` para persistir `guests/maxGuests/max_guests` (para que a fonte já fique canônica).
+
 ---
 
 ## 5) Verificações rápidas (smoke tests)
@@ -141,7 +150,7 @@ Esperado:
 
 Após o “básico funcionar”, os próximos ajustes típicos para qualidade do catálogo:
 
-- Preço: garantir que o dado real de diária está presente (hoje pode vir `0`/`NaN` se não houver valor no JSON).
+- Preço: garantir que o dado real de diária está presente (hoje pode vir `0` e o site pode mostrar `NaN` se tentar formatar `undefined`/string inválida).
 - Fotos: mapear `photos`/`coverPhoto` com os campos reais do `anuncios_ultimate.data`.
 - Capacidade: bedrooms/maxGuests/bathrooms conforme origem.
 - Status/ocupação: ajustar regras de “ocupado” vs disponibilidade.
@@ -153,3 +162,4 @@ Após o “básico funcionar”, os próximos ajustes típicos para qualidade do
 - [api/site.js](../../api/site.js)
 - [supabase/functions/rendizy-public/index.ts](../../supabase/functions/rendizy-public/index.ts)
 - [scripts/deploy-rendizy-public.ps1](../../scripts/deploy-rendizy-public.ps1)
+- [scripts/backfill-anuncios-ultimate-capacity.ps1](../../scripts/backfill-anuncios-ultimate-capacity.ps1)
