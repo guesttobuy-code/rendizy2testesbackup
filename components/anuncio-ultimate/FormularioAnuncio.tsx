@@ -782,10 +782,18 @@ export default function FormularioAnuncio() {
     try {
       const rooms = typeof roomsData === 'string' ? JSON.parse(roomsData) : roomsData;
       if (!Array.isArray(rooms)) return 0;
-      return rooms.filter(r => 
-        r.type?.includes('quarto') || 
-        r.typeName?.toLowerCase().includes('quarto')
-      ).length;
+
+      const normalize = (v: unknown) =>
+        String(v ?? '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+
+      return rooms.filter((r: any) => {
+        const hay = `${normalize(r.type)} ${normalize(r.typeName)}`;
+        // Regra: suíte conta como quarto.
+        return hay.includes('quarto') || hay.includes('suite');
+      }).length;
     } catch {
       return 0;
     }
@@ -1251,6 +1259,12 @@ export default function FormularioAnuncio() {
     let bedrooms = 0;
     let bathrooms = 0;
     let totalBeds = 0;
+
+    const normalize = (v: unknown) =>
+      String(v ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
     
     rooms.forEach(room => {
       const roomType = ROOM_TYPES.find(rt => rt.id === room.type);
@@ -1258,6 +1272,12 @@ export default function FormularioAnuncio() {
       // Contar quartos
       if (roomType?.category === 'bedroom') {
         bedrooms++;
+      } else {
+        // Fallback: se o payload veio com type/typeName fora do enum (ex.: "Suíte"), ainda conta.
+        const hay = `${normalize(room.type)} ${normalize(room.typeName)} ${normalize(room.customName)}`;
+        if (hay.includes('quarto') || hay.includes('suite')) {
+          bedrooms++;
+        }
       }
       
       // Contar banheiros (incluindo suítes com hasBathroom: true)
