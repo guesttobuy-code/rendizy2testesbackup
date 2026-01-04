@@ -6,6 +6,8 @@
 // Why: Supabase Edge/Storage currently forces text/plain + sandbox CSP for HTML.
 // We proxy the HTML through Vercel so the browser receives text/html and a usable CSP.
 
+import { Buffer } from "node:buffer";
+
 const SUPABASE_PROJECT_REF = "odcgnzfremrqnvtitpcc";
 
 function contentTypeForPath(pathname) {
@@ -90,7 +92,9 @@ function buildUpstreamAssetUrl(baseUrl, cleanPath, req) {
   return qs ? `${baseUrl}/${cleanPath}?${qs}` : `${baseUrl}/${cleanPath}`;
 }
 
-module.exports = async (req, res) => {
+export const config = { runtime: "nodejs" };
+
+export default async function handler(req, res) {
   try {
     const subdomain = req.query && req.query.subdomain ? String(req.query.subdomain) : "";
     const requestedPath = req.query && req.query.path ? String(req.query.path) : "";
@@ -177,4 +181,4 @@ module.exports = async (req, res) => {
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.end(`Erro ao servir site: ${err?.message || String(err)}`);
   }
-};
+}
