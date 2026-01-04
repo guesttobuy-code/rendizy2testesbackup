@@ -364,6 +364,86 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
       updatedAt: p.updated_at,
     }));
 
+    // Fallback (MedHome / StaysNet): some orgs store listings in anuncios_ultimate, not in properties.
+    if (formatted.length === 0) {
+      const { data: anuncios, error: anunciosError } = await supabase
+        .from("anuncios_ultimate")
+        .select("id,status,organization_id,data,created_at,updated_at")
+        .eq("organization_id", organizationId)
+        .in("status", ["active", "published"])
+        .order("updated_at", { ascending: false })
+        .limit(100);
+
+      if (anunciosError) {
+        return c.json(
+          { success: false, error: "Erro ao buscar imóveis", details: anunciosError.message },
+          500,
+          withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+        );
+      }
+
+      const anuncioFormatted = (anuncios as any[] | null | undefined || []).map((row) => {
+        const d = (row as any)?.data || {};
+        const photos = Array.isArray(d.fotos)
+          ? d.fotos
+          : Array.isArray(d.photos)
+          ? d.photos
+          : d.fotoPrincipal
+          ? [d.fotoPrincipal]
+          : [];
+
+        return {
+          id: row.id,
+          name: d.title || d.name || d.internalId || "Imóvel",
+          code: d.codigo || d.propertyCode || d?.externalIds?.staysnet_listing_code || row.id,
+          type: d.type || d.tipoAcomodacao || d.tipoLocal || "apartment",
+          status: row.status || d.status || "active",
+          address: {
+            city: d?.address?.city || d.cidade || null,
+            state: d?.address?.state || d.sigla_estado || null,
+            street: d?.address?.street || d.rua || null,
+            number: d?.address?.number || d.numero || null,
+            neighborhood: d?.address?.neighborhood || d.bairro || null,
+            zipCode: d?.address?.zipCode || d.cep || null,
+            country: d?.address?.country || d.pais || "BR",
+            latitude: d?.address?.latitude ?? null,
+            longitude: d?.address?.longitude ?? null,
+          },
+          // The MedHome bundle derives pricing.dailyRate from pricing.basePrice after proxy patch.
+          pricing: {
+            basePrice: Number(d?.pricing?.basePrice ?? d.basePrice ?? d.dailyRate ?? 0) || 0,
+            currency: d?.pricing?.currency || d.currency || "BRL",
+          },
+          capacity: {
+            bedrooms: Number(d.bedrooms ?? d.quartos ?? 0) || 0,
+            bathrooms: Number(d.bathrooms ?? d.banheiros ?? 0) || 0,
+            maxGuests: Number(d.guests ?? d.maxGuests ?? d.hospedes ?? 0) || 0,
+            area: Number(d.area ?? 0) || null,
+          },
+          description: d.description || d.shortDescription || "",
+          shortDescription: d.shortDescription || null,
+          photos,
+          coverPhoto: d.fotoPrincipal || d.coverPhoto || (Array.isArray(photos) && photos.length > 0 ? photos[0] : null),
+          tags: Array.isArray(d.tags) ? d.tags : [],
+          amenities: Array.isArray(d.comodidades)
+            ? d.comodidades
+            : Array.isArray(d.amenities)
+            ? d.amenities
+            : Array.isArray(d.comodidadesStaysnetIds)
+            ? d.comodidadesStaysnetIds
+            : [],
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        };
+      });
+
+      return c.json(
+        { success: true, data: anuncioFormatted, total: anuncioFormatted.length },
+        200,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
     return c.json(
       { success: true, data: formatted, total: formatted.length },
       200,

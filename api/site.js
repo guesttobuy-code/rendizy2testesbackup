@@ -100,6 +100,19 @@ function buildUpstreamAssetUrl(baseUrl, cleanPath, req) {
   return qs ? `${baseUrl}/${cleanPath}?${qs}` : `${baseUrl}/${cleanPath}`;
 }
 
+function patchMedhomePricingInBundle(jsText) {
+  // The MedHome bundle normalizer (`fp`) currently emits pricing.basePrice but the UI reads pricing.dailyRate.
+  // We patch the compiled bundle in-flight (Vercel proxy) to populate daily/weekly/monthly rates.
+  // Keep this very surgical: exact substring replacement.
+  const needle = 'pricing:{basePrice:Nn(r.basePrice,0),currency:r.currency??"BRL"}';
+  if (!jsText || !jsText.includes(needle)) return jsText;
+
+  const replacement =
+    'pricing:{basePrice:Nn(r.basePrice,0),currency:r.currency??"BRL",dailyRate:Nn(r.dailyRate??r.basePrice,0),weeklyRate:Nn(r.weeklyRate??0),monthlyRate:Nn(r.monthlyRate??0)}';
+
+  return jsText.replace(needle, replacement);
+}
+
 async function resolveStorageIndexUrl(serveUrl) {
   const r = await fetch(serveUrl, { redirect: "manual" });
 
@@ -170,7 +183,6 @@ export default async function handler(req, res) {
         return;
       }
 
-      const buf = Buffer.from(await assetResp.arrayBuffer());
       const upstreamCt = assetResp.headers.get("content-type");
       const guessed = contentTypeForPath(clean);
       const ct =
@@ -179,6 +191,25 @@ export default async function handler(req, res) {
         /^application\/octet-stream\b/i.test(upstreamCt)
           ? guessed
           : upstreamCt;
+
+      // Patch MedHome bundle in-flight to fix pricing.dailyRate.
+      // We only do this for JS assets (safe no-op if substring is not found).
+      if (/\bjavascript\b/i.test(ct) || /\.m?js($|\?)/i.test(clean)) {
+        const jsText = await assetResp.text();
+        const patchedText = patchMedhomePricingInBundle(jsText);
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", ct);
+        res.setHeader(
+          "Cache-Control",
+          clean.startsWith("assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600"
+        );
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.end(patchedText);
+        return;
+      }
+
+      const buf = Buffer.from(await assetResp.arrayBuffer());
 
       res.statusCode = 200;
       res.setHeader("Content-Type", ct);
