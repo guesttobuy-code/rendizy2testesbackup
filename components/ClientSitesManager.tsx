@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useAutoSave } from '../hooks/useAutoSave';
+import { ComponentsAndDataTab } from './client-sites/ComponentsAndDataTab';
 
 // ============================================================
 // TIPOS
@@ -277,131 +278,144 @@ export function ClientSitesManager() {
         </CardContent>
       </Card>
 
-      {/* Lista de Sites */}
-      {sites.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Globe className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Nenhum site criado ainda
-            </h3>
-            <p className="text-gray-600 text-center mb-6 max-w-md">
-              Crie sites customizados para seus clientes. Você pode importar designs
-              de v0.dev, Bolt.ai, Figma ou criar do zero.
-            </p>
-            <Button onClick={handleCreateSite} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Criar Primeiro Site
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sites.map((site) => (
-            <Card key={site.organizationId} className="relative">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-xl mb-1">{site.siteName}</CardTitle>
-                    <CardDescription>
-                      {site.organizationId}
-                    </CardDescription>
-                  </div>
-                  <Badge variant={site.isActive ? 'default' : 'secondary'}>
-                    {site.isActive ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Template */}
-                <div className="flex items-center gap-2 text-sm">
-                  <Code className="h-4 w-4 text-gray-500" />
-                  <span className="text-gray-600">Template:</span>
-                  <Badge variant="outline">{site.template}</Badge>
-                </div>
+      <Tabs defaultValue="sites" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="sites">Sites</TabsTrigger>
+          <TabsTrigger value="componentes-dados">Componentes &amp; Dados</TabsTrigger>
+        </TabsList>
 
-                {/* URL */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">URL do Site:</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-gray-100 px-3 py-2 rounded border border-gray-200 truncate">
-                      {getSiteUrl(site)}
-                    </code>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => copyToClipboard(getSiteUrl(site), 'URL')}
-                    >
-                      {copiedUrl === 'URL' ? (
-                        <Check className="h-3 w-3" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Modalidades */}
-                <div>
-                  <span className="text-sm text-gray-600 mb-2 block">Modalidades:</span>
-                  <div className="flex flex-wrap gap-2">
-                    {site.features.shortTerm && (
-                      <Badge variant="secondary">🏖️ Temporada</Badge>
-                    )}
-                    {site.features.longTerm && (
-                      <Badge variant="secondary">🏠 Locação</Badge>
-                    )}
-                    {site.features.sale && (
-                      <Badge variant="secondary">💰 Venda</Badge>
-                    )}
-                  </div>
-                </div>
-
-                {/* Status do Código */}
-                {site.siteCode && (
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <Check className="h-4 w-4" />
-                    <span>Código customizado enviado</span>
-                  </div>
-                )}
-
-                {/* Ações */}
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 gap-2"
-                    onClick={() => window.open(getSiteUrl(site), '_blank')}
-                  >
-                    <Eye className="h-4 w-4" />
-                    Ver Site
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => handleUploadCode(site)}
-                  >
-                    <Upload className="h-4 w-4" />
-                    Código
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => handleEditSite(site)}
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </div>
+        <TabsContent value="sites" className="mt-6">
+          {/* Lista de Sites */}
+          {sites.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Globe className="h-16 w-16 text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Nenhum site criado ainda
+                </h3>
+                <p className="text-gray-600 text-center mb-6 max-w-md">
+                  Crie sites customizados para seus clientes. Você pode importar designs
+                  de v0.dev, Bolt.ai, Figma ou criar do zero.
+                </p>
+                <Button onClick={handleCreateSite} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Criar Primeiro Site
+                </Button>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {sites.map((site) => (
+                <Card key={site.organizationId} className="relative">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-xl mb-1">{site.siteName}</CardTitle>
+                        <CardDescription>
+                          {site.organizationId}
+                        </CardDescription>
+                      </div>
+                      <Badge variant={site.isActive ? 'default' : 'secondary'}>
+                        {site.isActive ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Template */}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Code className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-600">Template:</span>
+                      <Badge variant="outline">{site.template}</Badge>
+                    </div>
+
+                    {/* URL */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm text-gray-600">URL do Site:</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 text-xs bg-gray-100 px-3 py-2 rounded border border-gray-200 truncate">
+                          {getSiteUrl(site)}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyToClipboard(getSiteUrl(site), 'URL')}
+                        >
+                          {copiedUrl === 'URL' ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Modalidades */}
+                    <div>
+                      <span className="text-sm text-gray-600 mb-2 block">Modalidades:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {site.features.shortTerm && (
+                          <Badge variant="secondary">🏖️ Temporada</Badge>
+                        )}
+                        {site.features.longTerm && (
+                          <Badge variant="secondary">🏠 Locação</Badge>
+                        )}
+                        {site.features.sale && (
+                          <Badge variant="secondary">💰 Venda</Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Status do Código */}
+                    {site.siteCode && (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <Check className="h-4 w-4" />
+                        <span>Código customizado enviado</span>
+                      </div>
+                    )}
+
+                    {/* Ações */}
+                    <div className="flex gap-2 pt-4 border-t">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-2"
+                        onClick={() => window.open(getSiteUrl(site), '_blank')}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Ver Site
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => handleUploadCode(site)}
+                      >
+                        <Upload className="h-4 w-4" />
+                        Código
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => handleEditSite(site)}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="componentes-dados" className="mt-6">
+          <ComponentsAndDataTab />
+        </TabsContent>
+      </Tabs>
 
       {/* Modal Criar Site */}
       <CreateSiteModal
@@ -1293,6 +1307,9 @@ Criar um site moderno e responsivo para imobiliária (temporada/locação/venda)
 
 ## ⚠️ Integração REAL disponível hoje no backend
 
+### Fonte de verdade (dentro do produto)
+- No painel do Rendizy, use **Edição de Sites → Componentes & Dados** para ver o contrato público e os Blocos/Widgets suportados.
+
 ### Ambiente de execução (importante)
 - O site roda como **HTML/JS estático** (SPA) servido pelo RENDIZY.
 - Quando você abre o build localmente (ex: abrir o arquivo do build direto no navegador), ` + "`window.RENDIZY_CONFIG`" + ` pode não existir. O site deve **degradar com elegância** (exibir estado vazio/erro amigável) e não quebrar.
@@ -1349,7 +1366,10 @@ type ClientSiteProperty = {
     longitude: number | null;
   };
   pricing: {
+    dailyRate: number;
     basePrice: number;
+    weeklyRate: number;
+    monthlyRate: number;
     currency: string;
   };
   capacity: {
@@ -1372,7 +1392,7 @@ type ClientSiteProperty = {
 ## Convenções de UI (use estes campos)
 - Imagem principal: ` + "`coverPhoto`" + ` (fallback: primeira de ` + "`photos`" + `)
 - Localização: ` + "`address.city`" + ` + ` + "`address.state`" + `
-- Preço: ` + "`pricing.basePrice`" + ` + ` + "`pricing.currency`" + `
+- Preço: ` + "`pricing.dailyRate`" + ` (preferencial) ou ` + "`pricing.basePrice`" + ` (compat) + ` + "`pricing.currency`" + `
 - Hóspedes: ` + "`capacity.maxGuests`" + `
 - Quartos/banheiros: ` + "`capacity.bedrooms`" + ` / ` + "`capacity.bathrooms`" + `
 
