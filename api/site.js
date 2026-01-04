@@ -10,6 +10,14 @@ import { Buffer } from "node:buffer";
 
 const SUPABASE_PROJECT_REF = "odcgnzfremrqnvtitpcc";
 
+function safeDecode(v) {
+  try {
+    return decodeURIComponent(String(v || ""));
+  } catch {
+    return String(v || "");
+  }
+}
+
 function contentTypeForPath(pathname) {
   const ext = String(pathname || "").split("?")[0].split(".").pop()?.toLowerCase() || "";
   const map = {
@@ -108,8 +116,8 @@ export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
   try {
-    const subdomain = req.query && req.query.subdomain ? String(req.query.subdomain) : "";
-    const requestedPath = req.query && req.query.path ? String(req.query.path) : "";
+    const subdomain = req.query && req.query.subdomain ? safeDecode(req.query.subdomain) : "";
+    const requestedPath = req.query && req.query.path ? safeDecode(req.query.path) : "";
     const debug = req.query && String(req.query.debug || "") === "1";
 
     if (!subdomain) {

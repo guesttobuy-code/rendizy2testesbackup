@@ -6,6 +6,14 @@ import { Buffer } from "node:buffer";
 
 const SUPABASE_PROJECT_REF = "odcgnzfremrqnvtitpcc";
 
+function safeDecode(v) {
+  try {
+    return decodeURIComponent(String(v || ""));
+  } catch {
+    return String(v || "");
+  }
+}
+
 function contentTypeForPath(pathname) {
   const ext = String(pathname || "").split("?")[0].split(".").pop()?.toLowerCase() || "";
   const map = {
@@ -102,7 +110,7 @@ export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
   try {
-    const requestedPath = (req.query && req.query.path) ? String(req.query.path) : "";
+    const requestedPath = (req.query && req.query.path) ? safeDecode(req.query.path) : "";
 
     const serveUrl = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/serve/medhome`;
     const indexUrl = await resolveStorageIndexUrl(serveUrl);
