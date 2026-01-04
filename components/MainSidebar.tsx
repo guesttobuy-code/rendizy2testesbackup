@@ -230,7 +230,12 @@ export function MainSidebar({
           label: 'Edição de site',
           icon: Zap,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          submenu: [
+            { id: 'motor-reservas-sites', label: 'Sites', icon: Home },
+            { id: 'motor-reservas-componentes-dados', label: 'Componentes & Dados', icon: Database },
+            { id: 'motor-reservas-area-interna', label: 'Área interna do cliente', icon: Settings }
+          ]
         },
         {
           id: 'precos-em-lote',
@@ -395,6 +400,9 @@ export function MainSidebar({
     'precificacao-lote': '/pricing',
     'integracoes-bookingcom': '/integrations',
     'motor-reservas': '/sites-clientes',
+    'motor-reservas-sites': '/sites-clientes/sites',
+    'motor-reservas-componentes-dados': '/sites-clientes/componentes-dados',
+    'motor-reservas-area-interna': '/sites-clientes/area-interna',
     'precos-em-lote': '/pricing',
     'anuncio-ultimate': '/anuncios-ultimate/lista',
     'promocoes': '/calendar',

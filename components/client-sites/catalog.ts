@@ -25,9 +25,138 @@ export type ClientSitesCatalogBlock = {
   notes?: string[];
 };
 
+export type ClientSitesCatalogIntegrationGuide = {
+  title: string;
+  notes: string[];
+  codeBlocks?: Array<{ title: string; language?: string; code: string }>;
+};
+
 export const CLIENT_SITES_PUBLIC_CONTRACT_V1 = {
   version: 'v1' as const,
   wrapperType: "{ success: boolean; data?: T; total?: number; error?: string; details?: string }",
+  integrationGuides: [
+    {
+      title: 'Como integrar um site ao Rendizy (hoje)',
+      notes: [
+        'Este módulo é PUBLICO: não use X-Auth-Token no navegador. O site deve funcionar sem token.',
+        'Existem 2 modos: (1) site servido pelo Rendizy (injeta helpers no HTML) e (2) site hospedado externamente (fetch direto na API pública).',
+        'A API pública aceita os paths /client-sites/* e /rendizy-public/client-sites/* (compat).',
+        'Contrato estável hoje: apenas imóveis (properties). O endpoint site-config pode existir como beta; trate como opcional e tenha fallback no front.'
+      ],
+      codeBlocks: [
+        {
+          title: 'Modo 1 — quando o site é servido pelo Rendizy (recomendado)',
+          language: 'ts',
+          code: `// Quando servido por /client-sites/serve/:subdomain, o HTML injeta:
+// - window.RENDIZY_CONFIG (API_BASE_URL, SUBDOMAIN, ORGANIZATION_ID, SITE_NAME)
+// - window.RENDIZY.getProperties() (helper)
+
+const result = await window.RENDIZY.getProperties();
+if (result.success) {
+  console.log('properties', result.data);
+} else {
+  console.error(result.error, result.details);
+}`
+        },
+        {
+          title: 'Modo 2 — site hospedado externamente (fetch direto)',
+          language: 'ts',
+          code: `// Base (Supabase Edge Function):
+// https://<project-ref>.supabase.co/functions/v1/rendizy-public
+// Exemplo (properties):
+// https://<project-ref>.supabase.co/functions/v1/rendizy-public/client-sites/api/<subdomain>/properties
+
+// Exemplo (site-config — opcional/beta):
+// https://<project-ref>.supabase.co/functions/v1/rendizy-public/client-sites/api/<subdomain>/site-config
+
+async function getProperties({ projectRef, subdomain }: { projectRef: string; subdomain: string }) {
+  const url =
+    'https://' +
+    projectRef +
+    '.supabase.co/functions/v1/rendizy-public/client-sites/api/' +
+    encodeURIComponent(subdomain) +
+    '/properties';
+  const res = await fetch(url, { method: 'GET' });
+  const json = await res.json();
+  return json as { success: boolean; data?: unknown; total?: number; error?: string; details?: string };
+}
+
+async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; subdomain: string }) {
+  const url =
+    'https://' +
+    projectRef +
+    '.supabase.co/functions/v1/rendizy-public/client-sites/api/' +
+    encodeURIComponent(subdomain) +
+    '/site-config';
+  const res = await fetch(url, { method: 'GET' });
+  const json = await res.json();
+  return json as { success: boolean; data?: unknown; error?: string; details?: string };
+}`
+        },
+        {
+          title: 'Wrapper (success/error) — exemplo real',
+          language: 'json',
+          code: `// Sucesso
+{
+  "success": true,
+  "data": [/* properties */],
+  "total": 12
+}
+
+// Erro
+{
+  "success": false,
+  "error": "Site não encontrado",
+  "details": "... opcional ..."
+}`
+        },
+        {
+          title: 'Property DTO (contrato público) — shape esperado (resumo)',
+          language: 'ts',
+          code: `type ClientSiteProperty = {
+  id: string;
+  name: string;
+  code: string | null;
+  type: string | null;
+  status: string | null;
+  address: {
+    city: string | null;
+    state: string | null;
+    street: string | null;
+    number: string | null;
+    neighborhood: string | null;
+    zipCode: string | null;
+    country: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  };
+  pricing: {
+    dailyRate: number;
+    basePrice: number;
+    weeklyRate: number;
+    monthlyRate: number;
+    currency: string;
+    // planned: salePrice
+  };
+  capacity: {
+    bedrooms: number;
+    bathrooms: number;
+    maxGuests: number;
+    area: number | null;
+  };
+  description: string;
+  shortDescription: string | null;
+  photos: string[];
+  coverPhoto: string | null;
+  tags: string[];
+  amenities: string[];
+  createdAt: string;
+  updatedAt: string;
+};`
+        }
+      ]
+    }
+  ] satisfies ClientSitesCatalogIntegrationGuide[],
   endpoints: [
     {
       id: 'serve-site',
@@ -59,7 +188,8 @@ export const CLIENT_SITES_PUBLIC_CONTRACT_V1 = {
       stability: 'planned',
       notes: [
         'Objetivo: evitar “hardcode” de contato/logo/tema no bundle do site.',
-        'Retorna apenas dados públicos (sem segredos/tokens).'
+        'Retorna apenas dados públicos (sem segredos/tokens).',
+        'Status: pode existir como beta em alguns ambientes; trate como opcional e tenha fallback no front.'
       ]
     },
     {
@@ -112,9 +242,18 @@ export const CLIENT_SITES_PUBLIC_CONTRACT_V1 = {
     },
     {
       title: 'Preço',
-      fields: ['pricing.dailyRate', 'pricing.basePrice', 'pricing.weeklyRate', 'pricing.monthlyRate', 'pricing.currency'],
+      fields: [
+        'pricing.dailyRate',
+        'pricing.basePrice',
+        'pricing.weeklyRate',
+        'pricing.monthlyRate',
+        'pricing.salePrice (planned)',
+        'pricing.currency'
+      ],
       notes: [
         'pricing.dailyRate é o campo canônico para valor diário (compatível com sites).',
+        'Locação residencial: preferir pricing.monthlyRate (mensal).',
+        'Venda: será padronizado em pricing.salePrice (planejado). Até lá, alguns fluxos usam basePrice como fallback.',
         'pricing.basePrice deve permanecer por compatibilidade com templates antigos.'
       ]
     },
@@ -208,7 +347,39 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
     notes: [
       'Filtros/busca são no front-end, usando a lista retornada.',
       'Configurável: ordenação, layout do card (variações), labels.',
+      'Modalidades: pode exibir labels/flags conforme features.shortTerm/longTerm/sale (siteConfig).',
       'Fixo: não inventar campos; usar apenas o contrato público.'
+    ]
+  },
+  {
+    id: 'modality-switcher',
+    title: 'Seletor de Modalidade (Temporada / Locação / Venda)',
+    stability: 'planned',
+    description:
+      'Controle para alternar o foco do site entre modalidades habilitadas, mudando labels e qual preço é exibido.',
+    usesEndpoints: ['site-config'],
+    requiredFields: ['features.shortTerm', 'features.longTerm', 'features.sale'],
+    notes: [
+      'Planejado porque o site precisa de um SiteConfig público estável (hoje pode estar embutido no bundle).',
+      'Regra: o seletor só mostra modalidades habilitadas no site.'
+    ]
+  },
+  {
+    id: 'pricing-display-by-modality',
+    title: 'Preço (por modalidade) — Diária / Mensal / Venda',
+    stability: 'planned',
+    description:
+      'Componente/bloco que decide qual preço mostrar dependendo do contexto: diária (temporada), mensal (locação residencial) ou venda.',
+    usesEndpoints: ['properties', 'site-config'],
+    requiredFields: [
+      'pricing.dailyRate (temporada)',
+      'pricing.monthlyRate (locação residencial)',
+      'pricing.salePrice (venda — planned)',
+      'pricing.currency'
+    ],
+    notes: [
+      'Hoje: dailyRate/basePrice já existe no DTO público; monthlyRate existe, mas pode ser apenas derivado (daily*30).',
+      'Planejado: expor salePrice no DTO público e garantir monthlyRate canônico (mensal real), não derivado.'
     ]
   },
   {

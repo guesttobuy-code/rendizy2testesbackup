@@ -98,7 +98,7 @@ Para verificar se as mudanças estão corretas:
 
 1. Abra o RENDIZY
 2. Vá em "Sites de Clientes"
-3. Clique em "Documentação IA"
+3. Clique em "Documentação prompt sites I.A"
 4. Verifique se o prompt contém a seção "Compilação e Entrega"
 5. Verifique se as instruções mencionam compilação no Bolt
 6. Abra o modal de upload e verifique se a dica aparece

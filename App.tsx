@@ -1254,7 +1254,7 @@ function App() {
                 } />
 
                 {/* ✅ ROTA SITES CLIENTES - v1.0.103.253 - PROTEGIDA */}
-                <Route path="/sites-clientes" element={
+                <Route path="/sites-clientes/*" element={
                   <ProtectedRoute>
                     <React.Suspense fallback={<div className="min-h-screen bg-gray-50 dark:bg-gray-900" />}>
                       <ClientSitesModule
@@ -1737,6 +1737,9 @@ function getModuleName(moduleId: string): string {
     'financeiro': 'Finanças',
     'configuracoes': 'Configurações',
     'motor-reservas': 'Edição de site',
+    'motor-reservas-sites': 'Edição de site • Sites',
+    'motor-reservas-componentes-dados': 'Edição de site • Componentes & Dados',
+    'motor-reservas-area-interna': 'Edição de site • Área interna do cliente',
     'app-center': 'Loja de apps',
     'promocoes': 'Promoções',
     'notificacoes': 'Notificações'
@@ -1779,6 +1782,9 @@ function getModuleDescription(moduleId: string): string {
     'financeiro': 'Gestão financeira completa: contas a pagar/receber, DRE, fluxo de caixa e relatórios.',
     'configuracoes': 'Configure preferências, integrações e parâmetros do sistema.',
     'motor-reservas': 'Crie e personalize sites de reservas com inteligência artificial.',
+    'motor-reservas-sites': 'Gerencie os sites customizados de cada cliente (criar, editar, publicar e importar).',
+    'motor-reservas-componentes-dados': 'Contrato canônico público e catálogo de componentes/dados para sites.',
+    'motor-reservas-area-interna': 'Blueprint da área autenticada do cliente no site (portal), evoluindo incrementalmente.',
     'app-center': 'Loja de apps e integrações com plataformas externas.',
     'promocoes': 'Crie e gerencie campanhas promocionais e descontos.',
     'notificacoes': 'Central de notificações e alertas do sistema.'

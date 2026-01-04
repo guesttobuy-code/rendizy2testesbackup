@@ -59,7 +59,7 @@ type PropertyRow = {
 
 const PUBLIC_CORS_HEADERS: Record<string, string> = {
   "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-headers":
     "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer",
   "access-control-max-age": "86400",
@@ -237,11 +237,10 @@ async function ensureExtractedToPublicStorage(args: {
   const supabaseUrl = (SUPABASE_URL || "").replace(/\/+$/, "");
   const publicBaseUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}`;
   const orgId = site.organization_id;
-  // IMPORTANT: historically we redirected to /extracted/dist/index.html.
-  // Some deployments store the extracted site under /public-sites/<subdomain>/ instead.
-  // The Vercel proxy currently has a runtime fallback for that case (see api/site.js).
-  // TODO: align this redirect with `site.extracted_base_url` to avoid broken redirects.
-  const indexUrl = `${publicBaseUrl}/${orgId}/extracted/dist/index.html`;
+  // IMPORTANT: redirect must follow the persisted base URL when available.
+  // This avoids broken redirects if the storage base changes across deployments.
+  const effectiveBaseUrl = site.extracted_base_url || publicBaseUrl;
+  const indexUrl = `${effectiveBaseUrl}/${orgId}/extracted/dist/index.html`;
 
   if (site.extracted_base_url && (site.extracted_files_count || 0) > 0) {
     return {
@@ -575,6 +574,106 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
 
     return c.json(
       { success: true, data: formatted, total: formatted.length },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  } catch (err) {
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
+});
+
+// ============================================================
+// PUBLIC: Site config (branding/contato/features)
+// GET /client-sites/api/:subdomain/site-config
+// ============================================================
+clientSites.get("/api/:subdomain/site-config", async (c: Context) => {
+  try {
+    const subdomain = (c.req.param("subdomain") || "").trim().toLowerCase();
+    const supabase = getSupabaseAdminClient();
+
+    const { data: sqlSite, error: sqlError } = await supabase
+      .from("client_sites")
+      .select(
+        "organization_id,site_name,subdomain,domain,is_active,theme,logo_url,favicon_url,site_config,features,updated_at"
+      )
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (sqlError || !sqlSite) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const row: any = sqlSite;
+    const data = {
+      organizationId: row.organization_id,
+      siteName: row.site_name,
+      subdomain: row.subdomain,
+      domain: row.domain || null,
+      theme: row.theme || {},
+      logo: row.logo_url || null,
+      favicon: row.favicon_url || null,
+      siteConfig: row.site_config || {},
+      features: row.features || {},
+      updatedAt: row.updated_at || null,
+    };
+
+    return c.json(
+      { success: true, data },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  } catch (err) {
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
+});
+
+// ============================================================
+// PUBLIC (PROTO/STUB): Availability + pricing per day (planned)
+// GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
+// ============================================================
+clientSites.get("/api/:subdomain/properties/:propertyId/availability", async (c: Context) => {
+  return c.json(
+    {
+      success: false,
+      error: "Endpoint planejado",
+      details:
+        "availability-pricing ainda não está implementado como contrato público. Use este stub apenas para prototipar UI.",
+    },
+    200,
+    withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+  );
+});
+
+// ============================================================
+// PUBLIC (PROTO/STUB): Lead capture (planned)
+// POST /client-sites/api/:subdomain/leads
+// ============================================================
+clientSites.post("/api/:subdomain/leads", async (c: Context) => {
+  try {
+    // Note: protótipo. Não persiste no banco ainda.
+    const body = await c.req.json().catch(() => null);
+    return c.json(
+      {
+        success: true,
+        data: {
+          accepted: true,
+          receivedAt: new Date().toISOString(),
+          echo: body,
+        },
+      },
       200,
       withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
     );

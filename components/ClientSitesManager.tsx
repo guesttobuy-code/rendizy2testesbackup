@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useAutoSave } from '../hooks/useAutoSave';
-import { ComponentsAndDataTab } from './client-sites/ComponentsAndDataTab';
 
 // ============================================================
 // TIPOS
@@ -226,7 +225,7 @@ export function ClientSitesManager() {
         <div className="flex gap-2">
           <Button onClick={() => setShowDocsModal(true)} variant="outline" className="gap-2">
             <FileText className="h-4 w-4" />
-            Documentação IA
+            Documentação prompt sites I.A
           </Button>
           <Button onClick={() => setShowImportModal(true)} variant="outline" className="gap-2">
             <Download className="h-4 w-4" />
@@ -278,144 +277,131 @@ export function ClientSitesManager() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="sites" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="sites">Sites</TabsTrigger>
-          <TabsTrigger value="componentes-dados">Componentes &amp; Dados</TabsTrigger>
-        </TabsList>
+      {/* Lista de Sites */}
+      {sites.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Globe className="h-16 w-16 text-gray-300 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Nenhum site criado ainda
+            </h3>
+            <p className="text-gray-600 text-center mb-6 max-w-md">
+              Crie sites customizados para seus clientes. Você pode importar designs
+              de v0.dev, Bolt.ai, Figma ou criar do zero.
+            </p>
+            <Button onClick={handleCreateSite} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Criar Primeiro Site
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sites.map((site) => (
+            <Card key={site.organizationId} className="relative">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-xl mb-1">{site.siteName}</CardTitle>
+                    <CardDescription>
+                      {site.organizationId}
+                    </CardDescription>
+                  </div>
+                  <Badge variant={site.isActive ? 'default' : 'secondary'}>
+                    {site.isActive ? 'Ativo' : 'Inativo'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Template */}
+                <div className="flex items-center gap-2 text-sm">
+                  <Code className="h-4 w-4 text-gray-500" />
+                  <span className="text-gray-600">Template:</span>
+                  <Badge variant="outline">{site.template}</Badge>
+                </div>
 
-        <TabsContent value="sites" className="mt-6">
-          {/* Lista de Sites */}
-          {sites.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Globe className="h-16 w-16 text-gray-300 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Nenhum site criado ainda
-                </h3>
-                <p className="text-gray-600 text-center mb-6 max-w-md">
-                  Crie sites customizados para seus clientes. Você pode importar designs
-                  de v0.dev, Bolt.ai, Figma ou criar do zero.
-                </p>
-                <Button onClick={handleCreateSite} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Criar Primeiro Site
-                </Button>
+                {/* URL */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-600">URL do Site:</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-gray-100 px-3 py-2 rounded border border-gray-200 truncate">
+                      {getSiteUrl(site)}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(getSiteUrl(site), 'URL')}
+                    >
+                      {copiedUrl === 'URL' ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Modalidades */}
+                <div>
+                  <span className="text-sm text-gray-600 mb-2 block">Modalidades:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {site.features.shortTerm && (
+                      <Badge variant="secondary">🏖️ Temporada</Badge>
+                    )}
+                    {site.features.longTerm && (
+                      <Badge variant="secondary">🏠 Locação</Badge>
+                    )}
+                    {site.features.sale && (
+                      <Badge variant="secondary">💰 Venda</Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status do Código */}
+                {site.siteCode && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Check className="h-4 w-4" />
+                    <span>Código customizado enviado</span>
+                  </div>
+                )}
+
+                {/* Ações */}
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-2"
+                    onClick={() => window.open(getSiteUrl(site), '_blank')}
+                  >
+                    <Eye className="h-4 w-4" />
+                    Ver Site
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => handleUploadCode(site)}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Código
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => handleEditSite(site)}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sites.map((site) => (
-                <Card key={site.organizationId} className="relative">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-xl mb-1">{site.siteName}</CardTitle>
-                        <CardDescription>
-                          {site.organizationId}
-                        </CardDescription>
-                      </div>
-                      <Badge variant={site.isActive ? 'default' : 'secondary'}>
-                        {site.isActive ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Template */}
-                    <div className="flex items-center gap-2 text-sm">
-                      <Code className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">Template:</span>
-                      <Badge variant="outline">{site.template}</Badge>
-                    </div>
-
-                    {/* URL */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">URL do Site:</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 text-xs bg-gray-100 px-3 py-2 rounded border border-gray-200 truncate">
-                          {getSiteUrl(site)}
-                        </code>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => copyToClipboard(getSiteUrl(site), 'URL')}
-                        >
-                          {copiedUrl === 'URL' ? (
-                            <Check className="h-3 w-3" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Modalidades */}
-                    <div>
-                      <span className="text-sm text-gray-600 mb-2 block">Modalidades:</span>
-                      <div className="flex flex-wrap gap-2">
-                        {site.features.shortTerm && (
-                          <Badge variant="secondary">🏖️ Temporada</Badge>
-                        )}
-                        {site.features.longTerm && (
-                          <Badge variant="secondary">🏠 Locação</Badge>
-                        )}
-                        {site.features.sale && (
-                          <Badge variant="secondary">💰 Venda</Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Status do Código */}
-                    {site.siteCode && (
-                      <div className="flex items-center gap-2 text-sm text-green-600">
-                        <Check className="h-4 w-4" />
-                        <span>Código customizado enviado</span>
-                      </div>
-                    )}
-
-                    {/* Ações */}
-                    <div className="flex gap-2 pt-4 border-t">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 gap-2"
-                        onClick={() => window.open(getSiteUrl(site), '_blank')}
-                      >
-                        <Eye className="h-4 w-4" />
-                        Ver Site
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => handleUploadCode(site)}
-                      >
-                        <Upload className="h-4 w-4" />
-                        Código
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => handleEditSite(site)}
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="componentes-dados" className="mt-6">
-          <ComponentsAndDataTab />
-        </TabsContent>
-      </Tabs>
+          ))}
+        </div>
+      )}
 
       {/* Modal Criar Site */}
       <CreateSiteModal
@@ -462,7 +448,7 @@ export function ClientSitesManager() {
         />
       )}
 
-      {/* Modal Documentação IA */}
+      {/* Modal Documentação prompt sites I.A */}
       <DocsAIModal
         open={showDocsModal}
         onClose={() => setShowDocsModal(false)}
@@ -527,8 +513,7 @@ function CreateSiteModal({ open, onClose, onSuccess, prefilledOrgId }: {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json'
+            ...getEdgeHeaders('application/json')
           },
           body: JSON.stringify({
             organizationId: formData.organizationId,
@@ -1285,7 +1270,7 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
 }
 
 // ============================================================
-// MODAL: DOCUMENTAÇÃO IA (BOLT, V0, ETC)
+// MODAL: DOCUMENTAÇÃO PROMPT SITES I.A (BOLT, V0, ETC)
 // ============================================================
 
 function DocsAIModal({ open, onClose }: {
@@ -1294,59 +1279,69 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# Criar Site de Imobiliária com RENDIZY (v1.4)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.2)
 
-## Objetivo
-Criar um site moderno e responsivo para imobiliária (temporada/locação/venda) integrado ao **módulo de Sites de Clientes do RENDIZY**.
+## Objetivo (aceitação)
+Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
+- ` + "`/site/<subdomain>/`" + ` (servido via proxy da Vercel)
+
+Para ser aceito:
+- A Home carrega.
+- A listagem de imóveis carrega via API pública.
+- Assets (JS/CSS/imagens) carregam sem 404.
 
 ## Stack
-- React 18+ com TypeScript
+- React 18 + TypeScript
+- Vite
 - Tailwind CSS
-- Lucide React
 - (Opcional) shadcn/ui
 
-## ⚠️ Integração REAL disponível hoje no backend
+## Contexto real do RENDIZY (não invente)
 
-### Fonte de verdade (dentro do produto)
-- No painel do Rendizy, use **Edição de Sites → Componentes & Dados** para ver o contrato público e os Blocos/Widgets suportados.
+### 1) O site é 100% estático
+- Nada de SSR.
+- Nada de Node server.
+- Nada de chamadas para APIs privadas.
 
-### Ambiente de execução (importante)
-- O site roda como **HTML/JS estático** (SPA) servido pelo RENDIZY.
-- Quando você abre o build localmente (ex: abrir o arquivo do build direto no navegador), ` + "`window.RENDIZY_CONFIG`" + ` pode não existir. O site deve **degradar com elegância** (exibir estado vazio/erro amigável) e não quebrar.
-- Este site é público: não use cookies nem autenticação no browser.
+### 2) Restrições de segurança/CSP
+- NÃO carregue JS de CDN.
+- NÃO use scripts externos.
+- Se usar fontes, prefira bundlar local (ou use fontes default do sistema).
 
-### Como o site acessa dados
-Quando o site é servido pelo RENDIZY em ` + "`/client-sites/serve/:domain`" + ` (preview), o backend injeta automaticamente:
-- ` + "`window.RENDIZY_CONFIG`" + ` com:
-  - ` + "`API_BASE_URL`" + ` (base do módulo client-sites)
-  - ` + "`SUBDOMAIN`" + ` (ex: "medhome")
-  - ` + "`ORGANIZATION_ID`" + `
-  - ` + "`SITE_NAME`" + `
-- ` + "`window.RENDIZY.getProperties()`" + ` (helper pronto)
+### 3) O site roda em subpath
+Ele abre como:
+- ` + "`https://<dominio>/site/<subdomain>/`" + `
 
-Exemplo (use isso como padrão):
+IMPORTANTE: esse ambiente NÃO garante fallback de rotas para SPA em deep-link (ex: ` + "`/site/<subdomain>/imoveis`" + ` pode quebrar).
+Portanto: use **HashRouter**.
 
-\`\`\`ts
-const result = await window.RENDIZY.getProperties();
-if (result.success) {
-  console.log(result.data);
-}
-\`\`\`
+✅ Rotas devem ser assim:
+- ` + "`/site/<subdomain>/#/`" + `
+- ` + "`/site/<subdomain>/#/imoveis`" + `
+- ` + "`/site/<subdomain>/#/imovel/<id>`" + `
 
-### Endpoint público existente (hoje)
-O único endpoint público padronizado para sites é **imóveis**:
+## Integração de dados (contrato público)
 
-- GET ` + "`${window.RENDIZY_CONFIG.API_BASE_URL}/api/${window.RENDIZY_CONFIG.SUBDOMAIN}/properties`" + `
+Hoje:
+- **Estável**: imóveis (properties)
+- **Opcional/Beta**: config pública do site (site-config) — use com fallback
 
-Não assuma que existem endpoints públicos de calendário/bloqueios/reservas neste módulo.
-Não use endpoints privados (ex: rotas que exigem header ` + "`X-Auth-Token`" + `). Este site deve funcionar sem token.
+### Endpoint
+GET ` + "`https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/client-sites/api/:subdomain/properties`" + `
 
-## Tipos reais de resposta (imóveis)
+### Endpoint opcional (site-config)
+GET ` + "`https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/client-sites/api/:subdomain/site-config`" + `
 
-O endpoint acima retorna:
+### Resposta
 
 \`\`\`ts
-type ClientSiteApiResponse<T> = { success: boolean; data?: T; error?: string; details?: string };
+type ClientSiteApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  total?: number;
+  error?: string;
+  details?: string;
+};
 
 type ClientSiteProperty = {
   id: string;
@@ -1387,44 +1382,187 @@ type ClientSiteProperty = {
   createdAt: string;
   updatedAt: string;
 };
+
+type ClientSiteSiteConfig = {
+  siteName?: string;
+  subdomain?: string;
+  domain?: string | null;
+  theme?: {
+    primaryColor?: string | null;
+    secondaryColor?: string | null;
+    accentColor?: string | null;
+    fontFamily?: string | null;
+  };
+  logoUrl?: string | null;
+  faviconUrl?: string | null;
+  siteConfig?: {
+    title?: string;
+    description?: string;
+    slogan?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    socialMedia?: {
+      facebook?: string | null;
+      instagram?: string | null;
+      whatsapp?: string | null;
+    };
+  };
+  features?: {
+    shortTerm?: boolean;
+    longTerm?: boolean;
+    sale?: boolean;
+  };
+};
 \`\`\`
 
-## Convenções de UI (use estes campos)
+### Como descobrir o subdomain (sem depender de injeção)
+Implemente uma função robusta:
+
+\`\`\`ts
+function getRendizySubdomain(): string | null {
+  // 1) Se existir config (futuro), use.
+  const anyWin = window as any;
+  const cfgSub = anyWin?.RENDIZY_CONFIG?.SUBDOMAIN;
+  if (typeof cfgSub === 'string' && cfgSub.trim()) return cfgSub.trim().toLowerCase();
+
+  // 2) Padrão atual: /site/<subdomain>/...
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  const siteIdx = parts.findIndex((p) => p.toLowerCase() === 'site');
+  if (siteIdx >= 0 && parts[siteIdx + 1]) return parts[siteIdx + 1].toLowerCase();
+
+  // 3) Último fallback: primeiro label do host (se fizer sentido)
+  const host = window.location.hostname || '';
+  const first = host.split('.')[0];
+  return first ? first.toLowerCase() : null;
+}
+\`\`\`
+
+### Cliente de API (faça assim)
+
+\`\`\`ts
+const API_BASE = 'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/client-sites/api';
+
+async function fetchProperties(): Promise<ClientSiteApiResponse<ClientSiteProperty[]>> {
+  // Se o site estiver sendo servido pelo Rendizy, pode existir helper injetado.
+  // Use quando disponível; caso contrário, faça fetch direto.
+  const anyWin = window as any;
+  if (anyWin?.RENDIZY?.getProperties) {
+    try {
+      return await anyWin.RENDIZY.getProperties();
+    } catch {
+      // fallback abaixo
+    }
+  }
+
+  const sub = getRendizySubdomain();
+  if (!sub) return { success: false, error: 'Subdomain não detectado' };
+
+  const url = API_BASE + '/' + encodeURIComponent(sub) + '/properties';
+  const r = await fetch(url, { method: 'GET' });
+  const json = (await r.json().catch(() => null)) as any;
+  if (!json || typeof json.success !== 'boolean') {
+    return { success: false, error: 'Resposta inválida da API' };
+  }
+  return json;
+}
+\`\`\`
+
+### Cliente de API (site-config) — faça assim (opcional)
+
+\`\`\`ts
+async function fetchSiteConfig(): Promise<ClientSiteApiResponse<ClientSiteSiteConfig>> {
+  const sub = getRendizySubdomain();
+  if (!sub) return { success: false, error: 'Subdomain não detectado' };
+
+  const url = API_BASE + '/' + encodeURIComponent(sub) + '/site-config';
+  const r = await fetch(url, { method: 'GET' });
+  const json = (await r.json().catch(() => null)) as any;
+  if (!json || typeof json.success !== 'boolean') {
+    return { success: false, error: 'Resposta inválida da API' };
+  }
+  return json;
+}
+
+// Uso recomendado:
+// - Se fetchSiteConfig() falhar, use um fallback local (const SITE_FALLBACK = {...}).
+// - Não quebre o site se o endpoint estiver ausente no ambiente.
+\`\`\`
+
+## Alinhamento com “Componentes & Dados” (ponto a ponto)
+Use como fonte de verdade o catálogo interno em **Edição de Sites → Componentes & Dados**.
+
+### 1) Wrapper (resposta)
+- Use exatamente o wrapper ` + "`{ success, data?, total?, error?, details? }`" + `.
+
+### 2) Endpoints
+- ` + "`GET /client-sites/api/:subdomain/properties`" + ` = **stable** (use).
+- ` + "`GET /client-sites/api/:subdomain/site-config`" + ` = **opcional/beta** (use com fallback local; o site não pode quebrar se não existir).
+- Calendário/Leads = **planned** (não implemente integração real).
+
+### 3) DTO de imóveis e grupos de campos
+O site deve usar APENAS os campos do ` + "`ClientSiteProperty`" + ` acima, seguindo estes grupos:
+- Identidade: ` + "`id, name, code, type, status`" + `
+- Endereço: ` + "`address.*`" + `
+- Capacidade: ` + "`capacity.*`" + `
+- Preço: ` + "`pricing.dailyRate/basePrice/weeklyRate/monthlyRate/currency`" + `
+- Conteúdo: ` + "`description, shortDescription, photos, coverPhoto, tags, amenities`" + `
+
+### 4) Blocos (implemente os STABLE)
+Implemente explicitamente estes blocos (mesma intenção do catálogo):
+- Header, Hero, Footer
+- Listagem: ` + "`properties-grid`" + ` + ` + "`property-card`" + `
+- Detalhe: ` + "`property-detail`" + ` + ` + "`property-gallery`" + ` + ` + "`property-amenities`" + `
+- CTA de contato (` + "`contact-cta`" + `) usando WhatsApp/link (sem backend)
+
+Para Header/Hero/Footer:
+- Preferir dados vindos de ` + "`site-config`" + ` (título, descrição, contato, redes, features), quando disponível.
+- Caso ` + "`site-config`" + ` não exista/falhe, usar fallback local no bundle.
+
+Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade canônico, calendário por dia, leads.
+
+### Regras de UI
 - Imagem principal: ` + "`coverPhoto`" + ` (fallback: primeira de ` + "`photos`" + `)
 - Localização: ` + "`address.city`" + ` + ` + "`address.state`" + `
-- Preço: ` + "`pricing.dailyRate`" + ` (preferencial) ou ` + "`pricing.basePrice`" + ` (compat) + ` + "`pricing.currency`" + `
-- Hóspedes: ` + "`capacity.maxGuests`" + `
-- Quartos/banheiros: ` + "`capacity.bedrooms`" + ` / ` + "`capacity.bathrooms`" + `
+- Preço: ` + "`pricing.dailyRate`" + ` + ` + "`pricing.currency`" + `
 
-## Páginas sugeridas (MVP)
-1. Home (hero + busca simples + destaques)
-2. Imóveis (listagem + filtros básicos)
-3. Detalhe do imóvel (galeria + info + CTA de contato)
-4. Sobre
-5. Contato (form + WhatsApp)
+## Páginas (mínimo para ficar "funcionando")
+1) Home
+- Hero + CTA
+- Grid com 6 imóveis (se existir)
 
-## Funcionalidades essenciais (compatíveis com o backend atual)
-- ✅ Listar imóveis (via ` + "`window.RENDIZY.getProperties()`" + `)
-- ✅ Busca/filtro no front (cidade, hóspedes, tipo, faixa de preço) usando a lista retornada
-- ✅ Galeria de fotos
-- ✅ WhatsApp flutuante + CTA de contato
-- ✅ Favoritos (localStorage)
-- ✅ SEO básico (title/description)
+2) Imóveis
+- Listagem completa
+- Filtros somente no front (cidade, hóspedes, tipo)
 
-## Compilação e entrega (Bolt/v0)
-✅ Recomendado: peça para o Bolt compilar o site para produção e exportar um ZIP com ` + "`dist/`" + `.
-O RENDIZY serve melhor quando encontra ` + "`dist/index.html`" + ` no ZIP.
+3) Detalhe do imóvel
+- Galeria (usar photos)
+- Informações e CTA de contato (WhatsApp)
 
-### Regras de build (para assets funcionarem no RENDIZY)
-- Garanta que os assets do build usem caminhos **relativos** (evite ` + "`/assets/...`" + ` absoluto).
-- Se usar Vite, configure ` + "`base: './'`" + `.
-- O ZIP deve conter somente o build (ex: ` + "`dist/`" + ` com ` + "`index.html`" + ` e ` + "`assets/`" + `). Não inclua ` + "`node_modules/`" + `.
+4) Contato
 
-## Regras
-- Não hardcode API URLs nem organizationId no código: use ` + "`window.RENDIZY_CONFIG`" + `.
-- Não use chaves privadas (service role) no site.
+## Área interna do cliente (placeholder, sem backend)
+Crie uma rota ` + "`#/area-interna`" + ` com:
+- Form de login (email/senha) SEM chamar backend (apenas UI)
+- Mensagem "Em breve"
+- Botão "Voltar ao site" que navega para ` + "`#/`" + `
 
-Crie um site COMPLETO, FUNCIONAL e PROFISSIONAL seguindo essas especificações.`;
+## Build / Entrega (OBRIGATÓRIO)
+Você deve entregar um ZIP que contenha ` + "`dist/`" + ` na raiz do ZIP e dentro:
+- ` + "`dist/index.html`" + `
+- ` + "`dist/assets/*`" + `
+
+Regras:
+- Em Vite, configure ` + "`base: './'`" + `.
+- Não referencie imagens como ` + "`/images/...`" + ` ou ` + "`/foo.png`" + ` (root). Coloque tudo em ` + "`src/assets`" + ` para ir para ` + "`dist/assets`" + `.
+- Não inclua ` + "`node_modules`" + ` no ZIP.
+- Evite gerar mais de 2000 arquivos no build.
+
+## Checklist final (antes de entregar)
+- Rodar ` + "`npm run build`" + `.
+- Validar que abrir ` + "`dist/index.html`" + ` local não quebra (mesmo sem subdomain detectado, mostrar erro amigável).
+- Validar que com URL ` + "`/site/<subdomain>/`" + ` o app detecta subdomain e lista imóveis.
+
+Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
 
   const copyPrompt = () => {
     navigator.clipboard.writeText(aiPrompt);
@@ -1439,7 +1577,7 @@ Crie um site COMPLETO, FUNCIONAL e PROFISSIONAL seguindo essas especificações.
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-yellow-500" />
-            Documentação para Criar Site com IA
+            Documentação prompt sites I.A
           </DialogTitle>
           <DialogDescription>
             Use este prompt em Bolt.new, v0.dev, Claude, ChatGPT ou Figma Make para criar sites profissionais integrados ao RENDIZY
@@ -1708,7 +1846,7 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
             Importar Site de IA/Figma
           </DialogTitle>
           <DialogDescription>
-            {step === 1 ? 'Configure os dados básicos do site' : 'Cole o código gerado pela IA'}
+            {step === 1 ? 'Configure os dados básicos do site' : 'Envie o ZIP (dist/) ou cole o código gerado pela IA'}
           </DialogDescription>
         </DialogHeader>
 
@@ -1857,11 +1995,11 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <strong>✨ O sistema irá:</strong>
-                <br />• Integrar automaticamente com a API RENDIZY
-                <br />• Substituir variáveis de configuração
-                <br />• Conectar ao banco de dados de imóveis
-                <br />• Configurar calendário e reservas
+                <strong>✨ O sistema irá (hoje):</strong>
+                <br />• Publicar o build estático (ZIP com dist/) e servir em /site/&lt;subdomain&gt;/
+                <br />• Integrar com a API pública de imóveis (properties)
+                <br />• Manter os dados do site (contatos, features) salvos no Rendizy (site-config público disponível)
+                <br />• Calendário/reservas/leads: ainda planejado (não garantido neste fluxo)
               </p>
             </div>
           </div>

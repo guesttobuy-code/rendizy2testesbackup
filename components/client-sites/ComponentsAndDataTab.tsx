@@ -8,6 +8,17 @@ import {
   type ClientSitesCatalogEndpoint
 } from './catalog';
 
+function CodeBlock({ title, code }: { title: string; code: string }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium text-gray-900">{title}</div>
+      <pre className="whitespace-pre-wrap rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-800">
+        {code}
+      </pre>
+    </div>
+  );
+}
+
 function StabilityBadge({ stability }: { stability: 'stable' | 'planned' }) {
   if (stability === 'stable') {
     return <Badge variant="secondary">Disponível hoje</Badge>;
@@ -106,6 +117,33 @@ export function ComponentsAndDataTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {CLIENT_SITES_PUBLIC_CONTRACT_V1.integrationGuides?.length ? (
+            <div className="space-y-4">
+              {CLIENT_SITES_PUBLIC_CONTRACT_V1.integrationGuides.map((g) => (
+                <Card key={g.title}>
+                  <CardHeader>
+                    <CardTitle className="text-sm">{g.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                      {g.notes.map((note) => (
+                        <li key={note}>{note}</li>
+                      ))}
+                    </ul>
+
+                    {g.codeBlocks?.length ? (
+                      <div className="space-y-4">
+                        {g.codeBlocks.map((b) => (
+                          <CodeBlock key={b.title} title={b.title} code={b.code} />
+                        ))}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : null}
+
           <div className="text-sm text-gray-700">
             <div className="font-medium text-gray-900">Contrato Público {CLIENT_SITES_PUBLIC_CONTRACT_V1.version}</div>
             <div className="mt-1 font-mono text-xs text-gray-600">

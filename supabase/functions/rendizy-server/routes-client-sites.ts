@@ -1535,13 +1535,18 @@ app.post("/:organizationId/upload-archive", async (c) => {
     // Nome do bucket para armazenar sites de clientes
     const bucketName = "client-sites";
 
-    // Tentar criar o bucket caso ainda não exista (ignorar erro de já existente)
+    // Garantir bucket PUBLICO (necessário para servir via /storage/v1/object/public/...)
+    // - Se não existir: cria como público
+    // - Se existir: tenta atualizar para público
     try {
-      await supabase.storage.createBucket(bucketName, {
-        public: false,
-      });
+      await supabase.storage.createBucket(bucketName, { public: true });
     } catch (_err) {
-      // Se já existir, ignoramos
+      // ignore
+    }
+    try {
+      await supabase.storage.updateBucket(bucketName, { public: true });
+    } catch (_err) {
+      // ignore
     }
 
     // ✅ ETAPA 1: Validar ZIP antes de fazer upload
