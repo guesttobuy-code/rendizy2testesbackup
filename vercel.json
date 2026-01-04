@@ -17,8 +17,12 @@
       "destination": "/api/site?subdomain=:subdomain"
     },
     {
-      "source": "/site/:subdomain/:path*",
-      "destination": "/api/site?subdomain=:subdomain&path=:path*"
+      "source": "/site/([^/]+)/(.*)",
+      "destination": "/api/site?subdomain=$1&path=$2"
+    },
+    {
+      "source": "/site/([^/]+)",
+      "destination": "/api/site?subdomain=$1"
     },
     {
       "source": "/(.*)",
