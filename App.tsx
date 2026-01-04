@@ -110,6 +110,7 @@ import { Button } from './components/ui/button';
 import { reservationsApi, guestsApi, propertiesApi, calendarApi } from './utils/api';
 import { cn } from './components/ui/utils';
 import { CalendarPage } from './components/calendar/CalendarPage';
+import { ClientSitesModule } from './components/client-sites/ClientSitesModule';
 
 // Lazy-loaded module shells (code splitting por módulo grande)
 const FinanceiroModule = React.lazy(() => import('./components/financeiro/FinanceiroModule'));
@@ -130,9 +131,6 @@ const ChatModule = React.lazy(() =>
 );
 const MyAccountModule = React.lazy(() =>
   import('./components/account/MyAccountModule').then((m) => ({ default: m.MyAccountModule }))
-);
-const ClientSitesModule = React.lazy(() =>
-  import('./components/client-sites/ClientSitesModule').then((m) => ({ default: m.ClientSitesModule }))
 );
 const LocationsModule = React.lazy(() =>
   import('./components/locations/LocationsModule').then((m) => ({ default: m.LocationsModule }))
