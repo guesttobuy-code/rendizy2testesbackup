@@ -65,6 +65,7 @@ import * as currencySettingsRoutes from "./routes-currency-settings.ts";
 import { registerDiscountPackagesRoutes } from "./routes-discount-packages.ts";
 import * as organizationsRoutes from "./routes-organizations.ts";
 import usersApp from "./routes-users.ts";
+import * as photosRoutes from "./routes-photos.ts";
 
 const app = new Hono();
 
@@ -379,6 +380,38 @@ app.route("/rendizy-server/make-server-67caf26a/blocks", blocksApp);
 // ============================================================================
 app.route("/rendizy-server/ical", icalApp);
 app.route("/rendizy-server/make-server-67caf26a/ical", icalApp); // compat com prefix usado no frontend
+
+// ============================================================================
+// PHOTOS (Supabase Storage) - Upload persistente de imagens
+// ============================================================================
+// Frontend (utils/api.ts) usa: POST ${API_BASE_URL}/photos/upload
+// Em produção, o pathname costuma vir como /rendizy-server/photos/*; por isso mantemos aliases.
+app.post("/photos/upload", photosRoutes.uploadPhoto);
+app.post("/rendizy-server/photos/upload", photosRoutes.uploadPhoto);
+app.post("/make-server-67caf26a/photos/upload", photosRoutes.uploadPhoto);
+app.post("/rendizy-server/make-server-67caf26a/photos/upload", photosRoutes.uploadPhoto);
+
+// Base64 upload (legado)
+app.post("/photos", photosRoutes.uploadPhotoBase64);
+app.post("/rendizy-server/photos", photosRoutes.uploadPhotoBase64);
+app.post("/make-server-67caf26a/photos", photosRoutes.uploadPhotoBase64);
+app.post("/rendizy-server/make-server-67caf26a/photos", photosRoutes.uploadPhotoBase64);
+
+// List / delete / update metadata
+app.get("/photos/property/:propertyId", photosRoutes.listPropertyPhotos);
+app.get("/rendizy-server/photos/property/:propertyId", photosRoutes.listPropertyPhotos);
+app.get("/make-server-67caf26a/photos/property/:propertyId", photosRoutes.listPropertyPhotos);
+app.get("/rendizy-server/make-server-67caf26a/photos/property/:propertyId", photosRoutes.listPropertyPhotos);
+
+app.delete("/photos/:path", photosRoutes.deletePhoto);
+app.delete("/rendizy-server/photos/:path", photosRoutes.deletePhoto);
+app.delete("/make-server-67caf26a/photos/:path", photosRoutes.deletePhoto);
+app.delete("/rendizy-server/make-server-67caf26a/photos/:path", photosRoutes.deletePhoto);
+
+app.put("/photos/:photoId", photosRoutes.updatePhoto);
+app.put("/rendizy-server/photos/:photoId", photosRoutes.updatePhoto);
+app.put("/make-server-67caf26a/photos/:photoId", photosRoutes.updatePhoto);
+app.put("/rendizy-server/make-server-67caf26a/photos/:photoId", photosRoutes.updatePhoto);
 
 // ============================================================================
 // CHAT / CHANNELS (WhatsApp Evolution + outros canais)

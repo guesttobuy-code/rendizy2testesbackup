@@ -52,6 +52,7 @@ import {
 } from '../pricing/DiscountPackagesEditor';
 
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { photosApi } from '../../utils/api';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
 const ANON_KEY = publicAnonKey;
@@ -138,6 +139,9 @@ interface Photo {
   id: string;
   url: string;
   tags: string[];
+  path?: string;
+  room?: string;
+  order?: number;
 }
 
 interface Room {
@@ -1283,26 +1287,40 @@ export default function FormularioAnuncio() {
     
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
+
+    if (!anuncioId) {
+      toast.error('❌ Salve/crie o anúncio primeiro para enviar fotos com persistência');
+      e.target.value = '';
+      return;
+    }
     
     setUploadingPhotos(true);
     
     try {
-      // Simular upload (aqui você integraria com Supabase Storage)
-      const uploadedPhotos: Photo[] = await Promise.all(
+      const room = formData.rooms[selectedRoomIndex];
+      const roomLabelRaw = room.customName || room.type || room.typeName || `room-${selectedRoomIndex + 1}`;
+      const roomLabel = String(roomLabelRaw).trim().replace(/[^a-z0-9_-]+/gi, '_');
+
+      const results = await Promise.all(
         files.map(async (file) => {
-          // TODO: Integrar com Supabase Storage
-          // const { data, error } = await supabase.storage.from('photos').upload(...)
-          
-          // Por enquanto, criar URL temporário
-          const url = URL.createObjectURL(file);
-          
-          return {
-            id: `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            url,
-            tags: []
+          const uploadRes = await photosApi.upload(file, anuncioId, roomLabel);
+          if (!uploadRes.success || !uploadRes.data) {
+            throw new Error(uploadRes.error || uploadRes.message || 'Falha no upload');
+          }
+          const p: any = uploadRes.data;
+          const photo: Photo = {
+            id: String(p.id),
+            url: String(p.url),
+            tags: [],
+            path: p.path ? String(p.path) : undefined,
+            room: p.room ? String(p.room) : roomLabel,
+            order: typeof p.order === 'number' ? p.order : undefined,
           };
+          return photo;
         })
       );
+
+      const uploadedPhotos: Photo[] = results.filter(Boolean);
       
       // Adicionar fotos ao cômodo selecionado
       setFormData(prev => {
@@ -1310,8 +1328,8 @@ export default function FormularioAnuncio() {
         newRooms[selectedRoomIndex].photos.push(...uploadedPhotos);
         return { ...prev, rooms: newRooms };
       });
-      
-      toast.success(`${uploadedPhotos.length} foto(s) adicionada(s)! Não esqueça de adicionar tags antes de salvar.`);
+
+      toast.success(`${uploadedPhotos.length} foto(s) enviada(s) e adicionada(s)! Não esqueça de adicionar tags antes de salvar.`);
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
       toast.error('Erro ao fazer upload das fotos');
