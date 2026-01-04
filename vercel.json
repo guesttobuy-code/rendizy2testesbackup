@@ -5,6 +5,22 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/sitemedhome",
+      "destination": "/api/sitemedhome"
+    },
+    {
+      "source": "/sitemedhome/(.*)",
+      "destination": "/api/sitemedhome?path=$1"
+    },
+    {
+      "source": "/site/:subdomain",
+      "destination": "/api/site?subdomain=:subdomain"
+    },
+    {
+      "source": "/site/:subdomain/(.*)",
+      "destination": "/api/site?subdomain=:subdomain&path=$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -1,5 +1,22 @@
 {
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.ns", "deno.unstable"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "types": []
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
   "imports": {
+    "hono": "npm:hono@4.6.20",
+    "jszip": "npm:jszip@3.10.1",
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2.49.8",
     "@std/http/server": "https://deno.land/std@0.201.0/http/server.ts",
     "openai": "./rendizy-server/third_party/openai-stub.ts",
     "https://esm.sh/openai@6.9.1": "./rendizy-server/third_party/openai-stub.ts",
