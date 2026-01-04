@@ -127,6 +127,74 @@ function contentTypeForPath(path: string): string {
 
 async function ensureExtractedToPublicStorage(args: {
   supabase: ReturnType<typeof getSupabaseAdminClient>;
+
+function numberOrZero(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizePricing(d: any): {
+  basePrice: number;
+  dailyRate: number;
+  weeklyRate: number;
+  monthlyRate: number;
+  currency: string;
+} {
+  const daily = numberOrZero(
+    d?.pricing?.dailyRate ??
+      d?.pricing?.basePrice ??
+      d?.dailyRate ??
+      d?.basePrice ??
+      d?.price ??
+      d?.valor_diaria ??
+      0
+  );
+
+  // Contract strategy (scalable): always return daily/weekly/monthly even if 0.
+  // This avoids UI NaN issues across client sites while we evolve upstream pricing.
+  return {
+    basePrice: daily,
+    dailyRate: daily,
+    weeklyRate: daily * 7,
+    monthlyRate: daily * 30,
+    currency: d?.pricing?.currency || d?.currency || "BRL",
+  };
+}
+
+function normalizeAnuncioPhotos(d: any): { photos: string[]; coverPhoto: string | null } {
+  const roomPhotos: any[] = Array.isArray(d?.rooms)
+    ? (d.rooms as any[]).flatMap((r) => (Array.isArray(r?.photos) ? r.photos : []))
+    : [];
+
+  const raw: any[] = Array.isArray(d?.fotos)
+    ? d.fotos
+    : Array.isArray(d?.photos)
+    ? d.photos
+    : d?.fotoPrincipal
+    ? [d.fotoPrincipal]
+    : roomPhotos;
+
+  const urls: string[] = raw
+    .map((p) => {
+      if (!p) return null;
+      if (typeof p === "string") return p;
+      if (typeof p?.url === "string") return p.url;
+      return null;
+    })
+    .filter((u): u is string => !!u);
+
+  const coverPhotoId = d?.cover_photo_id || d?.coverPhotoId || null;
+  const coverFromRooms = coverPhotoId
+    ? roomPhotos.find((p) => p?.id === coverPhotoId)
+    : null;
+  const coverUrl =
+    (typeof coverFromRooms?.url === "string" ? coverFromRooms.url : null) ||
+    (typeof d?.fotoPrincipal === "string" ? d.fotoPrincipal : null) ||
+    (typeof d?.coverPhoto === "string" ? d.coverPhoto : null) ||
+    (urls.length > 0 ? urls[0] : null);
+
+  return { photos: urls, coverPhoto: coverUrl };
+}
   site: ClientSiteRow;
 }): Promise<{ publicBaseUrl: string; indexUrl: string; extractedFilesCount: number }> {
   const { supabase, site } = args;
@@ -355,6 +423,10 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
       },
       pricing: {
         basePrice: p.pricing_base_price || 0,
+        // Compat (client sites): UI expects `pricing.dailyRate`.
+        dailyRate: p.pricing_base_price || 0,
+        weeklyRate: (p.pricing_base_price || 0) * 7,
+        monthlyRate: (p.pricing_base_price || 0) * 30,
         currency: p.pricing_currency || "BRL",
       },
       capacity: {
@@ -396,13 +468,8 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
 
       const anuncioFormatted = (anuncios as any[] | null | undefined || []).map((row) => {
         const d = (row as any)?.data || {};
-        const photos = Array.isArray(d.fotos)
-          ? d.fotos
-          : Array.isArray(d.photos)
-          ? d.photos
-          : d.fotoPrincipal
-          ? [d.fotoPrincipal]
-          : [];
+        const { photos, coverPhoto } = normalizeAnuncioPhotos(d);
+        const pricing = normalizePricing(d);
 
         return {
           id: row.id,
@@ -421,21 +488,20 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
             latitude: d?.address?.latitude ?? null,
             longitude: d?.address?.longitude ?? null,
           },
-          // The MedHome bundle derives pricing.dailyRate from pricing.basePrice after proxy patch.
-          pricing: {
-            basePrice: Number(d?.pricing?.basePrice ?? d.basePrice ?? d.dailyRate ?? 0) || 0,
-            currency: d?.pricing?.currency || d.currency || "BRL",
-          },
+          pricing,
           capacity: {
-            bedrooms: Number(d.bedrooms ?? d.quartos ?? 0) || 0,
+            bedrooms:
+              numberOrZero(d.bedrooms ?? d.quartos ?? 0) ||
+              (Array.isArray(d.rooms) ? d.rooms.length : 0) ||
+              0,
             bathrooms: Number(d.bathrooms ?? d.banheiros ?? 0) || 0,
-            maxGuests: Number(d.guests ?? d.maxGuests ?? d.hospedes ?? 0) || 0,
+            maxGuests: Number(d.guests ?? d.maxGuests ?? d.hospedes ?? d.beds ?? 0) || 0,
             area: Number(d.area ?? 0) || null,
           },
           description: d.description || d.shortDescription || "",
           shortDescription: d.shortDescription || null,
           photos,
-          coverPhoto: d.fotoPrincipal || d.coverPhoto || (Array.isArray(photos) && photos.length > 0 ? photos[0] : null),
+          coverPhoto,
           tags: Array.isArray(d.tags) ? d.tags : [],
           amenities: Array.isArray(d.comodidades)
             ? d.comodidades
