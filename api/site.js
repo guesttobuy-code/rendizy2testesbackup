@@ -92,6 +92,18 @@ function buildUpstreamAssetUrl(baseUrl, cleanPath, req) {
   return qs ? `${baseUrl}/${cleanPath}?${qs}` : `${baseUrl}/${cleanPath}`;
 }
 
+async function resolveStorageIndexUrl(serveUrl) {
+  const r = await fetch(serveUrl, { redirect: "manual" });
+
+  const loc = r.headers.get("location");
+  if (loc && (r.status === 301 || r.status === 302 || r.status === 303 || r.status === 307 || r.status === 308)) {
+    return new URL(loc, serveUrl).toString();
+  }
+
+  // Fallback: if upstream serves HTML directly, keep its url.
+  return r.url;
+}
+
 export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
@@ -111,7 +123,8 @@ export default async function handler(req, res) {
       subdomain
     )}`;
 
-    const resp = await fetch(serveUrl, { redirect: "follow" });
+    const indexUrl = await resolveStorageIndexUrl(serveUrl);
+    const resp = await fetch(indexUrl, { redirect: "follow" });
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
@@ -121,8 +134,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const finalUrl = resp.url; // after redirect, should be Storage index.html
-    const baseUrl = finalUrl.replace(/\/index\.html(\?.*)?$/i, "");
+    const baseUrl = indexUrl.replace(/\/index\.html(\?.*)?$/i, "");
 
     // Asset requests: proxy from Storage through Vercel (avoids CORS/module-script issues).
     if (requestedPath && requestedPath !== "/") {

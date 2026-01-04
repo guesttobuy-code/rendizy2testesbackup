@@ -87,6 +87,17 @@ function buildUpstreamAssetUrl(baseUrl, cleanPath, req) {
   return qs ? `${baseUrl}/${cleanPath}?${qs}` : `${baseUrl}/${cleanPath}`;
 }
 
+async function resolveStorageIndexUrl(serveUrl) {
+  const r = await fetch(serveUrl, { redirect: "manual" });
+
+  const loc = r.headers.get("location");
+  if (loc && (r.status === 301 || r.status === 302 || r.status === 303 || r.status === 307 || r.status === 308)) {
+    return new URL(loc, serveUrl).toString();
+  }
+
+  return r.url;
+}
+
 export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
@@ -94,7 +105,8 @@ export default async function handler(req, res) {
     const requestedPath = (req.query && req.query.path) ? String(req.query.path) : "";
 
     const serveUrl = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/serve/medhome`;
-    const resp = await fetch(serveUrl, { redirect: "follow" });
+    const indexUrl = await resolveStorageIndexUrl(serveUrl);
+    const resp = await fetch(indexUrl, { redirect: "follow" });
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
@@ -104,8 +116,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const finalUrl = resp.url; // after redirect, should be Storage index.html
-    const baseUrl = finalUrl.replace(/\/index\.html(\?.*)?$/i, "");
+    const baseUrl = indexUrl.replace(/\/index\.html(\?.*)?$/i, "");
 
     // If this request is for a sub-path (asset), proxy it through Vercel.
     if (requestedPath && requestedPath !== "/") {
