@@ -23,6 +23,7 @@
 | [DEPLOY_FRONTEND.md](DEPLOY_FRONTEND.md) | Deploy Vercel/Netlify | Atualizar frontend |
 | [DEPLOY_BACKEND.md](DEPLOY_BACKEND.md) | Deploy Supabase Functions | Atualizar backend |
 | [ROLLBACK.md](ROLLBACK.md) | Como reverter deploy | Algo quebrou em produção |
+| [ANUNCIOS_PROPERTIES_CAPACITY_SYNC.md](ANUNCIOS_PROPERTIES_CAPACITY_SYNC.md) | Garantir cards refletem edição interna (rooms → capacity) | Cards com números desatualizados |
 
 ---
 

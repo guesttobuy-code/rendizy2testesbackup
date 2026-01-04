@@ -55,6 +55,7 @@ docs/
 | [⚡ Início Rápido](operations/INICIO_RAPIDO.md) | Como iniciar em 5 minutos | Já tem ambiente configurado |
 | [📦 Setup Completo](operations/SETUP_COMPLETO.md) | Configuração completa do zero | Primeira vez no projeto |
 | [🔧 Troubleshooting](operations/TROUBLESHOOTING.md) | Solução de problemas comuns | Algo não funciona |
+| [🔁 Sync Capacidade (Anúncios→Properties)](operations/ANUNCIOS_PROPERTIES_CAPACITY_SYNC.md) | Evita cards com quartos/banheiros/camas/hóspedes desatualizados | Quando edição interna não reflete no card |
 
 **Comandos Rápidos:**
 ```powershell

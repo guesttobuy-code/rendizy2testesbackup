@@ -145,6 +145,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Fees/taxas somadas a partir de `staysnet_raw.price.hostingDetails.fees[]` quando necessário
   - Backfill atualiza reservas existentes sem criar duplicatas
 
+- 🟡 **Cards de unidades/anúncios não refletiam edição interna (quartos/banheiros/camas/hóspedes)**
+  - Sintoma: após editar `anuncios_ultimate.data.rooms`, os cards continuavam mostrando valores antigos
+  - Causa raiz: cards leem `properties.bedrooms/bathrooms/beds/max_guests`, mas a edição interna salva no JSON `anuncios_ultimate.data`
+  - Corrigido: `POST /anuncios-ultimate/save-field` e `PATCH /anuncios-ultimate/:id` agora sincronizam capacidade derivada `rooms[]` → tabela `properties` (com filtro por `organization_id`)
+  - Documento operacional: `docs/operations/ANUNCIOS_PROPERTIES_CAPACITY_SYNC.md`
+
 ### Changed
 - Nada ainda
 
