@@ -309,10 +309,11 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
     const { data: properties, error } = await supabase
       .from("properties")
       .select(
-        "id, name, code, type, status, address_city, address_state, address_street, address_number, address_zip_code, address_neighborhood, address_country, address_latitude, address_longitude, pricing_base_price, pricing_currency, bedrooms, bathrooms, max_guests, area, description, short_description, photos, cover_photo, tags, amenities, created_at, updated_at"
+        "id, name, code, type, status, address_city, address_state, address_street, address_number, address_zip_code, address_neighborhood, pricing_base_price, pricing_currency, bedrooms, bathrooms, max_guests, area, description, short_description, photos, cover_photo, tags, amenities, created_at, updated_at"
       )
       .eq("organization_id", organizationId)
-      .eq("status", "active")
+      // Compat: em alguns ambientes o status publicado pode ser 'active' ou 'published'.
+      .in("status", ["active", "published"]) 
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -337,9 +338,9 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
         number: p.address_number || null,
         neighborhood: p.address_neighborhood || null,
         zipCode: p.address_zip_code || null,
-        country: p.address_country || "BR",
-        latitude: p.address_latitude || null,
-        longitude: p.address_longitude || null,
+        country: "BR",
+        latitude: null,
+        longitude: null,
       },
       pricing: {
         basePrice: p.pricing_base_price || 0,
