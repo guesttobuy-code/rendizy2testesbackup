@@ -125,6 +125,34 @@ async function resolveStorageIndexUrl(serveUrl) {
   return r.url;
 }
 
+function buildFallbackIndexUrlFromRedirect(indexUrl, subdomain) {
+  try {
+    const u = new URL(indexUrl);
+
+    // Expected failing redirect observed in some environments:
+    // /storage/v1/object/public/client-sites/<orgId>/extracted/dist/index.html
+    const marker = "/storage/v1/object/public/client-sites/";
+    const i = u.pathname.indexOf(marker);
+    if (i < 0) return null;
+
+    const after = u.pathname.slice(i + marker.length);
+    const parts = after.split("/").filter(Boolean);
+    if (parts.length < 4) return null;
+
+    const orgId = parts[0];
+    const hasExtractedDist = parts[1] === "extracted" && parts[2] === "dist";
+    const isIndex = parts[3] === "index.html";
+    if (!hasExtractedDist || !isIndex) return null;
+
+    // Alternative path that exists in this project:
+    // /storage/v1/object/public/client-sites/<orgId>/public-sites/<subdomain>/index.html
+    u.pathname = `${marker}${orgId}/public-sites/${encodeURIComponent(subdomain)}/index.html`;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
@@ -146,18 +174,37 @@ export default async function handler(req, res) {
     )}`;
 
     const indexUrl = await resolveStorageIndexUrl(serveUrl);
-    const resp = await fetch(indexUrl, { redirect: "follow" });
+    let finalIndexUrl = indexUrl;
+    let resp = await fetch(indexUrl, { redirect: "follow" });
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => "");
-      res.statusCode = 502;
-      res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      const dbg = debug ? `\n\n[debug]\nindexUrl=${indexUrl}` : "";
-      res.end(`Falha ao buscar site (upstream ${resp.status}).\n${body}${dbg}`);
-      return;
+
+      // Supabase Storage may return a JSON body like:
+      // {"statusCode":"404","error":"not_found","message":"Object not found"}
+      // In some deployments the serve endpoint redirects to an old path (extracted/dist).
+      // Try an alternate public-sites path before failing.
+      if (body && body.includes("Object not found")) {
+        const fallback = buildFallbackIndexUrlFromRedirect(indexUrl, subdomain);
+        if (fallback && fallback !== indexUrl) {
+          const r2 = await fetch(fallback, { redirect: "follow" });
+          if (r2.ok) {
+            resp = r2;
+            finalIndexUrl = fallback;
+          }
+        }
+      }
+
+      if (!resp.ok) {
+        res.statusCode = 502;
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        const dbg = debug ? `\n\n[debug]\nindexUrl=${indexUrl}\nfinalIndexUrl=${finalIndexUrl}` : "";
+        res.end(`Falha ao buscar site (upstream ${resp.status}).\n${body}${dbg}`);
+        return;
+      }
     }
 
-    const baseUrl = indexUrl.replace(/\/index\.html(\?.*)?$/i, "");
+    const baseUrl = finalIndexUrl.replace(/\/index\.html(\?.*)?$/i, "");
 
     // Asset requests: proxy from Storage through Vercel (avoids CORS/module-script issues).
     if (requestedPath && requestedPath !== "/") {
