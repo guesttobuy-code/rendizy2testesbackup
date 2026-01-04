@@ -5,6 +5,15 @@
 //
 // Why: Supabase Edge/Storage currently forces text/plain + sandbox CSP for HTML.
 // We proxy the HTML through Vercel so the browser receives text/html and a usable CSP.
+//
+// Architecture notes:
+// - docs/02-architecture/ARQUITETURA_CLIENT_SITES_PROXY_SUPABASE_MEDHOME_2026-01-04.md
+//
+// This proxy also contains a couple of surgical compatibility fallbacks used by the MedHome SPA:
+// 1) Storage redirect mismatch: some environments redirect to /extracted/dist/index.html (missing);
+//    we retry /public-sites/<subdomain>/index.html when Storage returns "Object not found".
+// 2) Bundle compatibility: MedHome UI reads pricing.dailyRate but some datasets/bundles only provide pricing.basePrice.
+//    We patch the compiled JS in-flight to populate dailyRate derived from basePrice.
 
 import { Buffer } from "node:buffer";
 

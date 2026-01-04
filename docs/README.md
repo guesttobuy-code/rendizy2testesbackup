@@ -103,6 +103,11 @@ docs/
   - Bloqueios de calendário
   - Integração com properties
 
+- **ARQUITETURA_CLIENT_SITES_PROXY_SUPABASE_MEDHOME_2026-01-04.md** - Sites públicos por subdomínio (Supabase Storage + Vercel proxy)
+  - Fluxo `/site/<subdomain>` → `rendizy-public/serve` → Storage
+  - Proxy para Content-Type/CSP + compatibilidade com bundle do cliente
+  - Caso real MedHome (lições aprendidas)
+
 ### 🎯 Quando Usar Esta Seção
 
 - ✅ Entender decisões de design

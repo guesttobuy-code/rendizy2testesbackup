@@ -2,9 +2,14 @@
 // Public (no-JWT) endpoints used by client public sites.
 // IMPORTANT: keep scope minimal. Do NOT mount internal/admin routes here.
 
-import { Hono, type Context } from "hono";
-import JSZip from "jszip";
-import { createClient } from "@supabase/supabase-js";
+// NOTE (Supabase Edge / Deno runtime):
+// This file is bundled/executed by Deno (not Node). Use `npm:` specifiers for npm packages.
+// If you switch these imports back to bare specifiers (e.g. "hono"), `supabase functions deploy`
+// may fail to bundle and changes won't reach production.
+
+import { Hono, type Context } from "npm:hono";
+import JSZip from "npm:jszip";
+import { createClient } from "npm:@supabase/supabase-js";
 import {
   SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_URL,
@@ -130,6 +135,10 @@ async function ensureExtractedToPublicStorage(args: {
   const supabaseUrl = (SUPABASE_URL || "").replace(/\/+$/, "");
   const publicBaseUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}`;
   const orgId = site.organization_id;
+  // IMPORTANT: historically we redirected to /extracted/dist/index.html.
+  // Some deployments store the extracted site under /public-sites/<subdomain>/ instead.
+  // The Vercel proxy currently has a runtime fallback for that case (see api/site.js).
+  // TODO: align this redirect with `site.extracted_base_url` to avoid broken redirects.
   const indexUrl = `${publicBaseUrl}/${orgId}/extracted/dist/index.html`;
 
   if (site.extracted_base_url && (site.extracted_files_count || 0) > 0) {
@@ -306,6 +315,8 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
 
     const organizationId = (sqlSite as { organization_id: string }).organization_id;
 
+    // Primary source: `properties` table (classic/curated listings).
+    // We intentionally filter by published-like statuses for public sites.
     const { data: properties, error } = await supabase
       .from("properties")
       .select(
@@ -364,7 +375,8 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
       updatedAt: p.updated_at,
     }));
 
-    // Fallback (MedHome / StaysNet): some orgs store listings in anuncios_ultimate, not in properties.
+    // Fallback (MedHome / StaysNet): some orgs store listings in `anuncios_ultimate` (JSONB), not in `properties`.
+    // This fallback is critical for environments where `properties` is empty or only has draft rows.
     if (formatted.length === 0) {
       const { data: anuncios, error: anunciosError } = await supabase
         .from("anuncios_ultimate")
