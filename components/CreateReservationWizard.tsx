@@ -12,6 +12,7 @@ import { Calendar, ChevronLeft, ChevronRight, Search, Plus, Star, Loader2, Users
 import { Property } from '../App';
 import { guestsApi, reservationsApi, propertiesApi, calendarApi } from '../utils/api';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -164,6 +165,7 @@ export function CreateReservationWizard({
   endDate,
   onComplete
 }: CreateReservationWizardProps) {
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
   const [property, setProperty] = useState<Property | null>(null);  // ✅ State para property
   const [loadingProperty, setLoadingProperty] = useState(false);    // ✅ Loading state
@@ -542,6 +544,10 @@ export function CreateReservationWizard({
       if (response.success) {
         console.log('✅ Reserva criada com sucesso:', response.data?.id);
         toast.success('Reserva criada com sucesso!');
+
+        // ✅ Atualizar o calendário imediatamente (evita precisar dar F5)
+        queryClient.invalidateQueries({ queryKey: ['reservations'] });
+
         onComplete(response.data);
         onClose();
         // Form será resetado pelo useEffect de fechamento

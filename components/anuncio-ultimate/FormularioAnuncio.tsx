@@ -1457,6 +1457,53 @@ export default function FormularioAnuncio() {
       return false;
     }
   };
+
+  // ============================================================================
+  // STEP 04: TOUR VIRTUAL - SAVE (FOTO DE CAPA)
+  // ============================================================================
+
+  const saveTourCoverPhoto = async () => {
+    console.log('⭐ [SAVE] SALVANDO FOTO DE CAPA (TOUR)');
+
+    if (!anuncioId) {
+      toast.error('❌ ID do anúncio não encontrado');
+      return false;
+    }
+
+    try {
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
+        },
+        body: JSON.stringify({
+          anuncio_id: anuncioId,
+          field: 'cover_photo_id',
+          value: formData.coverPhotoId ?? null,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || data?.message || `HTTP ${response.status}`);
+
+      if (formData.coverPhotoId) {
+        toast.success('✅ Foto de capa salva!');
+      } else {
+        toast.success('✅ Foto de capa removida e salva!');
+      }
+      calculateProgress(formData);
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao salvar foto de capa:', error);
+      toast.error('❌ Erro ao salvar foto de capa');
+      return false;
+    }
+  };
   
   // ============================================================================
   // STEP 05: AMENIDADES DO LOCAL - SAVE
@@ -1929,10 +1976,74 @@ export default function FormularioAnuncio() {
   const handleSaveAll = async () => {
     setIsSaving(true);
     try {
+      const normalizeForStorage = (input: FormData, existing: any = {}) => {
+        const next: any = { ...(existing || {}) };
+
+        // Base fields
+        next.tipoAcomodacao = input.tipoAcomodacao;
+        next.tipoLocal = input.tipoLocal;
+        next.subtype = input.subtype;
+        next.title = input.title;
+        next.internalId = input.internalId;
+        next.modalidades = input.modalidades;
+        next.estrutura = input.estrutura;
+
+        // Address + localization
+        next.pais = input.pais;
+        next.estado = input.estado;
+        next.sigla_estado = input.siglaEstado;
+        next.cep = input.cep;
+        next.cidade = input.cidade;
+        next.bairro = input.bairro;
+        next.rua = input.rua;
+        next.numero = input.numero;
+        next.complemento = input.complemento;
+        next.mostrar_numero = input.mostrarNumero;
+        next.tipo_acesso = input.tipoAcesso;
+        next.instrucoes_acesso = input.instrucoesAcesso;
+        next.estacionamento = input.estacionamento;
+        next.tipo_estacionamento = input.tipoEstacionamento;
+        next.internet_cabo = input.internetCabo;
+        next.internet_wifi = input.internetWifi;
+        next.address = input.address;
+
+        // Rooms + counts
+        next.rooms = input.rooms;
+        next.bedrooms = input.bedrooms;
+        next.bathrooms = input.bathrooms;
+        next.beds = input.beds;
+        next.guests = input.guests;
+
+        // Cover photo: persist only stable identifiers
+        next.cover_photo_id = input.coverPhotoId ?? null;
+
+        // Amenities: persist under canonical snake_case keys
+        next.location_amenities = input.locationAmenities;
+        next.listing_amenities = input.listingAmenities;
+
+        // Description
+        next.description = input.description;
+
+        // Cleanup: remove camelCase duplicates if present
+        delete next.locationAmenities;
+        delete next.listingAmenities;
+        delete next.coverPhotoId;
+
+        // Never persist volatile blob/data URLs as coverPhoto
+        const coverPhoto = (next.coverPhoto ?? input.coverPhoto) as unknown;
+        if (typeof coverPhoto === 'string' && (coverPhoto.startsWith('blob:') || coverPhoto.startsWith('data:'))) {
+          delete next.coverPhoto;
+        }
+
+        return next;
+      };
+
       // ✅ NOVO ANÚNCIO: Criar com INSERT
       if (!anuncioId) {
         const novoId = crypto.randomUUID();
         const token = localStorage.getItem('rendizy-token');
+
+        const initialData = normalizeForStorage(formData, {});
 
         const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/create`, {
           method: 'POST',
@@ -1944,7 +2055,7 @@ export default function FormularioAnuncio() {
           },
           body: JSON.stringify({
             id: novoId,
-            initial: formData,
+            initial: initialData,
           })
         });
         
@@ -1962,6 +2073,27 @@ export default function FormularioAnuncio() {
       
       // ✅ ANÚNCIO EXISTENTE: Atualizar com PATCH
       const token = localStorage.getItem('rendizy-token');
+
+      // IMPORTANT: PATCH replaces `data`. We must merge with existing data to avoid wiping
+      // fields that are not currently hydrated in formData.
+      const currentResp = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncioId}`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': token || '',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!currentResp.ok) {
+        const data = await currentResp.json().catch(() => null);
+        throw new Error(data?.error || data?.message || `Erro ao carregar anúncio atual (HTTP ${currentResp.status})`);
+      }
+
+      const currentPayload = await currentResp.json();
+      const existingData = currentPayload?.anuncio?.data || {};
+      const mergedData = normalizeForStorage(formData, existingData);
+
       const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncioId}`, {
         method: 'PATCH',
         headers: {
@@ -1972,7 +2104,7 @@ export default function FormularioAnuncio() {
         },
         body: JSON.stringify({
           title: formData.title || 'Sem título',
-          data: formData,
+          data: mergedData,
         })
       });
       
@@ -2026,8 +2158,8 @@ export default function FormularioAnuncio() {
       completed.push('comodos');
     }
     
-    // ✅ Tab 4: Tour
-    if (data.coverPhoto) {
+    // ✅ Tab 4: Tour (persistido via coverPhotoId / cover_photo_id)
+    if (data.coverPhotoId) {
       completed.push('tour');
     }
     
@@ -3523,6 +3655,20 @@ export default function FormularioAnuncio() {
                       ))}
                   </div>
                 )}
+
+                {/* Botão Salvar Tour (Foto de Capa) */}
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    type="button"
+                    onClick={saveTourCoverPhoto}
+                    disabled={isSaving}
+                    className="bg-slate-900"
+                  >
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Salvar Foto de Capa
+                  </Button>
+                </div>
               </div>
             </TabsContent>
             
