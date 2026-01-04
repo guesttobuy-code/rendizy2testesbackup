@@ -196,8 +196,9 @@ export function ClientSitesManager() {
     if (site.domain) {
       return site.domain.startsWith('http') ? site.domain : `https://${site.domain}`;
     }
-    // Preview estável sem depender de wildcard DNS
-    return `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/serve/${site.subdomain}`;
+    // Preview estável via Vercel (evita limitações de headers/CSP do Supabase para HTML)
+    // Mantém padrão único: https://rendizy2testesbackup.vercel.app/site/<subdomain>/
+    return `https://rendizy2testesbackup.vercel.app/site/${site.subdomain}/`;
   };
 
   if (loading) {
