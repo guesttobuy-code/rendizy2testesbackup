@@ -110,6 +110,7 @@ export default async function handler(req, res) {
   try {
     const subdomain = req.query && req.query.subdomain ? String(req.query.subdomain) : "";
     const requestedPath = req.query && req.query.path ? String(req.query.path) : "";
+    const debug = req.query && String(req.query.debug || "") === "1";
 
     if (!subdomain) {
       res.statusCode = 400;
@@ -130,7 +131,8 @@ export default async function handler(req, res) {
       const body = await resp.text().catch(() => "");
       res.statusCode = 502;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      res.end(`Falha ao buscar site (upstream ${resp.status}).\n${body}`);
+      const dbg = debug ? `\n\n[debug]\nindexUrl=${indexUrl}` : "";
+      res.end(`Falha ao buscar site (upstream ${resp.status}).\n${body}${dbg}`);
       return;
     }
 
@@ -153,7 +155,10 @@ export default async function handler(req, res) {
         const body = await assetResp.text().catch(() => "");
         res.statusCode = 502;
         res.setHeader("Content-Type", "text/plain; charset=utf-8");
-        res.end(`Falha ao buscar asset (upstream ${assetResp.status}).\n${body}`);
+        const dbg = debug
+          ? `\n\n[debug]\nindexUrl=${indexUrl}\nbaseUrl=${baseUrl}\nassetUrl=${assetUrl}`
+          : "";
+        res.end(`Falha ao buscar asset (upstream ${assetResp.status}).\n${body}${dbg}`);
         return;
       }
 
