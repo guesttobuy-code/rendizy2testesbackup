@@ -125,9 +125,6 @@ function contentTypeForPath(path: string): string {
   return base;
 }
 
-async function ensureExtractedToPublicStorage(args: {
-  supabase: ReturnType<typeof getSupabaseAdminClient>;
-
 function numberOrZero(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -184,9 +181,7 @@ function normalizeAnuncioPhotos(d: any): { photos: string[]; coverPhoto: string 
     .filter((u): u is string => !!u);
 
   const coverPhotoId = d?.cover_photo_id || d?.coverPhotoId || null;
-  const coverFromRooms = coverPhotoId
-    ? roomPhotos.find((p) => p?.id === coverPhotoId)
-    : null;
+  const coverFromRooms = coverPhotoId ? roomPhotos.find((p) => p?.id === coverPhotoId) : null;
   const coverUrl =
     (typeof coverFromRooms?.url === "string" ? coverFromRooms.url : null) ||
     (typeof d?.fotoPrincipal === "string" ? d.fotoPrincipal : null) ||
@@ -195,6 +190,45 @@ function normalizeAnuncioPhotos(d: any): { photos: string[]; coverPhoto: string 
 
   return { photos: urls, coverPhoto: coverUrl };
 }
+
+function maxGuestsPerBedKey(key: string): number {
+  const k = (key || "").toLowerCase();
+  if (!k) return 0;
+  if (k.includes("solteiro")) return 1;
+  if (k.includes("berco") || k.includes("berço")) return 1;
+  if (k.includes("beliche")) return 2;
+  if (k.includes("sofa") || k.includes("sofá")) return 2;
+  if (k.includes("king") || k.includes("queen")) return 2;
+  if (k.includes("casal") || k.includes("dupla") || k.includes("double")) return 2;
+  if (k.includes("colchao") || k.includes("colchão")) return 1;
+  return 1;
+}
+
+function computeMaxGuestsFromBedsMap(beds: any): number {
+  if (!beds || typeof beds !== "object") return 0;
+  let total = 0;
+  for (const [key, rawCount] of Object.entries(beds)) {
+    const count = numberOrZero(rawCount);
+    if (count <= 0) continue;
+    const per = maxGuestsPerBedKey(String(key));
+    total += count * per;
+  }
+  return total;
+}
+
+function computeMaxGuestsFromAnuncioData(d: any): number {
+  const fromTopLevelBeds = computeMaxGuestsFromBedsMap(d?.beds);
+  let fromRooms = 0;
+  if (Array.isArray(d?.rooms)) {
+    for (const r of d.rooms as any[]) {
+      fromRooms += computeMaxGuestsFromBedsMap(r?.beds);
+    }
+  }
+  return Math.max(fromTopLevelBeds, fromRooms);
+}
+
+async function ensureExtractedToPublicStorage(args: {
+  supabase: ReturnType<typeof getSupabaseAdminClient>;
   site: ClientSiteRow;
 }): Promise<{ publicBaseUrl: string; indexUrl: string; extractedFilesCount: number }> {
   const { supabase, site } = args;
@@ -448,8 +482,13 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
     }));
 
     // Fallback (MedHome / StaysNet): some orgs store listings in `anuncios_ultimate` (JSONB), not in `properties`.
-    // This fallback is critical for environments where `properties` is empty or only has draft rows.
-    if (formatted.length === 0) {
+    // Note: we also fallback when `properties` exists but appears incomplete (e.g., pricing all zeros),
+    // because some orgs have a single "admin/test" property row that would otherwise hide real listings.
+    const shouldLoadAnunciosFallback =
+      formatted.length === 0 ||
+      formatted.every((p) => (p?.pricing?.dailyRate || 0) <= 0);
+
+    if (shouldLoadAnunciosFallback) {
       const { data: anuncios, error: anunciosError } = await supabase
         .from("anuncios_ultimate")
         .select("id,status,organization_id,data,created_at,updated_at")
@@ -470,6 +509,9 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
         const d = (row as any)?.data || {};
         const { photos, coverPhoto } = normalizeAnuncioPhotos(d);
         const pricing = normalizePricing(d);
+        const derivedMaxGuests = computeMaxGuestsFromAnuncioData(d);
+        const explicitMaxGuests = numberOrZero(d.guests ?? d.maxGuests ?? d.max_guests ?? d.hospedes ?? 0);
+        const maxGuests = Math.max(explicitMaxGuests, derivedMaxGuests);
 
         return {
           id: row.id,
@@ -495,7 +537,7 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
               (Array.isArray(d.rooms) ? d.rooms.length : 0) ||
               0,
             bathrooms: Number(d.bathrooms ?? d.banheiros ?? 0) || 0,
-            maxGuests: Number(d.guests ?? d.maxGuests ?? d.hospedes ?? d.beds ?? 0) || 0,
+            maxGuests,
             area: Number(d.area ?? 0) || null,
           },
           description: d.description || d.shortDescription || "",
@@ -515,8 +557,17 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
         };
       });
 
+      const seen = new Set(formatted.map((p) => p.id));
+      const merged = [...formatted];
+      for (const a of anuncioFormatted) {
+        if (a?.id && !seen.has(a.id)) {
+          merged.push(a);
+          seen.add(a.id);
+        }
+      }
+
       return c.json(
-        { success: true, data: anuncioFormatted, total: anuncioFormatted.length },
+        { success: true, data: merged, total: merged.length },
         200,
         withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
       );
