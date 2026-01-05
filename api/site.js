@@ -169,28 +169,31 @@ function patchClientSiteJs(jsText, { subdomain }) {
     .replaceAll("{{PROJECT_ID}}", SUPABASE_PROJECT_REF)
     .replaceAll("{{API_BASE_URL}}", publicApiBase)
     .replaceAll("{{PUBLIC_ANON_KEY}}", anonKey)
-    .replaceAll("{{SUPABASE_URL}}", supabaseUrl)
-    const publicApiBaseBase = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/api/`;
+    .replaceAll("{{SUPABASE_URL}}", supabaseUrl);
 
   // Supabase-js hard crash guard + fallback to runtime-injected config.
-  // We patch three known minified patterns:
-  // - URL normalization: function Fb(e){const t=...;if(!t)throw new Error("supabaseUrl is required.")
-  // - createClient wrapper: const Bk=(e,t,n)=>new Ak(e,t,n);
+  // We patch minified patterns via regex to handle varying function names (Fb, Ub, Xb, etc.)
+  // - URL normalization: function XX(e){const t=...;if(!t)throw new Error("supabaseUrl is required.")
+  // - createClient wrapper: const XX=(e,t,n)=>new YY(e,t,n);
   // - key required: if(!n)throw new Error("supabaseKey is required.")
-  const urlNeedle = 'function Fb(e){const t=e==null?void 0:e.trim();if(!t)throw new Error("supabaseUrl is required.");';
-  if (out.includes(urlNeedle)) {
-    const urlReplacement =
-      'function Fb(e){const t=(e==null?void 0:e.trim())||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseUrl)||globalThis.__RENDIZY_SUPABASE_URL__||globalThis.__SUPABASE_URL__||"" ).trim();if(!t)throw new Error("supabaseUrl is required.");';
-    out = out.replace(urlNeedle, urlReplacement);
-  }
 
-  const clientNeedle = 'const Bk=(e,t,n)=>new Ak(e,t,n);';
-  if (out.includes(clientNeedle)) {
-    const clientReplacement =
-      'const Bk=(e,t,n)=>{try{e=e||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseUrl)||globalThis.__RENDIZY_SUPABASE_URL__||globalThis.__SUPABASE_URL__||"");t=t||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseAnonKey)||globalThis.__RENDIZY_SUPABASE_ANON_KEY__||globalThis.__SUPABASE_ANON_KEY__||"");return e&&String(e).trim()&&t?new Ak(e,t,n):null}catch{return null}};';
-    out = out.replace(clientNeedle, clientReplacement);
-  }
+  // URL normalization pattern (generic): matches any 2-char function name.
+  // Before: function Ub(e){const t=e==null?void 0:e.trim();if(!t)throw new Error("supabaseUrl is required.");
+  // After: function Ub(e){const t=(e==null?void 0:e.trim())||((globalThis.RENDIZY_CONFIG&&...))||...; if(!t)throw...
+  out = out.replace(
+    /function\s+([A-Za-z_$][A-Za-z0-9_$]*)\(([a-z])\)\{const\s+([a-z])=\2==null\?void 0:\2\.trim\(\);if\(!\3\)throw new Error\("supabaseUrl is required\."\);/g,
+    (_match, fnName, argName, varName) =>
+      `function ${fnName}(${argName}){const ${varName}=(${argName}==null?void 0:${argName}.trim())||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseUrl)||globalThis.__RENDIZY_SUPABASE_URL__||globalThis.__SUPABASE_URL__||"").trim();if(!${varName})throw new Error("supabaseUrl is required.");`
+  );
 
+  // createClient wrapper pattern (generic): const XX=(e,t,n)=>new YY(e,t,n);
+  out = out.replace(
+    /const\s+([A-Za-z_$][A-Za-z0-9_$]*)=\(([a-z]),([a-z]),([a-z])\)=>new\s+([A-Za-z_$][A-Za-z0-9_$]*)\(\2,\3,\4\);/g,
+    (_match, wrapperName, e, t, n, className) =>
+      `const ${wrapperName}=(${e},${t},${n})=>{try{${e}=${e}||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseUrl)||globalThis.__RENDIZY_SUPABASE_URL__||globalThis.__SUPABASE_URL__||"");${t}=${t}||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseAnonKey)||globalThis.__RENDIZY_SUPABASE_ANON_KEY__||globalThis.__SUPABASE_ANON_KEY__||"");return ${e}&&String(${e}).trim()&&${t}?new ${className}(${e},${t},${n}):null}catch{return null}};`
+  );
+
+  // supabaseKey required pattern
   const keyNeedle = 'if(!n)throw new Error("supabaseKey is required.");';
   if (out.includes(keyNeedle)) {
     const keyReplacement =
