@@ -1497,7 +1497,8 @@ Use como fonte de verdade o catálogo interno em **Edição de Sites → Compone
 ### 2) Endpoints
 - ` + "`GET /client-sites/api/:subdomain/properties`" + ` = **stable** (use).
 - ` + "`GET /client-sites/api/:subdomain/site-config`" + ` = **opcional/beta** (use com fallback local; o site não pode quebrar se não existir).
-- Calendário/Leads = **planned** (não implemente integração real).
+- ` + "`GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`" + ` = **stable** (use para calendário: disponibilidade por dia + preço base por dia; NÃO é quote do total da reserva).
+- Leads/booking/quote = **planned** (não implemente integração real).
 
 ### 3) DTO de imóveis e grupos de campos
 O site deve usar APENAS os campos do ` + "`ClientSiteProperty`" + ` acima, seguindo estes grupos:
@@ -1522,7 +1523,7 @@ Para Header/Hero/Footer:
 - Preferir dados vindos de ` + "`site-config`" + ` (título, descrição, contato, redes, features), quando disponível.
 - Caso ` + "`site-config`" + ` não exista/falhe, usar fallback local no bundle.
 
-Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade canônico, calendário por dia, leads.
+Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade canônico, leads/booking/quote.
 
 ### Regras de UI
 - Imagem principal: ` + "`coverPhoto`" + ` (fallback: primeira de ` + "`photos`" + `)
@@ -2004,7 +2005,7 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
                 <br />• Publicar o build estático (ZIP com dist/) e servir em /site/&lt;subdomain&gt;/
                 <br />• Integrar com a API pública de imóveis (properties)
                 <br />• Manter os dados do site (contatos, features) salvos no Rendizy (site-config público disponível)
-                <br />• Calendário/reservas/leads: ainda planejado (não garantido neste fluxo)
+                <br />• Calendário (disponibilidade por dia): disponível; reservas/leads: ainda planejado
               </p>
             </div>
           </div>
