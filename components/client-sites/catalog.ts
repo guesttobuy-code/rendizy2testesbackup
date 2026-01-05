@@ -1,3 +1,18 @@
+// ============================================================
+// CATÁLOGO DE CONTRATO PÚBLICO — CLIENT SITES API
+// ============================================================
+//
+// ⚠️ REGRA CANÔNICA (LEIA docs/Rules.md):
+// O RENDIZY PROPÕE O PADRÃO. SITES EXTERNOS SEGUEM.
+//
+// Este arquivo é a FONTE DE VERDADE para a API pública.
+// - Tipos aqui definidos são IMUTÁVEIS após publicação
+// - Mudanças são ADITIVAS (novos campos opcionais)
+// - Sites externos DEVEM implementar conforme especificado
+// - NUNCA adapte o backend para aceitar formatos não documentados
+//
+// ============================================================
+
 export type ClientSitesCatalogStability = 'stable' | 'planned';
 
 export type ClientSitesCatalogEndpoint = {

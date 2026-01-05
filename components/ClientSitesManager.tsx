@@ -1525,6 +1525,19 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
 // ============================================================
 // MODAL: DOCUMENTAÇÃO PROMPT SITES I.A (BOLT, V0, ETC)
 // ============================================================
+//
+// ⚠️ REGRA CANÔNICA (LEIA docs/Rules.md):
+// O RENDIZY PROPÕE O PADRÃO. SITES EXTERNOS SEGUEM.
+//
+// - NUNCA adapte código Rendizy para "aceitar" implementação errada de terceiros
+// - Se o site gerado tem bug, corrija o PROMPT abaixo, não o backend
+// - O prompt é PROPOSITIVO: dita regras, não sugere
+// - Zero tolerância com desvios do contrato
+//
+// Fluxo correto: Prompt atualizado → Site regenerado → Funciona
+// Fluxo ERRADO: Site bugado → Patch no Rendizy → NÃO FAZER!
+//
+// ============================================================
 
 function DocsAIModal({ open, onClose }: {
   open: boolean;
@@ -1532,7 +1545,23 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.6)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.7)
+
+---
+## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
+
+**O RENDIZY PROPÕE O PADRÃO. VOCÊ SEGUE.**
+
+Este prompt é PROPOSITIVO, não sugestivo. As especificações aqui são ORDENS, não recomendações.
+- Você DEVE implementar exatamente como especificado.
+- Você NÃO pode propor formatos alternativos.
+- Você NÃO pode usar convenções próprias que desviem do contrato.
+- Se algo não está claro, use o formato EXATO dos exemplos.
+
+O Rendizy **NUNCA** adaptará seu código para "aceitar" implementações diferentes.
+Se seu site não funcionar, é porque você desviou do padrão. Corrija seu código.
+
+---
 
 ## Objetivo (aceitação)
 Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
