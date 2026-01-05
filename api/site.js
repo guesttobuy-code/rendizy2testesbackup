@@ -295,7 +295,12 @@ export const config = { runtime: "nodejs" };
 export default async function handler(req, res) {
   try {
     const reqUrl = new URL(req.url, "http://localhost");
-    const cacheBuster = reqUrl.searchParams.get("v") || "";
+    // Auto-generate cache-buster if not provided.
+    // This ensures new uploads invalidate browser cache for JS/CSS assets.
+    // We use hourly granularity to balance freshness vs CDN efficiency.
+    const explicitV = reqUrl.searchParams.get("v") || "";
+    const autoV = String(Math.floor(Date.now() / 3600000)); // changes every hour
+    const cacheBuster = explicitV || autoV;
     const subdomain = req.query && req.query.subdomain ? safeDecode(req.query.subdomain) : "";
     const requestedPath = req.query && req.query.path ? safeDecode(req.query.path) : "";
     const debug = req.query && String(req.query.debug || "") === "1";
