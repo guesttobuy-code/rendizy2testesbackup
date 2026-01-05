@@ -961,6 +961,167 @@ clientSites.get("/api/:subdomain/properties/:propertyId/availability", async (c:
 });
 
 // ============================================================
+// PUBLIC: Calendar endpoint (alias for client-site compatibility)
+// GET /client-sites/api/:subdomain/calendar?propertyId=xxx&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+// Returns availability in format expected by Bolt.new sites
+// ============================================================
+clientSites.get("/api/:subdomain/calendar", async (c: Context) => {
+  try {
+    const subdomain = (c.req.param("subdomain") || "").trim().toLowerCase();
+    const propertyId = (c.req.query("propertyId") || "").trim();
+    const startDate = (c.req.query("startDate") || "").trim();
+    const endDate = (c.req.query("endDate") || "").trim();
+
+    if (!subdomain || !propertyId) {
+      return c.json(
+        { success: false, error: "Parâmetros inválidos (subdomain, propertyId)" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    if (!startDate || !endDate) {
+      return c.json(
+        { success: false, error: "startDate e endDate são obrigatórios" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const fromDate = ymdToDateUtc(startDate);
+    const toDate = ymdToDateUtc(endDate);
+    if (!fromDate || !toDate) {
+      return c.json(
+        { success: false, error: "Formato de data inválido (use YYYY-MM-DD)" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    if (fromDate.getTime() > toDate.getTime()) {
+      return c.json(
+        { success: false, error: "Intervalo inválido (startDate > endDate)" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const MAX_DAYS = 370;
+    const days = enumerateYmdRangeInclusive(startDate, endDate, MAX_DAYS);
+    if (days.length === 0 || days.length > MAX_DAYS + 1) {
+      return c.json(
+        { success: false, error: `Intervalo inválido (max ${MAX_DAYS} dias)` },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // Validate site + org
+    const { data: sqlSite, error: sqlError } = await supabase
+      .from("client_sites")
+      .select("organization_id")
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (sqlError || !sqlSite) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const orgId = sqlSite.organization_id;
+
+    // Validate property belongs to org
+    const { data: propRow, error: propError } = await supabase
+      .from("anuncios_ultimate")
+      .select("id, data")
+      .eq("id", propertyId)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    if (propError || !propRow) {
+      return c.json(
+        { success: false, error: "Imóvel não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const propData = propRow.data || {};
+    const pricing = propData.pricing || {};
+    const baseDailyRate = numberOrZero(pricing.dailyRate);
+
+    // Fetch blocks and reservations
+    const [{ data: blockRows }, { data: reservationRows }] = await Promise.all([
+      supabase
+        .from("blocks")
+        .select("start_date, end_date")
+        .eq("property_id", propertyId)
+        .gte("end_date", startDate)
+        .lte("start_date", endDate),
+      supabase
+        .from("reservations")
+        .select("check_in, check_out")
+        .eq("property_id", propertyId)
+        .in("status", ["confirmed", "pending"])
+        .gte("check_out", startDate)
+        .lte("check_in", endDate),
+    ]);
+
+    const blocks = (blockRows as any[] | null | undefined) || [];
+    const reservations = (reservationRows as any[] | null | undefined) || [];
+
+    // Build days array in format expected by Bolt sites
+    const daysResult = days.map((ymd) => {
+      const block = blocks.find((b) => {
+        const s = String(b.start_date).slice(0, 10);
+        const e = String(b.end_date).slice(0, 10);
+        return ymd >= s && ymd < e;
+      });
+
+      const reservation = reservations.find((r) => {
+        const s = String(r.check_in).slice(0, 10);
+        const e = String(r.check_out).slice(0, 10);
+        return ymd >= s && ymd < e;
+      });
+
+      let status: "available" | "blocked" | "reserved" = "available";
+      if (block) status = "blocked";
+      else if (reservation) status = "reserved";
+
+      return {
+        propertyId,
+        date: ymd,
+        status,
+        price: baseDailyRate,
+        minNights: 1,
+      };
+    });
+
+    // Return in format: { days: [...] }
+    return c.json(
+      { days: daysResult },
+      200,
+      withCorsHeaders({
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      })
+    );
+  } catch (err) {
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
+});
+
+// ============================================================
 // PUBLIC: Create reservation from client site
 // POST /client-sites/api/:subdomain/reservations
 // ============================================================
