@@ -55,12 +55,13 @@ function contentTypeForPath(pathname) {
 
 function buildCsp() {
   const supabaseOrigin = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
+  const vercelLiveOrigin = "https://vercel.live";
 
   return [
     "default-src 'self'",
-    `connect-src 'self' https: ${supabaseOrigin}`,
+    `connect-src 'self' https: ${supabaseOrigin} ${vercelLiveOrigin}`,
     `img-src 'self' data: https: ${supabaseOrigin}`,
-    `script-src 'self' 'unsafe-inline' ${supabaseOrigin}`,
+    `script-src 'self' 'unsafe-inline' ${supabaseOrigin} ${vercelLiveOrigin}`,
     `style-src 'self' 'unsafe-inline' https: ${supabaseOrigin}`,
     `font-src 'self' data: https: ${supabaseOrigin}`,
     "object-src 'none'",
@@ -91,6 +92,8 @@ function patchHtmlForSubpath(html, baseHref) {
 
   // Vite default icon (common in Bolt/Vite outputs).
   out = out.replace(/\s(src|href)="\/vite\.svg(\?[^"#]*)?"/gi, ' $1="vite.svg$2"');
+  // If the site doesn't ship vite.svg, remove the icon tag to avoid 502 noise.
+  out = out.replace(/\s*<link[^>]*rel=["']icon["'][^>]*href=["']vite\.svg[^"']*["'][^>]*>\s*/gi, "\n");
 
   return out;
 }
@@ -133,7 +136,17 @@ function patchMedhomePricingInBundle(jsText) {
   const replacement =
     'pricing:{basePrice:Nn(r.basePrice,0),currency:r.currency??"BRL",dailyRate:Nn(r.dailyRate??r.basePrice,0),weeklyRate:Nn(r.weeklyRate??0),monthlyRate:Nn(r.monthlyRate??0)}';
 
-  return jsText.replace(needle, replacement);
+  let out = jsText.replace(needle, replacement);
+
+  // Bundle safety: some Bolt/Vite outputs accidentally initialize Supabase client with undefined
+  // (e.g. `ww(void 0, void 0)`), which throws and blanks the whole page.
+  // Guard the factory so missing config doesn't crash the SPA.
+  out = out.replace(
+    "const ww=(e,t,n)=>new yw(e,t,n);",
+    "const ww=(e,t,n)=>{try{return e&&String(e).trim()&&t?new yw(e,t,n):null}catch{return null}};"
+  );
+
+  return out;
 }
 
 async function resolveStorageIndexUrl(serveUrl) {
