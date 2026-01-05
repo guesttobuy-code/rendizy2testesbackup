@@ -56,6 +56,79 @@ interface ClientSite {
   isActive: boolean;
 }
 
+type ClientSiteUploadStepStatus = 'completed' | 'skipped' | 'pending' | 'failed';
+type ClientSiteUploadStep = {
+  step: number;
+  name?: string;
+  message?: string;
+  status: ClientSiteUploadStepStatus;
+};
+
+type UploadArchiveResponse = {
+  success: boolean;
+  message?: string;
+  error?: string;
+  details?: string;
+  data?: any;
+  steps?: ClientSiteUploadStep[];
+};
+
+function stepBadgeVariant(
+  status: ClientSiteUploadStepStatus
+): 'default' | 'secondary' | 'outline' | 'destructive' {
+  if (status === 'completed') return 'default';
+  if (status === 'skipped') return 'secondary';
+  if (status === 'failed') return 'destructive';
+  return 'outline';
+}
+
+function getVercelPreviewUrl(subdomain: string): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}/site/${encodeURIComponent(subdomain)}/`;
+}
+
+async function verifyClientSiteIsServing(
+  subdomain: string
+): Promise<{ ok: boolean; details?: string }> {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const vercelDebugUrl = origin
+    ? `${origin}/api/site?subdomain=${encodeURIComponent(subdomain)}&debug=1`
+    : '';
+
+  // Prefer Vercel proxy (best signal for /site/<subdomain>/).
+  if (vercelDebugUrl) {
+    try {
+      const r = await fetch(vercelDebugUrl, { method: 'GET', cache: 'no-store' as RequestCache });
+      const txt = await r.text().catch(() => '');
+      if (r.ok) return { ok: true };
+      return { ok: false, details: txt ? txt.slice(0, 800) : `Proxy respondeu HTTP ${r.status}` };
+    } catch {
+      // fallback below
+    }
+  }
+
+  // Fallback: check Supabase serve redirect.
+  try {
+    const serveUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-public/client-sites/serve/${encodeURIComponent(
+      subdomain
+    )}`;
+    const r = await fetch(serveUrl, { method: 'GET', redirect: 'manual', cache: 'no-store' as RequestCache });
+    const loc = r.headers.get('location');
+    if (!loc) {
+      const txt = await r.text().catch(() => '');
+      return { ok: false, details: txt ? txt.slice(0, 800) : 'Supabase serve não retornou redirect' };
+    }
+    const indexResp = await fetch(loc, { method: 'GET', cache: 'no-store' as RequestCache });
+    if (!indexResp.ok) {
+      const txt = await indexResp.text().catch(() => '');
+      return { ok: false, details: txt ? txt.slice(0, 800) : `Index no Storage respondeu HTTP ${indexResp.status}` };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, details: e?.message ? String(e.message) : String(e) };
+  }
+}
+
 function getEdgeHeaders(contentType?: string): Record<string, string> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
 
@@ -1132,6 +1205,9 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
   const [siteCode, setSiteCode] = useState(site.siteCode || '');
   const [archiveFile, setArchiveFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<'zip' | 'code'>('zip');
+  const [uploadSteps, setUploadSteps] = useState<ClientSiteUploadStep[] | null>(null);
+  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'ok' | 'failed'>('idle');
+  const [verifyDetails, setVerifyDetails] = useState<string | null>(null);
 
   const handleSubmitCode = async () => {
     try {
@@ -1172,6 +1248,9 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
       }
 
       setLoading(true);
+      setUploadSteps(null);
+      setVerifyStatus('idle');
+      setVerifyDetails(null);
 
       const formData = new FormData();
       formData.append('file', archiveFile);
@@ -1191,10 +1270,25 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(data.message || 'Arquivo enviado com sucesso');
-        onSuccess();
+        const parsed = data as UploadArchiveResponse;
+        if (Array.isArray(parsed.steps)) setUploadSteps(parsed.steps);
+        toast.success(parsed.message || 'Arquivo enviado com sucesso');
+
+        setVerifyStatus('verifying');
+        const v = await verifyClientSiteIsServing(site.subdomain);
+        if (v.ok) {
+          setVerifyStatus('ok');
+          toast.success('✅ Publicação verificada.');
+          onSuccess();
+        } else {
+          setVerifyStatus('failed');
+          setVerifyDetails(v.details || 'Falha ao verificar publicação');
+          toast.error('⚠️ Upload ok, mas a verificação falhou.');
+        }
       } else {
-        toast.error(data.error || 'Erro ao enviar arquivo');
+        const parsed = data as UploadArchiveResponse;
+        if (Array.isArray(parsed.steps)) setUploadSteps(parsed.steps);
+        toast.error(parsed.error || 'Erro ao enviar arquivo');
       }
     } catch (error) {
       console.error('Erro ao enviar arquivo:', error);
@@ -1204,8 +1298,16 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
     }
   };
 
+  const previewUrl = getVercelPreviewUrl(site.subdomain);
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && loading) return;
+        if (!next) onClose();
+      }}
+    >
       <DialogContent className="max-w-4xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Upload Código do Site</DialogTitle>
@@ -1251,11 +1353,112 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
               Para produção, prefira o ZIP (dist/) para servir assets com Content-Type correto.
             </p>
           </div>
+
+          {loading && activeTab === 'zip' && (
+            <Alert>
+              <FileText className="h-4 w-4" />
+              <AlertTitle>Publicando site...</AlertTitle>
+              <AlertDescription>
+                Estamos enviando e processando o ZIP no backend. Não feche este modal.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {uploadSteps && uploadSteps.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm">Etapas do processamento</Label>
+              <div className="space-y-2">
+                {uploadSteps.map((s) => (
+                  <div key={`${s.step}-${s.name}`} className="flex items-center justify-between rounded border p-2">
+                    <div className="text-sm">{s.step}) {s.name}</div>
+                    <Badge variant={stepBadgeVariant(s.status)}>{s.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {verifyStatus !== 'idle' && activeTab === 'zip' && (
+            <Alert>
+              <FileText className="h-4 w-4" />
+              <AlertTitle>
+                {verifyStatus === 'verifying'
+                  ? 'Verificando publicação...'
+                  : verifyStatus === 'ok'
+                    ? 'Site pronto'
+                    : 'Verificação falhou'}
+              </AlertTitle>
+              <AlertDescription className="space-y-2 mt-2">
+                {verifyStatus === 'ok' ? (
+                  <div className="space-y-2">
+                    <p className="text-sm">Abra o site e, se necessário, faça hard refresh (Ctrl+F5) para ver a versão nova.</p>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="default" onClick={() => window.open(previewUrl, '_blank')} className="gap-2">
+                        <ExternalLink className="h-4 w-4" />
+                        Abrir site
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(previewUrl);
+                          toast.success('Link copiado!');
+                        }}
+                        className="gap-2"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copiar link
+                      </Button>
+                    </div>
+                  </div>
+                ) : verifyStatus === 'failed' ? (
+                  <div className="space-y-2">
+                    <p className="text-sm">
+                      O upload terminou, mas o site ainda não respondeu como esperado. Isso pode causar “tela branca”.
+                      Tente aguardar 20–60s e recarregar.
+                    </p>
+                    {verifyDetails && (
+                      <pre className="text-xs bg-gray-50 border rounded p-2 overflow-auto max-h-40 whitespace-pre-wrap">{verifyDetails}</pre>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={async () => {
+                          setVerifyStatus('verifying');
+                          setVerifyDetails(null);
+                          const v = await verifyClientSiteIsServing(site.subdomain);
+                          if (v.ok) {
+                            setVerifyStatus('ok');
+                            toast.success('✅ Publicação verificada.');
+                            onSuccess();
+                          } else {
+                            setVerifyStatus('failed');
+                            setVerifyDetails(v.details || 'Falha ao verificar');
+                            toast.error('Verificação ainda falhou.');
+                          }
+                        }}
+                        className="gap-2"
+                      >
+                        Verificar novamente
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => window.open(previewUrl + '?v=' + Date.now(), '_blank')} className="gap-2">
+                        <ExternalLink className="h-4 w-4" />
+                        Abrir com cache-buster
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm">Checando se o site já está acessível…</p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            {loading ? 'Aguarde...' : 'Fechar'}
           </Button>
           <Button
             onClick={activeTab === 'zip' ? handleSubmitZip : handleSubmitCode}
@@ -1727,11 +1930,7 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
   onSuccess: () => void;
   organizations: any[];
 }) {
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1);
-  const [importTab, setImportTab] = useState<'code' | 'zip'>('code');
-  const [archiveFile, setArchiveFile] = useState<File | null>(null);
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     organizationId: '',
     siteName: '',
     siteCode: '',
@@ -1741,7 +1940,64 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
     shortTerm: true,
     longTerm: false,
     sale: false
-  });
+  };
+
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1);
+  const [importTab, setImportTab] = useState<'code' | 'zip'>('code');
+  const [archiveFile, setArchiveFile] = useState<File | null>(null);
+  const [createdSubdomain, setCreatedSubdomain] = useState<string | null>(null);
+  const [uploadSteps, setUploadSteps] = useState<ClientSiteUploadStep[] | null>(null);
+  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'ok' | 'failed'>('idle');
+  const [verifyDetails, setVerifyDetails] = useState<string | null>(null);
+  const [formData, setFormData] = useState(initialFormData);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(false);
+    setStep(1);
+    setImportTab('code');
+    setArchiveFile(null);
+    setCreatedSubdomain(null);
+    setUploadSteps(null);
+    setVerifyStatus('idle');
+    setVerifyDetails(null);
+    setFormData(initialFormData);
+  }, [open]);
+
+  const canClose = !loading;
+
+  const openPreviewUrl = (subdomain: string, cacheBust = false) => {
+    const base = getVercelPreviewUrl(subdomain);
+    const url = cacheBust ? `${base}?v=${Date.now()}` : base;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const copyPreviewUrl = async (subdomain: string, cacheBust = false) => {
+    const base = getVercelPreviewUrl(subdomain);
+    const url = cacheBust ? `${base}?v=${Date.now()}` : base;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('🔗 Link copiado!');
+    } catch {
+      toast.error('Não foi possível copiar o link');
+    }
+  };
+
+  const retryVerify = async () => {
+    if (!createdSubdomain) return;
+    setVerifyStatus('verifying');
+    const v = await verifyClientSiteIsServing(createdSubdomain);
+    if (v.ok) {
+      setVerifyStatus('ok');
+      setVerifyDetails(null);
+      toast.success('✅ Publicação verificada.');
+    } else {
+      setVerifyStatus('failed');
+      setVerifyDetails(v.details || 'Falha ao verificar publicação');
+      toast.error('⚠️ Verificação falhou.');
+    }
+  };
 
   const handleSubmit = async () => {
     if (step === 1) {
@@ -1764,6 +2020,9 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
 
     try {
       setLoading(true);
+      setUploadSteps(null);
+      setVerifyStatus('idle');
+      setVerifyDetails(null);
 
       // 1. Criar o site
       const createResponse = await fetch(
@@ -1800,6 +2059,9 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
         return;
       }
 
+      const subdomain = (createData?.data?.subdomain as string | undefined) || null;
+      setCreatedSubdomain(subdomain);
+
       // 2. Fazer upload do código OU ZIP
       let uploadData: any = null;
 
@@ -1814,7 +2076,7 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
             body: JSON.stringify({ siteCode: formData.siteCode })
           }
         );
-        uploadData = await uploadResponse.json();
+        uploadData = (await uploadResponse.json()) as UploadArchiveResponse;
       } else {
         const fd = new FormData();
         fd.append('file', archiveFile as File);
@@ -1830,12 +2092,26 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
             body: fd
           }
         );
-        uploadData = await uploadResponse.json();
+        uploadData = (await uploadResponse.json()) as UploadArchiveResponse;
       }
 
+      if (Array.isArray((uploadData as any)?.steps)) setUploadSteps((uploadData as any).steps);
+
       if (uploadData?.success) {
-        toast.success('✅ Site importado com sucesso!');
-        onSuccess();
+        toast.success(uploadData?.message || '✅ Site importado com sucesso!');
+
+        if (subdomain) {
+          setVerifyStatus('verifying');
+          const v = await verifyClientSiteIsServing(subdomain);
+          if (v.ok) {
+            setVerifyStatus('ok');
+            toast.success('✅ Publicação verificada. Site pronto para abrir.');
+          } else {
+            setVerifyStatus('failed');
+            setVerifyDetails(v.details || 'Falha ao verificar publicação');
+            toast.error('⚠️ Upload ok, mas a verificação falhou. Veja os detalhes no modal.');
+          }
+        }
       } else {
         toast.error(uploadData?.error || 'Erro ao importar');
       }
@@ -1848,7 +2124,18 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && canClose) {
+          onClose();
+          return;
+        }
+        if (!nextOpen && !canClose) {
+          toast.message('Aguarde o processamento terminar…');
+        }
+      }}
+    >
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -1968,11 +2255,99 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
           <div className="space-y-4">
             <Alert>
               <Sparkles className="h-4 w-4" />
-              <AlertTitle>Cole o código gerado pela IA</AlertTitle>
+              <AlertTitle>Importe o build ou o código</AlertTitle>
               <AlertDescription>
-                Você pode colar o código ou enviar o ZIP (dist/) compilado
+                Você pode colar o código ou enviar um ZIP contendo <strong>dist/index.html</strong>.
               </AlertDescription>
             </Alert>
+
+            {createdSubdomain && (
+              <Alert>
+                <AlertTitle className="flex items-center justify-between gap-2">
+                  <span>
+                    Subdomínio criado: <strong>{createdSubdomain}</strong>
+                  </span>
+                  <Badge variant="secondary">/site/{createdSubdomain}/</Badge>
+                </AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => openPreviewUrl(createdSubdomain)}>
+                      Abrir site
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => copyPreviewUrl(createdSubdomain)}>
+                      Copiar link
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => openPreviewUrl(createdSubdomain, true)}>
+                      Abrir com cache-buster
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={retryVerify}
+                      disabled={loading || verifyStatus === 'verifying'}
+                    >
+                      Verificar novamente
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Dica: se você ver "tela branca" ou assets antigos, faça <strong>Ctrl+F5</strong> ou use o
+                    botão "cache-buster".
+                  </p>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {(uploadSteps || verifyStatus !== 'idle') && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Status do processamento</Label>
+                  <Badge
+                    variant={
+                      verifyStatus === 'ok'
+                        ? 'default'
+                        : verifyStatus === 'failed'
+                          ? 'destructive'
+                          : verifyStatus === 'verifying'
+                            ? 'secondary'
+                            : 'outline'
+                    }
+                  >
+                    {verifyStatus === 'idle'
+                      ? 'Aguardando'
+                      : verifyStatus === 'verifying'
+                        ? 'Verificando'
+                        : verifyStatus === 'ok'
+                          ? 'Publicado'
+                          : 'Falhou'}
+                  </Badge>
+                </div>
+
+                {Array.isArray(uploadSteps) && uploadSteps.length > 0 && (
+                  <div className="space-y-2">
+                    {uploadSteps.map((s, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <Badge variant={stepBadgeVariant(s.status)} className="mt-0.5">
+                          {s.status}
+                        </Badge>
+                        <div className="text-sm">
+                          <div className="font-medium">
+                            {s.step}. {s.name || 'Processando'}
+                          </div>
+                          {s.message && <div className="text-muted-foreground">{s.message}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {verifyStatus === 'failed' && verifyDetails && (
+                  <div className="space-y-2">
+                    <Label>Detalhes da verificação</Label>
+                    <Textarea value={verifyDetails} readOnly className="min-h-[160px] font-mono text-xs" />
+                  </div>
+                )}
+              </div>
+            )}
 
             <Tabs value={importTab} onValueChange={(v) => setImportTab(v as any)}>
               <TabsList>
@@ -2009,7 +2384,7 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
                 <br />• Publicar o build estático (ZIP com dist/) e servir em /site/&lt;subdomain&gt;/
                 <br />• Integrar com a API pública de imóveis (properties)
                 <br />• Manter os dados do site (contatos, features) salvos no Rendizy (site-config público disponível)
-                <br />• Calendário (disponibilidade por dia): disponível; reservas/leads: ainda planejado
+                <br />• Calendário (disponibilidade + preço por dia): disponível (stable)
               </p>
             </div>
           </div>
@@ -2017,16 +2392,22 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
 
         <DialogFooter>
           {step === 2 && (
-            <Button variant="outline" onClick={() => setStep(1)}>
+            <Button variant="outline" onClick={() => setStep(1)} disabled={loading}>
               Voltar
             </Button>
           )}
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={!canClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Importando...' : step === 1 ? 'Próximo' : 'Importar Site'}
-          </Button>
+          {step === 2 && (verifyStatus === 'ok' || verifyStatus === 'failed') ? (
+            <Button onClick={onSuccess} disabled={loading}>
+              Concluir
+            </Button>
+          ) : (
+            <Button onClick={handleSubmit} disabled={loading}>
+              {loading ? 'Importando...' : step === 1 ? 'Próximo' : 'Importar Site'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
