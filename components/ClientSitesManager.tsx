@@ -1518,6 +1518,7 @@ Implemente explicitamente estes blocos (mesma intenção do catálogo):
 - Header, Hero, Footer
 - Listagem: ` + "`properties-grid`" + ` + ` + "`property-card`" + `
 - Detalhe: ` + "`property-detail`" + ` + ` + "`property-gallery`" + ` + ` + "`property-amenities`" + `
+- Localização/Mapa: ` + "`property-map`" + ` (step 2 do anúncios_ultimate)
 - CTA de contato (` + "`contact-cta`" + `) usando WhatsApp/link (sem backend)
 
 Para Header/Hero/Footer:
@@ -1529,6 +1530,7 @@ Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade can�
 ### Regras de UI
 - Imagem principal: ` + "`coverPhoto`" + ` (fallback: primeira de ` + "`photos`" + `)
 - Localização: ` + "`address.city`" + ` + ` + "`address.state`" + `
+- Mapa: usar ` + "`address.latitude`" + ` + ` + "`address.longitude`" + ` quando existir; fallback por cidade/estado (sem expor endereço completo)
 - Título do imóvel: ` + "`name`" + `
 - Preço: ` + "`pricing.dailyRate`" + ` + ` + "`pricing.currency`" + `
 
@@ -1544,6 +1546,7 @@ Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade can�
 3) Detalhe do imóvel
 - Galeria (usar photos)
 - Informações e CTA de contato (WhatsApp)
+- Mapa/Localização (step 2): usar latitude/longitude quando disponível; fallback por cidade/estado
 
 4) Contato
 
