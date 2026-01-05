@@ -130,6 +130,40 @@ function numberOrZero(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function parseJsonIfPossible(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const s = value.trim();
+  if (!s) return value;
+  if (
+    (s.startsWith("{") && s.endsWith("}")) ||
+    (s.startsWith("[") && s.endsWith("]"))
+  ) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
+
+function normalizePublicTitle(d: any): string | null {
+  const raw = parseJsonIfPossible(
+    d?.descricao_titulo ?? d?.titulo_publico ?? d?.publicTitle ?? d?.public_title ?? null
+  );
+
+  if (raw && typeof raw === "object") {
+    const obj: any = raw;
+    const candidates = [obj?.pt, obj?.en, obj?.es];
+    for (const v of candidates) {
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+  }
+
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return null;
+}
+
 function normalizePricing(d: any): {
   basePrice: number;
   dailyRate: number;
@@ -140,8 +174,12 @@ function normalizePricing(d: any): {
   const daily = numberOrZero(
     d?.pricing?.dailyRate ??
       d?.pricing?.basePrice ??
+      d?.pricing?.base_price ??
+      d?.preco_base_noite ??
+      d?.precoBaseNoite ??
       d?.dailyRate ??
       d?.basePrice ??
+      d?.base_price ??
       d?.price ??
       d?.valor_diaria ??
       0
@@ -154,7 +192,7 @@ function normalizePricing(d: any): {
     dailyRate: daily,
     weeklyRate: daily * 7,
     monthlyRate: daily * 30,
-    currency: d?.pricing?.currency || d?.currency || "BRL",
+    currency: d?.pricing?.currency || d?.currency || d?.moeda || "BRL",
   };
 }
 
@@ -511,10 +549,13 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
         const derivedMaxGuests = computeMaxGuestsFromAnuncioData(d);
         const explicitMaxGuests = numberOrZero(d.guests ?? d.maxGuests ?? d.max_guests ?? d.hospedes ?? 0);
         const maxGuests = Math.max(explicitMaxGuests, derivedMaxGuests);
+        const publicTitle = normalizePublicTitle(d);
 
         return {
           id: row.id,
-          name: d.title || d.name || d.internalId || "Imóvel",
+          // Public contract: `name` is the public-facing title shown on the site.
+          // Internal identification (e.g. `title` used in admin UI) must not override public title.
+          name: publicTitle || d.name || d.title || d.internalId || "Imóvel",
           code: d.codigo || d.propertyCode || d?.externalIds?.staysnet_listing_code || row.id,
           type: d.type || d.tipoAcomodacao || d.tipoLocal || "apartment",
           status: row.status || d.status || "active",

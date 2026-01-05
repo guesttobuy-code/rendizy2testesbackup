@@ -78,7 +78,7 @@
     "vite": "6.3.5"
   },
   "scripts": {
-    "predev": "node scripts/check-on-main.mjs && node scripts/guardian.js && node scripts/check-docs-layout.mjs",
+    "predev": "node scripts/check-on-main.mjs && node scripts/guardian.js && node scripts/check-critical-modules.mjs && node scripts/check-docs-layout.mjs",
     "dev": "vite",
     "dev:5173": "vite --port 5173",
     "dev:force": "vite --port 5173",

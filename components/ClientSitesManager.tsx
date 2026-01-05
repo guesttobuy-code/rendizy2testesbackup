@@ -1507,6 +1507,10 @@ O site deve usar APENAS os campos do ` + "`ClientSiteProperty`" + ` acima, segui
 - Preço: ` + "`pricing.dailyRate/basePrice/weeklyRate/monthlyRate/currency`" + `
 - Conteúdo: ` + "`description, shortDescription, photos, coverPhoto, tags, amenities`" + `
 
+REGRAS IMPORTANTES DO CONTRATO:
+- Título público do imóvel: sempre use ` + "`property.name`" + ` (não use nomes internos/identificadores do admin).
+- Preço diário (temporada): sempre use ` + "`property.pricing.dailyRate`" + ` + ` + "`property.pricing.currency`" + ` (não calcule no front e não busque em campos fora do DTO público).
+
 ### 4) Blocos (implemente os STABLE)
 Implemente explicitamente estes blocos (mesma intenção do catálogo):
 - Header, Hero, Footer
@@ -1523,6 +1527,7 @@ Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade can�
 ### Regras de UI
 - Imagem principal: ` + "`coverPhoto`" + ` (fallback: primeira de ` + "`photos`" + `)
 - Localização: ` + "`address.city`" + ` + ` + "`address.state`" + `
+- Título do imóvel: ` + "`name`" + `
 - Preço: ` + "`pricing.dailyRate`" + ` + ` + "`pricing.currency`" + `
 
 ## Páginas (mínimo para ficar "funcionando")

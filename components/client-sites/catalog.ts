@@ -41,7 +41,8 @@ export const CLIENT_SITES_PUBLIC_CONTRACT_V1 = {
         'Este módulo é PUBLICO: não use X-Auth-Token no navegador. O site deve funcionar sem token.',
         'Existem 2 modos: (1) site servido pelo Rendizy (injeta helpers no HTML) e (2) site hospedado externamente (fetch direto na API pública).',
         'A API pública aceita os paths /client-sites/* e /rendizy-public/client-sites/* (compat).',
-        'Contrato estável hoje: apenas imóveis (properties). O endpoint site-config pode existir como beta; trate como opcional e tenha fallback no front.'
+        'Contrato estável hoje: apenas imóveis (properties). O endpoint site-config pode existir como beta; trate como opcional e tenha fallback no front.',
+        'Regra do contrato: o site SEMPRE exibe o título público usando o campo name (não usar identificadores internos do painel/admin).'
       ],
       codeBlocks: [
         {
@@ -115,6 +116,7 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
           language: 'ts',
           code: `type ClientSiteProperty = {
   id: string;
+  // Título público do imóvel (o site deve exibir isso). Nunca use identificadores internos do admin.
   name: string;
   code: string | null;
   type: string | null;
@@ -131,6 +133,7 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
     longitude: number | null;
   };
   pricing: {
+    // Preço canônico para diária (temporada). O front não deve recalcular nem buscar em campos internos.
     dailyRate: number;
     basePrice: number;
     weeklyRate: number;
@@ -219,7 +222,11 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
   propertyFieldGroups: [
     {
       title: 'Identidade',
-      fields: ['id', 'name', 'code', 'type', 'status']
+      fields: ['id', 'name', 'code', 'type', 'status'],
+      notes: [
+        'name é o título público do imóvel (exibido no site). Nunca renderize “nome interno”/identificação administrativa.',
+        'code é opcional e serve como código/identificador auxiliar (não é título).'
+      ]
     },
     {
       title: 'Endereço',
@@ -252,6 +259,7 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
       ],
       notes: [
         'pricing.dailyRate é o campo canônico para valor diário (compatível com sites).',
+        'Para anúncios vindos do Anúncio Ultimate, o backend deriva pricing.dailyRate a partir de preco_base_noite (fonte de verdade do admin).',
         'Locação residencial: preferir pricing.monthlyRate (mensal).',
         'Venda: será padronizado em pricing.salePrice (planejado). Até lá, alguns fluxos usam basePrice como fallback.',
         'pricing.basePrice deve permanecer por compatibilidade com templates antigos.'

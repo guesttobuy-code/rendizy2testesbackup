@@ -63,6 +63,52 @@ function getStringValue(value: any): string {
   return String(value || '');
 }
 
+function extractPhotoUrl(photo: any): string {
+  if (!photo) return '';
+  if (typeof photo === 'string') return photo;
+  if (typeof photo === 'object') {
+    const url =
+      (typeof photo.url === 'string' ? photo.url : '') ||
+      (typeof photo.signedUrl === 'string' ? photo.signedUrl : '') ||
+      (typeof photo.publicUrl === 'string' ? photo.publicUrl : '') ||
+      (typeof photo.href === 'string' ? photo.href : '');
+    return url;
+  }
+  return '';
+}
+
+function getRoomsArray(value: any): any[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function getRoomPhotosFlat(rooms: any[]): any[] {
+  const out: any[] = [];
+  for (const r of rooms) {
+    const photos = (r as any)?.photos;
+    if (Array.isArray(photos)) out.push(...photos);
+  }
+  return out;
+}
+
+function countPhotosFromData(data: any): number {
+  const direct = Array.isArray(data?.photos) ? data.photos.length : 0;
+  const rooms = getRoomsArray(data?.rooms);
+  const roomPhotos = getRoomPhotosFlat(rooms);
+  return direct + roomPhotos.length;
+}
+
 export const ListaAnuncios = () => {
   const [anuncios, setAnuncios] = useState<AnuncioUltimate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,11 +262,16 @@ export const ListaAnuncios = () => {
     const completos = anuncios.filter(a => 
       a.data.title && 
       a.data.description && 
-      a.data.propertyType && 
-      a.data.basePrice
+      (a.data.propertyType || (a.data as any)?.tipoAcomodacao) &&
+      (
+        (a.data as any)?.basePrice ||
+        (a.data as any)?.preco_base_noite ||
+        (a.data as any)?.valor_aluguel ||
+        (a.data as any)?.valor_venda
+      )
     ).length;
     const rascunhos = total - completos;
-    const comFotos = anuncios.filter(a => a.data.photos && a.data.photos.length > 0).length;
+    const comFotos = anuncios.filter(a => countPhotosFromData(a.data) > 0).length;
 
     return { total, completos, rascunhos, comFotos };
   }, [anuncios]);
@@ -244,8 +295,13 @@ export const ListaAnuncios = () => {
     return !!(
       anuncio.data.title &&
       anuncio.data.description &&
-      anuncio.data.propertyType &&
-      anuncio.data.basePrice
+      (anuncio.data.propertyType || (anuncio.data as any)?.tipoAcomodacao) &&
+      (
+        (anuncio.data as any)?.basePrice ||
+        (anuncio.data as any)?.preco_base_noite ||
+        (anuncio.data as any)?.valor_aluguel ||
+        (anuncio.data as any)?.valor_venda
+      )
     );
   };
 
@@ -265,12 +321,15 @@ export const ListaAnuncios = () => {
     let bathrooms = data.banheiros || data.bathrooms || 0;
     let beds = data.camas || data.beds || 0;
     let guests = data.capacidade || data.guests || 0;
-    let coverPhoto = data.fotoPrincipal || data.coverPhoto || '';
+    let coverPhoto = getStringValue(data.fotoPrincipal || data.coverPhoto || data.cover_photo || '');
     
     // PRIORIDADE 2: Calcular do array rooms[] se não tiver valores diretos
-    if (bedrooms === 0 || beds === 0) {
+    // Rooms may exist even when counts are already persisted.
+    const rooms = getRoomsArray(data.rooms);
+    const roomPhotosFlat = getRoomPhotosFlat(rooms);
+
+    if (bedrooms === 0 || beds === 0 || !coverPhoto) {
       try {
-        const rooms = typeof data.rooms === 'string' ? JSON.parse(data.rooms) : data.rooms;
         if (Array.isArray(rooms)) {
           if (bedrooms === 0) {
             bedrooms = rooms.filter(r => 
@@ -289,32 +348,34 @@ export const ListaAnuncios = () => {
           }
           
           // Buscar foto de capa se não tiver
-          if (!coverPhoto && data.cover_photo_id) {
-            // Buscar foto específica pelo ID
-            for (const room of rooms) {
-              if (room.photos && Array.isArray(room.photos)) {
-                const photo = room.photos.find((p: any) => p.id === data.cover_photo_id);
-                if (photo?.url) {
-                  coverPhoto = photo.url;
-                  break;
-                }
-              }
-            }
-          }
-          
-          // Se não achou, pegar primeira foto disponível
           if (!coverPhoto) {
-            for (const room of rooms) {
-              if (room.photos && Array.isArray(room.photos) && room.photos.length > 0) {
-                coverPhoto = room.photos[0].url || '';
-                break;
-              }
+            const coverPhotoId = data.cover_photo_id || data.coverPhotoId || null;
+
+            // 1) Try exact match by id when photos are objects
+            if (coverPhotoId) {
+              const found = roomPhotosFlat.find((p: any) => {
+                if (!p || typeof p !== 'object') return false;
+                return String((p as any).id || (p as any).photoId || (p as any).photo_id || '') === String(coverPhotoId);
+              });
+              const foundUrl = extractPhotoUrl(found);
+              if (foundUrl) coverPhoto = foundUrl;
+            }
+
+            // 2) Fallback to first available room photo (string or object)
+            if (!coverPhoto) {
+              const firstUrl = extractPhotoUrl(roomPhotosFlat[0]);
+              if (firstUrl) coverPhoto = firstUrl;
             }
           }
         }
       } catch (e) {
         console.error('Erro ao parsear rooms:', e);
       }
+    }
+
+    // Final fallback: data.photos[0]
+    if (!coverPhoto && Array.isArray(data.photos) && data.photos.length > 0) {
+      coverPhoto = extractPhotoUrl(data.photos[0]);
     }
     
     return {

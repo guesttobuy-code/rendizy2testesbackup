@@ -346,6 +346,47 @@ app.post("/save-field", async (c) => {
     console.log("✅ [save-field] Salvo com sucesso:", result);
 
     // ------------------------------------------------------------------------
+    // 🧾 Ensure audit row exists (defensive)
+    // ------------------------------------------------------------------------
+    // Why: migrations evolved to V2 wrappers; if DB-side logging regresses,
+    // we still want idempotency/audit for the UI and forensics.
+    try {
+      const resultId = (result as any)?.id ?? anuncio_id ?? null;
+      const idem = (idempotency_key || null) as string | null;
+      if (resultId && idem) {
+        const { data: auditRows, error: auditErr } = await supabase
+          .from('anuncios_field_changes')
+          .select('id')
+          .eq('idempotency_key', idem)
+          .limit(1);
+
+        if (auditErr) {
+          console.warn('⚠️ [save-field] audit select failed:', auditErr);
+        } else if (!auditRows || auditRows.length === 0) {
+          const { error: insErr } = await supabase
+            .from('anuncios_field_changes')
+            .insert({
+              anuncio_id: resultId,
+              field,
+              value: value === undefined ? null : value,
+              idempotency_key: idem,
+            });
+          if (insErr) {
+            console.warn('⚠️ [save-field] audit insert failed:', insErr);
+          } else {
+            console.log('✅ [save-field] audit row inserted (fallback):', {
+              anuncio_id: resultId,
+              idempotency_key: idem,
+              field,
+            });
+          }
+        }
+      }
+    } catch (auditCatch) {
+      console.warn('⚠️ [save-field] audit fallback threw:', auditCatch);
+    }
+
+    // ------------------------------------------------------------------------
     // 🔁 Sync derived capacity fields into `properties`
     // ------------------------------------------------------------------------
     // Why: UI cards consume `properties.bedrooms/bathrooms/beds/max_guests`.
@@ -497,10 +538,47 @@ app.patch('/:id', async (c) => {
     const supabase = getSupabaseClient(c);
     const organizationId = await resolveOrgId(c);
 
+    const deepMerge = (base: any, patch: any): any => {
+      if (patch === null || patch === undefined) return base;
+      if (Array.isArray(patch)) return patch;
+      if (typeof patch !== 'object') return patch;
+      if (Array.isArray(base)) return patch;
+      const out: any = { ...(base && typeof base === 'object' ? base : {}) };
+      for (const [k, v] of Object.entries(patch)) {
+        const bv = (out as any)[k];
+        if (v && typeof v === 'object' && !Array.isArray(v) && bv && typeof bv === 'object' && !Array.isArray(bv)) {
+          (out as any)[k] = deepMerge(bv, v);
+        } else {
+          (out as any)[k] = v;
+        }
+      }
+      return out;
+    };
+
     const update: any = {
       updated_at: new Date().toISOString(),
     };
-    if (body?.data && typeof body.data === 'object') update.data = body.data;
+
+    // IMPORTANT: never overwrite anuncios_ultimate.data with a partial object.
+    // Always merge server-side to prevent accidental loss of unrelated keys.
+    if (body?.data && typeof body.data === 'object') {
+      const { data: current, error: curErr } = await supabase
+        .from('anuncios_ultimate')
+        .select('id,data')
+        .eq('id', id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (curErr) {
+        console.error('❌ [PATCH /:id] failed to load current data:', curErr);
+        return c.json({ error: 'load_current_failed', details: curErr }, 500);
+      }
+      if (!current) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+
+      update.data = deepMerge((current as any).data ?? {}, body.data);
+    }
     if (typeof body?.status === 'string') update.status = body.status;
     // Atualiza user_id para rastrear autoria da última alteração (não permite trocar org)
     update.user_id = resolveUserId(c);
