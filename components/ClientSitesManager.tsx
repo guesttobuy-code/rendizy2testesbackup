@@ -114,7 +114,11 @@ async function verifyClientSiteIsServing(
     const jsAsset = scriptSrcs.find((s) => /(^|\/)(assets\/.*\.js)(\?|$)/i.test(s)) || '';
     if (!jsAsset) return { ok: true };
 
-    const jsUrl = new URL(jsAsset, siteUrl).toString();
+    const jsUrlObj = new URL(jsAsset, siteUrl);
+    if (!jsUrlObj.searchParams.has('v')) {
+      jsUrlObj.searchParams.set('v', String(Date.now()));
+    }
+    const jsUrl = jsUrlObj.toString();
     const jsResp = await fetch(jsUrl, { method: 'GET', cache: 'no-store' as RequestCache });
     const js = await jsResp.text().catch(() => '');
     if (!jsResp.ok) {

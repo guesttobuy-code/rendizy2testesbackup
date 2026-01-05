@@ -71,7 +71,7 @@ function buildCsp() {
   ].join("; ");
 }
 
-function patchHtmlForSubpath(html, baseHref) {
+function patchHtmlForSubpath(html, baseHref, assetVersion) {
   let out = html;
 
   // Ensure we have a <base href="..."> so that relative assets resolve under our subpath.
@@ -99,6 +99,19 @@ function patchHtmlForSubpath(html, baseHref) {
   // Convert absolute-root assets to relative so baseHref applies.
   out = out.replace(/\s(src|href)="\/assets\//gi, ' $1="assets/');
   out = out.replace(/\s(src|href)="\.\/assets\//gi, ' $1="assets/');
+
+  // Propagate cache-buster from the page URL to assets so Chrome doesn't keep
+  // an old immutable JS bundle after a new upload/deploy.
+  if (assetVersion) {
+    const v = encodeURIComponent(String(assetVersion));
+    out = out.replace(/\s(src|href)="(assets\/[^"']+)"/gi, (_m, attr, url) => {
+      const u = String(url || "");
+      if (!u || u.includes("#")) return ` ${attr}="${u}"`;
+      if (/[?&]v=/.test(u)) return ` ${attr}="${u}"`;
+      const sep = u.includes("?") ? "&" : "?";
+      return ` ${attr}="${u}${sep}v=${v}"`;
+    });
+  }
 
   // Common root-level static files.
   out = out.replace(/\s(href)="\/(favicon\.(ico|png|svg)|manifest\.webmanifest|robots\.txt)(\?[^"#]*)?"/gi, ' $1="$2$4"');
@@ -278,6 +291,8 @@ export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
   try {
+    const reqUrl = new URL(req.url, "http://localhost");
+    const cacheBuster = reqUrl.searchParams.get("v") || "";
     const subdomain = req.query && req.query.subdomain ? safeDecode(req.query.subdomain) : "";
     const requestedPath = req.query && req.query.path ? safeDecode(req.query.path) : "";
     const debug = req.query && String(req.query.debug || "") === "1";
@@ -342,7 +357,7 @@ export default async function handler(req, res) {
       // This makes BrowserRouter-style apps work on refresh/deep-links under /site/<subdomain>/.
       if (!looksLikeFilePath(clean)) {
         const html = await resp.text();
-        const patched = patchHtmlForSubpath(html, `/site/${encodeURIComponent(subdomain)}/`);
+        const patched = patchHtmlForSubpath(html, `/site/${encodeURIComponent(subdomain)}/`, cacheBuster);
 
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -408,7 +423,7 @@ export default async function handler(req, res) {
     }
 
     const html = await resp.text();
-    const patched = patchHtmlForSubpath(html, `/site/${encodeURIComponent(subdomain)}/`);
+    const patched = patchHtmlForSubpath(html, `/site/${encodeURIComponent(subdomain)}/`, cacheBuster);
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
