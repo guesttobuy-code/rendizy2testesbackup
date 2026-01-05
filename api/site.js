@@ -210,6 +210,20 @@ function patchClientSiteJs(jsText, { subdomain }) {
     out = out.replace(pricingNeedle, pricingReplacement);
   }
 
+  // MedHome availability check fix:
+  // The bundle has a function eS(e,t,n) that checks if dates are available.
+  // Problem: It checks for a.available (boolean) but the API returns a.status (string).
+  // Pattern: if(!a||!a.available)return!1
+  // Fix: Replace with: if(!a||(a.status!=="available"&&a.available!==true))return!1
+  // This makes it work with both old format (available: boolean) and new format (status: string)
+  const availCheckNeedle = 'if(!a||!a.available)return!1';
+  if (out.includes(availCheckNeedle)) {
+    out = out.replace(
+      availCheckNeedle,
+      'if(!a||(a.status?a.status!=="available":!a.available))return!1'
+    );
+  }
+
   // MedHome calendar mock data fix:
   // The bundle ships with a mock function that generates fake blocked dates:
   //   async function Qk(e,t,n){return cd()?{success:!0,data:Yk(e,t,n)}:...}
