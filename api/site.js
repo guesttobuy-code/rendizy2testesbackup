@@ -84,6 +84,18 @@ function patchHtmlForSubpath(html, baseHref) {
     out = out.replace(/<head[^>]*>/i, (m) => `${m}\n  <base href="${normalizedBaseHref}" />`);
   }
 
+  // Provide a small runtime config block for SPAs built without VITE_* envs.
+  // This is public (anon key) and prevents the common blank-page crash:
+  //   Uncaught Error: supabaseUrl is required.
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || `https://${SUPABASE_PROJECT_REF}.supabase.co`).replace(/\/+$/, "");
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+  const publicApiBase = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/api/{{SUBDOMAIN}}`;
+  const runtimeConfigScript = `\n  <script>\n  (function(){\n    try {\n      var cfg = globalThis.RENDIZY_CONFIG || {};\n      cfg.supabaseUrl = cfg.supabaseUrl || ${JSON.stringify(supabaseUrl)};\n      cfg.supabaseAnonKey = cfg.supabaseAnonKey || ${JSON.stringify(anonKey)};\n      cfg.publicApiBase = cfg.publicApiBase || ${JSON.stringify(publicApiBase)};\n      globalThis.RENDIZY_CONFIG = cfg;\n      globalThis.__RENDIZY_SUPABASE_URL__ = globalThis.__RENDIZY_SUPABASE_URL__ || cfg.supabaseUrl;\n      globalThis.__RENDIZY_SUPABASE_ANON_KEY__ = globalThis.__RENDIZY_SUPABASE_ANON_KEY__ || cfg.supabaseAnonKey;\n    } catch (e) {}\n  })();\n  </script>`;
+
+  if (/<head[^>]*>/i.test(out) && !/RENDIZY_CONFIG\s*=/.test(out)) {
+    out = out.replace(/<head[^>]*>/i, (m) => `${m}${runtimeConfigScript}`);
+  }
+
   // Convert absolute-root assets to relative so baseHref applies.
   out = out.replace(/\s(src|href)="\/assets\//gi, ' $1="assets/');
   out = out.replace(/\s(src|href)="\.\/assets\//gi, ' $1="assets/');
@@ -138,11 +150,40 @@ function patchClientSiteJs(jsText, { subdomain }) {
     subdomain
   )}`;
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || `https://${SUPABASE_PROJECT_REF}.supabase.co`).replace(/\/+$/, "");
 
   out = out
     .replaceAll("{{PROJECT_ID}}", SUPABASE_PROJECT_REF)
     .replaceAll("{{API_BASE_URL}}", publicApiBase)
-    .replaceAll("{{PUBLIC_ANON_KEY}}", anonKey);
+    .replaceAll("{{PUBLIC_ANON_KEY}}", anonKey)
+    .replaceAll("{{SUPABASE_URL}}", supabaseUrl)
+    const publicApiBaseBase = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/api/`;
+
+  // Supabase-js hard crash guard + fallback to runtime-injected config.
+  // We patch three known minified patterns:
+  // - URL normalization: function Fb(e){const t=...;if(!t)throw new Error("supabaseUrl is required.")
+  // - createClient wrapper: const Bk=(e,t,n)=>new Ak(e,t,n);
+  // - key required: if(!n)throw new Error("supabaseKey is required.")
+  const urlNeedle = 'function Fb(e){const t=e==null?void 0:e.trim();if(!t)throw new Error("supabaseUrl is required.");';
+  if (out.includes(urlNeedle)) {
+    const urlReplacement =
+      'function Fb(e){const t=(e==null?void 0:e.trim())||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseUrl)||globalThis.__RENDIZY_SUPABASE_URL__||globalThis.__SUPABASE_URL__||"" ).trim();if(!t)throw new Error("supabaseUrl is required.");';
+    out = out.replace(urlNeedle, urlReplacement);
+  }
+
+  const clientNeedle = 'const Bk=(e,t,n)=>new Ak(e,t,n);';
+  if (out.includes(clientNeedle)) {
+    const clientReplacement =
+      'const Bk=(e,t,n)=>{try{e=e||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseUrl)||globalThis.__RENDIZY_SUPABASE_URL__||globalThis.__SUPABASE_URL__||"");t=t||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseAnonKey)||globalThis.__RENDIZY_SUPABASE_ANON_KEY__||globalThis.__SUPABASE_ANON_KEY__||"");return e&&String(e).trim()&&t?new Ak(e,t,n):null}catch{return null}};';
+    out = out.replace(clientNeedle, clientReplacement);
+  }
+
+  const keyNeedle = 'if(!n)throw new Error("supabaseKey is required.");';
+  if (out.includes(keyNeedle)) {
+    const keyReplacement =
+      'n=n||((globalThis.RENDIZY_CONFIG&&globalThis.RENDIZY_CONFIG.supabaseAnonKey)||globalThis.__RENDIZY_SUPABASE_ANON_KEY__||globalThis.__SUPABASE_ANON_KEY__||"");if(!n)throw new Error("supabaseKey is required.");';
+    out = out.replace(keyNeedle, keyReplacement);
+  }
 
   // MedHome: The bundle normalizer (`fp`) currently emits pricing.basePrice but the UI reads pricing.dailyRate.
   // Keep this surgical: exact substring replacement.

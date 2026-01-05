@@ -95,12 +95,58 @@ async function verifyClientSiteIsServing(
     ? `${origin}/api/site?subdomain=${encodeURIComponent(subdomain)}&debug=1`
     : '';
 
+  const siteUrl = origin
+    ? `${origin}/site/${encodeURIComponent(subdomain)}/?v=${Date.now()}`
+    : '';
+
+  async function verifyRuntimeConfigFromBundle(): Promise<{ ok: boolean; details?: string }> {
+    if (!siteUrl) return { ok: true };
+
+    const htmlResp = await fetch(siteUrl, { method: 'GET', cache: 'no-store' as RequestCache });
+    const html = await htmlResp.text().catch(() => '');
+    if (!htmlResp.ok) {
+      return { ok: false, details: html ? html.slice(0, 800) : `Site respondeu HTTP ${htmlResp.status}` };
+    }
+
+    const scriptSrcs = Array.from(html.matchAll(/<script[^>]+src=["']([^"']+)["'][^>]*>/gi)).map(
+      (m) => m[1]
+    );
+    const jsAsset = scriptSrcs.find((s) => /(^|\/)(assets\/.*\.js)(\?|$)/i.test(s)) || '';
+    if (!jsAsset) return { ok: true };
+
+    const jsUrl = new URL(jsAsset, siteUrl).toString();
+    const jsResp = await fetch(jsUrl, { method: 'GET', cache: 'no-store' as RequestCache });
+    const js = await jsResp.text().catch(() => '');
+    if (!jsResp.ok) {
+      return { ok: false, details: js ? js.slice(0, 800) : `JS respondeu HTTP ${jsResp.status}` };
+    }
+
+    const hasSupabaseRequired = js.includes('supabaseUrl is required');
+    const hasRuntimeFallback = js.includes('__RENDIZY_SUPABASE_URL__') || js.includes('RENDIZY_CONFIG');
+    const hasHardcodedSupabaseUrl = /https:\/\/[a-z0-9-]+\.supabase\.co/i.test(js);
+
+    if (hasSupabaseRequired && !hasRuntimeFallback && !hasHardcodedSupabaseUrl) {
+      return {
+        ok: false,
+        details:
+          'Esse ZIP parece ter sido gerado sem SUPABASE_URL/VITE_SUPABASE_URL (o bundle contém "supabaseUrl is required").\n' +
+          'Isso costuma causar tela branca no browser. Solução: garantir que o proxy injete runtime config (SUPABASE_URL + SUPABASE_ANON_KEY) ou rebuildar o site com as variáveis VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY.'
+      };
+    }
+
+    return { ok: true };
+  }
+
   // Prefer Vercel proxy (best signal for /site/<subdomain>/).
   if (vercelDebugUrl) {
     try {
       const r = await fetch(vercelDebugUrl, { method: 'GET', cache: 'no-store' as RequestCache });
       const txt = await r.text().catch(() => '');
-      if (r.ok) return { ok: true };
+      if (r.ok) {
+        const runtime = await verifyRuntimeConfigFromBundle();
+        if (!runtime.ok) return runtime;
+        return { ok: true };
+      }
       return { ok: false, details: txt ? txt.slice(0, 800) : `Proxy respondeu HTTP ${r.status}` };
     } catch {
       // fallback below
