@@ -64,6 +64,7 @@ function buildCsp() {
     `script-src 'self' 'unsafe-inline' ${supabaseOrigin} ${vercelLiveOrigin}`,
     `style-src 'self' 'unsafe-inline' https: ${supabaseOrigin}`,
     `font-src 'self' data: https: ${supabaseOrigin}`,
+    `frame-src 'self' ${vercelLiveOrigin}`,
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
@@ -155,9 +156,38 @@ function patchClientSiteJs(jsText, { subdomain }) {
   // Bundle safety (generic): some bundles initialize Supabase client with undefined
   // (e.g. `ww(void 0, void 0)`), which throws and blanks the whole page.
   // Guard the factory so missing config doesn't crash the SPA.
+  const supabaseFactoryGuard = (params, args) => {
+    const parts = String(params || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const a = parts[0] || "e";
+    const b = parts[1] || "t";
+    const callArgs = String(args || "").trim() || `${a},${b}`;
+    return `ww=(${params})=>{try{return ${a}&&String(${a}).trim()&&${b}?new yw(${callArgs}):null}catch{return null}}`;
+  };
+
+  // Common minified arrow form:
+  //   const ww=(e,t,n)=>new yw(e,t,n);
   out = out.replace(
-    "const ww=(e,t,n)=>new yw(e,t,n);",
-    "const ww=(e,t,n)=>{try{return e&&String(e).trim()&&t?new yw(e,t,n):null}catch{return null}};"
+    /(const|let|var)\s+ww=\(([^)]*)\)=>new\s+yw\(([^)]*)\);?/g,
+    (_m, decl, params, args) => `${decl} ${supabaseFactoryGuard(params, args)};`
+  );
+
+  // Function form (less common, but seen in some bundles):
+  //   function ww(e,t,n){return new yw(e,t,n)}
+  out = out.replace(
+    /function\s+ww\(([^)]*)\)\{return\s+new\s+yw\(([^)]*)\)\}/g,
+    (_m, params, args) => {
+      const parts = String(params || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const a = parts[0] || "e";
+      const b = parts[1] || "t";
+      const callArgs = String(args || "").trim() || `${a},${b}`;
+      return `function ww(${params}){try{return ${a}&&String(${a}).trim()&&${b}?new yw(${callArgs}):null}catch{return null}}`;
+    }
   );
 
   return out;
