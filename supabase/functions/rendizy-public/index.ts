@@ -130,6 +130,56 @@ function numberOrZero(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function isYmd(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function ymdToDateUtc(value: string): Date | null {
+  if (!isYmd(value)) return null;
+  const d = new Date(value + "T00:00:00.000Z");
+  if (!Number.isFinite(d.getTime())) return null;
+  // Ensure it's not a coercion like 2025-02-31 -> 2025-03-03
+  const roundTrip = d.toISOString().slice(0, 10);
+  if (roundTrip !== value) return null;
+  return d;
+}
+
+function dateUtcToYmd(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function addDaysUtc(d: Date, days: number): Date {
+  const next = new Date(d.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function enumerateYmdRangeInclusive(fromYmd: string, toYmd: string, maxDays: number): string[] {
+  const from = ymdToDateUtc(fromYmd);
+  const to = ymdToDateUtc(toYmd);
+  if (!from || !to) return [];
+  if (from.getTime() > to.getTime()) return [];
+
+  const days: string[] = [];
+  let cur = from;
+  for (let i = 0; i <= maxDays; i++) {
+    const ymd = dateUtcToYmd(cur);
+    days.push(ymd);
+    if (ymd === toYmd) break;
+    cur = addDaysUtc(cur, 1);
+  }
+
+  return days;
+}
+
+function ymdGte(a: string, b: string): boolean {
+  return a >= b;
+}
+
+function ymdLt(a: string, b: string): boolean {
+  return a < b;
+}
+
 function parseJsonIfPossible(value: unknown): unknown {
   if (typeof value !== "string") return value;
   const s = value.trim();
@@ -682,20 +732,232 @@ clientSites.get("/api/:subdomain/site-config", async (c: Context) => {
 });
 
 // ============================================================
-// PUBLIC (PROTO/STUB): Availability + pricing per day (planned)
+// PUBLIC: Availability + pricing per day (stable)
 // GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
 // ============================================================
 clientSites.get("/api/:subdomain/properties/:propertyId/availability", async (c: Context) => {
-  return c.json(
+  try {
+    const subdomain = (c.req.param("subdomain") || "").trim().toLowerCase();
+    const propertyId = (c.req.param("propertyId") || "").trim();
+    const from = (c.req.query("from") || "").trim();
+    const to = (c.req.query("to") || "").trim();
+
+    if (!subdomain || !propertyId) {
+      return c.json(
+        { success: false, error: "Parâmetros inválidos" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    if (!from || !to) {
+      return c.json(
+        { success: false, error: "from e to são obrigatórios" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const fromDate = ymdToDateUtc(from);
+    const toDate = ymdToDateUtc(to);
+    if (!fromDate || !toDate) {
+      return c.json(
+        { success: false, error: "Formato de data inválido (use YYYY-MM-DD)" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    if (fromDate.getTime() > toDate.getTime()) {
+      return c.json(
+        { success: false, error: "Intervalo inválido (from > to)" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Guardrail: endpoint público não deve permitir ranges gigantes.
+    const MAX_DAYS = 370;
+    const days = enumerateYmdRangeInclusive(from, to, MAX_DAYS);
+    if (days.length === 0) {
+      return c.json(
+        { success: false, error: "Intervalo inválido" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+    if (days.length > MAX_DAYS + 1) {
+      return c.json(
+        { success: false, error: `Intervalo muito grande (max ${MAX_DAYS} dias)` },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    const { data: sqlSite, error: sqlError } = await supabase
+      .from("client_sites")
+      .select("organization_id,subdomain,is_active")
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (sqlError || !sqlSite) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const organizationId = (sqlSite as { organization_id: string }).organization_id;
+
+    // Resolve pricing (base): prefer `properties`, fallback to `anuncios_ultimate`.
+    let pricing = { dailyRate: 0, currency: "BRL" };
     {
-      success: false,
-      error: "Endpoint planejado",
-      details:
-        "availability-pricing ainda não está implementado como contrato público. Use este stub apenas para prototipar UI.",
-    },
-    200,
-    withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
-  );
+      const { data: prop, error: propErr } = await supabase
+        .from("properties")
+        .select("id,pricing_base_price,pricing_currency")
+        .eq("organization_id", organizationId)
+        .eq("id", propertyId)
+        .maybeSingle();
+
+      if (!propErr && prop) {
+        const row: any = prop;
+        pricing = {
+          dailyRate: numberOrZero(row.pricing_base_price),
+          currency: row.pricing_currency || "BRL",
+        };
+      } else {
+        const { data: anuncio, error: anuncioErr } = await supabase
+          .from("anuncios_ultimate")
+          .select("id,organization_id,data")
+          .eq("organization_id", organizationId)
+          .eq("id", propertyId)
+          .maybeSingle();
+
+        if (!anuncioErr && anuncio) {
+          const d = (anuncio as any)?.data || {};
+          const p = normalizePricing(d);
+          pricing = { dailyRate: numberOrZero(p.dailyRate), currency: p.currency || "BRL" };
+        }
+      }
+    }
+
+    // Pull blocks/reservations exactly like internal calendar uses (SQL tables).
+    const [{ data: blockRows, error: blocksError }, { data: reservationRows, error: reservationsError }] =
+      await Promise.all([
+        supabase
+          .from("blocks")
+          .select("id,start_date,end_date,subtype,reason")
+          .eq("organization_id", organizationId)
+          .eq("property_id", propertyId)
+          .lte("start_date", to)
+          .gte("end_date", from)
+          .order("start_date", { ascending: true }),
+        supabase
+          .from("reservations")
+          .select("id,check_in,check_out,status")
+          .eq("organization_id", organizationId)
+          .eq("property_id", propertyId)
+          .in("status", ["pending", "confirmed", "checked_in"])
+          .lte("check_in", to)
+          .gte("check_out", from)
+          .order("check_in", { ascending: true }),
+      ]);
+
+    if (blocksError) {
+      return c.json(
+        { success: false, error: "Erro ao buscar bloqueios", details: blocksError.message },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+    if (reservationsError) {
+      return c.json(
+        { success: false, error: "Erro ao buscar reservas", details: reservationsError.message },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const blocks = (blockRows as any[] | null | undefined) || [];
+    const reservations = (reservationRows as any[] | null | undefined) || [];
+
+    // Determine per-day availability (night-based): day is unavailable if day >= start && day < end.
+    const dayItems = days.map((day) => {
+      const reservation = reservations.find((r) => {
+        const s = String(r?.check_in || "").slice(0, 10);
+        const e = String(r?.check_out || "").slice(0, 10);
+        if (!isYmd(s) || !isYmd(e)) return false;
+        return ymdGte(day, s) && ymdLt(day, e);
+      });
+
+      const block = blocks.find((b) => {
+        const s = String(b?.start_date || "").slice(0, 10);
+        const e = String(b?.end_date || "").slice(0, 10);
+        if (!isYmd(s) || !isYmd(e)) return false;
+        return ymdGte(day, s) && ymdLt(day, e);
+      });
+
+      const blockSubtype = String((block as any)?.subtype || "").toLowerCase();
+      const isReservationBlock = blockSubtype === "reservation";
+
+      const state = reservation
+        ? "reserved"
+        : block
+          ? (isReservationBlock ? "reserved" : "blocked")
+          : "available";
+
+      return {
+        date: day,
+        available: state === "available",
+        state,
+        price: numberOrZero(pricing.dailyRate),
+        currency: pricing.currency,
+        reason: state === "blocked" ? (block as any)?.reason || null : null,
+      };
+    });
+
+    const summary = dayItems.reduce(
+      (acc, d) => {
+        if (d.state === "available") acc.availableDays++;
+        else if (d.state === "blocked") acc.blockedDays++;
+        else if (d.state === "reserved") acc.reservedDays++;
+        return acc;
+      },
+      { availableDays: 0, blockedDays: 0, reservedDays: 0 }
+    );
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          propertyId,
+          from,
+          to,
+          pricing: {
+            dailyRate: numberOrZero(pricing.dailyRate),
+            currency: pricing.currency,
+            // Nota: preços customizados (KV) ainda não fazem parte do contrato público.
+            source: "baseDailyRate",
+          },
+          availability: dayItems,
+          summary,
+          generatedAt: new Date().toISOString(),
+        },
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  } catch (err) {
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
 });
 
 // ============================================================

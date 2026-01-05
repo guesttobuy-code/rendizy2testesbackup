@@ -662,6 +662,9 @@ export async function getReservation(c: Context) {
 
 export async function checkAvailability(c: Context) {
   try {
+    // ✅ MIGRAÇÃO v1.0.103.400 - SQL + RLS + Multi-tenant
+    const tenant = getTenant(c);
+    const client = getSupabaseClient();
     const body = await c.req.json<AvailabilityCheck>();
     logInfo('Checking availability', body);
 
@@ -673,70 +676,109 @@ export async function checkAvailability(c: Context) {
       return c.json(validationErrorResponse(dateValidation.error!), 400);
     }
 
-    // Verificar se propriedade existe
-    const property = await kv.get<Property>(`property:${propertyId}`);
-    if (!property) {
+    // ✅ REGRA MESTRE: sempre filtrar por organization_id efetivo
+    const organizationId = await getOrganizationIdForRequest(c);
+    const orgIdFinal = organizationId || RENDIZY_MASTER_ORG_ID;
+
+    // Verificar se propriedade existe (canônico: anuncios_ultimate)
+    let propertyQuery = client
+      .from('anuncios_ultimate')
+      .select('id, organization_id, data')
+      .eq('id', propertyId);
+
+    if (tenant.type === 'imobiliaria' || tenant.type === 'superadmin') {
+      propertyQuery = propertyQuery.eq('organization_id', orgIdFinal);
+    }
+
+    const { data: propertyRow, error: propertyError } = await propertyQuery.maybeSingle();
+    if (propertyError) {
+      console.error('❌ [checkAvailability] SQL error fetching property:', propertyError);
+      return c.json(errorResponse('Erro ao buscar propriedade', { details: propertyError.message }), 500);
+    }
+    if (!propertyRow) {
       return c.json(notFoundResponse('Property'), 404);
     }
 
-    // Verificar restrições da propriedade
+    // Verificar restrições (minNights) quando disponível
     const nights = calculateNights(checkIn, checkOut);
-    if (nights < property.restrictions.minNights) {
+    const data = (propertyRow as any)?.data || {};
+    const minNightsRaw =
+      (data?.restrictions?.minNights ??
+        data?.restricoes?.min_noites ??
+        data?.min_nights ??
+        data?.minNights ??
+        1);
+    const minNights = Math.max(1, Math.round(Number(minNightsRaw) || 1));
+
+    if (nights < minNights) {
       const response: AvailabilityResponse = {
         available: false,
-        reason: `Minimum ${property.restrictions.minNights} nights required`,
+        reason: `Minimum ${minNights} nights required`,
       };
       return c.json(successResponse(response));
     }
 
-    // Buscar reservas existentes
-    const allReservations = await kv.getByPrefix<Reservation>('reservation:');
-    const propertyReservations = allReservations.filter(
-      r => r.propertyId === propertyId &&
-      ['pending', 'confirmed', 'checked_in'].includes(r.status)
-    );
+    // ✅ Conflitos com reservas (lógica hoteleira: check-out NÃO ocupa)
+    let reservationsQuery = client
+      .from('reservations')
+      .select('id, check_in, check_out, status')
+      .eq('organization_id', orgIdFinal)
+      .eq('property_id', propertyId)
+      .in('status', ['pending', 'confirmed', 'checked_in'])
+      .lt('check_in', checkOut)
+      .gt('check_out', checkIn)
+      .order('check_in', { ascending: true });
 
-    // Verificar conflitos
-    const conflict = propertyReservations.find(r => 
-      datesOverlap(checkIn, checkOut, r.checkIn, r.checkOut)
-    );
+    // (tenant filter already enforced via orgIdFinal)
+    const { data: conflicts, error: conflictError } = await reservationsQuery;
+    if (conflictError) {
+      console.error('❌ [checkAvailability] SQL error checking reservation conflicts:', conflictError);
+      return c.json(errorResponse('Erro ao verificar disponibilidade', { details: conflictError.message }), 500);
+    }
 
-    if (conflict) {
+    if (conflicts && conflicts.length > 0) {
+      const first = conflicts[0] as any;
       const response: AvailabilityResponse = {
         available: false,
         reason: 'Property is already booked for these dates',
         conflictingReservation: {
-          id: conflict.id,
-          checkIn: conflict.checkIn,
-          checkOut: conflict.checkOut,
+          id: first.id,
+          checkIn: first.check_in,
+          checkOut: first.check_out,
         },
       };
       return c.json(successResponse(response));
     }
 
-    // Buscar bloqueios
-    const allBlocks = await kv.getByPrefix('block:');
-    const propertyBlocks = allBlocks.filter(
-      (b: any) => b.propertyId === propertyId
-    );
+    // ✅ Conflitos com blocks (manual, iCal, etc.)
+    const { data: blockConflicts, error: blockError } = await client
+      .from('blocks')
+      .select('id, start_date, end_date, subtype, reason')
+      .eq('organization_id', orgIdFinal)
+      .eq('property_id', propertyId)
+      .lt('start_date', checkOut)
+      .gt('end_date', checkIn)
+      .order('start_date', { ascending: true });
 
-    const blockConflict = propertyBlocks.find((b: any) =>
-      datesOverlap(checkIn, checkOut, b.startDate, b.endDate)
-    );
+    if (blockError) {
+      console.error('❌ [checkAvailability] SQL error checking blocks:', blockError);
+      return c.json(errorResponse('Erro ao verificar bloqueios', { details: blockError.message }), 500);
+    }
 
-    if (blockConflict) {
+    if (blockConflicts && blockConflicts.length > 0) {
+      const b = blockConflicts[0] as any;
+      const isReservationBlock = String(b?.subtype || '').toLowerCase() === 'reservation';
       const response: AvailabilityResponse = {
         available: false,
-        reason: `Property is blocked (${blockConflict.reason})`,
+        reason: isReservationBlock
+          ? 'Property is already booked for these dates'
+          : `Property is blocked (${b?.reason || 'blocked'})`,
       };
       return c.json(successResponse(response));
     }
 
     // Disponível!
-    const response: AvailabilityResponse = {
-      available: true,
-    };
-
+    const response: AvailabilityResponse = { available: true };
     return c.json(successResponse(response));
   } catch (error) {
     logError('Error checking availability', error);
@@ -885,7 +927,20 @@ export async function createReservation(c: Context) {
     
     // ✅ Extrair dados de pricing do campo data (JSONB)
     const propertyData = propertyRow.data || {};
-    const basePrice = propertyData.preco_base_noite || propertyData.valor_aluguel || 100; // Fallback
+    const toMoney = (v: unknown, fallback = 0): number => {
+      if (v === null || v === undefined || v === '') return fallback;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    };
+
+    const basePrice = toMoney(propertyData.preco_base_noite ?? propertyData.valor_aluguel, 100); // Fallback
+    const cleaningFee = toMoney(
+      propertyData.taxa_limpeza ??
+        propertyData.cleaning_fee ??
+        propertyData.cleaningFee ??
+        propertyData?.pricing?.cleaningFee,
+      0
+    );
 
     // ✅ NOVO: Descontos por pacote de dias
     type DiscountPackagePreset = 'weekly' | 'monthly' | 'custom';
@@ -1066,6 +1121,39 @@ export async function createReservation(c: Context) {
       console.log('✅ [createReservation] Sem conflitos reais - prosseguindo');
     }
 
+    // ✅ Verificar conflitos com blocks (manual/iCal/etc.)
+    // Regra hoteleira (end exclusivo): start_date < checkOut && end_date > checkIn
+    let blocksConflictQuery = client
+      .from('blocks')
+      .select('id, start_date, end_date, subtype, reason')
+      .eq('property_id', body.propertyId)
+      .lt('start_date', body.checkOut)
+      .gt('end_date', body.checkIn);
+
+    if (tenant.type === 'imobiliaria' || tenant.type === 'superadmin') {
+      blocksConflictQuery = blocksConflictQuery.eq('organization_id', orgIdFinal);
+    }
+
+    const { data: blockConflicts, error: blockConflictError } = await blocksConflictQuery;
+    if (blockConflictError && blockConflictError.code !== 'PGRST116') {
+      console.error('❌ [createReservation] SQL error checking block conflicts:', blockConflictError);
+      return c.json(errorResponse('Erro ao verificar bloqueios', { details: blockConflictError.message }), 500);
+    }
+
+    if (blockConflicts && blockConflicts.length > 0) {
+      console.log(`❌ [createReservation] Reserva bloqueada por block existente (${blockConflicts.length})`);
+      const b: any = blockConflicts[0];
+      const isReservationBlock = String(b?.subtype || '').toLowerCase() === 'reservation';
+      return c.json(
+        errorResponse(
+          isReservationBlock
+            ? 'Property is not available for these dates'
+            : `Property is blocked (${b?.reason || 'blocked'})`
+        ),
+        400
+      );
+    }
+
     // Calcular preço
     const pricing = calculateReservationPrice(property, nights);
 
@@ -1093,11 +1181,11 @@ export async function createReservation(c: Context) {
       pricing: {
         pricePerNight: pricing.pricePerNight,
         baseTotal: pricing.baseTotal,
-        cleaningFee: 0,
+        cleaningFee: cleaningFee,
         serviceFee: 0,
         taxes: 0,
         discount: pricing.discount,
-        total: pricing.total,
+        total: pricing.total + cleaningFee,
         currency: property.pricing.currency,
         appliedTier: pricing.appliedTier,
       },
@@ -1157,13 +1245,13 @@ export async function createReservation(c: Context) {
         createdBy: tenant.userId || 'system',
       };
       
-      const blockSqlData = blockToSql(block, organizationId);
+      const blockSqlData = blockToSql(block, orgIdFinal);
       
       // Verificar se já existe block para este período
       const { data: existingBlock } = await client
         .from('blocks')
         .select('id')
-        .eq('organization_id', organizationId)
+        .eq('organization_id', orgIdFinal)
         .eq('property_id', body.propertyId)
         .eq('start_date', body.checkIn)
         .eq('end_date', body.checkOut)
@@ -1186,7 +1274,7 @@ export async function createReservation(c: Context) {
       // Não falhar a criação da reserva se o block falhar
     }
 
-    logInfo(`Reservation created: ${id} in organization ${organizationId}`);
+    logInfo(`Reservation created: ${id} in organization ${orgIdFinal}`);
 
     // ✅ AUTOMATIONS: Publicar evento de reserva criada
     if (organizationId) {
@@ -1480,6 +1568,43 @@ export async function updateReservation(c: Context) {
     // ✅ Converter resultado SQL para Reservation (TypeScript)
     const updatedReservation = sqlToReservation(updatedRow);
 
+    // ✅ Manter block espelho da reserva sincronizado (quando existir)
+    // Observação: blocks com subtype=reservation também podem vir de iCal/StaysNet.
+    // Aqui sincronizamos apenas o block criado pelo próprio fluxo de reservas do painel.
+    try {
+      const reservationBlockReason = `Reserva: ${id}`;
+      const nowIso = getCurrentDateTime();
+      const startYmd = String(updatedReservation.checkIn).split('T')[0];
+      const endYmd = String(updatedReservation.checkOut).split('T')[0];
+      const nights = calculateNights(startYmd, endYmd);
+
+      // Tentativa 1: atualizar block existente por reason
+      const { data: existingBlock, error: findBlockError } = await client
+        .from('blocks')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('subtype', 'reservation')
+        .eq('reason', reservationBlockReason)
+        .maybeSingle();
+
+      if (!findBlockError && existingBlock?.id) {
+        await client
+          .from('blocks')
+          .update({
+            property_id: updatedReservation.propertyId,
+            start_date: startYmd,
+            end_date: endYmd,
+            nights,
+            updated_at: nowIso,
+            notes: `Reserva sincronizada: ${id}`,
+          })
+          .eq('id', existingBlock.id)
+          .eq('organization_id', organizationId);
+      }
+    } catch (err) {
+      console.warn('⚠️ [updateReservation] Falha ao sincronizar block da reserva:', err);
+    }
+
     logInfo(`Reservation updated: ${id} in organization ${organizationId}`);
 
     return c.json(successResponse(updatedReservation, 'Reservation updated successfully'));
@@ -1566,6 +1691,19 @@ export async function cancelReservation(c: Context) {
     
     const cancelled = sqlToReservation(updatedRow);
 
+    // ✅ Remover block espelho desta reserva (evita disponibilidade errada após cancelamento)
+    try {
+      const reservationBlockReason = `Reserva: ${id}`;
+      await client
+        .from('blocks')
+        .delete()
+        .eq('organization_id', (row as any).organization_id)
+        .eq('subtype', 'reservation')
+        .eq('reason', reservationBlockReason);
+    } catch (err) {
+      console.warn('⚠️ [cancelReservation] Falha ao remover block espelho da reserva:', err);
+    }
+
     logInfo(`Reservation cancelled: ${id}`);
 
     return c.json(successResponse(cancelled, 'Reservation cancelled successfully'));
@@ -1639,6 +1777,19 @@ export async function deleteReservation(c: Context) {
     if (deleteError) {
       console.error('❌ [deleteReservation] SQL error deleting:', deleteError);
       return c.json(errorResponse('Erro ao deletar reserva', { details: deleteError.message }), 500);
+    }
+
+    // ✅ Remover block espelho desta reserva (quando existir)
+    try {
+      const reservationBlockReason = `Reserva: ${id}`;
+      await client
+        .from('blocks')
+        .delete()
+        .eq('organization_id', (row as any).organization_id)
+        .eq('subtype', 'reservation')
+        .eq('reason', reservationBlockReason);
+    } catch (err) {
+      console.warn('⚠️ [deleteReservation] Falha ao remover block espelho da reserva:', err);
     }
 
     logInfo(`Reservation deleted: ${id}`);
