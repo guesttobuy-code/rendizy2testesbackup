@@ -135,6 +135,7 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
   };
   pricing: {
     // Preço canônico para diária (temporada). O front não deve recalcular nem buscar em campos internos.
+    // ⚠️ IMPORTANTE: dailyRate pode ser 0 em alguns casos. SEMPRE use fallback: dailyRate || basePrice
     dailyRate: number;
     basePrice: number;
     weeklyRate: number;
@@ -150,9 +151,12 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
   };
   description: string;
   shortDescription: string | null;
+  // ⚠️ IMPORTANTE: URLs de fotos podem ser relativas ou absolutas.
+  // Se não começar com http, prefixe com base do Supabase Storage.
   photos: string[];
   coverPhoto: string | null;
   tags: string[];
+  // ⚠️ IMPORTANTE: Amenities podem vir em português ou inglês. O site deve traduzir/mapear.
   amenities: string[];
   createdAt: string;
   updatedAt: string;
@@ -218,7 +222,10 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
         'Retorna: { days: [{ date, status, price, minNights, propertyId }] }',
         'status: "available" | "blocked" | "reserved"',
         'Headers: Cache-Control: no-cache, no-store, must-revalidate (dados sempre frescos).',
-        '⚠️ PROIBIDO usar dados mock no cliente. O site DEVE chamar este endpoint para disponibilidade real.'
+        '⚠️ PROIBIDO usar dados mock no cliente. O site DEVE chamar este endpoint para disponibilidade real.',
+        '❌ ANTI-PATTERN: Funções que geram bloqueios baseados em Date.now() + X dias são PROIBIDAS.',
+        '❌ ANTI-PATTERN: Arrays estáticos de datas bloqueadas no código são PROIBIDOS.',
+        '✅ CORRETO: Sempre fazer fetch() para /calendar e usar os dados retornados.'
       ]
     },    {
       id: 'lead-create',

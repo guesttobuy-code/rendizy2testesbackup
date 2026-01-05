@@ -1532,7 +1532,7 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.4)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.5)
 
 ## Objetivo (aceitação)
 Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
@@ -1542,6 +1542,7 @@ Para ser aceito:
 - A Home carrega.
 - A listagem de imóveis carrega via API pública.
 - Assets (JS/CSS/imagens) carregam sem 404.
+- Calendário de disponibilidade busca dados da API real (NUNCA mock).
 
 ## Stack
 - React 18 + TypeScript
@@ -1925,6 +1926,122 @@ Crie uma rota ` + "`#/area-interna`" + ` com:
 5. **NÃO dependa de SSR/Node** — o site é 100% estático
 6. **NÃO carregue scripts de CDN** — CSP bloqueia
 7. **NÃO use dados mock para calendário** — ` + "`Date.now() + X dias`" + ` ou arrays hardcoded de bloqueios são PROIBIDOS. Use a API ` + "`/calendar`" + ` real.
+
+### ❌ EXEMPLO DE CÓDIGO ERRADO (NUNCA FAÇA ISSO):
+` + "```" + `typescript
+// ❌ ERRADO: Função que gera bloqueios FAKE baseados em Date.now()
+function getMockBlockedDates() {
+  const today = new Date();
+  return [
+    new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000),  // +2 dias
+    new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000),  // +3 dias
+    new Date(today.getTime() + 10 * 24 * 60 * 60 * 1000), // +10 dias
+  ];
+}
+
+// ❌ ERRADO: Array estático de datas bloqueadas
+const BLOCKED_DATES = ['2026-01-10', '2026-01-11', '2026-01-15'];
+
+// ❌ ERRADO: Função que retorna dados fake
+async function getAvailability(propertyId, start, end) {
+  return { success: true, data: getMockBlockedDates() }; // FAKE!
+}
+` + "```" + `
+
+### ✅ EXEMPLO DE CÓDIGO CORRETO (FAÇA ASSIM):
+` + "```" + `typescript
+// ✅ CORRETO: Busca dados REAIS da API
+async function fetchCalendar(subdomain: string, propertyId: string, startDate: string, endDate: string) {
+  const API_BASE = 'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/client-sites/api';
+  const url = API_BASE + '/' + subdomain + '/calendar?' + new URLSearchParams({
+    propertyId,
+    startDate,
+    endDate
+  }).toString();
+  
+  const res = await fetch(url, { method: 'GET' });
+  if (!res.ok) throw new Error('Erro ao buscar calendário');
+  
+  const json = await res.json();
+  // json = { success: true, days: [{ date: '2026-01-05', status: 'available', price: 350, minNights: 2 }, ...] }
+  return json;
+}
+
+// ✅ CORRETO: Componente de calendário que usa API real
+function PropertyCalendar({ propertyId }: { propertyId: string }) {
+  const [days, setDays] = useState<Array<{ date: string; status: string; price: number }>>([]);
+  const [loading, setLoading] = useState(true);
+  const subdomain = getRendizySubdomain();
+
+  useEffect(() => {
+    if (!subdomain || !propertyId) return;
+    
+    const start = new Date().toISOString().split('T')[0];
+    const end = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    fetchCalendar(subdomain, propertyId, start, end)
+      .then(res => {
+        if (res.success && res.days) setDays(res.days);
+      })
+      .finally(() => setLoading(false));
+  }, [subdomain, propertyId]);
+
+  if (loading) return <div>Carregando calendário...</div>;
+
+  return (
+    <div className="grid grid-cols-7 gap-1">
+      {days.map(day => (
+        <div 
+          key={day.date}
+          className={\`p-2 text-center rounded \${
+            day.status === 'available' ? 'bg-green-100' :
+            day.status === 'reserved' ? 'bg-red-100' : 'bg-gray-100'
+          }\`}
+        >
+          <div className="text-xs">{day.date.split('-')[2]}</div>
+          {day.status === 'available' && <div className="text-xs font-bold">R$ {day.price}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+` + "```" + `
+
+## 💡 Dicas de Robustez
+
+### Preço: fallback para basePrice
+` + "```" + `typescript
+// O backend pode retornar dailyRate = 0 em alguns casos
+// Sempre use fallback:
+const price = property.pricing.dailyRate || property.pricing.basePrice || 0;
+` + "```" + `
+
+### Fotos: URLs podem ser relativas
+` + "```" + `typescript
+// Algumas fotos podem vir sem domínio completo
+function resolvePhotoUrl(url: string | null): string {
+  if (!url) return '/placeholder.jpg';
+  if (url.startsWith('http')) return url;
+  // Se for path relativo, adicionar base do Supabase Storage
+  return 'https://odcgnzfremrqnvtitpcc.supabase.co/storage/v1/object/public/' + url;
+}
+` + "```" + `
+
+### Amenities: tradução/mapeamento
+` + "```" + `typescript
+// Amenities podem vir em português ou inglês
+const AMENITY_ICONS: Record<string, string> = {
+  'wifi': '📶', 'Wifi': '📶', 'Wi-Fi': '📶',
+  'pool': '🏊', 'piscina': '🏊', 'Piscina': '🏊',
+  'parking': '🅿️', 'estacionamento': '🅿️', 'Estacionamento': '🅿️',
+  'air_conditioning': '❄️', 'ar_condicionado': '❄️', 'Ar condicionado': '❄️',
+  // ... adicione mais conforme necessário
+};
+
+function getAmenityIcon(amenity: string): string {
+  return AMENITY_ICONS[amenity] || '✓';
+}
+` + "```" + `
 
 ## Build / Entrega (OBRIGATÓRIO)
 Você deve entregar um ZIP que contenha ` + "`dist/`" + ` na raiz do ZIP e dentro:
