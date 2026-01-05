@@ -363,6 +363,9 @@ export default async function handler(req, res) {
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         // s-maxage=0 prevents Vercel CDN from caching, ensuring uploads reflect immediately
         res.setHeader("Cache-Control", "public, s-maxage=0, max-age=60, stale-while-revalidate=30");
+        // Force Vercel edge to never cache this response
+        res.setHeader("CDN-Cache-Control", "no-store");
+        res.setHeader("Vercel-CDN-Cache-Control", "no-store");
         res.setHeader("Content-Security-Policy", buildCsp());
         res.setHeader("X-Content-Type-Options", "nosniff");
 
@@ -432,6 +435,9 @@ export default async function handler(req, res) {
     // This ensures new uploads are visible immediately without cache invalidation.
     // Browser can still cache for 60s, but Vercel edge will always fetch fresh from function.
     res.setHeader("Cache-Control", "public, s-maxage=0, max-age=60, stale-while-revalidate=30");
+    // Force Vercel edge to NEVER cache HTML - ensures new uploads are visible immediately
+    res.setHeader("CDN-Cache-Control", "no-store");
+    res.setHeader("Vercel-CDN-Cache-Control", "no-store");
     res.setHeader("Content-Security-Policy", buildCsp());
     res.setHeader("X-Content-Type-Options", "nosniff");
 
