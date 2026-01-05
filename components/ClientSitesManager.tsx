@@ -1532,7 +1532,7 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.3)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.4)
 
 ## Objetivo (aceitação)
 Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
@@ -1759,9 +1759,31 @@ Use como fonte de verdade o catálogo interno em **Edição de Sites → Compone
 ### 2) Endpoints
 - ` + "`GET /client-sites/api/:subdomain/properties`" + ` = **stable** (use).
 - ` + "`GET /client-sites/api/:subdomain/site-config`" + ` = **opcional/beta** (use com fallback local; o site não pode quebrar se não existir).
-- ` + "`GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`" + ` = **stable** (use para calendário: disponibilidade por dia + preço base por dia; NÃO é quote do total da reserva).
+- ` + "`GET /client-sites/api/:subdomain/calendar?propertyId=UUID&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`" + ` = **stable** (use para calendário de disponibilidade).
+- ` + "`GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`" + ` = **stable** (alternativa ao /calendar; mesma funcionalidade).
 - ` + "`POST /client-sites/api/:subdomain/reservations`" + ` = **stable** (use para criar reservas; veja seção abaixo).
 - Leads = **planned** (não implemente integração real por enquanto).
+
+### 2.0.1) ⚠️ PROIBIDO usar dados mock para calendário
+**CRÍTICO**: O calendário de disponibilidade DEVE buscar dados da API real (` + "`/calendar`" + ` ou ` + "`/availability`" + `).
+❌ **NUNCA** crie funções que geram bloqueios fake baseados em ` + "`Date.now()`" + ` ou datas hardcoded.
+❌ **NUNCA** use arrays estáticos de datas bloqueadas no código.
+✅ **SEMPRE** faça ` + "`fetch()`" + ` para o endpoint ` + "`/calendar`" + ` com os parâmetros corretos.
+
+**Exemplo correto de cliente para calendário:**
+` + "```" + `typescript
+async function fetchCalendar(subdomain: string, propertyId: string, startDate: string, endDate: string) {
+  const url = API_BASE + '/' + subdomain + '/calendar?' + new URLSearchParams({
+    propertyId,
+    startDate,
+    endDate
+  }).toString();
+  const res = await fetch(url, { method: 'GET' });
+  const json = await res.json();
+  // json.days = [{ date: 'YYYY-MM-DD', status: 'available'|'blocked'|'reserved', price: number, minNights: number }]
+  return json;
+}
+` + "```" + `
 
 ### 2.1) Endpoint de Reservas (stable)
 O endpoint de reservas está estável e pode ser usado para criar reservas reais no sistema.
@@ -1902,6 +1924,7 @@ Crie uma rota ` + "`#/area-interna`" + ` com:
 4. **NÃO referencie assets com path absoluto** (` + "`/images/...`" + `) — use relative
 5. **NÃO dependa de SSR/Node** — o site é 100% estático
 6. **NÃO carregue scripts de CDN** — CSP bloqueia
+7. **NÃO use dados mock para calendário** — ` + "`Date.now() + X dias`" + ` ou arrays hardcoded de bloqueios são PROIBIDOS. Use a API ` + "`/calendar`" + ` real.
 
 ## Build / Entrega (OBRIGATÓRIO)
 Você deve entregar um ZIP que contenha ` + "`dist/`" + ` na raiz do ZIP e dentro:

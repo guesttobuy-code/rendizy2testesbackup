@@ -207,8 +207,20 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
         'Importante: preço por dia NÃO é o “total da reserva”. Taxa de limpeza, desconto por pacote de noites, taxas/serviço são composição do total e exigem um endpoint de quote (planejado).',
         'Blocks com subtype=reservation contam como reserved (ex: iCal) — não trate como “bloqueio manual”.'
       ]
-    },
-    {
+    },    {
+      id: 'calendar',
+      title: 'Calendário (alias para disponibilidade) — estável',
+      method: 'GET',
+      pathTemplate: '/client-sites/api/:subdomain/calendar?propertyId=UUID&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD',
+      stability: 'stable',
+      notes: [
+        'Alias do endpoint /availability com parâmetros via query string (compatibilidade com sites Bolt.new).',
+        'Retorna: { days: [{ date, status, price, minNights, propertyId }] }',
+        'status: "available" | "blocked" | "reserved"',
+        'Headers: Cache-Control: no-cache, no-store, must-revalidate (dados sempre frescos).',
+        '⚠️ PROIBIDO usar dados mock no cliente. O site DEVE chamar este endpoint para disponibilidade real.'
+      ]
+    },    {
       id: 'lead-create',
       title: 'Leads/Contato (form do site) — planejado',
       method: 'POST',
