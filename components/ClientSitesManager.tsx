@@ -1498,6 +1498,7 @@ Use como fonte de verdade o catálogo interno em **Edição de Sites → Compone
 - ` + "`GET /client-sites/api/:subdomain/properties`" + ` = **stable** (use).
 - ` + "`GET /client-sites/api/:subdomain/site-config`" + ` = **opcional/beta** (use com fallback local; o site não pode quebrar se não existir).
 - ` + "`GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`" + ` = **stable** (use para calendário: disponibilidade por dia + preço base por dia; NÃO é quote do total da reserva).
+- ` + "`GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`" + ` = **stable** (resposta em ` + "`data.availability[]`" + ` + ` + "`data.pricing.dailyRate`" + `; use no calendário; NÃO é quote do total da reserva).
 - Leads/booking/quote = **planned** (não implemente integração real).
 
 ### 3) DTO de imóveis e grupos de campos

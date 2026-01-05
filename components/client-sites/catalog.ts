@@ -197,13 +197,14 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
     },
     {
       id: 'availability-pricing',
-      title: 'Disponibilidade + preço por dia (calendário) — planejado',
+      title: 'Disponibilidade + preço por dia (calendário) — estável',
       method: 'GET',
       pathTemplate: '/client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD',
-      stability: 'planned',
+      stability: 'stable',
       notes: [
-        'Objetivo: alimentar o seletor de datas com preço por dia calculado pelo Rendizy (inclui regras/descontos).',
-        'Ainda não é um endpoint público padronizado.'
+        'Retorna disponibilidade por dia (available/blocked/reserved) + preço base por dia (dailyRate) para exibição no calendário.',
+        'Importante: preço por dia NÃO é o “total da reserva”. Taxa de limpeza, desconto por pacote de noites, taxas/serviço são composição do total e exigem um endpoint de quote (planejado).',
+        'Blocks com subtype=reservation contam como reserved (ex: iCal) — não trate como “bloqueio manual”.'
       ]
     },
     {
@@ -473,14 +474,15 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
   {
     id: 'calendar-daily-pricing',
     title: 'Seletor de Datas (Calendário) com Preço por Dia',
-    stability: 'planned',
+    stability: 'stable',
     description:
       'Calendário que mostra preço em cada dia e permite selecionar intervalo. O preço deve vir da lógica do Rendizy.',
     usesEndpoints: ['availability-pricing'],
-    requiredFields: ['pricing.dailyRate (por dia, retornado pela API planejada)'],
+    requiredFields: ['availability[].state', 'availability[].date', 'availability[].price', 'pricing.dailyRate'],
     notes: [
       'Quando este bloco estiver ativo, o site não deve calcular preço no front-end.',
-      'Regra: o backend é a fonte de verdade (evita divergências entre sites).'
+      'Regra: o backend é a fonte de verdade (evita divergências entre sites).',
+      'Nota: o bloco exibe preço por dia; o total da reserva (limpeza/descontos) é outro contrato (planejado).'
     ]
   }
 ] satisfies ClientSitesCatalogBlock[];
