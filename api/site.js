@@ -210,6 +210,19 @@ function patchClientSiteJs(jsText, { subdomain }) {
     out = out.replace(pricingNeedle, pricingReplacement);
   }
 
+  // MedHome calendar mock data fix:
+  // The bundle ships with a mock function that generates fake blocked dates:
+  //   async function Qk(e,t,n){return cd()?{success:!0,data:Yk(e,t,n)}:...}
+  // Where Yk(e,t,n) generates: [Date.now()+2days, +3days, +10days, +15days, +16days]
+  // We replace it with a real API call to /calendar endpoint.
+  // Pattern: async function Qk(e,t,n){return cd()?{success:!0,data:Yk(e,t,n)}:{success:!1,error:"Subdomain não detectado"}}
+  // e = propertyId, t = startDate, n = endDate
+  const calendarMockNeedle = /async function\s+([A-Za-z_$][A-Za-z0-9_$]*)\(([a-z]),([a-z]),([a-z])\)\{return\s+cd\(\)\?\{success:!0,data:([A-Za-z_$][A-Za-z0-9_$]*)\(\2,\3,\4\)\}:\{success:!1,error:"Subdomain não detectado"\}\}/g;
+  out = out.replace(calendarMockNeedle, (_match, fnName, e, t, n, _mockFn) => {
+    // Real implementation that calls the /calendar API endpoint
+    return `async function ${fnName}(${e},${t},${n}){const sd=cd();if(!sd)return{success:!1,error:"Subdomain não detectado"};try{const cfg=globalThis.RENDIZY_CONFIG||{};const base=cfg.publicApiBase||"https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/api/"+sd;const url=base+"/calendar?propertyId="+encodeURIComponent(${e})+"&startDate="+encodeURIComponent(${t})+"&endDate="+encodeURIComponent(${n});const r=await fetch(url);if(!r.ok){const txt=await r.text().catch(()=>"");return{success:!1,error:txt||"HTTP "+r.status}}const data=await r.json();return{success:!0,data:data.days||[]}}catch(err){return{success:!1,error:String(err&&err.message||err)}}}`;
+  });
+
   // Bundle safety (generic): some bundles initialize Supabase client with undefined
   // (e.g. `ww(void 0, void 0)`), which throws and blanks the whole page.
   // Guard the factory so missing config doesn't crash the SPA.
