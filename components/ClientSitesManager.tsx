@@ -1532,7 +1532,7 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.2)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.3)
 
 ## Objetivo (aceitação)
 Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
@@ -1561,7 +1561,16 @@ Para ser aceito:
 - NÃO use scripts externos.
 - Se usar fontes, prefira bundlar local (ou use fontes default do sistema).
 
-### 3) O site roda em subpath
+### 3) ⚠️ PROIBIDO usar @supabase/supabase-js diretamente
+**CRÍTICO**: NÃO instale nem importe ` + "`@supabase/supabase-js`" + `.
+O site será servido sem variáveis de ambiente (` + "`VITE_SUPABASE_URL`" + `, etc).
+Se você usar ` + "`createClient(...)`" + ` do supabase-js, o bundle vai crashar com:
+` + "`" + `Uncaught Error: supabaseUrl is required` + "`" + `
+
+✅ **Forma correta**: use ` + "`fetch()`" + ` diretamente para a API pública (veja seção "Integração de dados").
+❌ **Errado**: ` + "`import { createClient } from '@supabase/supabase-js'`" + `
+
+### 4) O site roda em subpath
 Ele abre como:
 - ` + "`https://<dominio>/site/<subdomain>/`" + `
 
@@ -1885,6 +1894,14 @@ Crie uma rota ` + "`#/area-interna`" + ` com:
 - Form de login (email/senha) SEM chamar backend (apenas UI)
 - Mensagem "Em breve"
 - Botão "Voltar ao site" que navega para ` + "`#/`" + `
+
+## ⛔ Anti-patterns (NÃO FAÇA ISSO)
+1. **NÃO use @supabase/supabase-js** — causa crash ` + "`supabaseUrl is required`" + `
+2. **NÃO use import.meta.env.VITE_*** em runtime — variáveis não existem no bundle servido
+3. **NÃO use BrowserRouter** — deep-links quebram; use HashRouter
+4. **NÃO referencie assets com path absoluto** (` + "`/images/...`" + `) — use relative
+5. **NÃO dependa de SSR/Node** — o site é 100% estático
+6. **NÃO carregue scripts de CDN** — CSP bloqueia
 
 ## Build / Entrega (OBRIGATÓRIO)
 Você deve entregar um ZIP que contenha ` + "`dist/`" + ` na raiz do ZIP e dentro:

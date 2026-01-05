@@ -42,7 +42,8 @@ export const CLIENT_SITES_PUBLIC_CONTRACT_V1 = {
         'Existem 2 modos: (1) site servido pelo Rendizy (injeta helpers no HTML) e (2) site hospedado externamente (fetch direto na API pública).',
         'A API pública aceita os paths /client-sites/* e /rendizy-public/client-sites/* (compat).',
         'Contrato estável hoje: apenas imóveis (properties). O endpoint site-config pode existir como beta; trate como opcional e tenha fallback no front.',
-        'Regra do contrato: o site SEMPRE exibe o título público usando o campo name (não usar identificadores internos do painel/admin).'
+        'Regra do contrato: o site SEMPRE exibe o título público usando o campo name (não usar identificadores internos do painel/admin).',
+        '⚠️ CRÍTICO: NÃO use @supabase/supabase-js diretamente. O site é servido SEM variáveis de ambiente (VITE_SUPABASE_URL não existe). Se você usar createClient(...), o bundle vai crashar com "supabaseUrl is required". Use fetch() direto para a API pública.',
       ],
       codeBlocks: [
         {
