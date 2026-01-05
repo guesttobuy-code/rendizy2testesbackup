@@ -1532,7 +1532,7 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.5)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.6)
 
 ## Objetivo (aceitação)
 Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
@@ -1771,6 +1771,26 @@ Use como fonte de verdade o catálogo interno em **Edição de Sites → Compone
 ❌ **NUNCA** use arrays estáticos de datas bloqueadas no código.
 ✅ **SEMPRE** faça ` + "`fetch()`" + ` para o endpoint ` + "`/calendar`" + ` com os parâmetros corretos.
 
+**⚠️ FORMATO DA RESPOSTA DO /calendar (CRÍTICO):**
+A API retorna o campo ` + "`status`" + ` como **string**, NÃO como booleano ` + "`available`" + `.
+
+` + "```" + `typescript
+// FORMATO REAL DA RESPOSTA:
+type CalendarDay = {
+  date: string;           // "2026-01-15"
+  status: string;         // "available" | "blocked" | "reserved"  ← STRING, não boolean!
+  price: number;          // 200
+  minNights: number;      // 2
+  propertyId: string;     // "uuid"
+};
+
+// ❌ ERRADO - NÃO FAÇA ISSO:
+if (day.available) { ... }  // available não existe!
+
+// ✅ CORRETO - FAÇA ASSIM:
+if (day.status === "available") { ... }
+` + "```" + `
+
 **Exemplo correto de cliente para calendário:**
 ` + "```" + `typescript
 async function fetchCalendar(subdomain: string, propertyId: string, startDate: string, endDate: string) {
@@ -1783,6 +1803,19 @@ async function fetchCalendar(subdomain: string, propertyId: string, startDate: s
   const json = await res.json();
   // json.days = [{ date: 'YYYY-MM-DD', status: 'available'|'blocked'|'reserved', price: number, minNights: number }]
   return json;
+}
+
+// Função para verificar se um range de datas está disponível:
+function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): boolean {
+  for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+    const day = days.find(x => x.date === dateStr);
+    // ⚠️ IMPORTANTE: verificar status === "available", NÃO day.available
+    if (!day || day.status !== "available") {
+      return false;
+    }
+  }
+  return true;
 }
 ` + "```" + `
 

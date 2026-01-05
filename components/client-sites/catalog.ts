@@ -161,6 +161,36 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
   createdAt: string;
   updatedAt: string;
 };`
+        },
+        {
+          title: 'CalendarDay DTO (contrato /calendar) — CRÍTICO PARA RESERVAS',
+          language: 'ts',
+          code: `// ⚠️ ATENÇÃO: O campo é "status" (string), NÃO "available" (boolean)!
+type CalendarDay = {
+  date: string;           // "2026-01-15" (YYYY-MM-DD)
+  status: string;         // "available" | "blocked" | "reserved" ← STRING!
+  price: number;          // 200 (dailyRate para este dia)
+  minNights: number;      // 2 (mínimo de noites)
+  propertyId: string;     // UUID do imóvel
+};
+
+// ❌ ERRO COMUM - NÃO FAÇA ISSO:
+if (day.available) { ... }  // ← O campo "available" NÃO EXISTE!
+
+// ✅ CORRETO - FAÇA ASSIM:
+if (day.status === "available") { ... }
+
+// Função para verificar disponibilidade de um range:
+function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): boolean {
+  for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+    const day = days.find(x => x.date === dateStr);
+    if (!day || day.status !== "available") {
+      return false;
+    }
+  }
+  return true;
+}`
         }
       ]
     }
@@ -220,7 +250,9 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
       notes: [
         'Alias do endpoint /availability com parâmetros via query string (compatibilidade com sites Bolt.new).',
         'Retorna: { days: [{ date, status, price, minNights, propertyId }] }',
-        'status: "available" | "blocked" | "reserved"',
+        '⚠️ IMPORTANTE: status é STRING ("available" | "blocked" | "reserved"), NÃO booleano!',
+        '❌ ERRADO: if (day.available) { ... } — o campo "available" NÃO EXISTE!',
+        '✅ CORRETO: if (day.status === "available") { ... }',
         'Headers: Cache-Control: no-cache, no-store, must-revalidate (dados sempre frescos).',
         '⚠️ PROIBIDO usar dados mock no cliente. O site DEVE chamar este endpoint para disponibilidade real.',
         '❌ ANTI-PATTERN: Funções que geram bloqueios baseados em Date.now() + X dias são PROIBIDAS.',
