@@ -126,19 +126,33 @@ function buildUpstreamAssetUrl(baseUrl, cleanPath, req) {
   return qs ? `${baseUrl}/${cleanPath}?${qs}` : `${baseUrl}/${cleanPath}`;
 }
 
-function patchMedhomePricingInBundle(jsText) {
-  // The MedHome bundle normalizer (`fp`) currently emits pricing.basePrice but the UI reads pricing.dailyRate.
-  // We patch the compiled bundle in-flight (Vercel proxy) to populate daily/weekly/monthly rates.
-  // Keep this very surgical: exact substring replacement.
-  const needle = 'pricing:{basePrice:Nn(r.basePrice,0),currency:r.currency??"BRL"}';
-  if (!jsText || !jsText.includes(needle)) return jsText;
+function patchClientSiteJs(jsText, { subdomain }) {
+  let out = jsText;
+  if (!out) return out;
 
-  const replacement =
-    'pricing:{basePrice:Nn(r.basePrice,0),currency:r.currency??"BRL",dailyRate:Nn(r.dailyRate??r.basePrice,0),weeklyRate:Nn(r.weeklyRate??0),monthlyRate:Nn(r.monthlyRate??0)}';
+  // Generic Bolt/Vite placeholder substitution.
+  // Many ZIPs ship template values like {{API_BASE_URL}} and {{PUBLIC_ANON_KEY}}.
+  // If we don't replace them, some bundles initialize SDKs with undefined and crash.
+  const publicApiBase = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/api/${encodeURIComponent(
+    subdomain
+  )}`;
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
 
-  let out = jsText.replace(needle, replacement);
+  out = out
+    .replaceAll("{{PROJECT_ID}}", SUPABASE_PROJECT_REF)
+    .replaceAll("{{API_BASE_URL}}", publicApiBase)
+    .replaceAll("{{PUBLIC_ANON_KEY}}", anonKey);
 
-  // Bundle safety: some Bolt/Vite outputs accidentally initialize Supabase client with undefined
+  // MedHome: The bundle normalizer (`fp`) currently emits pricing.basePrice but the UI reads pricing.dailyRate.
+  // Keep this surgical: exact substring replacement.
+  const pricingNeedle = 'pricing:{basePrice:Nn(r.basePrice,0),currency:r.currency??"BRL"}';
+  if (out.includes(pricingNeedle)) {
+    const pricingReplacement =
+      'pricing:{basePrice:Nn(r.basePrice,0),currency:r.currency??"BRL",dailyRate:Nn(r.dailyRate??r.basePrice,0),weeklyRate:Nn(r.weeklyRate??0),monthlyRate:Nn(r.monthlyRate??0)}';
+    out = out.replace(pricingNeedle, pricingReplacement);
+  }
+
+  // Bundle safety (generic): some bundles initialize Supabase client with undefined
   // (e.g. `ww(void 0, void 0)`), which throws and blanks the whole page.
   // Guard the factory so missing config doesn't crash the SPA.
   out = out.replace(
@@ -296,7 +310,7 @@ export default async function handler(req, res) {
       // We only do this for JS assets (safe no-op if substring is not found).
       if (/\bjavascript\b/i.test(ct) || /\.m?js($|\?)/i.test(clean)) {
         const jsText = await assetResp.text();
-        const patchedText = patchMedhomePricingInBundle(jsText);
+        const patchedText = patchClientSiteJs(jsText, { subdomain });
 
         res.statusCode = 200;
         res.setHeader("Content-Type", ct);
