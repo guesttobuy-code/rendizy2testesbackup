@@ -89,7 +89,21 @@ function patchHtmlForSubpath(html, baseHref) {
   // Common root-level static files.
   out = out.replace(/\s(href)="\/(favicon\.(ico|png|svg)|manifest\.webmanifest|robots\.txt)(\?[^"#]*)?"/gi, ' $1="$2$4"');
 
+  // Vite default icon (common in Bolt/Vite outputs).
+  out = out.replace(/\s(src|href)="\/vite\.svg(\?[^"#]*)?"/gi, ' $1="vite.svg$2"');
+
   return out;
+}
+
+function looksLikeFilePath(cleanPath) {
+  const p = String(cleanPath || "");
+  if (!p) return false;
+
+  // Explicitly treat Vite build output folder as files.
+  if (p.startsWith("assets/")) return true;
+
+  // Last path segment has an extension (e.g. .js, .css, .png, .svg, .map, ...)
+  return /(^|\/)[^\/]+\.[a-z0-9]+$/i.test(p);
 }
 
 function cleanRequestedPath(p) {
@@ -222,6 +236,23 @@ export default async function handler(req, res) {
         res.statusCode = 400;
         res.setHeader("Content-Type", "text/plain; charset=utf-8");
         res.end("Path inválido");
+        return;
+      }
+
+      // SPA deep-link fallback:
+      // If the request doesn't look like a real file (no extension), serve index.html.
+      // This makes BrowserRouter-style apps work on refresh/deep-links under /site/<subdomain>/.
+      if (!looksLikeFilePath(clean)) {
+        const html = await resp.text();
+        const patched = patchHtmlForSubpath(html, `/site/${encodeURIComponent(subdomain)}/`);
+
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "public, max-age=60");
+        res.setHeader("Content-Security-Policy", buildCsp());
+        res.setHeader("X-Content-Type-Options", "nosniff");
+
+        res.end(patched);
         return;
       }
 
