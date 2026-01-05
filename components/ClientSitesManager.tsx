@@ -1751,8 +1751,78 @@ Use como fonte de verdade o catálogo interno em **Edição de Sites → Compone
 - ` + "`GET /client-sites/api/:subdomain/properties`" + ` = **stable** (use).
 - ` + "`GET /client-sites/api/:subdomain/site-config`" + ` = **opcional/beta** (use com fallback local; o site não pode quebrar se não existir).
 - ` + "`GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`" + ` = **stable** (use para calendário: disponibilidade por dia + preço base por dia; NÃO é quote do total da reserva).
-- ` + "`GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`" + ` = **stable** (resposta em ` + "`data.availability[]`" + ` + ` + "`data.pricing.dailyRate`" + `; use no calendário; NÃO é quote do total da reserva).
-- Leads/booking/quote = **planned** (não implemente integração real).
+- ` + "`POST /client-sites/api/:subdomain/reservations`" + ` = **stable** (use para criar reservas; veja seção abaixo).
+- Leads = **planned** (não implemente integração real por enquanto).
+
+### 2.1) Endpoint de Reservas (stable)
+O endpoint de reservas está estável e pode ser usado para criar reservas reais no sistema.
+
+**Request:**
+` + "```" + `
+POST /client-sites/api/:subdomain/reservations
+Content-Type: application/json
+
+{
+  "propertyId": "uuid do imóvel",
+  "checkIn": "YYYY-MM-DD",
+  "checkOut": "YYYY-MM-DD",
+  "guestName": "Nome do hóspede",
+  "guestEmail": "email@exemplo.com",  // opcional
+  "guestPhone": "+5511999999999",      // opcional
+  "guests": 2,                         // opcional, default 1
+  "message": "Mensagem opcional"       // opcional
+}
+` + "```" + `
+
+**Response (201 Created):**
+` + "```" + `json
+{
+  "success": true,
+  "data": {
+    "id": "uuid da reserva",
+    "reservationCode": "WEB-XXXXXXXX-XXX",
+    "totalPrice": 600,
+    "currency": "BRL",
+    "status": "PENDING",
+    "message": "Reserva criada! Código: WEB-XXXXXXXX-XXX"
+  }
+}
+` + "```" + `
+
+**Erros comuns:**
+- ` + "`400`" + `: Campos obrigatórios faltando (propertyId, checkIn, checkOut, guestName)
+- ` + "`409`" + `: Datas não disponíveis (conflito com reserva existente ou bloqueio)
+- ` + "`404`" + `: Imóvel não encontrado ou não pertence ao site
+
+**Exemplo de cliente API:**
+` + "```" + `typescript
+async function createReservation(subdomain: string, data: {
+  propertyId: string;
+  checkIn: string;
+  checkOut: string;
+  guestName: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  guests?: number;
+  message?: string;
+}) {
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://odcgnzfremrqnvtitpcc.supabase.co';
+  const url = ` + "`${baseUrl}/functions/v1/rendizy-public/client-sites/api/${subdomain}/reservations`" + `;
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Erro ao criar reserva');
+  }
+  
+  return res.json();
+}
+` + "```" + `
 
 ### 3) DTO de imóveis e grupos de campos
 O site deve usar APENAS os campos do ` + "`ClientSiteProperty`" + ` acima, seguindo estes grupos:
@@ -1773,6 +1843,7 @@ Implemente explicitamente estes blocos (mesma intenção do catálogo):
 - Detalhe: ` + "`property-detail`" + ` + ` + "`property-gallery`" + ` + ` + "`property-amenities`" + `
 - Localização/Mapa: ` + "`property-map`" + ` (step 2 do anúncios_ultimate)
 - CTA de contato (` + "`contact-cta`" + `) usando WhatsApp/link (sem backend)
+- Formulário de reserva (` + "`booking-form`" + `): permite criar reservas via POST /reservations
 
 Para Header/Hero/Footer:
 - Preferir dados vindos de ` + "`site-config`" + ` (título, descrição, contato, redes, features), quando disponível.
@@ -1800,6 +1871,12 @@ Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade can�
 - Galeria (usar photos)
 - Informações e CTA de contato (WhatsApp)
 - Mapa/Localização (step 2): usar latitude/longitude quando disponível; fallback por cidade/estado
+- Formulário de Reserva (` + "`booking-form`" + `):
+  - Campos: check-in (date), check-out (date), nome do hóspede (text obrigatório), email (email opcional), telefone (tel opcional), número de hóspedes (number), mensagem (textarea opcional)
+  - Ao submeter: POST para ` + "`/client-sites/api/:subdomain/reservations`" + `
+  - Mostrar sucesso: "Reserva criada! Código: {reservationCode}"
+  - Mostrar erro: mensagem do backend ou "Erro ao criar reserva"
+  - Calcular preço total no front: (checkOut - checkIn) * pricing.dailyRate
 
 4) Contato
 

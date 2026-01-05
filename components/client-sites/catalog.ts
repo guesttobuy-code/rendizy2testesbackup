@@ -217,6 +217,21 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
         'Objetivo: padronizar captura de leads (nome, email, telefone, mensagem, propertyId opcional).',
         'Deve ter anti-abuso (rate limit/captcha) e validação server-side.'
       ]
+    },
+    {
+      id: 'reservation-create',
+      title: 'Criar Reserva (via site) — estável',
+      method: 'POST',
+      pathTemplate: '/client-sites/api/:subdomain/reservations',
+      stability: 'stable',
+      notes: [
+        'Cria reserva real no banco com status "pending".',
+        'Campos obrigatórios: propertyId, checkIn (YYYY-MM-DD), checkOut (YYYY-MM-DD), guestName.',
+        'Campos opcionais: guests (número), guestEmail, guestPhone, message.',
+        'Retorna: id, reservationCode, totalPrice, currency, status, message.',
+        'Valida disponibilidade antes de criar (retorna 409 se conflito com reserva/bloqueio existente).',
+        'O preço é calculado como dailyRate × nights (sem descontos/taxas adicionais por enquanto).'
+      ]
     }
   ] satisfies ClientSitesCatalogEndpoint[],
 
@@ -483,6 +498,31 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       'Quando este bloco estiver ativo, o site não deve calcular preço no front-end.',
       'Regra: o backend é a fonte de verdade (evita divergências entre sites).',
       'Nota: o bloco exibe preço por dia; o total da reserva (limpeza/descontos) é outro contrato (planejado).'
+    ]
+  },
+  {
+    id: 'booking-form',
+    title: 'Formulário de Reserva',
+    stability: 'stable',
+    description:
+      'Formulário para criar reservas diretamente do site público. Integra com calendário de disponibilidade.',
+    usesEndpoints: ['availability-pricing', 'reservation-create'],
+    requiredFields: [
+      'propertyId',
+      'checkIn (YYYY-MM-DD)',
+      'checkOut (YYYY-MM-DD)',
+      'guestName',
+      'guestEmail (opcional)',
+      'guestPhone (opcional)',
+      'guests (opcional)',
+      'message (opcional)'
+    ],
+    notes: [
+      'Fluxo recomendado: (1) usuário seleciona datas no calendário, (2) valida disponibilidade via availability, (3) preenche formulário, (4) envia via POST /reservations.',
+      'O endpoint valida novamente a disponibilidade antes de criar (retorna 409 se conflito).',
+      'Preço total = dailyRate × nights (calculado no backend).',
+      'Resposta de sucesso inclui reservationCode para o usuário anotar.',
+      'Reservas criadas ficam com status "pending" aguardando confirmação do admin.'
     ]
   }
 ] satisfies ClientSitesCatalogBlock[];

@@ -142,7 +142,7 @@ export function ReservationPreviewModal({
               <div className="flex-1">
                 <div className="text-sm text-gray-600">Valor</div>
                 <div className="text-gray-900">
-                  R$ {reservation?.price?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                  R$ {(reservation?.pricing?.total ?? reservation?.price ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
               </div>
             </div>

@@ -961,6 +961,242 @@ clientSites.get("/api/:subdomain/properties/:propertyId/availability", async (c:
 });
 
 // ============================================================
+// PUBLIC: Create reservation from client site
+// POST /client-sites/api/:subdomain/reservations
+// ============================================================
+clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
+  try {
+    const subdomain = (c.req.param("subdomain") || "").trim().toLowerCase();
+    if (!subdomain) {
+      return c.json(
+        { success: false, error: "Subdomain ausente" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const body = await c.req.json().catch(() => null);
+    if (!body) {
+      return c.json(
+        { success: false, error: "Body JSON inválido" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const propertyId = (body.propertyId || "").trim();
+    const checkIn = (body.checkIn || "").trim();
+    const checkOut = (body.checkOut || "").trim();
+    const guestName = (body.guestName || "").trim();
+    const guestEmail = (body.guestEmail || "").trim();
+    const guestPhone = (body.guestPhone || "").trim();
+    const guestsCount = Number(body.guests) || 1;
+    const message = (body.message || "").trim();
+
+    // Validate required fields
+    if (!propertyId || !checkIn || !checkOut || !guestName) {
+      return c.json(
+        { success: false, error: "Campos obrigatórios: propertyId, checkIn, checkOut, guestName" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Validate date format
+    if (!isYmd(checkIn) || !isYmd(checkOut)) {
+      return c.json(
+        { success: false, error: "Formato de data inválido (use YYYY-MM-DD)" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const checkInDate = ymdToDateUtc(checkIn);
+    const checkOutDate = ymdToDateUtc(checkOut);
+    if (!checkInDate || !checkOutDate) {
+      return c.json(
+        { success: false, error: "Data inválida" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    if (checkInDate.getTime() >= checkOutDate.getTime()) {
+      return c.json(
+        { success: false, error: "Check-out deve ser após check-in" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // Validate site exists
+    const { data: sqlSite, error: sqlError } = await supabase
+      .from("client_sites")
+      .select("organization_id,subdomain,is_active")
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (sqlError || !sqlSite) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const organizationId = (sqlSite as { organization_id: string }).organization_id;
+
+    // Validate property belongs to this organization
+    let propertyExists = false;
+    let pricing = { dailyRate: 0, currency: "BRL" };
+
+    // Check properties table first
+    const { data: prop } = await supabase
+      .from("properties")
+      .select("id,pricing_base_price,pricing_currency")
+      .eq("organization_id", organizationId)
+      .eq("id", propertyId)
+      .maybeSingle();
+
+    if (prop) {
+      propertyExists = true;
+      pricing = {
+        dailyRate: numberOrZero((prop as any).pricing_base_price),
+        currency: (prop as any).pricing_currency || "BRL",
+      };
+    } else {
+      // Fallback to anuncios_ultimate
+      const { data: anuncio } = await supabase
+        .from("anuncios_ultimate")
+        .select("id,data")
+        .eq("organization_id", organizationId)
+        .eq("id", propertyId)
+        .maybeSingle();
+
+      if (anuncio) {
+        propertyExists = true;
+        const d = (anuncio as any)?.data || {};
+        const p = normalizePricing(d);
+        pricing = { dailyRate: numberOrZero(p.dailyRate), currency: p.currency || "BRL" };
+      }
+    }
+
+    if (!propertyExists) {
+      return c.json(
+        { success: false, error: "Imóvel não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Check availability (no overlapping blocks or reservations)
+    const [{ data: blockRows }, { data: reservationRows }] = await Promise.all([
+      supabase
+        .from("blocks")
+        .select("id,start_date,end_date")
+        .eq("organization_id", organizationId)
+        .eq("property_id", propertyId)
+        .lt("start_date", checkOut)
+        .gt("end_date", checkIn),
+      supabase
+        .from("reservations")
+        .select("id,check_in,check_out")
+        .eq("organization_id", organizationId)
+        .eq("property_id", propertyId)
+        .in("status", ["pending", "confirmed", "checked_in"])
+        .lt("check_in", checkOut)
+        .gt("check_out", checkIn),
+    ]);
+
+    const hasConflict = ((blockRows as any[]) || []).length > 0 || ((reservationRows as any[]) || []).length > 0;
+    if (hasConflict) {
+      return c.json(
+        { success: false, error: "Período indisponível. Já existe reserva ou bloqueio nessas datas." },
+        409,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Calculate total price
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    const totalPrice = pricing.dailyRate * nights;
+
+    // Generate reservation ID and code
+    const reservationId = crypto.randomUUID();
+    const reservationCode = `WEB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+
+    // Create the reservation using correct schema columns
+    const { data: newReservation, error: insertError } = await supabase
+      .from("reservations")
+      .insert({
+        id: reservationId,
+        organization_id: organizationId,
+        property_id: propertyId,
+        check_in: checkIn,
+        check_out: checkOut,
+        nights: nights,
+        guests_adults: guestsCount,
+        guests_total: guestsCount,
+        pricing_price_per_night: pricing.dailyRate,
+        pricing_base_total: totalPrice,
+        pricing_total: totalPrice,
+        pricing_currency: pricing.currency,
+        status: "pending",
+        platform: "direct",
+        notes: message ? `[Site: ${guestName}] ${message}` : `[Site] Reserva via site público`,
+        special_requests: guestEmail ? `Email: ${guestEmail}` : null,
+        internal_comments: guestPhone ? `Tel: ${guestPhone}` : null,
+        created_by: "00000000-0000-0000-0000-000000000001", // System user for public reservations
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("id,check_in,check_out,nights,status,pricing_total,pricing_currency,created_at")
+      .single();
+
+    if (insertError) {
+      console.error("[rendizy-public] Error creating reservation:", insertError);
+      return c.json(
+        { success: false, error: "Erro ao criar reserva", details: insertError.message },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          id: (newReservation as any).id,
+          reservationCode: reservationCode,
+          propertyId,
+          checkIn,
+          checkOut,
+          nights,
+          guests: guestsCount,
+          totalPrice: (newReservation as any).pricing_total,
+          currency: (newReservation as any).pricing_currency,
+          status: (newReservation as any).status,
+          createdAt: (newReservation as any).created_at,
+          message: "Reserva criada com sucesso! Aguarde confirmação.",
+        },
+      },
+      201,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  } catch (err) {
+    console.error("[rendizy-public] Reservation error:", err);
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
+});
+
+// ============================================================
 // PUBLIC (PROTO/STUB): Lead capture (planned)
 // POST /client-sites/api/:subdomain/leads
 // ============================================================
