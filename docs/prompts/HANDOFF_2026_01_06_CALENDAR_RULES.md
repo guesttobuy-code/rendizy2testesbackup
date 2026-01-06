@@ -118,6 +118,31 @@ Rendizyoficial-main/             # Raiz do projeto React+Vite
 - Função: Resolve organization_id para multi-tenancy
 - **NUNCA** alterar `RENDIZY_MASTER_ORG_ID`
 
+### 4. routes-reservations.ts (RESERVAS) 🆕
+- Marcador: `🔒 CADEADO DE CONTRATO`
+- Função: CRUD de reservas multi-tenant
+- **NUNCA** alterar filtro de `organization_id`
+- **NUNCA** modificar contrato sem criar versão v2
+- **NUNCA** remover validação de datas ou cálculo de noites
+
+### 5. routes-guests.ts (HÓSPEDES) 🆕
+- Função: CRUD de hóspedes multi-tenant
+- **NUNCA** alterar filtro de `organization_id`
+- **NUNCA** remover sanitização de CPF/email/telefone
+- **NUNCA** expor dados sensíveis em listagens
+
+### 6. routes-calendar.ts (CALENDÁRIO) 🆕
+- Função: Dados do calendário (reservas + blocks)
+- **NUNCA** alterar filtro de `organization_id`
+- **NUNCA** quebrar contrato consumido por sites externos
+- **NUNCA** remover parâmetros de filtro de data
+
+### 7. routes-blocks.ts (BLOQUEIOS) 🆕
+- Função: CRUD de bloqueios de calendário
+- **NUNCA** alterar filtro de `organization_id`
+- **NUNCA** remover validação de sobreposição de datas
+- **NUNCA** permitir blocks sem property_id válido
+
 ---
 
 ## 📝 COMANDOS ÚTEIS

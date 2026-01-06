@@ -58,6 +58,100 @@
 
 ---
 
+### 4. Reservas (routes-reservations.ts)
+
+**Arquivo:** `supabase/functions/rendizy-server/routes-reservations.ts`  
+**Marcador:** `🔒 CADEADO DE CONTRATO`
+
+**PROIBIDO:**
+- ❌ Alterar filtro `.eq('organization_id', organizationId)` - vazamento de dados entre tenants
+- ❌ Modificar contrato de input/output sem criar versão v2
+- ❌ Remover validação de datas (check_in, check_out)
+- ❌ Alterar lógica de cálculo de `calculateNights`
+- ❌ Remover verificação de conflito de datas (overlap)
+
+**OBRIGATÓRIO:**
+- ✅ Manter cadeado de contrato no topo do arquivo
+- ✅ Manter integridade tenant: reservas nunca podem vazar entre organizações
+- ✅ Preservar logs de diagnóstico existentes
+- ✅ Retornar `{ success: true, data: [] }` mesmo se vazio
+
+**DEPENDÊNCIAS CRÍTICAS:**
+- Calendar Module exibe reservas no calendário
+- Properties Module vincula reservas a propriedades
+- Guests Module associa hóspedes às reservas
+
+---
+
+### 5. Hóspedes (routes-guests.ts)
+
+**Arquivo:** `supabase/functions/rendizy-server/routes-guests.ts`
+
+**PROIBIDO:**
+- ❌ Alterar filtro `.eq('organization_id', organizationId)` - vazamento de dados entre tenants
+- ❌ Remover sanitização de dados (CPF, email, telefone)
+- ❌ Modificar lógica de busca/filtro sem testar regressão
+- ❌ Expor dados sensíveis (CPF completo) em listagens públicas
+
+**OBRIGATÓRIO:**
+- ✅ Manter filtro de tenant em TODAS as queries
+- ✅ Sanitizar inputs: `sanitizeString`, `sanitizeEmail`, `sanitizePhone`, `sanitizeCPF`
+- ✅ Preservar busca por múltiplos campos (nome, email, telefone, CPF)
+- ✅ Manter validação de blacklist
+
+**DEPENDÊNCIAS CRÍTICAS:**
+- Reservations Module vincula hóspedes às reservas
+- WhatsApp Module envia mensagens para hóspedes
+
+---
+
+### 6. Calendário (routes-calendar.ts)
+
+**Arquivo:** `supabase/functions/rendizy-server/routes-calendar.ts`  
+**Rotas:** `GET /calendar`, `GET /calendar/blocks`
+
+**PROIBIDO:**
+- ❌ Alterar filtro de `organization_id` - vazamento de dados entre tenants
+- ❌ Modificar lógica de overlap de datas sem testes
+- ❌ Remover parâmetros de filtro existentes (startDate, endDate, propertyIds)
+- ❌ Quebrar contrato de retorno que sites externos consomem
+
+**OBRIGATÓRIO:**
+- ✅ Manter consistência com tabelas `reservations` e `blocks`
+- ✅ Preservar filtros de data para performance
+- ✅ Manter flags: `includeBlocks`, `includePrices`
+- ✅ Retornar dados de calendário no formato esperado pelo frontend
+
+**DEPENDÊNCIAS CRÍTICAS:**
+- CalendarGrid.tsx consome dados do calendário
+- Sites externos (Bolt) consomem `/calendar` via API pública
+- CalendarBulkRules.tsx depende de regras de calendário
+
+---
+
+### 7. Blocks (routes-blocks.ts)
+
+**Arquivo:** `supabase/functions/rendizy-server/routes-blocks.ts`
+
+**PROIBIDO:**
+- ❌ Alterar filtro de `organization_id` - vazamento de bloqueios entre tenants
+- ❌ Remover validação de sobreposição de datas
+- ❌ Permitir blocks sem property_id válido
+- ❌ Quebrar integridade com tabela `blocks` no SQL
+
+**OBRIGATÓRIO:**
+- ✅ Aplicar `tenancyMiddleware` em todas as rotas
+- ✅ Manter filtro por `propertyIds` (múltiplas propriedades)
+- ✅ Ordenar por `start_date` ascending
+- ✅ Usar mapper `sqlToBlock` para converter dados SQL
+
+**DEPENDÊNCIAS CRÍTICAS:**
+- Calendar Module exibe bloqueios
+- Reservations verifica conflitos com bloqueios
+- StaysNet importa bloqueios externos
+
+---
+
 ## 🟡 REGRAS GERAIS
 
 ### Antes de Alterar Código Crítico

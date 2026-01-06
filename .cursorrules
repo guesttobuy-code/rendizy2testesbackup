@@ -20,6 +20,35 @@
 - DO NOT alter RENDIZY_MASTER_ORG_ID
 - DO NOT modify getOrganizationIdForRequest logic
 
+### 4. Reservations (routes-reservations.ts)
+- DO NOT alter .eq('organization_id', organizationId) filter
+- DO NOT modify input/output contract without creating v2
+- DO NOT remove date validation (check_in, check_out)
+- DO NOT alter calculateNights logic
+- ALWAYS keep contract lock header in file
+- ALWAYS maintain tenant isolation - reservations must never leak
+
+### 5. Guests (routes-guests.ts)
+- DO NOT alter .eq('organization_id', organizationId) filter
+- DO NOT remove data sanitization (CPF, email, phone)
+- DO NOT expose sensitive data (full CPF) in public listings
+- ALWAYS sanitize inputs with sanitize* functions
+- ALWAYS maintain tenant isolation
+
+### 6. Calendar (routes-calendar.ts)
+- DO NOT alter organization_id filter
+- DO NOT modify date overlap logic without tests
+- DO NOT remove existing filter params (startDate, endDate, propertyIds)
+- DO NOT break return contract that external sites consume
+- ALWAYS maintain consistency with reservations and blocks tables
+
+### 7. Blocks (routes-blocks.ts)
+- DO NOT alter organization_id filter
+- DO NOT remove date overlap validation
+- DO NOT allow blocks without valid property_id
+- ALWAYS apply tenancyMiddleware to all routes
+- ALWAYS use sqlToBlock mapper for SQL data
+
 ## Before Modifying Critical Code
 1. ASK the user for explicit approval
 2. EXPLAIN the impact of proposed changes
