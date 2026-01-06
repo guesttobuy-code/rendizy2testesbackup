@@ -1,7 +1,16 @@
 // useCalendarPricingRules.ts
 // Hook para carregar e salvar regras de calendário do banco
-import { useState, useEffect, useCallback } from 'react';
+// V2: Otimizado com debouncing, optimistic updates e batch queue
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+
+// ============================================================================
+// CONFIGURAÇÃO DE PERFORMANCE
+// ============================================================================
+const DEBOUNCE_MS = 500;           // Tempo para agrupar operações
+const MAX_QUEUE_SIZE = 100;        // Máximo de operações na fila antes de flush forçado
+const RETRY_ATTEMPTS = 3;          // Tentativas em caso de falha
+const RETRY_DELAY_MS = 1000;       // Delay entre tentativas
 
 // Tipo da regra de calendário
 export interface CalendarPricingRule {
@@ -28,6 +37,22 @@ interface UseCalendarPricingRulesParams {
   dateRange?: { from: Date; to: Date };
 }
 
+// Tipo de operação na fila
+type QueueOperation = {
+  type: 'upsert' | 'delete';
+  rule: Partial<CalendarPricingRule>;
+  tempId?: string; // ID temporário para optimistic update
+  timestamp: number;
+};
+
+// Status da fila de operações
+interface QueueStatus {
+  pending: number;
+  processing: boolean;
+  lastFlush: number | null;
+  errors: string[];
+}
+
 interface UseCalendarPricingRulesReturn {
   rules: CalendarPricingRule[];
   rulesByPropertyAndDate: RulesByPropertyAndDate;
@@ -40,7 +65,7 @@ interface UseCalendarPricingRulesReturn {
   // Buscar regra para uma data específica
   getRuleForDate: (propertyId: string | null, date: Date, applyBatchRules?: boolean) => CalendarPricingRule | null;
   
-  // Criar/atualizar regra
+  // Criar/atualizar regra (agora com optimistic update)
   upsertRule: (rule: Partial<CalendarPricingRule>) => Promise<{ success: boolean; error?: string }>;
   
   // Deletar regra
@@ -48,6 +73,14 @@ interface UseCalendarPricingRulesReturn {
   
   // Criar regras em lote
   bulkUpsertRules: (rules: Partial<CalendarPricingRule>[]) => Promise<{ success: boolean; error?: string }>;
+  
+  // V2: Novos métodos para queue
+  queueStatus: QueueStatus;
+  flushQueue: () => Promise<void>;
+  
+  // V2: Versão otimista (atualiza UI imediatamente)
+  upsertRuleOptimistic: (rule: Partial<CalendarPricingRule>) => void;
+  bulkUpsertOptimistic: (rules: Partial<CalendarPricingRule>[]) => void;
 }
 
 function getAuthHeaders(): Record<string, string> {
@@ -77,6 +110,24 @@ export function useCalendarPricingRules({
   
   // Mapa indexado para lookup rápido
   const [rulesByPropertyAndDate, setRulesByPropertyAndDate] = useState<RulesByPropertyAndDate>(new Map());
+  
+  // V2: Queue de operações pendentes
+  const operationQueueRef = useRef<QueueOperation[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFlushingRef = useRef(false);
+  
+  // V2: Status da fila
+  const [queueStatus, setQueueStatus] = useState<QueueStatus>({
+    pending: 0,
+    processing: false,
+    lastFlush: null,
+    errors: []
+  });
+  
+  // V2: Gerar ID temporário para optimistic updates
+  const generateTempId = useCallback(() => {
+    return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
   
   // Função para indexar regras em mapa
   const indexRules = useCallback((rules: CalendarPricingRule[]) => {
@@ -320,6 +371,230 @@ export function useCalendarPricingRules({
     }
   }, [organizationId, refreshRules]);
   
+  // ==========================================================================
+  // V2: OPTIMISTIC UPDATES + QUEUE SYSTEM
+  // ==========================================================================
+  
+  // Aplicar regra otimisticamente no estado local
+  const applyOptimisticRule = useCallback((rule: Partial<CalendarPricingRule>, tempId?: string) => {
+    if (!organizationId) return;
+    
+    const fullRule: CalendarPricingRule = {
+      id: tempId || rule.id || generateTempId(),
+      organization_id: organizationId,
+      property_id: rule.property_id ?? null,
+      start_date: rule.start_date || formatDateYMD(new Date()),
+      end_date: rule.end_date || formatDateYMD(new Date()),
+      condition_percent: rule.condition_percent ?? 0,
+      min_nights: rule.min_nights ?? 1,
+      restriction: rule.restriction ?? null,
+      priority: rule.priority ?? 0,
+      updated_at: new Date().toISOString()
+    };
+    
+    // Atualizar estado local imediatamente
+    setRules(prev => {
+      // Remover regra existente se for update
+      const filtered = prev.filter(r => r.id !== fullRule.id);
+      return [...filtered, fullRule];
+    });
+    
+    // Reindexar
+    setRulesByPropertyAndDate(prev => {
+      const newMap = new Map(prev);
+      const propKey = fullRule.property_id;
+      
+      if (!newMap.has(propKey)) {
+        newMap.set(propKey, new Map());
+      }
+      
+      const dateMap = new Map(newMap.get(propKey)!);
+      
+      // Expandir range de datas
+      const start = new Date(fullRule.start_date + 'T00:00:00');
+      const end = new Date(fullRule.end_date + 'T00:00:00');
+      
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateKey = formatDateYMD(d);
+        const existing = dateMap.get(dateKey);
+        if (!existing || (fullRule.priority ?? 0) >= (existing.priority ?? 0)) {
+          dateMap.set(dateKey, fullRule);
+        }
+      }
+      
+      newMap.set(propKey, dateMap);
+      return newMap;
+    });
+    
+    return fullRule.id;
+  }, [organizationId, generateTempId]);
+  
+  // Flush da fila de operações
+  const flushQueue = useCallback(async () => {
+    if (isFlushingRef.current || operationQueueRef.current.length === 0) return;
+    if (!organizationId) return;
+    
+    isFlushingRef.current = true;
+    setQueueStatus(prev => ({ ...prev, processing: true }));
+    
+    // Pegar operações da fila
+    const operations = [...operationQueueRef.current];
+    operationQueueRef.current = [];
+    
+    console.log(`[useCalendarPricingRules] Flushing ${operations.length} operations`);
+    
+    try {
+      // Agrupar upserts
+      const upserts = operations
+        .filter(op => op.type === 'upsert')
+        .map(op => ({
+          ...op.rule,
+          organization_id: organizationId,
+          updated_at: new Date().toISOString()
+        }));
+      
+      // Agrupar deletes
+      const deleteIds = operations
+        .filter(op => op.type === 'delete' && op.rule.id)
+        .map(op => op.rule.id!);
+      
+      // Executar upserts em batch
+      if (upserts.length > 0) {
+        const url = `https://${projectId}.supabase.co/rest/v1/calendar_pricing_rules`;
+        
+        // Tentar com retry
+        let attempt = 0;
+        let success = false;
+        
+        while (attempt < RETRY_ATTEMPTS && !success) {
+          try {
+            const resp = await fetch(url, {
+              method: 'POST',
+              headers: {
+                ...getAuthHeaders(),
+                'Prefer': 'return=representation,resolution=merge-duplicates'
+              },
+              body: JSON.stringify(upserts)
+            });
+            
+            if (resp.ok) {
+              success = true;
+            } else {
+              const body = await resp.text();
+              throw new Error(`HTTP ${resp.status}: ${body}`);
+            }
+          } catch (err) {
+            attempt++;
+            if (attempt < RETRY_ATTEMPTS) {
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            } else {
+              throw err;
+            }
+          }
+        }
+      }
+      
+      // Executar deletes
+      for (const id of deleteIds) {
+        const url = `https://${projectId}.supabase.co/rest/v1/calendar_pricing_rules?id=eq.${id}`;
+        await fetch(url, { method: 'DELETE', headers: getAuthHeaders() });
+      }
+      
+      setQueueStatus(prev => ({
+        ...prev,
+        processing: false,
+        lastFlush: Date.now(),
+        pending: operationQueueRef.current.length,
+        errors: []
+      }));
+      
+      // Refresh para sincronizar com servidor
+      await refreshRules();
+      
+    } catch (err: any) {
+      console.error('[useCalendarPricingRules] flushQueue error:', err);
+      setQueueStatus(prev => ({
+        ...prev,
+        processing: false,
+        errors: [...prev.errors, err?.message || String(err)]
+      }));
+      
+      // Rollback: refresh para pegar estado real do servidor
+      await refreshRules();
+    } finally {
+      isFlushingRef.current = false;
+    }
+  }, [organizationId, refreshRules]);
+  
+  // Agendar flush com debounce
+  const scheduleFlush = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+    }
+    
+    flushTimerRef.current = setTimeout(() => {
+      flushQueue();
+    }, DEBOUNCE_MS);
+    
+    // Flush forçado se fila muito grande
+    if (operationQueueRef.current.length >= MAX_QUEUE_SIZE) {
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      flushQueue();
+    }
+  }, [flushQueue]);
+  
+  // V2: Upsert otimista (atualiza UI imediatamente, persiste em background)
+  const upsertRuleOptimistic = useCallback((rule: Partial<CalendarPricingRule>) => {
+    const tempId = generateTempId();
+    
+    // Aplicar na UI imediatamente
+    applyOptimisticRule(rule, tempId);
+    
+    // Adicionar à fila
+    operationQueueRef.current.push({
+      type: 'upsert',
+      rule,
+      tempId,
+      timestamp: Date.now()
+    });
+    
+    setQueueStatus(prev => ({ ...prev, pending: operationQueueRef.current.length }));
+    
+    // Agendar flush
+    scheduleFlush();
+  }, [applyOptimisticRule, generateTempId, scheduleFlush]);
+  
+  // V2: Bulk upsert otimista
+  const bulkUpsertOptimistic = useCallback((newRules: Partial<CalendarPricingRule>[]) => {
+    for (const rule of newRules) {
+      const tempId = generateTempId();
+      applyOptimisticRule(rule, tempId);
+      
+      operationQueueRef.current.push({
+        type: 'upsert',
+        rule,
+        tempId,
+        timestamp: Date.now()
+      });
+    }
+    
+    setQueueStatus(prev => ({ ...prev, pending: operationQueueRef.current.length }));
+    scheduleFlush();
+  }, [applyOptimisticRule, generateTempId, scheduleFlush]);
+  
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+      }
+      // Flush pendente ao desmontar
+      if (operationQueueRef.current.length > 0) {
+        flushQueue();
+      }
+    };
+  }, [flushQueue]);
+  
   return {
     rules,
     rulesByPropertyAndDate,
@@ -329,6 +604,11 @@ export function useCalendarPricingRules({
     getRuleForDate,
     upsertRule,
     deleteRule,
-    bulkUpsertRules
+    bulkUpsertRules,
+    // V2: Novos métodos
+    queueStatus,
+    flushQueue,
+    upsertRuleOptimistic,
+    bulkUpsertOptimistic
   };
 }
