@@ -8,6 +8,7 @@ import { BulkRestrictionsModal } from './BulkRestrictionsModal';
 import { BulkMinNightsModal } from './BulkMinNightsModal';
 import { CalendarHeaderDates } from './CalendarHeaderDates';
 import { CalendarBulkRules } from './CalendarBulkRules';
+import { CalendarQueueIndicator } from './CalendarQueueIndicator';
 import { parseDateLocal } from '../utils/dateLocal';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { useCalendarPricingRules, CalendarPricingRule } from '../hooks/useCalendarPricingRules';
@@ -453,7 +454,11 @@ export function Calendar({
     upsertRule,
     bulkUpsertRules,
     loading: rulesLoading,
-    refreshRules
+    refreshRules,
+    // V2.1: Métodos optimistic para performance
+    queueStatus,
+    flushQueue,
+    bulkUpsertOptimistic
   } = useCalendarPricingRules({
     organizationId,
     dateRange
@@ -1571,9 +1576,29 @@ export function Calendar({
             endDate={selectedBulkDates.end}
             properties={sortedProperties}
             onSave={(data) => {
-              console.log('Bulk Price Condition saved:', data);
-              console.log('Properties affected:', sortedProperties.map(p => p.id));
-              // TODO: Implement bulk price condition logic for selected properties only
+              // V2.1: Usar optimistic updates para performance
+              const rules: Partial<CalendarPricingRule>[] = [];
+              const start = new Date(data.startDate);
+              const end = new Date(data.endDate);
+              
+              for (const property of sortedProperties) {
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                  const dateStr = d.toISOString().split('T')[0];
+                  const conditionPercent = data.type === 'increase' ? data.percentage : -data.percentage;
+                  
+                  rules.push({
+                    property_id: property.id,
+                    organization_id: organizationId,
+                    date: dateStr,
+                    condition_percent: conditionPercent
+                  });
+                }
+              }
+              
+              if (rules.length > 0) {
+                bulkUpsertOptimistic(rules);
+                console.log(`[CalendarGrid] Bulk condition: ${rules.length} regras enfileiradas`);
+              }
             }}
           />
 
@@ -1584,9 +1609,28 @@ export function Calendar({
             endDate={selectedBulkDates.end}
             properties={sortedProperties}
             onSave={(data) => {
-              console.log('Bulk Restrictions saved:', data);
-              console.log('Properties affected:', sortedProperties.map(p => p.id));
-              // TODO: Implement bulk restrictions logic for selected properties only
+              // V2.1: Usar optimistic updates para performance
+              const rules: Partial<CalendarPricingRule>[] = [];
+              const start = new Date(data.startDate);
+              const end = new Date(data.endDate);
+              
+              for (const property of sortedProperties) {
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                  const dateStr = d.toISOString().split('T')[0];
+                  
+                  rules.push({
+                    property_id: property.id,
+                    organization_id: organizationId,
+                    date: dateStr,
+                    restriction: data.restrictionType
+                  });
+                }
+              }
+              
+              if (rules.length > 0) {
+                bulkUpsertOptimistic(rules);
+                console.log(`[CalendarGrid] Bulk restrictions: ${rules.length} regras enfileiradas`);
+              }
             }}
           />
 
@@ -1597,13 +1641,39 @@ export function Calendar({
             endDate={selectedBulkDates.end}
             properties={sortedProperties}
             onSave={(data) => {
-              console.log('Bulk Min Nights saved:', data);
-              console.log('Properties affected:', sortedProperties.map(p => p.id));
-              // TODO: Implement bulk min nights logic for selected properties only
+              // V2.1: Usar optimistic updates para performance
+              const rules: Partial<CalendarPricingRule>[] = [];
+              const start = new Date(data.startDate);
+              const end = new Date(data.endDate);
+              
+              for (const property of sortedProperties) {
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                  const dateStr = d.toISOString().split('T')[0];
+                  
+                  rules.push({
+                    property_id: property.id,
+                    organization_id: organizationId,
+                    date: dateStr,
+                    min_nights: data.minNights
+                  });
+                }
+              }
+              
+              if (rules.length > 0) {
+                bulkUpsertOptimistic(rules);
+                console.log(`[CalendarGrid] Bulk min nights: ${rules.length} regras enfileiradas`);
+              }
             }}
           />
         </>
       )}
+
+      {/* V2.1: Indicador visual de status da fila de salvamento */}
+      <CalendarQueueIndicator
+        status={queueStatus}
+        onForceFlush={flushQueue}
+        className="fixed bottom-4 right-4 z-50"
+      />
       </div>
     </div>
   );
