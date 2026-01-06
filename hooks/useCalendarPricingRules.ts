@@ -215,6 +215,9 @@ export function useCalendarPricingRules({
         const toStr = formatDateYMD(dateRange.to);
         // Regras que intersectam o range
         url += `&start_date=lte.${toStr}&end_date=gte.${fromStr}`;
+        console.log(`[useCalendarPricingRules] refreshRules with dateRange: ${fromStr} -> ${toStr}`);
+      } else {
+        console.log(`[useCalendarPricingRules] refreshRules WITHOUT dateRange (loading ALL rules)`);
       }
       
       const resp = await fetch(url, {
@@ -229,6 +232,11 @@ export function useCalendarPricingRules({
       
       const data = await resp.json();
       const rulesArray = Array.isArray(data) ? data : [];
+      
+      console.log(`[useCalendarPricingRules] refreshRules loaded ${rulesArray.length} rules from DB`);
+      if (rulesArray.length > 0) {
+        console.log(`[useCalendarPricingRules] First rule:`, rulesArray[0]);
+      }
       
       setRules(rulesArray);
       setRulesByPropertyAndDate(indexRules(rulesArray));
