@@ -597,10 +597,26 @@ function App() {
     checkDataConsistency();
   }, []);
 
+  // ╔══════════════════════════════════════════════════════════════════════════════╗
+  // ║ 🚨🚨🚨 ZONA CRÍTICA - NÃO MODIFICAR SEM AUTORIZAÇÃO EXPLÍCITA 🚨🚨🚨        ║
+  // ║                                                                              ║
+  // ║ REGRAS DE BLOQUEIO PARA AI/COPILOT:                                          ║
+  // ║ 1. NÃO alterar a lógica de fetch de anuncios-ultimate/lista                  ║
+  // ║ 2. NÃO adicionar filtros extras que possam excluir propriedades              ║
+  // ║ 3. NÃO modificar setProperties() ou setSelectedProperties() aqui             ║
+  // ║ 4. NÃO remover logs de diagnóstico                                           ║
+  // ║ 5. NÃO adicionar dependências no useCallback que possam causar re-fetch      ║
+  // ║                                                                              ║
+  // ║ HISTÓRICO DE PROBLEMAS:                                                      ║
+  // ║ - Propriedades sumiram quando filtros errados foram aplicados                ║
+  // ║ - Propriedades sumiram quando organization_id foi alterado incorretamente    ║
+  // ║                                                                              ║
+  // ║ SE PRECISAR ALTERAR: Peça confirmação explícita ao usuário primeiro!         ║
+  // ╚══════════════════════════════════════════════════════════════════════════════╝
   // Load properties from Anúncios Ultimate - ✅ HABILITADO v1.0.103.335
   const loadProperties = useCallback(async () => {
       setLoadingProperties(true);
-      console.log('🔄 Carregando imóveis de Anúncios Ultimate...');
+      console.log('🔄 [ZONA_CRITICA] Carregando imóveis de Anúncios Ultimate...');
 
       try {
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
@@ -640,6 +656,9 @@ function App() {
         }
 
         if (anuncios && anuncios.length) {
+          // 🔒 PROTEÇÃO: Log obrigatório - NÃO REMOVER
+          console.log(`🔒 [ZONA_CRITICA] Recebidos ${anuncios.length} anúncios da API`);
+          
           const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
           const apiProperties = anuncios.map((a: any) => {
@@ -673,16 +692,25 @@ function App() {
             return String(a.id).localeCompare(String(b.id));
           });
 
-          console.log(`✅ ${apiProperties.length} imóveis carregados de Anúncios Ultimate`);
-          setProperties(apiProperties);
-          setSelectedProperties(apiProperties.map((p: Property) => p.id));
+          console.log(`✅ [ZONA_CRITICA] ${apiProperties.length} imóveis carregados de Anúncios Ultimate`);
+          
+          // 🔒 PROTEÇÃO: Validar antes de setar - NÃO MODIFICAR ESTA LÓGICA
+          if (apiProperties.length === 0 && anuncios.length > 0) {
+            console.error('🚨 [ZONA_CRITICA] ALERTA: API retornou anúncios mas mapeamento resultou em 0 propriedades!');
+            console.error('🚨 [ZONA_CRITICA] Isso indica bug no mapeamento. NÃO zerando propriedades.');
+            // NÃO chamar setProperties([]) - manter estado anterior
+          } else {
+            setProperties(apiProperties);
+            setSelectedProperties(apiProperties.map((p: Property) => p.id));
+          }
         } else {
-          console.log('ℹ️ Nenhum imóvel encontrado em Anúncios Ultimate');
+          console.log('ℹ️ [ZONA_CRITICA] Nenhum imóvel encontrado em Anúncios Ultimate');
+          // 🔒 PROTEÇÃO: Só zerar se realmente não há anúncios (resposta válida da API)
           setProperties([]);
           setSelectedProperties([]);
         }
       } catch (error) {
-        console.error('❌ Erro ao carregar imóveis:', error);
+        console.error('❌ [ZONA_CRITICA] Erro ao carregar imóveis:', error);
         if (!errorBannerDismissed) {
           setShowErrorBanner(true);
         }

@@ -102,6 +102,18 @@ async function findSettingsRow(
   return data || null;
 }
 
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║ 🚨🚨🚨 ZONA CRÍTICA - ROTA DE LISTAGEM DE ANÚNCIOS 🚨🚨🚨                     ║
+// ║                                                                              ║
+// ║ REGRAS DE BLOQUEIO PARA AI/COPILOT:                                          ║
+// ║ 1. NÃO adicionar filtros que possam excluir anúncios válidos                 ║
+// ║ 2. NÃO alterar a query .eq('organization_id', organizationId)                ║
+// ║ 3. NÃO remover campos do select (id,data,status,organization_id...)          ║
+// ║ 4. NÃO alterar o filtro de __kind (exclusão de settings)                     ║
+// ║ 5. NÃO adicionar .limit() sem motivo explícito                               ║
+// ║                                                                              ║
+// ║ SE PRECISAR ALTERAR: Peça confirmação explícita ao usuário primeiro!         ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
 /**
  * GET /anuncios-ultimate/lista
  * Lista todos os anúncios drafts com todos os campos necessários para o calendário
@@ -111,6 +123,9 @@ app.get("/lista", async (c) => {
   try {
     const supabase = getSupabaseClient(c);
     const organizationId = await resolveOrgId(c);
+    
+    // 🔒 PROTEÇÃO: Log obrigatório para diagnóstico - NÃO REMOVER
+    console.log(`🔒 [ZONA_CRITICA] /lista chamada para org: ${organizationId}`);
 
     const { data, error } = await supabase
       // ✅ Tabela oficial do sistema: anuncios_ultimate (NÃO existe anuncios_drafts)
@@ -124,14 +139,15 @@ app.get("/lista", async (c) => {
       .order("id", { ascending: true });
 
     if (error) {
-      console.error("❌ Erro ao listar anúncios:", error);
+      console.error("❌ [ZONA_CRITICA] Erro ao listar anúncios:", error);
       return c.json({ error: "list_failed", details: error }, 500);
     }
 
-    console.log(`✅ ${data?.length || 0} anúncios encontrados no banco`);
+    // 🔒 PROTEÇÃO: Log obrigatório - NÃO REMOVER
+    console.log(`🔒 [ZONA_CRITICA] ${data?.length || 0} anúncios encontrados para org ${organizationId}`);
     return c.json({ ok: true, anuncios: data || [] });
   } catch (err: any) {
-    console.error("❌ Erro interno:", err);
+    console.error("❌ [ZONA_CRITICA] Erro interno:", err);
     return c.json({ error: err?.message || String(err) }, 500);
   }
 });
