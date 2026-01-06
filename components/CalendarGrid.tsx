@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Property, Reservation } from '../App';
 import { ReservationCard } from './ReservationCard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -10,6 +10,7 @@ import { CalendarHeaderDates } from './CalendarHeaderDates';
 import { CalendarBulkRules } from './CalendarBulkRules';
 import { parseDateLocal } from '../utils/dateLocal';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { useCalendarPricingRules, CalendarPricingRule } from '../hooks/useCalendarPricingRules';
 
 type DiscountPackagePreset = 'weekly' | 'monthly' | 'custom';
 
@@ -440,6 +441,22 @@ export function Calendar({
   // Discount packages (Semanal 07 / Personalizado NN / Mensal 28)
   const [discountPackages, setDiscountPackages] = useState<DiscountPackagesSettings>(DEFAULT_DISCOUNT_PACKAGES_SETTINGS);
 
+  // Organization ID para regras de calendário
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+
+  // Hook de regras de calendário (multi-tenant)
+  const {
+    rules: calendarRules,
+    getRuleForDate,
+    upsertRule,
+    bulkUpsertRules,
+    loading: rulesLoading,
+    refreshRules
+  } = useCalendarPricingRules({
+    organizationId,
+    dateRange
+  });
+
   // Base price row selection states
   const [basePriceSelectionStart, setBasePriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
   const [basePriceSelectionEnd, setBasePriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
@@ -498,6 +515,9 @@ export function Calendar({
 
         const orgId = String(meData?.user?.organizationId ?? meData?.user?.organization?.id ?? '').trim();
         if (!orgId) return;
+
+        // Guardar organizationId para uso no hook de regras
+        setOrganizationId(orgId);
 
         const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${orgId}/discount-packages`;
         const resp = await fetch(url, { headers: getFunctionHeaders() });
@@ -900,6 +920,7 @@ export function Calendar({
                 handleGlobalMinNightsMouseDown={handleGlobalMinNightsMouseDown}
                 handleGlobalMinNightsMouseEnter={handleGlobalMinNightsMouseEnter}
                 handleGlobalMinNightsMouseUp={handleGlobalMinNightsMouseUp}
+                getGlobalRuleForDate={(date) => getRuleForDate(null, date, false)}
               />
 
               {/* Anúncios - Imóveis Section Header */}
@@ -1234,6 +1255,17 @@ export function Calendar({
                           </td>
                           {days.map((day, idx) => {
                             const isSelected = isDateInSelection(property.id, day);
+                            // Buscar regra do banco para esta data
+                            const rule = getRuleForDate(property.id, day, false);
+                            const conditionPercent = rule?.condition_percent ?? 0;
+                            const conditionDisplay = conditionPercent !== 0 
+                              ? (conditionPercent > 0 ? `+${conditionPercent}%` : `${conditionPercent}%`)
+                              : '—';
+                            const conditionColor = conditionPercent > 0 
+                              ? 'text-green-600' 
+                              : conditionPercent < 0 
+                                ? 'text-red-600' 
+                                : 'text-gray-400';
                             return (
                               <td
                                 key={idx}
@@ -1244,7 +1276,7 @@ export function Calendar({
                                 onMouseEnter={() => handlePriceMouseEnter(property.id, day)}
                                 onMouseUp={handlePriceMouseUp}
                               >
-                                <span className="text-green-600">+15%</span>
+                                <span className={conditionColor}>{conditionDisplay}</span>
                               </td>
                             );
                           })}
@@ -1261,14 +1293,25 @@ export function Calendar({
                               <span>Restrições</span>
                             </div>
                           </td>
-                          {days.map((day, idx) => (
-                            <td
-                              key={idx}
-                              className="border-r border-gray-200 p-1 h-8 text-center text-xs bg-red-50 cursor-pointer hover:bg-red-100 min-w-[80px] w-20"
-                            >
-                              —
-                            </td>
-                          ))}
+                          {days.map((day, idx) => {
+                            // Buscar regra do banco para esta data
+                            const rule = getRuleForDate(property.id, day, false);
+                            const restriction = rule?.restriction;
+                            const restrictionDisplay = restriction || '—';
+                            const hasRestriction = !!restriction;
+                            return (
+                              <td
+                                key={idx}
+                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer hover:bg-red-100 min-w-[80px] w-20 ${
+                                  hasRestriction ? 'bg-red-100' : 'bg-red-50'
+                                }`}
+                              >
+                                <span className={hasRestriction ? 'text-red-700 font-medium' : 'text-gray-400'}>
+                                  {restrictionDisplay}
+                                </span>
+                              </td>
+                            );
+                          })}
                         </tr>
 
                         {/* Mín. Noites row */}
@@ -1284,17 +1327,21 @@ export function Calendar({
                           </td>
                           {days.map((day, idx) => {
                             const isSelected = isDateInMinNightsSelection(property.id, day);
+                            // Buscar regra do banco para esta data
+                            const rule = getRuleForDate(property.id, day, false);
+                            const minNights = rule?.min_nights ?? 1;
+                            const hasCustomMinNights = minNights > 1;
                             return (
                               <td
                                 key={idx}
                                 className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
-                                  isSelected ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset' : 'bg-blue-50 hover:bg-blue-100'
+                                  isSelected ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset' : hasCustomMinNights ? 'bg-blue-100' : 'bg-blue-50 hover:bg-blue-100'
                                 }`}
                                 onMouseDown={() => handleMinNightsMouseDown(property.id, day)}
                                 onMouseEnter={() => handleMinNightsMouseEnter(property.id, day)}
                                 onMouseUp={handleMinNightsMouseUp}
                               >
-                                <span className="text-blue-700">1</span>
+                                <span className={hasCustomMinNights ? 'text-blue-800 font-medium' : 'text-blue-700'}>{minNights}</span>
                               </td>
                             );
                           })}
