@@ -91,6 +91,46 @@ const corsHeaders = {
 };
 
 // ============================================================================
+// SESSION VALIDATION (custom token from sessions table)
+// ============================================================================
+
+interface SessionData {
+  user_id: string;
+  organization_id: string;
+}
+
+async function validateCustomToken(token: string, supabase: any): Promise<SessionData | null> {
+  if (!token || token.length < 30) {
+    return null;
+  }
+  
+  try {
+    // Query sessions table for valid session
+    const { data: session, error } = await supabase
+      .from('sessions')
+      .select('user_id, organization_id')
+      .or(`token.eq.${token},access_token.eq.${token}`)
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (error || !session) {
+      console.log('[calendar-rules-batch] Session not found for token:', token.substring(0, 20) + '...');
+      return null;
+    }
+    
+    return {
+      user_id: session.user_id,
+      organization_id: session.organization_id,
+    };
+  } catch (err) {
+    console.error('[calendar-rules-batch] Error validating token:', err);
+    return null;
+  }
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -109,16 +149,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Parse authorization
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Initialize Supabase client
+    // Initialize Supabase client first (needed for session validation)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -129,16 +160,38 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    // Verify user from token
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    // ========================================================================
+    // AUTHENTICATION: Use custom token from X-Auth-Token header (sessions table)
+    // ========================================================================
+    let token = req.headers.get('x-auth-token');
     
-    if (userError || !user) {
+    // Fallback to Authorization header (strip Bearer prefix)
+    if (!token) {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader) {
+        token = authHeader.replace('Bearer ', '');
+      }
+    }
+    
+    if (!token) {
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify({ error: 'Missing authentication token (x-auth-token or authorization header)' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Validate token against sessions table
+    const sessionData = await validateCustomToken(token, supabase);
+    
+    if (!sessionData) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired session token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const organizationId = sessionData.organization_id;
+    console.log('[calendar-rules-batch] Authenticated user:', sessionData.user_id, 'org:', organizationId);
 
     // Parse request body
     const body: BatchRequest = await req.json();
@@ -158,22 +211,6 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Get user's organization
-    const { data: userData, error: orgError } = await supabase
-      .from('users')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single();
-
-    if (orgError || !userData?.organization_id) {
-      return new Response(
-        JSON.stringify({ error: 'User organization not found' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const organizationId = userData.organization_id;
 
     // Process operations
     const result: BatchResult = {
