@@ -95,12 +95,12 @@ export function CalendarBulkRules({
         <>
           {/* Condição (%) row - Global/Batch */}
           <tr className="border-b border-gray-100 bg-orange-50">
-            <td className="sticky left-0 z-30 bg-orange-50 border-r border-gray-200 p-1 pl-4 w-[180px] min-w-[180px] max-w-[180px]">
+            <th className="sticky left-0 z-30 bg-orange-50 border-r border-gray-200 p-1 pl-4 w-[180px] min-w-[180px] max-w-[180px] font-normal text-left">
               <div className="flex items-center gap-2 text-xs text-orange-700">
                 <span className="text-orange-600">%</span>
                 <span>Condição (%)</span>
               </div>
-            </td>
+            </th>
             {days.map((day, idx) => {
               const isSelected = isDateInGlobalPriceSelection(day);
               // Buscar regra global do banco
@@ -115,9 +115,9 @@ export function CalendarBulkRules({
                   ? 'text-red-600' 
                   : 'text-gray-400';
               return (
-                <td
+                <th
                   key={idx}
-                  className={`border-r border-gray-200 p-1 h-8 text-center text-sm cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
+                  className={`border-r border-gray-200 p-1 h-8 text-center text-sm cursor-pointer transition-colors select-none min-w-[80px] w-20 font-normal ${
                     isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : conditionPercent !== 0 ? 'bg-orange-100' : 'bg-orange-50 hover:bg-orange-100'
                   }`}
                   onMouseDown={(e) => handleGlobalPriceMouseDown(day, e)}
@@ -125,19 +125,19 @@ export function CalendarBulkRules({
                   onMouseUp={handleGlobalPriceMouseUp}
                 >
                   <span className={conditionColor}>{conditionDisplay}</span>
-                </td>
+                </th>
               );
             })}
           </tr>
 
           {/* Restrições row - Global/Batch */}
           <tr className="border-b border-gray-100 bg-red-50">
-            <td className="sticky left-0 z-30 bg-red-50 border-r border-gray-200 p-1 pl-4 w-[180px] min-w-[180px] max-w-[180px]">
+            <th className="sticky left-0 z-30 bg-red-50 border-r border-gray-200 p-1 pl-4 w-[180px] min-w-[180px] max-w-[180px] font-normal text-left">
               <div className="flex items-center gap-2 text-xs text-red-700">
                 <span className="text-red-600">🚫</span>
                 <span>Restrições</span>
               </div>
-            </td>
+            </th>
             {days.map((day, idx) => {
               const isSelected = isDateInGlobalRestrictionsSelection(day);
               // Buscar regra global do banco
@@ -146,9 +146,9 @@ export function CalendarBulkRules({
               const restrictionDisplay = restriction || '—';
               const hasRestriction = !!restriction;
               return (
-                <td
+                <th
                   key={idx}
-                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
+                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 font-normal ${
                     isSelected ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset' : hasRestriction ? 'bg-red-100' : 'bg-red-50 hover:bg-red-100'
                   }`}
                   onMouseDown={(e) => handleGlobalRestrictionsMouseDown(day, e)}
@@ -158,19 +158,19 @@ export function CalendarBulkRules({
                   <span className={hasRestriction ? 'text-red-700 font-medium' : 'text-gray-400'}>
                     {restrictionDisplay}
                   </span>
-                </td>
+                </th>
               );
             })}
           </tr>
 
           {/* Mín. noites row - Global/Batch */}
           <tr className="border-b border-gray-100 bg-blue-50">
-            <td className="sticky left-0 z-30 bg-blue-50 border-r border-gray-200 p-1 pl-4 w-[180px] min-w-[180px] max-w-[180px]">
+            <th className="sticky left-0 z-30 bg-blue-50 border-r border-gray-200 p-1 pl-4 w-[180px] min-w-[180px] max-w-[180px] font-normal text-left">
               <div className="flex items-center gap-2 text-xs text-blue-700">
                 <span className="text-blue-600">🌙</span>
                 <span>Mín. noites</span>
               </div>
-            </td>
+            </th>
             {days.map((day, idx) => {
               const isSelected = isDateInGlobalMinNightsSelection(day);
               // Buscar regra global do banco
@@ -179,9 +179,9 @@ export function CalendarBulkRules({
               const hasCustomMinNights = minNights > 1;
               const displayValue = hasCustomMinNights ? String(minNights) : '—';
               return (
-                <td
+                <th
                   key={idx}
-                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
+                  className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 font-normal ${
                     isSelected ? 'bg-blue-300 ring-2 ring-blue-500 ring-inset' : hasCustomMinNights ? 'bg-blue-100' : 'bg-blue-50 hover:bg-blue-100'
                   }`}
                   onMouseDown={(e) => handleGlobalMinNightsMouseDown(day, e)}
@@ -189,7 +189,7 @@ export function CalendarBulkRules({
                   onMouseUp={handleGlobalMinNightsMouseUp}
                 >
                   <span className={hasCustomMinNights ? 'text-blue-800 font-medium' : 'text-gray-400'}>{displayValue}</span>
-                </td>
+                </th>
               );
             })}
           </tr>
