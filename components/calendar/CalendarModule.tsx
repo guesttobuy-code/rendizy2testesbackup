@@ -33,6 +33,10 @@ interface CalendarModuleProps {
   setExportModal: (open: boolean) => void;
   handleEmptyClick: (propertyId: string, startDate: Date, endDate: Date) => void;
   handleReservationClick: (reservation: Reservation) => void;
+  handlePriceEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
+  handleMinNightsEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
+  handleConditionEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
+  handleRestrictionsEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
   handleOpenBlockDetails: (block: any) => void;
 }
 
@@ -60,6 +64,10 @@ export function CalendarModule({
   setExportModal,
   handleEmptyClick,
   handleReservationClick,
+  handlePriceEdit,
+  handleMinNightsEdit,
+  handleConditionEdit,
+  handleRestrictionsEdit,
   handleOpenBlockDetails,
 }: CalendarModuleProps) {
   // Paginação de propriedades para reduzir DOM e melhorar performance
@@ -187,8 +195,10 @@ export function CalendarModule({
                   blocks={blocks}
                   currentMonth={currentMonth}
                   dateRange={dateRange}
-                  onPriceEdit={(propertyId, startDate, endDate) => console.log('Price edit', propertyId, startDate, endDate)}
-                  onMinNightsEdit={(propertyId, startDate, endDate) => console.log('Min nights edit', propertyId, startDate, endDate)}
+                  onPriceEdit={handlePriceEdit ?? ((propertyId, startDate, endDate) => console.log('Price edit (no handler)', propertyId, startDate, endDate))}
+                  onMinNightsEdit={handleMinNightsEdit ?? ((propertyId, startDate, endDate) => console.log('Min nights edit (no handler)', propertyId, startDate, endDate))}
+                  onConditionEdit={handleConditionEdit ?? ((propertyId, startDate, endDate) => console.log('Condition edit (no handler)', propertyId, startDate, endDate))}
+                  onRestrictionsEdit={handleRestrictionsEdit ?? ((propertyId, startDate, endDate) => console.log('Restrictions edit (no handler)', propertyId, startDate, endDate))}
                   onEmptyClick={handleEmptyClick}
                   onReservationClick={handleReservationClick}
                   onBlockClick={handleOpenBlockDetails}

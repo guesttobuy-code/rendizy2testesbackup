@@ -39,6 +39,8 @@ import { QuickActionsModal } from './components/QuickActionsModal';
 import { ReservationPreviewModal } from './components/ReservationPreviewModal';
 import { CreateReservationWizard } from './components/CreateReservationWizard';
 import { MinNightsEditModal } from './components/MinNightsEditModal';
+import { PropertyConditionModal } from './components/PropertyConditionModal';
+import { PropertyRestrictionsModal } from './components/PropertyRestrictionsModal';
 import { BlockModal } from './components/BlockModal';
 import { BlockDetailsModal } from './components/BlockDetailsModal';
 import { QuotationModal } from './components/QuotationModal';
@@ -303,6 +305,20 @@ function App() {
     endDate?: Date;
   }>({ open: false });
 
+  const [conditionModal, setConditionModal] = useState<{
+    open: boolean;
+    propertyId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }>({ open: false });
+
+  const [restrictionsModal, setRestrictionsModal] = useState<{
+    open: boolean;
+    propertyId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }>({ open: false });
+
   const [quickActionsModal, setQuickActionsModal] = useState<{
     open: boolean;
     propertyId?: string;
@@ -474,6 +490,36 @@ function App() {
     console.log('Salvando mínimo de noites:', data);
     toast.success('Mínimo de noites atualizado!');
     setMinNightsModal({ open: false });
+  };
+
+  const handleConditionEdit = (propertyId: string, startDate: Date, endDate: Date) => {
+    setConditionModal({
+      open: true,
+      propertyId,
+      startDate,
+      endDate
+    });
+  };
+
+  const handleConditionSave = (data: any) => {
+    console.log('Salvando condição de preço:', data);
+    toast.success('Condição de preço atualizada!');
+    setConditionModal({ open: false });
+  };
+
+  const handleRestrictionsEdit = (propertyId: string, startDate: Date, endDate: Date) => {
+    setRestrictionsModal({
+      open: true,
+      propertyId,
+      startDate,
+      endDate
+    });
+  };
+
+  const handleRestrictionsSave = (data: any) => {
+    console.log('Salvando restrições:', data);
+    toast.success('Restrições atualizadas!');
+    setRestrictionsModal({ open: false });
   };
 
   const handleEmptyClick = (propertyId: string, startDate: Date, endDate: Date) => {
@@ -1153,6 +1199,10 @@ function App() {
                       handleEmptyClick={handleEmptyClick}
                       handleReservationClick={handleReservationClick}
                       handleOpenBlockDetails={handleOpenBlockDetails}
+                      handlePriceEdit={handlePriceEdit}
+                      handleMinNightsEdit={handleMinNightsEdit}
+                      handleConditionEdit={handleConditionEdit}
+                      handleRestrictionsEdit={handleRestrictionsEdit}
                     />
                   </ProtectedRoute>
                 } />
@@ -1721,6 +1771,28 @@ function App() {
                 setBlockDetailsModal({ open: false, block: null });
                 window.location.reload();
               }}
+            />
+
+            {/* PropertyConditionModal - Editar Condição % por anúncio */}
+            <PropertyConditionModal
+              isOpen={conditionModal.open}
+              onClose={() => setConditionModal({ open: false })}
+              propertyId={conditionModal.propertyId || ''}
+              propertyName={properties.find(p => p.id === conditionModal.propertyId)?.name || 'Propriedade'}
+              startDate={conditionModal.startDate || new Date()}
+              endDate={conditionModal.endDate || new Date()}
+              onSave={handleConditionSave}
+            />
+
+            {/* PropertyRestrictionsModal - Editar Restrições por anúncio */}
+            <PropertyRestrictionsModal
+              isOpen={restrictionsModal.open}
+              onClose={() => setRestrictionsModal({ open: false })}
+              propertyId={restrictionsModal.propertyId || ''}
+              propertyName={properties.find(p => p.id === restrictionsModal.propertyId)?.name || 'Propriedade'}
+              startDate={restrictionsModal.startDate || new Date()}
+              endDate={restrictionsModal.endDate || new Date()}
+              onSave={handleRestrictionsSave}
             />
           </LanguageProvider>
         </ThemeProvider>

@@ -67,6 +67,8 @@ interface CalendarProps {
   dateRange?: { from: Date; to: Date };
   onPriceEdit: (propertyId: string, startDate: Date, endDate: Date) => void;
   onMinNightsEdit: (propertyId: string, startDate: Date, endDate: Date) => void;
+  onConditionEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
+  onRestrictionsEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
   onEmptyClick: (propertyId: string, startDate: Date, endDate: Date) => void;
   onReservationClick: (reservation: Reservation) => void;
   onBlockClick?: (block: any) => void;
@@ -462,6 +464,16 @@ export function Calendar({
   const [basePriceSelectionEnd, setBasePriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
   const [isSelectingBasePrice, setIsSelectingBasePrice] = useState(false);
 
+  // Condition row selection states (Condição %)
+  const [conditionSelectionStart, setConditionSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
+  const [conditionSelectionEnd, setConditionSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
+  const [isSelectingCondition, setIsSelectingCondition] = useState(false);
+
+  // Restrictions row selection states (Restrições)
+  const [restrictionsSelectionStart, setRestrictionsSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
+  const [restrictionsSelectionEnd, setRestrictionsSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
+  const [isSelectingRestrictions, setIsSelectingRestrictions] = useState(false);
+
   // Discount package price row selection (generic)
   const [packagePriceSelectionStart, setPackagePriceSelectionStart] = useState<{ key: string; propertyId: string; date: Date } | null>(null);
   const [packagePriceSelectionEnd, setPackagePriceSelectionEnd] = useState<{ key: string; propertyId: string; date: Date } | null>(null);
@@ -825,6 +837,76 @@ export function Calendar({
     return date >= start && date <= end;
   };
 
+  // Condition handlers (Condição %)
+  const handleConditionMouseDown = (propertyId: string, date: Date) => {
+    setConditionSelectionStart({ propertyId, date });
+    setIsSelectingCondition(true);
+  };
+
+  const handleConditionMouseEnter = (propertyId: string, date: Date) => {
+    if (isSelectingCondition && conditionSelectionStart && conditionSelectionStart.propertyId === propertyId) {
+      setConditionSelectionEnd({ propertyId, date });
+    }
+  };
+
+  const handleConditionMouseUp = () => {
+    if (conditionSelectionStart && conditionSelectionEnd) {
+      const start = conditionSelectionStart.date < conditionSelectionEnd.date ? conditionSelectionStart.date : conditionSelectionEnd.date;
+      const end = conditionSelectionStart.date > conditionSelectionEnd.date ? conditionSelectionStart.date : conditionSelectionEnd.date;
+      onConditionEdit?.(conditionSelectionStart.propertyId, start, end);
+    } else if (conditionSelectionStart) {
+      onConditionEdit?.(conditionSelectionStart.propertyId, conditionSelectionStart.date, conditionSelectionStart.date);
+    }
+    setConditionSelectionStart(null);
+    setConditionSelectionEnd(null);
+    setIsSelectingCondition(false);
+  };
+
+  const isDateInConditionSelection = (propertyId: string, date: Date) => {
+    if (!conditionSelectionStart || conditionSelectionStart.propertyId !== propertyId) return false;
+    if (!conditionSelectionEnd) return date.getTime() === conditionSelectionStart.date.getTime();
+    
+    const start = conditionSelectionStart.date < conditionSelectionEnd.date ? conditionSelectionStart.date : conditionSelectionEnd.date;
+    const end = conditionSelectionStart.date > conditionSelectionEnd.date ? conditionSelectionStart.date : conditionSelectionEnd.date;
+    
+    return date >= start && date <= end;
+  };
+
+  // Restrictions handlers (Restrições)
+  const handleRestrictionsMouseDown = (propertyId: string, date: Date) => {
+    setRestrictionsSelectionStart({ propertyId, date });
+    setIsSelectingRestrictions(true);
+  };
+
+  const handleRestrictionsMouseEnter = (propertyId: string, date: Date) => {
+    if (isSelectingRestrictions && restrictionsSelectionStart && restrictionsSelectionStart.propertyId === propertyId) {
+      setRestrictionsSelectionEnd({ propertyId, date });
+    }
+  };
+
+  const handleRestrictionsMouseUp = () => {
+    if (restrictionsSelectionStart && restrictionsSelectionEnd) {
+      const start = restrictionsSelectionStart.date < restrictionsSelectionEnd.date ? restrictionsSelectionStart.date : restrictionsSelectionEnd.date;
+      const end = restrictionsSelectionStart.date > restrictionsSelectionEnd.date ? restrictionsSelectionStart.date : restrictionsSelectionEnd.date;
+      onRestrictionsEdit?.(restrictionsSelectionStart.propertyId, start, end);
+    } else if (restrictionsSelectionStart) {
+      onRestrictionsEdit?.(restrictionsSelectionStart.propertyId, restrictionsSelectionStart.date, restrictionsSelectionStart.date);
+    }
+    setRestrictionsSelectionStart(null);
+    setRestrictionsSelectionEnd(null);
+    setIsSelectingRestrictions(false);
+  };
+
+  const isDateInRestrictionsSelection = (propertyId: string, date: Date) => {
+    if (!restrictionsSelectionStart || restrictionsSelectionStart.propertyId !== propertyId) return false;
+    if (!restrictionsSelectionEnd) return date.getTime() === restrictionsSelectionStart.date.getTime();
+    
+    const start = restrictionsSelectionStart.date < restrictionsSelectionEnd.date ? restrictionsSelectionStart.date : restrictionsSelectionEnd.date;
+    const end = restrictionsSelectionStart.date > restrictionsSelectionEnd.date ? restrictionsSelectionStart.date : restrictionsSelectionEnd.date;
+    
+    return date >= start && date <= end;
+  };
+
   // Discount package price handlers (generic)
   const handlePackagePriceMouseDown = (key: string, propertyId: string, date: Date) => {
     setPackagePriceSelectionStart({ key, propertyId, date });
@@ -886,11 +968,13 @@ export function Calendar({
       if (isSelectingGlobalMinNights) handleGlobalMinNightsMouseUp();
       if (isSelectingBasePrice) handleBasePriceMouseUp();
       if (isSelectingPackagePrice) handlePackagePriceMouseUp();
+      if (isSelectingCondition) handleConditionMouseUp();
+      if (isSelectingRestrictions) handleRestrictionsMouseUp();
     };
 
     document.addEventListener('mouseup', handleGlobalMouseUp);
     return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [isSelecting, isSelectingMinNights, isSelectingEmpty, isSelectingGlobalPrice, isSelectingGlobalRestrictions, isSelectingGlobalMinNights, isSelectingBasePrice, isSelectingPackagePrice]);
+  }, [isSelecting, isSelectingMinNights, isSelectingEmpty, isSelectingGlobalPrice, isSelectingGlobalRestrictions, isSelectingGlobalMinNights, isSelectingBasePrice, isSelectingPackagePrice, isSelectingCondition, isSelectingRestrictions]);
 
   return (
     <div className="relative h-full w-full overflow-auto">
@@ -1254,7 +1338,7 @@ export function Calendar({
                             </div>
                           </td>
                           {days.map((day, idx) => {
-                            const isSelected = isDateInSelection(property.id, day);
+                            const isSelected = isDateInConditionSelection(property.id, day);
                             // Buscar regra do banco para esta data
                             const rule = getRuleForDate(property.id, day, false);
                             const conditionPercent = rule?.condition_percent ?? 0;
@@ -1272,9 +1356,9 @@ export function Calendar({
                                 className={`border-r border-gray-200 p-1 h-8 text-center text-sm cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
                                   isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-orange-50 hover:bg-orange-100'
                                 }`}
-                                onMouseDown={() => handlePriceMouseDown(property.id, day)}
-                                onMouseEnter={() => handlePriceMouseEnter(property.id, day)}
-                                onMouseUp={handlePriceMouseUp}
+                                onMouseDown={() => handleConditionMouseDown(property.id, day)}
+                                onMouseEnter={() => handleConditionMouseEnter(property.id, day)}
+                                onMouseUp={handleConditionMouseUp}
                               >
                                 <span className={conditionColor}>{conditionDisplay}</span>
                               </td>
@@ -1299,12 +1383,16 @@ export function Calendar({
                             const restriction = rule?.restriction;
                             const restrictionDisplay = restriction || '—';
                             const hasRestriction = !!restriction;
+                            const isSelected = isDateInRestrictionsSelection(property.id, day);
                             return (
                               <td
                                 key={idx}
-                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer hover:bg-red-100 min-w-[80px] w-20 ${
-                                  hasRestriction ? 'bg-red-100' : 'bg-red-50'
+                                className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
+                                  isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : hasRestriction ? 'bg-red-100 hover:bg-red-200' : 'bg-red-50 hover:bg-red-100'
                                 }`}
+                                onMouseDown={() => handleRestrictionsMouseDown(property.id, day)}
+                                onMouseEnter={() => handleRestrictionsMouseEnter(property.id, day)}
+                                onMouseUp={() => handleRestrictionsMouseUp()}
                               >
                                 <span className={hasRestriction ? 'text-red-700 font-medium' : 'text-gray-400'}>
                                   {restrictionDisplay}

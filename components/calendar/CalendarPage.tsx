@@ -25,6 +25,10 @@ interface CalendarPageProps {
   handleEmptyClick: (propertyId: string, startDate: Date, endDate: Date) => void;
   handleReservationClick: (reservation: Reservation) => void;
   handleOpenBlockDetails: (block: any) => void;
+  handlePriceEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
+  handleMinNightsEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
+  handleConditionEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
+  handleRestrictionsEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
 }
 
 /**
@@ -168,6 +172,10 @@ function CalendarPageContent(props: CalendarPageProps) {
       handleEmptyClick={props.handleEmptyClick}
       handleReservationClick={props.handleReservationClick}
       handleOpenBlockDetails={props.handleOpenBlockDetails}
+      handlePriceEdit={props.handlePriceEdit}
+      handleMinNightsEdit={props.handleMinNightsEdit}
+      handleConditionEdit={props.handleConditionEdit}
+      handleRestrictionsEdit={props.handleRestrictionsEdit}
     />
   );
 }

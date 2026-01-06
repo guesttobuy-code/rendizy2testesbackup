@@ -130,6 +130,12 @@ Sempre verifique estes arquivos se existirem:
    - Frontend: `git push` → Vercel auto-deploy
    - Backend: `npx supabase functions deploy`
 
+6. **🛡️ COMMIT SEGURO — SEMPRE REVISAR ANTES DE COMMITAR:**
+   - Rodar `npx tsc --noEmit` antes de qualquer commit
+   - Verificar se alterações não quebraram código existente
+   - Usar o script: `.\scripts\safe-commit.ps1 -Message "tipo: desc" -Push`
+   - Ler `docs/COMMIT_SEGURO.md` para mais detalhes
+
 ---
 
 ## 📍 ESTADO ATUAL DO PROJETO
