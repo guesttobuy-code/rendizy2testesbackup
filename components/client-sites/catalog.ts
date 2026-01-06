@@ -155,6 +155,10 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
     basePrice: number;
     weeklyRate: number;
     monthlyRate: number;
+    cleaningFee: number;  // Taxa de limpeza (valor real do banco)
+    serviceFee: number;   // Taxa de serviço (valor real do banco)
+    petFee: number;       // Taxa pet (valor real do banco)
+    minNights: number;    // Mínimo de noites para reserva (default: 1)
     currency: string;
     // planned: salePrice
   };

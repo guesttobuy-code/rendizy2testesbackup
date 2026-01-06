@@ -1545,7 +1545,7 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.8)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.9)
 
 ---
 ## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
@@ -1657,6 +1657,10 @@ type ClientSiteProperty = {
     basePrice: number;
     weeklyRate: number;
     monthlyRate: number;
+    cleaningFee: number;
+    serviceFee: number;
+    petFee: number;
+    minNights: number;
     currency: string;
   };
   capacity: {
@@ -1676,6 +1680,7 @@ type ClientSiteProperty = {
 };
 
 type ClientSiteSiteConfig = {
+  organizationId?: string;
   siteName?: string;
   subdomain?: string;
   domain?: string | null;
@@ -1685,8 +1690,8 @@ type ClientSiteSiteConfig = {
     accentColor?: string | null;
     fontFamily?: string | null;
   };
-  logoUrl?: string | null;
-  faviconUrl?: string | null;
+  logo?: string | null;     // URL do logo (pode ser null)
+  favicon?: string | null;  // URL do favicon (pode ser null)
   siteConfig?: {
     title?: string;
     description?: string;
@@ -1704,6 +1709,7 @@ type ClientSiteSiteConfig = {
     longTerm?: boolean;
     sale?: boolean;
   };
+  updatedAt?: string;
 };
 \`\`\`
 
