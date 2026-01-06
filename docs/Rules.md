@@ -86,8 +86,241 @@ Antes de fazer qualquer mudança:
 
 ---
 
-*Última atualização: 2026-01-05*
-*Versão: 1.1*
+*Última atualização: 2026-01-06*
+*Versão: 2.0*
+
+---
+
+# 🏛️ ARQUITETURA DE DADOS - TABELAS CANÔNICAS
+
+> **⚠️ SEÇÃO CRÍTICA - LEIA COM ATENÇÃO**
+>
+> As tabelas listadas abaixo são o **CORAÇÃO DO SISTEMA**.
+> Violações dessas regras causam bugs críticos, perda de dados e inconsistências.
+
+---
+
+## 🔒 REGRA MESTRE: TABELAS CANÔNICAS
+
+### Hierarquia Principal do Sistema
+
+```
+organizations (tenant raiz)
+    ├── users (usuários do tenant)
+    ├── anuncios_ultimate (imóveis/propriedades) ← FONTE DE VERDADE
+    │     ├── reservations (reservas)
+    │     ├── blocks (bloqueios de calendário)
+    │     └── calendar_pricing_rules (regras de preço)
+    ├── guests (hóspedes)
+    ├── financeiro_* (módulo financeiro)
+    └── client_sites (sites customizados)
+```
+
+---
+
+## 📊 TABELA #1: `anuncios_ultimate` - IMÓVEIS
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Armazenar TODOS os dados de imóveis/propriedades |
+| **Tipo de ID** | UUID |
+| **Multi-tenant** | Sim (`organization_id`) |
+| **Status** | 🟢 ATIVA - FONTE DE VERDADE |
+
+**Estrutura:**
+```sql
+CREATE TABLE anuncios_ultimate (
+  id UUID PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  user_id UUID,
+  status TEXT DEFAULT 'draft',  -- draft, active, published, inactive
+  title TEXT,
+  data JSONB DEFAULT '{}'::jsonb,  -- Todos os dados flexíveis
+  completion_percentage INTEGER DEFAULT 0,
+  step_completed INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**Campos importantes em `data` (JSONB):**
+| Campo | Descrição |
+|-------|-----------|
+| `data.name` / `data.title` | Nome do imóvel |
+| `data.address` | Objeto com city, state, street, etc. |
+| `data.pricing` | dailyRate, basePrice, cleaningFee, etc. |
+| `data.photos` | Array de URLs de fotos |
+| `data.rooms` | Array de cômodos/quartos |
+| `data.amenities` / `data.comodidades` | Array de comodidades |
+| `data.externalIds` | IDs de sistemas externos (StaysNet, etc.) |
+| `data.bedrooms` / `data.quartos` | Número de quartos |
+| `data.bathrooms` / `data.banheiros` | Número de banheiros |
+| `data.guests` / `data.maxGuests` | Capacidade máxima |
+
+### ⛔ REGRAS INVIOLÁVEIS PARA IMÓVEIS
+
+1. **NUNCA** criar tabela `properties` (foi REMOVIDA em 2026-01-06)
+2. **NUNCA** criar tabela `listings` separada
+3. **NUNCA** criar tabela `imoveis` em português
+4. **NUNCA** criar tabela `apartments`, `houses`, etc.
+5. **SEMPRE** usar `anuncios_ultimate` para qualquer dado de imóvel
+6. Dados flexíveis VÃO em `data` (JSONB), não em colunas novas
+
+---
+
+## 📊 TABELA #2: `reservations` - RESERVAS
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Armazenar todas as reservas de hospedagem |
+| **Tipo de ID** | UUID |
+| **Multi-tenant** | Sim (`organization_id`) |
+| **FK Principal** | `property_id` → `anuncios_ultimate.id` |
+
+### ⛔ REGRAS INVIOLÁVEIS PARA RESERVAS
+
+1. **NUNCA** criar tabela `bookings` concorrente
+2. **NUNCA** criar tabela `reservas` em português
+3. `property_id` **SEMPRE** referencia `anuncios_ultimate.id`
+
+---
+
+## 📊 TABELA #3: `blocks` - BLOQUEIOS
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Bloquear datas no calendário |
+| **Tipo de ID** | UUID |
+| **Multi-tenant** | Sim (`organization_id`) |
+| **FK Principal** | `property_id` → `anuncios_ultimate.id` |
+
+### ⛔ REGRAS INVIOLÁVEIS PARA BLOQUEIOS
+
+1. **NUNCA** criar tabela `bloqueios` em português
+2. **NUNCA** criar tabela `unavailable_dates`
+3. `property_id` **SEMPRE** referencia `anuncios_ultimate.id`
+
+---
+
+## 📊 TABELA #4: `guests` - HÓSPEDES
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Cadastro de hóspedes/clientes |
+| **Tipo de ID** | UUID |
+| **Multi-tenant** | Sim (`organization_id`) |
+
+### ⛔ REGRAS INVIOLÁVEIS PARA HÓSPEDES
+
+1. **NUNCA** criar tabela `hospedes` em português
+2. **NUNCA** criar tabela `clients` ou `customers`
+
+---
+
+## 📊 TABELA #5: `organizations` - TENANTS
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Organizações/empresas (multi-tenant) |
+| **Tipo de ID** | UUID |
+| **Org Master** | `00000000-0000-0000-0000-000000000000` (Rendizy) |
+
+### ⛔ REGRAS INVIOLÁVEIS PARA TENANTS
+
+1. **NUNCA** deletar a organização master
+2. **NUNCA** criar tabela `tenants` concorrente
+3. **TODA** tabela de dados DEVE ter coluna `organization_id`
+
+---
+
+## 📊 TABELA #6: `users` - USUÁRIOS
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Usuários do sistema |
+| **Tipo de ID** | UUID |
+| **Multi-tenant** | Sim (`organization_id`) |
+| **Tipos** | superadmin, admin, user, imobiliaria |
+
+### ⛔ REGRAS INVIOLÁVEIS PARA USUÁRIOS
+
+1. **NUNCA** criar tabela `usuarios` em português
+2. Superadmin tem acesso a TODOS os tenants
+
+---
+
+## 📊 TABELA #7: `calendar_pricing_rules` - REGRAS DE PREÇO
+
+| Atributo | Valor |
+|----------|-------|
+| **Propósito** | Regras de precificação por período |
+| **FK Principal** | `property_id` → `anuncios_ultimate.id` |
+
+### ⛔ REGRAS INVIOLÁVEIS
+
+1. **NUNCA** criar FK para `properties` (tabela não existe)
+2. `property_id` referencia `anuncios_ultimate.id`
+
+---
+
+## 🚫 TABELAS PROIBIDAS - NUNCA CRIAR
+
+| Nome Proibido | Motivo | Use Isso |
+|---------------|--------|----------|
+| `properties` | REMOVIDA em 2026-01-06 | `anuncios_ultimate` |
+| `listings` | Duplicaria anuncios | `anuncios_ultimate` |
+| `imoveis` | Português proibido | `anuncios_ultimate` |
+| `bookings` | Duplicaria reservations | `reservations` |
+| `reservas` | Português proibido | `reservations` |
+| `hospedes` | Português proibido | `guests` |
+| `bloqueios` | Português proibido | `blocks` |
+| `usuarios` | Português proibido | `users` |
+| `tenants` | Duplicaria orgs | `organizations` |
+
+---
+
+## 📝 PADRÃO DE CÓDIGO - QUERIES CORRETAS
+
+### ✅ CORRETO - Buscar Imóveis
+```typescript
+const { data } = await supabase
+  .from('anuncios_ultimate')
+  .select('id, status, organization_id, data')
+  .eq('organization_id', organizationId)
+  .in('status', ['active', 'published']);
+```
+
+### ❌ ERRADO - Tabela Não Existe
+```typescript
+// 🚫 NUNCA FAÇA ISSO - TABELA NÃO EXISTE
+const { data } = await supabase
+  .from('properties')
+  .select('*');
+```
+
+### Extrair Dados do JSONB
+```typescript
+const anuncio = row;
+const d = anuncio.data || {};
+
+// Normalização de campos (aceita variações)
+const nome = d.name || d.title || 'Sem nome';
+const preco = d.pricing?.dailyRate || d.basePrice || 0;
+const cidade = d.address?.city || d.cidade || null;
+const fotos = d.photos || d.fotos || [];
+const quartos = d.bedrooms || d.quartos || 0;
+const banheiros = d.bathrooms || d.banheiros || 0;
+const hospedes = d.guests || d.maxGuests || d.max_guests || 0;
+```
+
+---
+
+## 📜 HISTÓRICO DE MUDANÇAS ESTRUTURAIS
+
+| Data | Mudança | Motivo |
+|------|---------|--------|
+| 2026-01-06 | Removida tabela `properties` | Duplicava `anuncios_ultimate` |
+| 2026-01-06 | Atualizado Rules.md v2.0 | Canonizar arquitetura de dados |
 
 ---
 
@@ -97,3 +330,4 @@ Antes de fazer qualquer mudança:
 |-----------|-----------|
 | [AI_RULES.md](../.github/AI_RULES.md) | Regras específicas para AI/Copilot - Zonas Críticas do código |
 | [.cursorrules](../.cursorrules) | Regras para Cursor/Copilot (formato compacto) |
+| [INVENTARIO_PROPERTIES_DROPADA.md](./INVENTARIO_PROPERTIES_DROPADA.md) | Inventário da remoção da tabela properties |

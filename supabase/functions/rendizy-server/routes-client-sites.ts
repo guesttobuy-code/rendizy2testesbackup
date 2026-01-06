@@ -2672,24 +2672,17 @@ app.get("/api/:subdomain/properties", async (c) => {
       `[CLIENT-SITES] Buscando imóveis para organização: ${organizationId}`
     );
 
-    // Buscar imóveis da organização no SQL
-    // Usar campos corretos da tabela properties
-    const { data: properties, error } = await supabase
-      .from("properties")
-      .select(
-        "id, name, code, type, status, address_city, address_state, address_street, address_number, address_zip_code, address_neighborhood, address_country, address_latitude, address_longitude, pricing_base_price, pricing_currency, bedrooms, bathrooms, max_guests, area, description, short_description, photos, cover_photo, tags, amenities, created_at, updated_at"
-      )
+    // ✅ MIGRAÇÃO 2026-01-06: Tabela `properties` removida - usar apenas anuncios_ultimate
+    const { data: anuncios, error } = await supabase
+      .from("anuncios_ultimate")
+      .select("id,status,organization_id,data,created_at,updated_at")
       .eq("organization_id", organizationId)
-      .eq("status", "active") // Apenas imóveis ativos
-      .order("created_at", { ascending: false })
-      .limit(100); // Limitar a 100 imóveis
+      .in("status", ["active", "published"])
+      .order("updated_at", { ascending: false })
+      .limit(100);
 
     if (error) {
-      console.error(`[CLIENT-SITES] Erro ao buscar imóveis:`, error);
-      console.error(
-        `[CLIENT-SITES] Detalhes do erro:`,
-        JSON.stringify(error, null, 2)
-      );
+      console.error(`[CLIENT-SITES] Erro ao buscar anuncios_ultimate:`, error);
       return c.json(
         {
           success: false,
@@ -2700,140 +2693,66 @@ app.get("/api/:subdomain/properties", async (c) => {
       );
     }
 
+    const formattedProperties = (anuncios || []).map((row: any) => {
+      const d = row?.data || {};
+      const photos = Array.isArray(d.fotos)
+        ? d.fotos
+        : Array.isArray(d.photos)
+        ? d.photos
+        : d.fotoPrincipal
+        ? [d.fotoPrincipal]
+        : [];
+
+      return {
+        id: row.id,
+        name: d.title || d.name || d.internalId || "Imóvel",
+        code: d.codigo || d.propertyCode || d?.externalIds?.staysnet_listing_code || row.id,
+        type: d.type || d.tipoAcomodacao || d.tipoLocal || "apartment",
+        status: row.status || d.status || "active",
+        address: {
+          city: d?.address?.city || d.cidade || null,
+          state: d?.address?.state || d.sigla_estado || null,
+          street: d?.address?.street || d.rua || null,
+          number: d?.address?.number || d.numero || null,
+          neighborhood: d?.address?.neighborhood || d.bairro || null,
+          zipCode: d?.address?.zipCode || d.cep || null,
+          country: d?.address?.country || d.pais || "BR",
+          latitude: d?.address?.latitude ?? null,
+          longitude: d?.address?.longitude ?? null,
+        },
+        pricing: {
+          basePrice: Number(d?.pricing?.basePrice ?? d.basePrice ?? d.dailyRate ?? 0) || 0,
+          currency: d?.pricing?.currency || d.currency || "BRL",
+        },
+        capacity: {
+          bedrooms: Number(d.bedrooms ?? d.quartos ?? 0) || 0,
+          bathrooms: Number(d.bathrooms ?? d.banheiros ?? 0) || 0,
+          maxGuests: Number(d.guests ?? d.maxGuests ?? d.hospedes ?? 0) || 0,
+          area: Number(d.area ?? 0) || null,
+        },
+        description: d.description || d.shortDescription || "",
+        shortDescription: d.shortDescription || null,
+        photos,
+        coverPhoto:
+          d.fotoPrincipal ||
+          d.coverPhoto ||
+          (Array.isArray(photos) && photos.length > 0 ? photos[0] : null),
+        tags: Array.isArray(d.tags) ? d.tags : [],
+        amenities: Array.isArray(d.comodidades)
+          ? d.comodidades
+          : Array.isArray(d.amenities)
+          ? d.amenities
+          : Array.isArray(d.comodidadesStaysnetIds)
+          ? d.comodidadesStaysnetIds
+          : [],
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
+
     console.log(
-      `[CLIENT-SITES] ✅ ${
-        properties?.length || 0
-      } imóveis encontrados para organização ${organizationId}`
+      `[CLIENT-SITES] ✅ ${formattedProperties.length} imóveis encontrados para organização ${organizationId}`
     );
-
-    // Formatar resposta para o site
-    const formattedProperties = (properties || []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      code: p.code,
-      type: p.type,
-      status: p.status,
-      address: {
-        city: p.address_city || null,
-        state: p.address_state || null,
-        street: p.address_street || null,
-        number: p.address_number || null,
-        neighborhood: p.address_neighborhood || null,
-        zipCode: p.address_zip_code || null,
-        country: p.address_country || "BR",
-        latitude: p.address_latitude || null,
-        longitude: p.address_longitude || null,
-      },
-      pricing: {
-        basePrice: p.pricing_base_price || 0,
-        currency: p.pricing_currency || "BRL",
-      },
-      capacity: {
-        bedrooms: p.bedrooms || 0,
-        bathrooms: p.bathrooms || 0,
-        maxGuests: p.max_guests || 0,
-        area: p.area || null,
-      },
-      description: p.description || p.short_description || "",
-      shortDescription: p.short_description || null,
-      photos: Array.isArray(p.photos) ? p.photos : p.photos ? [p.photos] : [],
-      coverPhoto:
-        p.cover_photo ||
-        (Array.isArray(p.photos) && p.photos.length > 0 ? p.photos[0] : null),
-      tags: Array.isArray(p.tags) ? p.tags : [],
-      amenities: Array.isArray(p.amenities) ? p.amenities : [],
-      createdAt: p.created_at,
-      updatedAt: p.updated_at,
-    }));
-
-    // Fallback (MedHome / StaysNet): some orgs store listings in anuncios_ultimate (JSON) instead of properties.
-    if (formattedProperties.length === 0) {
-      const { data: anuncios, error: anunciosError } = await supabase
-        .from("anuncios_ultimate")
-        .select("id,status,organization_id,data,created_at,updated_at")
-        .eq("organization_id", organizationId)
-        .in("status", ["active", "published"])
-        .order("updated_at", { ascending: false })
-        .limit(100);
-
-      if (anunciosError) {
-        console.error(`[CLIENT-SITES] Erro ao buscar anuncios_ultimate:`, anunciosError);
-        return c.json(
-          {
-            success: false,
-            error: "Erro ao buscar imóveis",
-            details: anunciosError.message,
-          },
-          500
-        );
-      }
-
-      const anuncioFormatted = (anuncios || []).map((row: any) => {
-        const d = row?.data || {};
-        const photos = Array.isArray(d.fotos)
-          ? d.fotos
-          : Array.isArray(d.photos)
-          ? d.photos
-          : d.fotoPrincipal
-          ? [d.fotoPrincipal]
-          : [];
-
-        return {
-          id: row.id,
-          name: d.title || d.name || d.internalId || "Imóvel",
-          code: d.codigo || d.propertyCode || d?.externalIds?.staysnet_listing_code || row.id,
-          type: d.type || d.tipoAcomodacao || d.tipoLocal || "apartment",
-          status: row.status || d.status || "active",
-          address: {
-            city: d?.address?.city || d.cidade || null,
-            state: d?.address?.state || d.sigla_estado || null,
-            street: d?.address?.street || d.rua || null,
-            number: d?.address?.number || d.numero || null,
-            neighborhood: d?.address?.neighborhood || d.bairro || null,
-            zipCode: d?.address?.zipCode || d.cep || null,
-            country: d?.address?.country || d.pais || "BR",
-            latitude: d?.address?.latitude ?? null,
-            longitude: d?.address?.longitude ?? null,
-          },
-          // The MedHome bundle derives pricing.dailyRate from pricing.basePrice after proxy patch.
-          pricing: {
-            basePrice: Number(d?.pricing?.basePrice ?? d.basePrice ?? d.dailyRate ?? 0) || 0,
-            currency: d?.pricing?.currency || d.currency || "BRL",
-          },
-          capacity: {
-            bedrooms: Number(d.bedrooms ?? d.quartos ?? 0) || 0,
-            bathrooms: Number(d.bathrooms ?? d.banheiros ?? 0) || 0,
-            maxGuests: Number(d.guests ?? d.maxGuests ?? d.hospedes ?? 0) || 0,
-            area: Number(d.area ?? 0) || null,
-          },
-          description: d.description || d.shortDescription || "",
-          shortDescription: d.shortDescription || null,
-          photos,
-          coverPhoto:
-            d.fotoPrincipal ||
-            d.coverPhoto ||
-            (Array.isArray(photos) && photos.length > 0 ? photos[0] : null),
-          tags: Array.isArray(d.tags) ? d.tags : [],
-          amenities: Array.isArray(d.comodidades)
-            ? d.comodidades
-            : Array.isArray(d.amenities)
-            ? d.amenities
-            : Array.isArray(d.comodidadesStaysnetIds)
-            ? d.comodidadesStaysnetIds
-            : [],
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        };
-      });
-
-      return c.json({
-        success: true,
-        data: anuncioFormatted,
-        total: anuncioFormatted.length,
-      });
-    }
-
-    // CORS headers para permitir acesso do site
 
     return c.json({
       success: true,

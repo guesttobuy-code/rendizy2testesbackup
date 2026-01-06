@@ -1,5 +1,15 @@
 /**
- * SCRIPT DE MIGRAÇÃO: Property.platforms → Listings
+ * ⚠️ ARQUIVO DEPRECIADO (2026-01-06)
+ * 
+ * A tabela `properties` foi removida do banco de dados.
+ * Este script de migração não é mais necessário pois todos os dados
+ * de propriedades agora estão em `anuncios_ultimate`.
+ * 
+ * Manter apenas para referência histórica.
+ * NÃO EXECUTAR - vai falhar pois a tabela não existe mais.
+ * 
+ * -------------------------------------------------------------------------
+ * SCRIPT DE MIGRAÇÃO ORIGINAL: Property.platforms → Listings
  * 
  * Migra dados de Property.platforms (KV Store) para tabela listings (SQL)
  * 

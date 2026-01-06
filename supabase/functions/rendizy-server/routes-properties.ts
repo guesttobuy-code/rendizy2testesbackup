@@ -1,4 +1,17 @@
 // ============================================================================
+// ✅ REFATORADO 2026-01-06: Migrado de `properties` para `anuncios_ultimate`
+// ============================================================================
+// A tabela `properties` foi REMOVIDA do banco de dados.
+// Este arquivo agora usa `anuncios_ultimate` como fonte de verdade.
+//
+// ADAPTER UTILIZADO: utils-anuncio-property-adapter.ts
+// - anuncioToProperty(): Converte registro anuncios_ultimate → formato Property
+// - propertyToAnuncio(): Converte formato Property → registro anuncios_ultimate
+//
+// TABELA FONTE: `anuncios_ultimate` (JSONB data column)
+// ============================================================================
+
+// ============================================================================
 // 🔒 CADEADO DE CONTRATO - PROPERTIES ROUTES
 // ============================================================================
 // ⚠️ CONTRATO ESTABELECIDO - NÃO MODIFICAR SEM ATUALIZAR CONTRATO
@@ -84,11 +97,19 @@ import {
   RENDIZY_MASTER_ORG_ID,
 } from "./utils-multi-tenant.ts";
 // ✅ MIGRAÇÃO v1.0.103.400 - SQL + RLS + Multi-tenant
+// ⚠️ Mappers legados - usados apenas para compatibilidade
 import {
   propertyToSql,
   sqlToProperty,
   PROPERTY_SELECT_FIELDS,
 } from "./utils-property-mapper.ts";
+// ✅ REFATORADO 2026-01-06 - Adapter para anuncios_ultimate
+import {
+  anuncioToProperty,
+  propertyToAnuncio,
+  buildAnuncioDataUpdate,
+  ANUNCIO_SELECT_FOR_PROPERTY,
+} from "./utils-anuncio-property-adapter.ts";
 // ✅ MELHORIA v1.0.103.400 - Listings separados de Properties
 import { sqlToListing, LISTING_SELECT_FIELDS } from "./utils-listing-mapper.ts";
 import type { Listing } from "./types.ts";
@@ -108,7 +129,8 @@ export async function listProperties(c: Context) {
     );
 
     // ✅ MIGRAÇÃO: Buscar do SQL ao invés de KV Store
-    let query = client.from("properties").select(PROPERTY_SELECT_FIELDS);
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    let query = client.from("anuncios_ultimate").select(ANUNCIO_SELECT_FOR_PROPERTY);
 
     // ✅ REGRA MESTRE: Filtrar por organization_id (superadmin = Rendizy master, outros = sua organização)
     const organizationId = await getOrganizationIdForRequest(c);
@@ -162,7 +184,8 @@ export async function listProperties(c: Context) {
     }
 
     // ✅ Converter resultados SQL para Property (TypeScript)
-    let properties = (rows || []).map(sqlToProperty);
+    // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
+    let properties = (rows || []).map(anuncioToProperty);
 
     // 🆕 JORNADA DO DADO: Log detalhado para rastreamento
     const drafts = properties.filter((p) => p.status === "draft");
@@ -247,9 +270,10 @@ export async function getProperty(c: Context) {
     logInfo(`Getting property: ${id} for tenant: ${tenant.username}`);
 
     // ✅ MIGRAÇÃO: Buscar do SQL ao invés de KV Store
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
     let query = client
-      .from("properties")
-      .select(PROPERTY_SELECT_FIELDS)
+      .from("anuncios_ultimate")
+      .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .eq("id", id);
 
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
@@ -274,7 +298,8 @@ export async function getProperty(c: Context) {
     }
 
     // ✅ Converter resultado SQL para Property (TypeScript)
-    const property = sqlToProperty(row);
+    // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
+    const property = anuncioToProperty(row);
 
     // ✅ VERIFICAR PERMISSÃO: Se for imobiliária, garantir que propriedade pertence à organização
     // (já filtrado na query SQL acima, mas validar novamente para segurança)
@@ -450,10 +475,11 @@ async function createDraftPropertyMinimal(c: Context, body: any) {
     let insertedRow: any;
     let error: any;
 
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
     const { data, error: insertError } = await client
-      .from("properties")
+      .from("anuncios_ultimate")
       .insert(minimalDraft)
-      .select(PROPERTY_SELECT_FIELDS)
+      .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .single();
 
     insertedRow = data;
@@ -477,10 +503,11 @@ async function createDraftPropertyMinimal(c: Context, body: any) {
       delete minimalDraftBasic.completion_percentage;
       delete minimalDraftBasic.completed_steps;
 
+      // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
       const { data: basicData, error: basicError } = await client
-        .from("properties")
+        .from("anuncios_ultimate")
         .insert(minimalDraftBasic)
-        .select(PROPERTY_SELECT_FIELDS)
+        .select(ANUNCIO_SELECT_FOR_PROPERTY)
         .single();
 
       if (basicError) {
@@ -512,7 +539,8 @@ async function createDraftPropertyMinimal(c: Context, body: any) {
     }
 
     // Converter de SQL para Property
-    const property = sqlToProperty(insertedRow);
+    // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
+    const property = anuncioToProperty(insertedRow);
 
     console.log(
       "✅ [createDraftPropertyMinimal] Rascunho criado com ID (gerado pelo banco):",
@@ -636,9 +664,10 @@ export async function createProperty(c: Context) {
       const client = getSupabaseClient();
 
       // Buscar propriedade existente
+      // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
       const { data: existingRow, error: fetchError } = await client
-        .from("properties")
-        .select(PROPERTY_SELECT_FIELDS)
+        .from("anuncios_ultimate")
+        .select(ANUNCIO_SELECT_FOR_PROPERTY)
         .eq("id", id)
         .single();
 
@@ -653,8 +682,9 @@ export async function createProperty(c: Context) {
 
       // Normalizar dados para atualização
       const normalized = normalizeWizardData(body);
+      // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
       const property = {
-        ...sqlToProperty(existingRow),
+        ...anuncioToProperty(existingRow),
         ...normalized,
         id, // Manter ID original
         // 🆕 FIX: Garantir que wizardData seja atualizado com o corpo da requisição
@@ -671,7 +701,8 @@ export async function createProperty(c: Context) {
       }
 
       // Converter para SQL e atualizar
-      const sqlData = propertyToSql(
+      // ✅ REFATORADO 2026-01-06: Usando propertyToAnuncio
+      const sqlData = propertyToAnuncio(
         property,
         organizationId || "00000000-0000-0000-0000-000000000001"
       );
@@ -679,11 +710,12 @@ export async function createProperty(c: Context) {
       delete sqlData.organization_id; // Não atualizar organization_id
       delete sqlData.created_at; // Não atualizar created_at
 
+      // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
       const { data: updatedRow, error: updateError } = await client
-        .from("properties")
+        .from("anuncios_ultimate")
         .update(sqlData)
         .eq("id", id)
-        .select(PROPERTY_SELECT_FIELDS)
+        .select(ANUNCIO_SELECT_FOR_PROPERTY)
         .single();
 
       if (updateError) {
@@ -699,7 +731,8 @@ export async function createProperty(c: Context) {
         );
       }
 
-      const updatedProperty = sqlToProperty(updatedRow);
+      // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
+      const updatedProperty = anuncioToProperty(updatedRow);
       console.log("✅ [createProperty] Rascunho atualizado com sucesso:", id);
       return c.json(successResponse(updatedProperty), 200);
     }
@@ -1210,7 +1243,8 @@ export async function createProperty(c: Context) {
       "🔍 [createProperty] Usando organization_id:",
       finalOrganizationId
     );
-    const sqlData = propertyToSql(property, finalOrganizationId);
+    // ✅ REFATORADO 2026-01-06: Usando propertyToAnuncio
+    const sqlData = propertyToAnuncio(property, finalOrganizationId);
 
     // 🔍 DEBUG: Log dos dados antes de inserir
     console.log("🔍 [createProperty] SQL Data antes de inserir:", {
@@ -1222,10 +1256,11 @@ export async function createProperty(c: Context) {
       code: sqlData.code,
     });
 
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
     const { data: insertedRow, error } = await client
-      .from("properties")
+      .from("anuncios_ultimate")
       .insert(sqlData)
-      .select(PROPERTY_SELECT_FIELDS)
+      .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .single();
 
     if (error) {
@@ -1241,7 +1276,8 @@ export async function createProperty(c: Context) {
     }
 
     // ✅ Converter resultado SQL para Property (TypeScript)
-    const createdProperty = sqlToProperty(insertedRow);
+    // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
+    const createdProperty = anuncioToProperty(insertedRow);
 
     // 🆕 v1.0.103.271 - Atualizar mapeamento de Short ID (ainda no KV Store por enquanto)
     await updateShortIdMapping(shortId, tenantId, id);
@@ -1612,9 +1648,10 @@ export async function updateProperty(c: Context) {
     logInfo(`Updating property: ${id}`, body);
 
     // ✅ MIGRAÇÃO: Buscar propriedade existente do SQL (com filtro multi-tenant)
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
     let query = client
-      .from("properties")
-      .select(PROPERTY_SELECT_FIELDS)
+      .from("anuncios_ultimate")
+      .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .eq("id", id);
 
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
@@ -1641,7 +1678,8 @@ export async function updateProperty(c: Context) {
     }
 
     // ✅ Converter resultado SQL para Property (TypeScript)
-    const existing = sqlToProperty(existingRow);
+    // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
+    const existing = anuncioToProperty(existingRow);
 
     // 🆕 v1.0.103.315 - NORMALIZAR DADOS DO WIZARD
     const normalized = normalizeWizardData(body.wizardData || body, existing);
@@ -1687,11 +1725,12 @@ export async function updateProperty(c: Context) {
     );
 
     // ✅ MIGRAÇÃO: Se mudando o código, verificar se já existe no SQL
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
     if (extractedCode && extractedCode !== existing.code) {
       let codeQuery = client
-        .from("properties")
+        .from("anuncios_ultimate")
         .select("id")
-        .eq("code", extractedCode)
+        .eq("data->>codigo", extractedCode)
         .neq("id", id);
 
       // ✅ FILTRO MULTI-TENANT: Verificar código apenas dentro da organização
@@ -2044,7 +2083,8 @@ export async function updateProperty(c: Context) {
     }
 
     // Converter para formato SQL
-    const sqlData = propertyToSql(updated, organizationId);
+    // ✅ REFATORADO 2026-01-06: Usando propertyToAnuncio
+    const sqlData = propertyToAnuncio(updated, organizationId);
 
     // Remover campos que não devem ser atualizados (id, organization_id, created_at)
     delete sqlData.id;
@@ -2052,7 +2092,8 @@ export async function updateProperty(c: Context) {
     delete sqlData.created_at;
 
     // ✅ Fazer UPDATE no SQL (com filtro multi-tenant)
-    let updateQuery = client.from("properties").update(sqlData).eq("id", id);
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    let updateQuery = client.from("anuncios_ultimate").update(sqlData).eq("id", id);
 
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
     if (tenant.type === "imobiliaria") {
@@ -2062,7 +2103,7 @@ export async function updateProperty(c: Context) {
     }
 
     const { data: updatedRow, error: updateError } = await updateQuery
-      .select(PROPERTY_SELECT_FIELDS)
+      .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .single();
 
     if (updateError) {
@@ -2076,7 +2117,7 @@ export async function updateProperty(c: Context) {
     }
 
     // ✅ Converter resultado SQL para Property (TypeScript)
-    const updatedProperty = sqlToProperty(updatedRow);
+    const updatedProperty = anuncioToProperty(updatedRow);
 
     logInfo(`Property updated: ${id} in organization ${organizationId}`);
 
@@ -2109,9 +2150,10 @@ export async function deleteProperty(c: Context) {
     );
 
     // ✅ MIGRAÇÃO: Buscar propriedade do SQL (com filtro multi-tenant)
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
     let query = client
-      .from("properties")
-      .select(PROPERTY_SELECT_FIELDS)
+      .from("anuncios_ultimate")
+      .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .eq("id", id);
 
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
@@ -2138,18 +2180,19 @@ export async function deleteProperty(c: Context) {
     }
 
     // ✅ Converter resultado SQL para Property (TypeScript)
-    const existing = sqlToProperty(existingRow);
+    // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
+    const existing = anuncioToProperty(existingRow);
 
     // Se for SOFT DELETE (desativar)
     if (!permanent && !force) {
       logInfo(`Soft deleting property: ${id}`);
 
       // ✅ MIGRAÇÃO: Marcar como inativa no SQL
+      // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
       let updateQuery = client
-        .from("properties")
+        .from("anuncios_ultimate")
         .update({
           status: "inactive",
-          is_active: false,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
@@ -2162,7 +2205,7 @@ export async function deleteProperty(c: Context) {
       }
 
       const { data: updatedRow, error: updateError } = await updateQuery
-        .select(PROPERTY_SELECT_FIELDS)
+        .select(ANUNCIO_SELECT_FOR_PROPERTY)
         .single();
 
       if (updateError) {
@@ -2178,7 +2221,8 @@ export async function deleteProperty(c: Context) {
         );
       }
 
-      const updated = sqlToProperty(updatedRow);
+      // ✅ REFATORADO 2026-01-06: Usando anuncioToProperty
+      const updated = anuncioToProperty(updatedRow);
 
       return c.json(
         successResponse(updated, "Property deactivated successfully")
@@ -2238,7 +2282,8 @@ export async function deleteProperty(c: Context) {
     };
 
     // ✅ MIGRAÇÃO: 1. Deletar a propriedade do SQL (com filtro multi-tenant)
-    let deleteQuery = client.from("properties").delete().eq("id", id);
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    let deleteQuery = client.from("anuncios_ultimate").delete().eq("id", id);
 
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
     if (tenant.type === "imobiliaria") {
@@ -2386,8 +2431,9 @@ export async function getPropertyListings(c: Context) {
     );
 
     // Verificar se property existe e pertence à organização
+    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
     let propertyQuery = client
-      .from("properties")
+      .from("anuncios_ultimate")
       .select("id, organization_id")
       .eq("id", propertyId)
       .maybeSingle();

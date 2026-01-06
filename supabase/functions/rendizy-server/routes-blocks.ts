@@ -180,20 +180,20 @@ blocks.post('/', async (c) => {
       }, 400);
     }
 
-    // ✅ MIGRAÇÃO: Verificar se propriedade existe no SQL (com filtro multi-tenant)
-    let propertyQuery = client
-      .from('properties')
+    // ✅ MIGRAÇÃO 2026-01-06: Verificar se anúncio existe (tabela properties removida)
+    let anuncioQuery = client
+      .from('anuncios_ultimate')
       .select('id')
       .eq('id', property_id);
     
-    // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
+    // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que anúncio pertence à organização
     if (tenant.type === 'imobiliaria' && tenant.imobiliariaId) {
-      propertyQuery = propertyQuery.eq('organization_id', tenant.imobiliariaId);
+      anuncioQuery = anuncioQuery.eq('organization_id', tenant.imobiliariaId);
     }
     
-    const { data: propertyRow, error: propertyError } = await propertyQuery.maybeSingle();
+    const { data: anuncioRow, error: anuncioError } = await anuncioQuery.maybeSingle();
     
-    if (propertyError || !propertyRow) {
+    if (anuncioError || !anuncioRow) {
       return c.json({ 
         success: false, 
         error: 'Property not found or does not belong to your organization' 

@@ -540,10 +540,10 @@ export async function fullSyncStaysNet(
       stats.reservations.fetched = staysReservations.length;
       console.log(`[StaysNet Full Sync] ✅ ${stats.reservations.fetched} reservas encontradas`);
       
-      // ✅ Buscar TODAS as propriedades e hóspedes do banco para fallback (com mais campos)
-      const { data: allProperties } = await supabase
-        .from('properties')
-        .select('id, name, code')
+      // ✅ MIGRAÇÃO 2026-01-06: Tabela `properties` removida - usar anuncios_ultimate
+      const { data: allAnuncios } = await supabase
+        .from('anuncios_ultimate')
+        .select('id, data')
         .eq('organization_id', organizationId);
       
       const { data: allGuests } = await supabase
@@ -551,7 +551,7 @@ export async function fullSyncStaysNet(
         .select('id, email, first_name, last_name')
         .eq('organization_id', organizationId);
       
-      console.log(`[StaysNet Full Sync] 📊 Propriedades no banco: ${allProperties?.length || 0}`);
+      console.log(`[StaysNet Full Sync] 📊 Anúncios no banco: ${allAnuncios?.length || 0}`);
       console.log(`[StaysNet Full Sync] 📊 Hóspedes no banco: ${allGuests?.length || 0}`);
       console.log(`[StaysNet Full Sync] 📊 Maps: ${propertyIdMap.size} propriedades, ${guestIdMap.size} hóspedes`);
       
@@ -570,19 +570,19 @@ export async function fullSyncStaysNet(
           // Se não encontrou no map, tentar buscar pelo ID convertido no banco
           if (!propertyId) {
             const convertedListingId = objectIdToUUID(staysListingId);
-            const foundProperty = allProperties?.find(p => p.id === convertedListingId);
-            if (foundProperty) {
-              propertyId = foundProperty.id;
+            const foundAnuncio = allAnuncios?.find(p => p.id === convertedListingId);
+            if (foundAnuncio) {
+              propertyId = foundAnuncio.id;
               // Adicionar ao map para próximas buscas
               propertyIdMap.set(staysListingId, propertyId);
-              console.log(`✅ [StaysNet Full Sync] Propriedade encontrada no banco: ${propertyId}`);
+              console.log(`✅ [StaysNet Full Sync] Anúncio encontrado no banco: ${propertyId}`);
             }
           }
           
-          // Se ainda não encontrou, usar primeira propriedade disponível
-          if (!propertyId && allProperties && allProperties.length > 0) {
-            propertyId = allProperties[0].id;
-            console.warn(`⚠️ [StaysNet Full Sync] Usando primeira propriedade como fallback: ${propertyId}`);
+          // Se ainda não encontrou, usar primeiro anúncio disponível
+          if (!propertyId && allAnuncios && allAnuncios.length > 0) {
+            propertyId = allAnuncios[0].id;
+            console.warn(`⚠️ [StaysNet Full Sync] Usando primeiro anúncio como fallback: ${propertyId}`);
           }
           
           // ✅ Buscar guest_id usando os maps (chave é o ObjectId original da Stays.net)

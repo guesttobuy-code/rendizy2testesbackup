@@ -534,164 +534,75 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
 
     const organizationId = (sqlSite as { organization_id: string }).organization_id;
 
-    // Primary source: `properties` table (classic/curated listings).
-    // We intentionally filter by published-like statuses for public sites.
-    const { data: properties, error } = await supabase
-      .from("properties")
-      .select(
-        "id, name, code, type, status, address_city, address_state, address_street, address_number, address_zip_code, address_neighborhood, pricing_base_price, pricing_currency, bedrooms, bathrooms, max_guests, area, description, short_description, photos, cover_photo, tags, amenities, created_at, updated_at"
-      )
+    // NOTA: Tabela `properties` foi depreciada. Usar apenas `anuncios_ultimate` como fonte de dados.
+    const { data: anuncios, error: anunciosError } = await supabase
+      .from("anuncios_ultimate")
+      .select("id,status,organization_id,data,created_at,updated_at")
       .eq("organization_id", organizationId)
-      // Compat: em alguns ambientes o status publicado pode ser 'active' ou 'published'.
-      .in("status", ["active", "published"]) 
-      .order("created_at", { ascending: false })
+      .in("status", ["active", "published"])
+      .order("updated_at", { ascending: false })
       .limit(100);
 
-    if (error) {
+    if (anunciosError) {
       return c.json(
-        { success: false, error: "Erro ao buscar imóveis", details: error.message },
+        { success: false, error: "Erro ao buscar imóveis", details: anunciosError.message },
         500,
         withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
       );
     }
 
-    const formatted = (properties as PropertyRow[] | null | undefined || []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      code: p.code,
-      type: p.type,
-      status: p.status,
-      address: {
-        city: p.address_city || null,
-        state: p.address_state || null,
-        street: p.address_street || null,
-        number: p.address_number || null,
-        neighborhood: p.address_neighborhood || null,
-        zipCode: p.address_zip_code || null,
-        country: "BR",
-        latitude: null,
-        longitude: null,
-      },
-      pricing: {
-        basePrice: p.pricing_base_price || 0,
-        // Compat (client sites): UI expects `pricing.dailyRate`.
-        dailyRate: p.pricing_base_price || 0,
-        weeklyRate: (p.pricing_base_price || 0) * 7,
-        monthlyRate: (p.pricing_base_price || 0) * 30,
-        currency: p.pricing_currency || "BRL",
-      },
-      capacity: {
-        bedrooms: p.bedrooms || 0,
-        bathrooms: p.bathrooms || 0,
-        maxGuests: p.max_guests || 0,
-        area: p.area || null,
-      },
-      description: p.description || p.short_description || "",
-      shortDescription: p.short_description || null,
-      photos: Array.isArray(p.photos) ? (p.photos as unknown[]) : p.photos ? [p.photos] : [],
-      coverPhoto:
-        p.cover_photo ||
-        (Array.isArray(p.photos) && p.photos.length > 0 ? (p.photos as unknown[])[0] : null),
-      tags: Array.isArray(p.tags) ? (p.tags as unknown[]) : [],
-      amenities: Array.isArray(p.amenities) ? (p.amenities as unknown[]) : [],
-      createdAt: p.created_at,
-      updatedAt: p.updated_at,
-    }));
+    const formatted = (anuncios as any[] | null | undefined || []).map((row) => {
+      const d = (row as any)?.data || {};
+      const { photos, coverPhoto } = normalizeAnuncioPhotos(d);
+      const pricing = normalizePricing(d);
+      const derivedMaxGuests = computeMaxGuestsFromAnuncioData(d);
+      const explicitMaxGuests = numberOrZero(d.guests ?? d.maxGuests ?? d.max_guests ?? d.hospedes ?? 0);
+      const maxGuests = Math.max(explicitMaxGuests, derivedMaxGuests);
+      const publicTitle = normalizePublicTitle(d);
 
-    // Fallback (MedHome / StaysNet): some orgs store listings in `anuncios_ultimate` (JSONB), not in `properties`.
-    // Note: we also fallback when `properties` exists but appears incomplete (e.g., pricing all zeros),
-    // because some orgs have a single "admin/test" property row that would otherwise hide real listings.
-    const shouldLoadAnunciosFallback =
-      formatted.length === 0 ||
-      formatted.every((p) => (p?.pricing?.dailyRate || 0) <= 0);
-
-    if (shouldLoadAnunciosFallback) {
-      const { data: anuncios, error: anunciosError } = await supabase
-        .from("anuncios_ultimate")
-        .select("id,status,organization_id,data,created_at,updated_at")
-        .eq("organization_id", organizationId)
-        .in("status", ["active", "published"])
-        .order("updated_at", { ascending: false })
-        .limit(100);
-
-      if (anunciosError) {
-        return c.json(
-          { success: false, error: "Erro ao buscar imóveis", details: anunciosError.message },
-          500,
-          withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
-        );
-      }
-
-      const anuncioFormatted = (anuncios as any[] | null | undefined || []).map((row) => {
-        const d = (row as any)?.data || {};
-        const { photos, coverPhoto } = normalizeAnuncioPhotos(d);
-        const pricing = normalizePricing(d);
-        const derivedMaxGuests = computeMaxGuestsFromAnuncioData(d);
-        const explicitMaxGuests = numberOrZero(d.guests ?? d.maxGuests ?? d.max_guests ?? d.hospedes ?? 0);
-        const maxGuests = Math.max(explicitMaxGuests, derivedMaxGuests);
-        const publicTitle = normalizePublicTitle(d);
-
-        return {
-          id: row.id,
-          // Public contract: `name` is the public-facing title shown on the site.
-          // Internal identification (e.g. `title` used in admin UI) must not override public title.
-          name: publicTitle || d.name || d.title || d.internalId || "Imóvel",
-          code: d.codigo || d.propertyCode || d?.externalIds?.staysnet_listing_code || row.id,
-          type: d.type || d.tipoAcomodacao || d.tipoLocal || "apartment",
-          status: row.status || d.status || "active",
-          address: {
-            city: d?.address?.city || d.cidade || null,
-            state: d?.address?.state || d.sigla_estado || null,
-            street: d?.address?.street || d.rua || null,
-            number: d?.address?.number || d.numero || null,
-            neighborhood: d?.address?.neighborhood || d.bairro || null,
-            zipCode: d?.address?.zipCode || d.cep || null,
-            country: d?.address?.country || d.pais || "BR",
-            latitude: d?.address?.latitude ?? null,
-            longitude: d?.address?.longitude ?? null,
-          },
-          pricing,
-          capacity: {
-            bedrooms:
-              numberOrZero(d.bedrooms ?? d.quartos ?? 0) ||
-              (Array.isArray(d.rooms) ? d.rooms.length : 0) ||
-              0,
-            bathrooms: Number(d.bathrooms ?? d.banheiros ?? 0) || 0,
-            maxGuests,
-            area: Number(d.area ?? 0) || null,
-          },
-          description: d.description || d.shortDescription || "",
-          shortDescription: d.shortDescription || null,
-          photos,
-          coverPhoto,
-          tags: Array.isArray(d.tags) ? d.tags : [],
-          amenities: Array.isArray(d.comodidades)
-            ? d.comodidades
-            : Array.isArray(d.amenities)
-            ? d.amenities
-            : Array.isArray(d.comodidadesStaysnetIds)
-            ? d.comodidadesStaysnetIds
-            : [],
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        };
-      });
-
-      const seen = new Set(formatted.map((p) => p.id));
-      const merged = [...formatted];
-      for (const a of anuncioFormatted) {
-        if (a?.id && !seen.has(a.id)) {
-          merged.push(a);
-          seen.add(a.id);
-        }
-      }
-
-      return c.json(
-        { success: true, data: merged, total: merged.length },
-        200,
-        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
-      );
-    }
+      return {
+        id: row.id,
+        name: publicTitle || d.name || d.title || d.internalId || "Imóvel",
+        code: d.codigo || d.propertyCode || d?.externalIds?.staysnet_listing_code || row.id,
+        type: d.type || d.tipoAcomodacao || d.tipoLocal || "apartment",
+        status: row.status || d.status || "active",
+        address: {
+          city: d?.address?.city || d.cidade || null,
+          state: d?.address?.state || d.sigla_estado || null,
+          street: d?.address?.street || d.rua || null,
+          number: d?.address?.number || d.numero || null,
+          neighborhood: d?.address?.neighborhood || d.bairro || null,
+          zipCode: d?.address?.zipCode || d.cep || null,
+          country: d?.address?.country || d.pais || "BR",
+          latitude: d?.address?.latitude ?? null,
+          longitude: d?.address?.longitude ?? null,
+        },
+        pricing,
+        capacity: {
+          bedrooms:
+            numberOrZero(d.bedrooms ?? d.quartos ?? 0) ||
+            (Array.isArray(d.rooms) ? d.rooms.length : 0) ||
+            0,
+          bathrooms: Number(d.bathrooms ?? d.banheiros ?? 0) || 0,
+          maxGuests,
+          area: Number(d.area ?? 0) || null,
+        },
+        description: d.description || d.shortDescription || "",
+        shortDescription: d.shortDescription || null,
+        photos,
+        coverPhoto,
+        tags: Array.isArray(d.tags) ? d.tags : [],
+        amenities: Array.isArray(d.comodidades)
+          ? d.comodidades
+          : Array.isArray(d.amenities)
+          ? d.amenities
+          : Array.isArray(d.comodidadesStaysnetIds)
+          ? d.comodidadesStaysnetIds
+          : [],
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
 
     return c.json(
       { success: true, data: formatted, total: formatted.length },
@@ -843,35 +754,20 @@ clientSites.get("/api/:subdomain/properties/:propertyId/availability", async (c:
 
     const organizationId = (sqlSite as { organization_id: string }).organization_id;
 
-    // Resolve pricing (base): prefer `properties`, fallback to `anuncios_ultimate`.
+    // NOTA: Tabela `properties` foi depreciada. Usar apenas `anuncios_ultimate`.
     let pricing = { dailyRate: 0, currency: "BRL" };
     {
-      const { data: prop, error: propErr } = await supabase
-        .from("properties")
-        .select("id,pricing_base_price,pricing_currency")
+      const { data: anuncio, error: anuncioErr } = await supabase
+        .from("anuncios_ultimate")
+        .select("id,organization_id,data")
         .eq("organization_id", organizationId)
         .eq("id", propertyId)
         .maybeSingle();
 
-      if (!propErr && prop) {
-        const row: any = prop;
-        pricing = {
-          dailyRate: numberOrZero(row.pricing_base_price),
-          currency: row.pricing_currency || "BRL",
-        };
-      } else {
-        const { data: anuncio, error: anuncioErr } = await supabase
-          .from("anuncios_ultimate")
-          .select("id,organization_id,data")
-          .eq("organization_id", organizationId)
-          .eq("id", propertyId)
-          .maybeSingle();
-
-        if (!anuncioErr && anuncio) {
-          const d = (anuncio as any)?.data || {};
-          const p = normalizePricing(d);
-          pricing = { dailyRate: numberOrZero(p.dailyRate), currency: p.currency || "BRL" };
-        }
+      if (!anuncioErr && anuncio) {
+        const d = (anuncio as any)?.data || {};
+        const p = normalizePricing(d);
+        pricing = { dailyRate: numberOrZero(p.dailyRate), currency: p.currency || "BRL" };
       }
     }
 
@@ -1393,44 +1289,25 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
     let propertyExists = false;
     let pricing = { dailyRate: 0, currency: "BRL", cleaningFee: 0, serviceFee: 0, minNights: 1 };
 
-    // Check properties table first
-    const { data: prop } = await supabase
-      .from("properties")
-      .select("id,pricing_base_price,pricing_currency")
+    // Query from anuncios_ultimate (source of truth for properties)
+    const { data: anuncio } = await supabase
+      .from("anuncios_ultimate")
+      .select("id,data")
       .eq("organization_id", organizationId)
       .eq("id", propertyId)
       .maybeSingle();
 
-    if (prop) {
+    if (anuncio) {
       propertyExists = true;
+      const d = (anuncio as any)?.data || {};
+      const p = normalizePricing(d);
       pricing = {
-        dailyRate: numberOrZero((prop as any).pricing_base_price),
-        currency: (prop as any).pricing_currency || "BRL",
-        cleaningFee: 0,
-        serviceFee: 0,
-        minNights: 1,
+        dailyRate: p.dailyRate,
+        currency: p.currency || "BRL",
+        cleaningFee: p.cleaningFee,
+        serviceFee: p.serviceFee,
+        minNights: p.minNights,
       };
-    } else {
-      // Fallback to anuncios_ultimate
-      const { data: anuncio } = await supabase
-        .from("anuncios_ultimate")
-        .select("id,data")
-        .eq("organization_id", organizationId)
-        .eq("id", propertyId)
-        .maybeSingle();
-
-      if (anuncio) {
-        propertyExists = true;
-        const d = (anuncio as any)?.data || {};
-        const p = normalizePricing(d);
-        pricing = {
-          dailyRate: p.dailyRate,
-          currency: p.currency || "BRL",
-          cleaningFee: p.cleaningFee,
-          serviceFee: p.serviceFee,
-          minNights: p.minNights,
-        };
-      }
     }
 
     if (!propertyExists) {
