@@ -220,7 +220,7 @@ export function MainSidebar({
         // },
         {
           id: 'anuncio-ultimate',
-          label: 'Anúncio Ultimate',
+          label: 'Propriedades e anúncios',
           icon: Plus,
           iconColor: 'text-white',
           iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
@@ -376,7 +376,7 @@ export function MainSidebar({
 
   console.log('📋 [MainSidebar] Menu Sections criado:', menuSections.length, 'seções');
   console.log('📋 [MainSidebar] Seção Principal tem', menuSections[0]?.items?.length, 'itens');
-  console.log('📋 [MainSidebar] Item "Anúncio Ultimate":', menuSections[0]?.items?.find(i => i.id === 'anuncio-ultimate'));
+  console.log('📋 [MainSidebar] Item "Propriedades e anúncios":', menuSections[0]?.items?.find(i => i.id === 'anuncio-ultimate'));
   console.log('📋 [MainSidebar] Seção Módulos Avançados:', menuSections.find(s => s.title === 'Módulos Avançados'));
   console.log('📋 [MainSidebar] Item "Automações":', menuSections.find(s => s.title === 'Módulos Avançados')?.items?.find(i => i.id === 'modulo-automacoes'));
 
