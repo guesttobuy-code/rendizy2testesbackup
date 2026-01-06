@@ -41,6 +41,9 @@ export function CalendarBulkRules({
   handleGlobalMinNightsMouseUp,
   getGlobalRuleForDate,
 }: CalendarBulkRulesProps) {
+  // DEBUG: Log do estado de expansão
+  console.log('[CalendarBulkRules] isBulkRulesExpanded:', isBulkRulesExpanded);
+  
   return (
     <>
       <tr className="border-b border-gray-200 bg-white">
@@ -62,7 +65,10 @@ export function CalendarBulkRules({
               </Tooltip>
             </div>
             <button
-              onClick={() => setIsBulkRulesExpanded(!isBulkRulesExpanded)}
+              onClick={() => {
+                console.log('[CalendarBulkRules] Clicou! Mudando de', isBulkRulesExpanded, 'para', !isBulkRulesExpanded);
+                setIsBulkRulesExpanded(!isBulkRulesExpanded);
+              }}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
             >
               {isBulkRulesExpanded ? (
