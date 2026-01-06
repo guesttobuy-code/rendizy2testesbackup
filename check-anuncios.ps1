@@ -16,14 +16,14 @@ if (Test-Path $envPath) {
 $url = $env:VITE_SUPABASE_URL
 $key = $env:SUPABASE_SERVICE_ROLE_KEY
 
-Write-Host "`n1. Verificando tabela anuncios_ultimate..." -ForegroundColor Yellow
+Write-Host "`n1. Verificando tabela properties..." -ForegroundColor Yellow
 
 $headers = @{
     "apikey" = $key
     "Authorization" = "Bearer $key"
 }
 
-$endpoint = "$url/rest/v1/anuncios_ultimate"
+$endpoint = "$url/rest/v1/properties"
 $params = "select=id,status,organization_id,created_at,data"
 
 try {

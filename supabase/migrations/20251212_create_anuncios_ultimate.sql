@@ -1,11 +1,11 @@
--- Migration: criar tabela anuncios_ultimate e anuncios_field_changes
+-- Migration: criar tabela properties e anuncios_field_changes
 -- Data: 2025-12-12
 
 /* Requer extensão pgcrypto (para gen_random_uuid()). Execute:
    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 */
 
-CREATE TABLE IF NOT EXISTS public.anuncios_ultimate (
+CREATE TABLE IF NOT EXISTS public.properties (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid,
   user_id uuid,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.anuncios_ultimate (
 
 CREATE TABLE IF NOT EXISTS public.anuncios_field_changes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  anuncio_id uuid REFERENCES public.anuncios_ultimate(id) ON DELETE CASCADE,
+  anuncio_id uuid REFERENCES public.properties(id) ON DELETE CASCADE,
   field text NOT NULL,
   value jsonb,
   idempotency_key text,
@@ -36,8 +36,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS set_timestamp ON public.anuncios_ultimate;
+DROP TRIGGER IF EXISTS set_timestamp ON public.properties;
 CREATE TRIGGER set_timestamp
-BEFORE UPDATE ON public.anuncios_ultimate
+BEFORE UPDATE ON public.properties
 FOR EACH ROW
 EXECUTE FUNCTION public.trigger_set_timestamp();

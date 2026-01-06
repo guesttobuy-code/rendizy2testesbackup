@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRAÇÃO DE DADOS: anuncios_ultimate (V1) → anuncios_drafts (V2)
+-- MIGRAÇÃO DE DADOS: properties (V1) → anuncios_drafts (V2)
 -- ============================================================================
 -- Copia anúncios existentes da tabela antiga para nova estrutura V2
 
@@ -30,9 +30,9 @@ SELECT
   1 as step_completed,
   created_at,
   updated_at
-FROM anuncios_ultimate
+FROM properties
 WHERE NOT EXISTS (
-  SELECT 1 FROM anuncios_drafts WHERE anuncios_drafts.id = anuncios_ultimate.id
+  SELECT 1 FROM anuncios_drafts WHERE anuncios_drafts.id = properties.id
 );
 
 -- Log de quantos foram migrados
@@ -41,5 +41,5 @@ DECLARE
   v_count integer;
 BEGIN
   GET DIAGNOSTICS v_count = ROW_COUNT;
-  RAISE NOTICE 'Migrados % anúncios de anuncios_ultimate → anuncios_drafts', v_count;
+  RAISE NOTICE 'Migrados % anúncios de properties → anuncios_drafts', v_count;
 END $$;

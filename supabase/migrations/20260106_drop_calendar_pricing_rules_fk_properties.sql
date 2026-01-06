@@ -2,7 +2,7 @@
 -- MIGRATION: Remove FK from calendar_pricing_rules -> properties
 -- ============================================================
 -- A tabela `properties` foi descontinuada.
--- O sistema usa `anuncios_ultimate` como fonte de imóveis.
+-- O sistema usa `properties` como fonte de imóveis.
 -- A FK estava impedindo inserções de regras de calendário.
 -- ============================================================
 
@@ -13,7 +13,7 @@ ALTER TABLE calendar_pricing_rules
 
 -- 2. Adicionar comentário explicativo
 COMMENT ON COLUMN calendar_pricing_rules.property_id IS 
-  'ID do imóvel em anuncios_ultimate (sem FK por design - anuncios_ultimate é a tabela mestre)';
+  'ID do imóvel em properties (sem FK por design - properties é a tabela mestre)';
 
 -- 3. Verificar se properties está vazia e pode ser dropada (apenas log)
 -- DROP TABLE IF EXISTS properties; -- DESCOMENTADO QUANDO CONFIRMADO QUE NÃO HÁ DEPENDÊNCIAS

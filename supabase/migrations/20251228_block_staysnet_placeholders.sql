@@ -6,7 +6,7 @@
 -- "Propriedade Stays.net <id>" deve falhar imediatamente.
 -- Isso bloqueia tanto inserts diretos quanto a RPC save_anuncio_field.
 
-CREATE OR REPLACE FUNCTION public.prevent_anuncios_ultimate_staysnet_placeholder()
+CREATE OR REPLACE FUNCTION public.prevent_properties_staysnet_placeholder()
 RETURNS TRIGGER AS $$
 DECLARE
   title_text text;
@@ -32,8 +32,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_prevent_anuncios_ultimate_staysnet_placeholder ON public.anuncios_ultimate;
-CREATE TRIGGER trg_prevent_anuncios_ultimate_staysnet_placeholder
-BEFORE INSERT OR UPDATE ON public.anuncios_ultimate
+DROP TRIGGER IF EXISTS trg_prevent_properties_staysnet_placeholder ON public.properties;
+CREATE TRIGGER trg_prevent_properties_staysnet_placeholder
+BEFORE INSERT OR UPDATE ON public.properties
 FOR EACH ROW
-EXECUTE FUNCTION public.prevent_anuncios_ultimate_staysnet_placeholder();
+EXECUTE FUNCTION public.prevent_properties_staysnet_placeholder();

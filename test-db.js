@@ -11,9 +11,9 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
 }
 
 async function checkTables() {
-  console.log('\n🔍 Verificando tabela anuncios_ultimate...');
+  console.log('\n🔍 Verificando tabela properties...');
   
-  const res1 = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/anuncios_ultimate?limit=1`, {
+  const res1 = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/properties?limit=1`, {
     headers: {
       'apikey': SERVICE_ROLE_KEY,
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`
@@ -22,9 +22,9 @@ async function checkTables() {
   
   console.log('Status:', res1.status);
   if (res1.status === 200) {
-    console.log('✅ Tabela anuncios_ultimate existe!');
+    console.log('✅ Tabela properties existe!');
   } else {
-    console.log('❌ Tabela anuncios_ultimate não existe. Body:', await res1.text());
+    console.log('❌ Tabela properties não existe. Body:', await res1.text());
   }
 
   console.log('\n🔍 Verificando tabela anuncios_field_changes...');

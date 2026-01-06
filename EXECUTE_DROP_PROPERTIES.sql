@@ -1,6 +1,6 @@
 -- ================================================================
 -- DROP TABLE properties - Tabela depreciada
--- A tabela properties foi substituída por anuncios_ultimate
+-- A tabela properties foi substituída por properties
 -- ================================================================
 
 -- Primeiro, remover qualquer FK que ainda aponte para properties

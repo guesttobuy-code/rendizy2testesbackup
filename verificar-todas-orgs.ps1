@@ -1,4 +1,4 @@
-# 🔍 Verificar TODAS as organizações em anuncios_ultimate
+# 🔍 Verificar TODAS as organizações em properties
 Write-Host "`n=== BUSCA COMPLETA POR TODAS ORGANIZAÇÕES ===" -ForegroundColor Cyan
 
 $apiKey = $env:SUPABASE_SERVICE_ROLE_KEY
@@ -20,7 +20,7 @@ try {
     
     # Buscar TODOS os registros criados nas últimas 2 horas
     $twoHoursAgo = (Get-Date).AddHours(-2).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-    $url = "$projectUrl/rest/v1/anuncios_ultimate?created_at=gte.$twoHoursAgo&select=id,organization_id,user_id,status,created_at,data->>title&order=created_at.desc"
+    $url = "$projectUrl/rest/v1/properties?created_at=gte.$twoHoursAgo&select=id,organization_id,user_id,status,created_at,data->>title&order=created_at.desc"
     
     $response = Invoke-RestMethod -Uri $url -Method Get -Headers $headers
     
@@ -43,7 +43,7 @@ try {
     
     # Contar por organização
     Write-Host "`n2. Contagem por organização:" -ForegroundColor Yellow
-    $url2 = "$projectUrl/rest/v1/anuncios_ultimate?select=organization_id,count"
+    $url2 = "$projectUrl/rest/v1/properties?select=organization_id,count"
     $countResponse = Invoke-RestMethod -Uri $url2 -Method Get -Headers $headers
     
     $orgGroups = $countResponse | Group-Object -Property organization_id

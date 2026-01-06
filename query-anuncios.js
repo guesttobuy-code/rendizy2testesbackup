@@ -13,7 +13,7 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
 async function queryAnuncios() {
   console.log('\n📊 Consultando anúncios...');
   
-  const res = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/anuncios_ultimate?order=created_at.desc&limit=5`, {
+  const res = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/properties?order=created_at.desc&limit=5`, {
     headers: {
       'apikey': SERVICE_ROLE_KEY,
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`

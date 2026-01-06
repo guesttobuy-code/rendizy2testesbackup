@@ -1,5 +1,5 @@
 -- Stores StaysNet import issues so we never silently drop data.
--- Focus: reservations that cannot be linked to an internal property (anuncios_ultimate).
+-- Focus: reservations that cannot be linked to an internal property (properties).
 
 create extension if not exists pgcrypto;
 

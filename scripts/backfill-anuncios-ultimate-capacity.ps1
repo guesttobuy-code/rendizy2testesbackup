@@ -120,7 +120,7 @@ try {
   }
 
   $id = $AnuncioId
-  $getUrl = "$supabaseUrl/rest/v1/anuncios_ultimate?select=id,organization_id,status,data&id=eq.$id&limit=1"
+  $getUrl = "$supabaseUrl/rest/v1/properties?select=id,organization_id,status,data&id=eq.$id&limit=1"
   Write-Host ("GET  " + $getUrl)
   $row = @(Invoke-RestMethod -Method Get -Uri $getUrl -Headers $headers -TimeoutSec 60) | Select-Object -First 1
   if (-not $row) { throw "anuncio not found: $id" }
@@ -160,7 +160,7 @@ try {
   try { $d | Add-Member -NotePropertyName 'max_guests' -NotePropertyValue $newMax -Force } catch {}
   try { $d | Add-Member -NotePropertyName 'bedrooms' -NotePropertyValue $bedrooms -Force } catch {}
 
-  $patchUrl = "$supabaseUrl/rest/v1/anuncios_ultimate?id=eq.$id"
+  $patchUrl = "$supabaseUrl/rest/v1/properties?id=eq.$id"
   $body = @{ data = $d } | ConvertTo-Json -Depth 50
 
   Write-Host ("PATCH " + $patchUrl)

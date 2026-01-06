@@ -250,17 +250,17 @@ if ($sampleGuestId) {
 }
 
 # -----------------------------------------------------------------------------
-# 3) anuncios_ultimate.data.staysnet_raw (listing raw)
+# 3) properties.data.staysnet_raw (listing raw)
 # -----------------------------------------------------------------------------
 $listingCoverage = $null
 # PostgREST jsonb contains operator (cs.)
 # data=cs.{"staysnet_raw":{}}
 $containsFilter = [System.Uri]::EscapeDataString('{"staysnet_raw":{}}')
 $selectAnuncio = 'id,data,created_at'
-$anunciosUrl = "$supabaseUrl/rest/v1/anuncios_ultimate?data=cs.$containsFilter&select=$selectAnuncio&limit=20"
-if ($orgId) { $anunciosUrl = "$supabaseUrl/rest/v1/anuncios_ultimate?organization_id=eq.$orgId&data=cs.$containsFilter&select=$selectAnuncio&limit=20" }
+$anunciosUrl = "$supabaseUrl/rest/v1/properties?data=cs.$containsFilter&select=$selectAnuncio&limit=20"
+if ($orgId) { $anunciosUrl = "$supabaseUrl/rest/v1/properties?organization_id=eq.$orgId&data=cs.$containsFilter&select=$selectAnuncio&limit=20" }
 
-$anunciosResult = Try-Get -label 'anuncios_ultimate' -url $anunciosUrl
+$anunciosResult = Try-Get -label 'properties' -url $anunciosUrl
 
 if ($anunciosResult.ok) {
   $rows = @($anunciosResult.data)

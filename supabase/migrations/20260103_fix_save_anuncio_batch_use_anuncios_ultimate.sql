@@ -1,17 +1,17 @@
 -- ============================================================================
--- FIX: save_anuncio_batch → usar anuncios_ultimate (canônico)
+-- FIX: save_anuncio_batch → usar properties (canônico)
 -- Data: 2026-01-03
 --
 -- Contexto:
--- - O projeto consolidou a tabela canônica como public.anuncios_ultimate.
--- - Migrações antigas criaram/renomearam anuncios_drafts → anuncios_ultimate,
+-- - O projeto consolidou a tabela canônica como public.properties.
+-- - Migrações antigas criaram/renomearam anuncios_drafts → properties,
 --   mas as RPCs (save_anuncio_batch) ainda referenciavam anuncios_drafts.
 -- - Resultado: save_anuncio_field/save-field quebram (404/500, sem persistência).
 --
 -- Objetivo:
 -- - Tornar save_anuncio_batch independente de anuncios_drafts.
 -- - Manter idempotência via anuncios_field_changes.idempotency_key.
--- - Persistir alterações no JSONB anuncios_ultimate.data (com suporte a path "a.b.c").
+-- - Persistir alterações no JSONB properties.data (com suporte a path "a.b.c").
 -- ============================================================================
 
 -- Assinatura antiga (V2) usava (uuid, jsonb, uuid, uuid)
@@ -42,7 +42,7 @@ BEGIN
 
   -- Criar ou recuperar anúncio
   IF p_anuncio_id IS NULL THEN
-    INSERT INTO public.anuncios_ultimate (organization_id, user_id, data, status, created_at, updated_at)
+    INSERT INTO public.properties (organization_id, user_id, data, status, created_at, updated_at)
     VALUES (p_organization_id, p_user_id, '{}'::jsonb, 'draft', v_now, v_now)
     RETURNING id INTO v_id;
   ELSE
@@ -80,7 +80,7 @@ BEGIN
       END IF;
 
       -- Aplicar mudança (somente dentro do tenant)
-      UPDATE public.anuncios_ultimate
+      UPDATE public.properties
         SET data = jsonb_set(COALESCE(data, '{}'::jsonb), v_path, v_value, true),
             updated_at = v_now,
             user_id = COALESCE(p_user_id, user_id)
@@ -89,7 +89,7 @@ BEGIN
 
       -- Se não existia (ou org não bateu), criar no tenant
       IF NOT FOUND THEN
-        INSERT INTO public.anuncios_ultimate (id, organization_id, user_id, data, status, created_at, updated_at)
+        INSERT INTO public.properties (id, organization_id, user_id, data, status, created_at, updated_at)
         VALUES (
           v_id,
           p_organization_id,
@@ -100,10 +100,10 @@ BEGIN
           v_now
         )
         ON CONFLICT (id) DO UPDATE
-          SET data = jsonb_set(COALESCE(public.anuncios_ultimate.data, '{}'::jsonb), v_path, v_value, true),
+          SET data = jsonb_set(COALESCE(public.properties.data, '{}'::jsonb), v_path, v_value, true),
               updated_at = v_now,
-              user_id = COALESCE(p_user_id, public.anuncios_ultimate.user_id)
-          WHERE public.anuncios_ultimate.organization_id = p_organization_id;
+              user_id = COALESCE(p_user_id, public.properties.user_id)
+          WHERE public.properties.organization_id = p_organization_id;
       END IF;
 
       -- Logar mudança (idempotência garante reprocessamento seguro)
@@ -125,7 +125,7 @@ BEGIN
     'changes_applied', v_applied,
     'changes_skipped', v_skipped
   ) INTO v_result
-  FROM public.anuncios_ultimate a
+  FROM public.properties a
   WHERE a.id = v_id
     AND a.organization_id = p_organization_id;
 
@@ -134,4 +134,4 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 COMMENT ON FUNCTION public.save_anuncio_batch IS
-  '[CANÔNICO] Batch save em anuncios_ultimate.data com idempotência (anuncios_field_changes)';
+  '[CANÔNICO] Batch save em properties.data com idempotência (anuncios_field_changes)';

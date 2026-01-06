@@ -1,7 +1,7 @@
 -- ================================================================
 -- DROP TABLE properties - Tabela depreciada
--- A tabela properties foi substituída por anuncios_ultimate
--- Todas as referências devem usar anuncios_ultimate.id como property_id
+-- A tabela properties foi substituída por properties
+-- Todas as referências devem usar properties.id como property_id
 -- ================================================================
 
 -- Primeiro, remover qualquer FK que ainda aponte para properties

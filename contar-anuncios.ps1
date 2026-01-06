@@ -11,15 +11,15 @@ Write-Host "`n📊 CONTAGEM DE ANÚNCIOS" -ForegroundColor Cyan
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 
 try {
-    $drafts = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_ultimate?select=id" -Headers $h
-    Write-Host "`n✅ anuncios_ultimate: $($drafts.Count) registros" -ForegroundColor Green
+    $drafts = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/properties?select=id" -Headers $h
+    Write-Host "`n✅ properties: $($drafts.Count) registros" -ForegroundColor Green
     
     if ($drafts.Count -gt 0) {
         Write-Host "   Primeiros IDs:" -ForegroundColor Gray
         $drafts[0..([Math]::Min(2, $drafts.Count-1))] | ForEach-Object { Write-Host "   - $($_.id)" -ForegroundColor Gray }
     }
 } catch {
-    Write-Host "❌ Erro ao contar anuncios_ultimate" -ForegroundColor Red
+    Write-Host "❌ Erro ao contar properties" -ForegroundColor Red
 }
 
 try {

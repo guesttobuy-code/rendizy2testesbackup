@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRATION: Renomear anuncios_drafts para anuncios_ultimate
+-- MIGRATION: Renomear anuncios_drafts para properties
 -- Data: 2025-12-21
 -- Motivo: Padronizar nome da tabela com o nome do sistema (Anúncios Ultimate)
 -- ============================================================================
@@ -16,7 +16,7 @@ BEGIN
 
   SELECT EXISTS (
     SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'anuncios_ultimate'
+    WHERE table_schema = 'public' AND table_name = 'properties'
   ) INTO has_ultimate;
 
   IF NOT has_drafts THEN
@@ -24,27 +24,27 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Caso A) Só existe anuncios_drafts -> renomear para anuncios_ultimate
+  -- Caso A) Só existe anuncios_drafts -> renomear para properties
   IF has_drafts AND NOT has_ultimate THEN
-    EXECUTE 'ALTER TABLE public.anuncios_drafts RENAME TO anuncios_ultimate';
+    EXECUTE 'ALTER TABLE public.anuncios_drafts RENAME TO properties';
 
     -- Renomear índices (se existirem)
     EXECUTE 'ALTER INDEX IF EXISTS idx_drafts_user RENAME TO idx_ultimate_user';
     EXECUTE 'ALTER INDEX IF EXISTS idx_drafts_org RENAME TO idx_ultimate_org';
-    EXECUTE 'ALTER INDEX IF EXISTS idx_anuncios_drafts_id RENAME TO idx_anuncios_ultimate_id';
-    EXECUTE 'ALTER INDEX IF EXISTS idx_anuncios_drafts_organization_id RENAME TO idx_anuncios_ultimate_organization_id';
+    EXECUTE 'ALTER INDEX IF EXISTS idx_anuncios_drafts_id RENAME TO idx_properties_id';
+    EXECUTE 'ALTER INDEX IF EXISTS idx_anuncios_drafts_organization_id RENAME TO idx_properties_organization_id';
 
     -- Comentário na tabela
-    EXECUTE $$COMMENT ON TABLE public.anuncios_ultimate IS
+    EXECUTE $$COMMENT ON TABLE public.properties IS
       'Tabela principal do sistema Anúncios Ultimate (renomeada de anuncios_drafts em 21/12/2025)'$$;
 
-    RAISE NOTICE '✅ Tabela renomeada: anuncios_drafts → anuncios_ultimate';
+    RAISE NOTICE '✅ Tabela renomeada: anuncios_drafts → properties';
     RETURN;
   END IF;
 
-  -- Caso B) Existe anuncios_drafts e anuncios_ultimate -> resolver conflito sem falhar.
-  -- Estratégia: tratar anuncios_ultimate como legado (V1), migrar dados faltantes para drafts,
-  -- substituir tabela e então manter apenas anuncios_ultimate (V2) como canônica.
+  -- Caso B) Existe anuncios_drafts e properties -> resolver conflito sem falhar.
+  -- Estratégia: tratar properties como legado (V1), migrar dados faltantes para drafts,
+  -- substituir tabela e então manter apenas properties (V2) como canônica.
   IF has_drafts AND has_ultimate THEN
     -- 1) Garantir que anuncios_drafts tem ao menos os dados da V1 (sem sobrescrever IDs já existentes)
     BEGIN
@@ -72,7 +72,7 @@ BEGIN
           0 AS step_completed,
           a.created_at,
           a.updated_at
-        FROM public.anuncios_ultimate a
+        FROM public.properties a
         WHERE NOT EXISTS (
           SELECT 1 FROM public.anuncios_drafts d WHERE d.id = a.id
         );
@@ -81,7 +81,7 @@ BEGIN
       WHEN OTHERS THEN
         -- Em alguns ambientes, a V1 pode não ter user_id/organization_id populados ou drafts pode ter constraints.
         -- Preferimos não falhar a migração inteira; apenas logar.
-        RAISE NOTICE '⚠️ Migração de dados anuncios_ultimate -> anuncios_drafts falhou e foi ignorada: %', SQLERRM;
+        RAISE NOTICE '⚠️ Migração de dados properties -> anuncios_drafts falhou e foi ignorada: %', SQLERRM;
     END;
 
     -- 2) Desvincular FK de anuncios_field_changes (se existir) antes de dropar a V1
@@ -93,12 +93,12 @@ BEGIN
     END;
 
     -- 3) Remover tabela legado V1 e renomear drafts -> ultimate
-    EXECUTE 'DROP TABLE IF EXISTS public.anuncios_ultimate';
-    EXECUTE 'ALTER TABLE public.anuncios_drafts RENAME TO anuncios_ultimate';
+    EXECUTE 'DROP TABLE IF EXISTS public.properties';
+    EXECUTE 'ALTER TABLE public.anuncios_drafts RENAME TO properties';
 
     -- 4) Recriar FK de anuncios_field_changes (se tabela existir)
     BEGIN
-      EXECUTE 'ALTER TABLE IF EXISTS public.anuncios_field_changes ADD CONSTRAINT anuncios_field_changes_anuncio_id_fkey FOREIGN KEY (anuncio_id) REFERENCES public.anuncios_ultimate(id) ON DELETE CASCADE';
+      EXECUTE 'ALTER TABLE IF EXISTS public.anuncios_field_changes ADD CONSTRAINT anuncios_field_changes_anuncio_id_fkey FOREIGN KEY (anuncio_id) REFERENCES public.properties(id) ON DELETE CASCADE';
     EXCEPTION
       WHEN OTHERS THEN
         RAISE NOTICE 'ℹ️ Não foi possível recriar FK de anuncios_field_changes (ignorado): %', SQLERRM;
@@ -107,12 +107,12 @@ BEGIN
     -- Renomear índices (se existirem)
     EXECUTE 'ALTER INDEX IF EXISTS idx_drafts_user RENAME TO idx_ultimate_user';
     EXECUTE 'ALTER INDEX IF EXISTS idx_drafts_org RENAME TO idx_ultimate_org';
-    EXECUTE 'ALTER INDEX IF EXISTS idx_anuncios_drafts_id RENAME TO idx_anuncios_ultimate_id';
-    EXECUTE 'ALTER INDEX IF EXISTS idx_anuncios_drafts_organization_id RENAME TO idx_anuncios_ultimate_organization_id';
+    EXECUTE 'ALTER INDEX IF EXISTS idx_anuncios_drafts_id RENAME TO idx_properties_id';
+    EXECUTE 'ALTER INDEX IF EXISTS idx_anuncios_drafts_organization_id RENAME TO idx_properties_organization_id';
 
-    EXECUTE $$COMMENT ON TABLE public.anuncios_ultimate IS
-      'Tabela principal do sistema Anúncios Ultimate (consolidada em 21/12/2025; legado anuncios_drafts/anuncios_ultimate V1 removido)'$$;
+    EXECUTE $$COMMENT ON TABLE public.properties IS
+      'Tabela principal do sistema Anúncios Ultimate (consolidada em 21/12/2025; legado anuncios_drafts/properties V1 removido)'$$;
 
-    RAISE NOTICE '✅ Conflito resolvido: mantida apenas public.anuncios_ultimate (V2).';
+    RAISE NOTICE '✅ Conflito resolvido: mantida apenas public.properties (V2).';
   END IF;
 END $$;

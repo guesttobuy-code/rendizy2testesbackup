@@ -3,7 +3,7 @@
 -- Objetivo: Garantir salvamento 100% confiável com rascunhos, versões e recovery
 
 -- ============================================================================
--- 1. TABELA DE RASCUNHOS (substitui anuncios_ultimate)
+-- 1. TABELA DE RASCUNHOS (substitui properties)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.anuncios_drafts (

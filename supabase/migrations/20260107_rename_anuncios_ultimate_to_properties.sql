@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRATION: Renomear anuncios_ultimate → properties
+-- MIGRATION: Renomear properties → properties
 -- Data: 2026-01-07
 -- Objetivo: Tornar o nome da tabela intuitivo para desenvolvedores e IAs
 -- ============================================================================
@@ -13,26 +13,26 @@ BEGIN;
 -- 1. RENOMEAR TABELA PRINCIPAL
 -- ============================================================================
 -- Nota: FKs de outras tabelas (reservations, blocks) seguem automaticamente
-ALTER TABLE IF EXISTS public.anuncios_ultimate RENAME TO properties;
+ALTER TABLE IF EXISTS public.properties RENAME TO properties;
 
 COMMENT ON TABLE public.properties IS 
   'Tabela principal de imóveis/propriedades do sistema Rendizy. 
-   Renomeada de anuncios_ultimate em 2026-01-07 para maior clareza.
+   Renomeada de properties em 2026-01-07 para maior clareza.
    Contém coluna JSONB "data" com todos os atributos do imóvel.';
 
 -- ============================================================================
 -- 2. RENOMEAR INDEXES
 -- ============================================================================
-ALTER INDEX IF EXISTS idx_anuncios_ultimate_id 
+ALTER INDEX IF EXISTS idx_properties_id 
   RENAME TO idx_properties_id;
 
-ALTER INDEX IF EXISTS idx_anuncios_ultimate_organization_id 
+ALTER INDEX IF EXISTS idx_properties_organization_id 
   RENAME TO idx_properties_organization_id;
 
-ALTER INDEX IF EXISTS anuncios_ultimate_stays_property_uidx 
+ALTER INDEX IF EXISTS properties_stays_property_uidx 
   RENAME TO properties_stays_property_uidx;
 
-ALTER INDEX IF EXISTS anuncios_ultimate_stays_property_idx 
+ALTER INDEX IF EXISTS properties_stays_property_idx 
   RENAME TO properties_stays_property_idx;
 
 -- Indexes genéricos que podem existir
@@ -52,7 +52,7 @@ ALTER INDEX IF EXISTS idx_anuncios_data
 -- 3. RENOMEAR TRIGGER E FUNÇÃO
 -- ============================================================================
 -- 3.1 Dropar trigger antigo (se existir)
-DROP TRIGGER IF EXISTS trg_prevent_anuncios_ultimate_staysnet_placeholder ON public.properties;
+DROP TRIGGER IF EXISTS trg_prevent_properties_staysnet_placeholder ON public.properties;
 
 -- 3.2 Renomear a função do trigger (se existir)
 DO $$
@@ -61,9 +61,9 @@ BEGIN
     SELECT 1 FROM pg_proc p
     JOIN pg_namespace n ON p.pronamespace = n.oid
     WHERE n.nspname = 'public' 
-      AND p.proname = 'prevent_anuncios_ultimate_staysnet_placeholder'
+      AND p.proname = 'prevent_properties_staysnet_placeholder'
   ) THEN
-    ALTER FUNCTION public.prevent_anuncios_ultimate_staysnet_placeholder() 
+    ALTER FUNCTION public.prevent_properties_staysnet_placeholder() 
       RENAME TO prevent_properties_staysnet_placeholder;
   END IF;
 END $$;
@@ -96,7 +96,7 @@ BEGIN
     WHERE table_schema = 'public' AND table_name = 'anuncios_field_changes'
   ) THEN
     COMMENT ON TABLE public.anuncios_field_changes IS 
-      'Histórico de mudanças de campos em properties (antes anuncios_ultimate). 
+      'Histórico de mudanças de campos em properties (antes properties). 
        FK anuncio_id referencia properties(id).';
   END IF;
 END $$;
@@ -180,16 +180,16 @@ BEGIN
     RAISE EXCEPTION 'ERRO: Tabela properties não encontrada após rename';
   END IF;
   
-  -- Verificar se anuncios_ultimate não existe mais
+  -- Verificar se properties não existe mais
   SELECT COUNT(*) INTO v_count 
   FROM information_schema.tables 
-  WHERE table_schema = 'public' AND table_name = 'anuncios_ultimate';
+  WHERE table_schema = 'public' AND table_name = 'properties';
   
   IF v_count > 0 THEN
-    RAISE EXCEPTION 'ERRO: Tabela anuncios_ultimate ainda existe';
+    RAISE EXCEPTION 'ERRO: Tabela properties ainda existe';
   END IF;
   
-  RAISE NOTICE '✅ Migration concluída: anuncios_ultimate → properties';
+  RAISE NOTICE '✅ Migration concluída: properties → properties';
 END $$;
 
 COMMIT;

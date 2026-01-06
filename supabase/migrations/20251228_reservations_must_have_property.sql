@@ -5,7 +5,7 @@
 --  2) Impedir para sempre novas reservas órfãs (NOT NULL + trigger)
 --
 -- IMPORTANTE:
---  - A FK reservations.property_id -> anuncios_ultimate(id) já deve existir (ver 20251226_fix_fk_reservations_blocks_to_anuncios_ultimate.sql)
+--  - A FK reservations.property_id -> properties(id) já deve existir (ver 20251226_fix_fk_reservations_blocks_to_properties.sql)
 --  - A FK garante existência (quando property_id não é NULL) e cascade em delete.
 --  - O trigger abaixo também bloqueia mismatch de organization_id.
 
@@ -13,10 +13,10 @@
 DELETE FROM public.reservations r
 WHERE
   r.property_id IS NULL
-  OR NOT EXISTS (SELECT 1 FROM public.anuncios_ultimate a WHERE a.id = r.property_id)
+  OR NOT EXISTS (SELECT 1 FROM public.properties a WHERE a.id = r.property_id)
   OR EXISTS (
     SELECT 1
-    FROM public.anuncios_ultimate a
+    FROM public.properties a
     WHERE a.id = r.property_id
       AND a.organization_id IS DISTINCT FROM r.organization_id
   );
@@ -33,11 +33,11 @@ BEGIN
   END IF;
 
   SELECT a.organization_id INTO prop_org
-  FROM public.anuncios_ultimate a
+  FROM public.properties a
   WHERE a.id = NEW.property_id;
 
   IF prop_org IS NULL THEN
-    RAISE EXCEPTION 'RESERVATION_ORPHAN_FORBIDDEN: property_id não existe em anuncios_ultimate (%).', NEW.property_id
+    RAISE EXCEPTION 'RESERVATION_ORPHAN_FORBIDDEN: property_id não existe em properties (%).', NEW.property_id
       USING ERRCODE = 'foreign_key_violation';
   END IF;
 

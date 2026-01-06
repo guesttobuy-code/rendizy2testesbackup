@@ -1,9 +1,9 @@
 -- ============================================================================
--- MIGRAÇÃO: Unificar propriedades em anuncios_ultimate (FKs)
+-- MIGRAÇÃO: Unificar propriedades em properties (FKs)
 -- Data: 26/12/2025
 -- Objetivo:
---  - reservations.property_id deve referenciar anuncios_ultimate (não anuncios_drafts)
---  - blocks.property_id (se existir) pode referenciar anuncios_ultimate
+--  - reservations.property_id deve referenciar properties (não anuncios_drafts)
+--  - blocks.property_id (se existir) pode referenciar properties
 -- Observação: Esta migração é recomendada em conjunto com um wipe/reimport,
 -- pois reservas antigas podem apontar para IDs que só existem em anuncios_drafts.
 -- ============================================================================
@@ -15,14 +15,14 @@ ALTER TABLE public.reservations
 ALTER TABLE public.reservations
   ADD CONSTRAINT reservations_property_id_fkey
   FOREIGN KEY (property_id)
-  REFERENCES public.anuncios_ultimate(id)
+  REFERENCES public.properties(id)
   ON DELETE CASCADE;
 
 CREATE INDEX IF NOT EXISTS idx_reservations_property_id
   ON public.reservations(property_id);
 
 COMMENT ON CONSTRAINT reservations_property_id_fkey ON public.reservations IS
-'FK ajustada em 26/12/2025: reservations.property_id -> anuncios_ultimate(id)';
+'FK ajustada em 26/12/2025: reservations.property_id -> properties(id)';
 
 -- 2) Ajustar FK de blocks.property_id (opcional)
 -- Nota: alguns ambientes podem não ter a tabela/coluna.
@@ -42,11 +42,11 @@ BEGIN
       ALTER TABLE public.blocks
         ADD CONSTRAINT blocks_property_id_fkey
         FOREIGN KEY (property_id)
-        REFERENCES public.anuncios_ultimate(id)
+        REFERENCES public.properties(id)
         ON DELETE CASCADE;
 
       COMMENT ON CONSTRAINT blocks_property_id_fkey ON public.blocks IS
-      'FK ajustada em 26/12/2025: blocks.property_id -> anuncios_ultimate(id)';
+      'FK ajustada em 26/12/2025: blocks.property_id -> properties(id)';
 
     EXCEPTION WHEN others THEN
       -- Se houver dados inválidos, ou tipo incompatível, manter sem FK.

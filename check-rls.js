@@ -51,7 +51,7 @@ console.log('1️⃣ Pulando verificação de RLS (não acessível via REST)...'
 // Testar acesso com SERVICE_ROLE
 console.log('\n3️⃣ Testando acesso com SERVICE_ROLE_KEY...');
 const { data: dataService, error: errorService } = await supabaseService
-  .from('anuncios_ultimate')
+  .from('properties')
   .select('*')
   .limit(5);
 
@@ -64,7 +64,7 @@ if (errorService) {
 // Testar acesso com ANON
 console.log('\n4️⃣ Testando acesso com ANON_KEY...');
 const { data: dataAnon, error: errorAnon } = await supabaseAnon
-  .from('anuncios_ultimate')
+  .from('properties')
   .select('*')
   .limit(5);
 

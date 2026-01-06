@@ -110,7 +110,7 @@ $guest[0] | Format-List
 # 3. Buscar imóvel
 $propertyId = $reservation[0].property_id
 try {
-    $property = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/anuncios_ultimate?id=eq.$propertyId&select=id,data" -Headers $headers -Method Get
+    $property = Invoke-RestMethod -Uri "$SupabaseUrl/rest/v1/properties?id=eq.$propertyId&select=id,data" -Headers $headers -Method Get
 } catch {
     Write-Host "`n❌ Erro ao buscar imóvel:" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red

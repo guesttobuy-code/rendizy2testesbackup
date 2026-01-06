@@ -15,7 +15,7 @@ if (!url || !key) {
 console.log('Connecting to Supabase:', url);
 const supabase = createClient(url, key);
 const { data, error } = await supabase
-  .from('anuncios_ultimate')
+  .from('properties')
   .select('id, data')
   .limit(5000);
 
@@ -24,7 +24,7 @@ if (error) {
   process.exit(1);
 }
 
-console.log('Rows fetched from anuncios_ultimate:', data?.length || 0);
+console.log('Rows fetched from properties:', data?.length || 0);
 
 const set = new Set();
 for (const row of data || []) {
@@ -51,7 +51,7 @@ for (const row of data || []) {
 const list = Array.from(set).sort();
 console.log('Unique stays IDs found:', list.length);
 
-const output = `# Stays IDs em anuncios_ultimate (uniq)\n\nTotal: ${list.length}\n\n${list.map((id) => `- ${id}`).join('\n')}\n`;
+const output = `# Stays IDs em properties (uniq)\n\nTotal: ${list.length}\n\n${list.map((id) => `- ${id}`).join('\n')}\n`;
 fs.writeFileSync('stays-ids.md', output, 'utf8');
 
 console.log('Arquivo gerado: stays-ids.md');

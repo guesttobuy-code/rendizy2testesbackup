@@ -297,5 +297,5 @@ if ([string]$match.status -eq "resolved") {
   exit 0
 }
 
-Write-Host "⚠️  Issue still open. Likely cause: anuncio mapping still missing (listing_id not found in anuncios_ultimate externalIds/raw/codigo) OR reservation not within date window." -ForegroundColor Yellow
+Write-Host "⚠️  Issue still open. Likely cause: anuncio mapping still missing (listing_id not found in properties externalIds/raw/codigo) OR reservation not within date window." -ForegroundColor Yellow
 Write-Host "   Next: import properties for this listing_id, then rerun this script." -ForegroundColor Yellow

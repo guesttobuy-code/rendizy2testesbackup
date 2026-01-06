@@ -218,7 +218,7 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "     - Verifique se 22 campos foram salvos" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  3. Conferir total de propriedades:" -ForegroundColor White
-    Write-Host "     SELECT COUNT(*) FROM anuncios_ultimate" -ForegroundColor Gray
+    Write-Host "     SELECT COUNT(*) FROM properties" -ForegroundColor Gray
     Write-Host "     WHERE data->'externalIds'->>'staysnet_property_id' IS NOT NULL;" -ForegroundColor Gray
     Write-Host ""
     Write-Host "════════════════════════════════════════════════════════════" -ForegroundColor Cyan

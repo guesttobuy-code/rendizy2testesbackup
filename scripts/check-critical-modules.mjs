@@ -43,13 +43,13 @@ const mustInclude = (content, needle) => {
 
 const checks = [
   {
-    name: 'Anúncios Ultimate: routes-anuncios.ts invariants',
+    name: 'Properties: routes-anuncios.ts invariants',
     file: 'supabase/functions/rendizy-server/routes-anuncios.ts',
     needles: [
       'app.post("/save-field"',
       'supabase.rpc("save_anuncio_field"',
       // Defensive invariants we rely on to avoid data loss
-      'IMPORTANT: never overwrite anuncios_ultimate.data',
+      'IMPORTANT: never overwrite properties.data',
       'deepMerge',
       // Audit/idempotency (defensive fallback)
       "from('anuncios_field_changes')",

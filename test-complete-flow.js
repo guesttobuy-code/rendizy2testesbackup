@@ -47,7 +47,7 @@ async function testCompleteFlow() {
   // PASSO 2: Verificar se está na lista
   console.log('📊 PASSO 2: Consultando lista de anúncios...\n');
   
-  const listRes = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/anuncios_ultimate?select=*&order=created_at.desc&limit=1`, {
+  const listRes = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/properties?select=*&order=created_at.desc&limit=1`, {
     headers: {
       'apikey': SERVICE_ROLE_KEY,
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
@@ -69,7 +69,7 @@ async function testCompleteFlow() {
   // PASSO 3: Carregar anúncio específico
   console.log('🔍 PASSO 3: Carregando anúncio específico...\n');
   
-  const getRes = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/anuncios_ultimate?id=eq.${anuncioId}&select=*`, {
+  const getRes = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/properties?id=eq.${anuncioId}&select=*`, {
     headers: {
       'apikey': SERVICE_ROLE_KEY,
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,

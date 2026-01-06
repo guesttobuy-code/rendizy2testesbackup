@@ -20,7 +20,7 @@ $headers = @{
 
 # Buscar imóvel
 Write-Host "🏠 Buscando imóvel..." -ForegroundColor Yellow
-$properties = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/anuncios_ultimate?select=id,title&limit=1" -Method Get -Headers $headers
+$properties = Invoke-RestMethod -Uri "$SUPABASE_URL/rest/v1/properties?select=id,title&limit=1" -Method Get -Headers $headers
 $propertyId = $properties[0].id
 $propertyName = $properties[0].title
 Write-Host "✅ Imóvel: $propertyName" -ForegroundColor Green
