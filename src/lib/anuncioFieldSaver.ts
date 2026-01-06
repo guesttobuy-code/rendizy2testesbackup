@@ -44,7 +44,7 @@ async function saveField(params: SaveParams) {
   }
 
   const baseUrl = functionUrl || (import.meta.env.VITE_SUPABASE_URL || (window as any).__SUPABASE_URL__)
-  const url = baseUrl ? `${baseUrl.replace(/\/$/, '')}/functions/v1/anuncio-ultimate/save-field` : '/functions/v1/anuncio-ultimate/save-field'
+  const url = baseUrl ? `${baseUrl.replace(/\/$/, '')}/functions/v1/rendizy-server/anuncios-ultimate/save-field` : '/functions/v1/rendizy-server/anuncios-ultimate/save-field'
 
   let attempt = 0
   while (attempt <= retries) {
