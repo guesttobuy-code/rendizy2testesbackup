@@ -1890,8 +1890,87 @@ Content-Type: application/json
 
 **Erros comuns:**
 - ` + "`400`" + `: Campos obrigatórios faltando (propertyId, checkIn, checkOut, guestName)
+- ` + "`400`" + `: Mínimo de noites não atingido (mensagem: "Este período só aceita reservas com no mínimo X noites.")
 - ` + "`409`" + `: Datas não disponíveis (conflito com reserva existente ou bloqueio)
 - ` + "`404`" + `: Imóvel não encontrado ou não pertence ao site
+
+### 2.2) Endpoint de Cálculo de Preço (stable) — OBRIGATÓRIO usar!
+**⚠️ CRÍTICO**: O site DEVE usar este endpoint para calcular e exibir o preço total.
+**❌ PROIBIDO** inventar valores de taxa de limpeza, taxa de serviço ou qualquer outro valor.
+
+**Request:**
+` + "```" + `
+POST /client-sites/api/:subdomain/calculate-price
+Content-Type: application/json
+
+{
+  "propertyId": "uuid do imóvel",
+  "checkIn": "YYYY-MM-DD",
+  "checkOut": "YYYY-MM-DD"
+}
+` + "```" + `
+
+**Response (200 OK):**
+` + "```" + `json
+{
+  "success": true,
+  "data": {
+    "propertyId": "uuid",
+    "checkIn": "2026-02-17",
+    "checkOut": "2026-02-19",
+    "nights": 2,
+    "currency": "BRL",
+    "breakdown": {
+      "pricePerNight": 200,
+      "nightsTotal": 400,
+      "cleaningFee": 80,
+      "serviceFee": 0
+    },
+    "total": 480,
+    "minNights": 1
+  }
+}
+` + "```" + `
+
+**Erro de minNights (400):**
+` + "```" + `json
+{
+  "success": false,
+  "error": "Este período só aceita reservas com no mínimo 2 noites.",
+  "minNightsRequired": 2,
+  "nightsRequested": 1
+}
+` + "```" + `
+
+**Exemplo de uso no cliente (exibir breakdown de preço):**
+` + "```" + `typescript
+async function calculatePrice(subdomain: string, propertyId: string, checkIn: string, checkOut: string) {
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://odcgnzfremrqnvtitpcc.supabase.co';
+  const url = ` + "`${baseUrl}/functions/v1/rendizy-public/client-sites/api/${subdomain}/calculate-price`" + `;
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ propertyId, checkIn, checkOut })
+  });
+  
+  const json = await res.json();
+  if (!json.success) {
+    // Tratar erro de minNights
+    if (json.minNightsRequired) {
+      throw new Error(` + "`Este período exige no mínimo ${json.minNightsRequired} noites.`" + `);
+    }
+    throw new Error(json.error || 'Erro ao calcular preço');
+  }
+  
+  return json.data;
+  // Exemplo de exibição:
+  // breakdown.pricePerNight × nights = breakdown.nightsTotal
+  // + breakdown.cleaningFee (Taxa de limpeza)
+  // + breakdown.serviceFee (Taxa de serviço)
+  // = total
+}
+` + "```" + `
 
 **Exemplo de cliente API:**
 ` + "```" + `typescript
@@ -1928,7 +2007,7 @@ O site deve usar APENAS os campos do ` + "`ClientSiteProperty`" + ` acima, segui
 - Identidade: ` + "`id, name, code, type, status`" + `
 - Endereço: ` + "`address.*`" + `
 - Capacidade: ` + "`capacity.*`" + `
-- Preço: ` + "`pricing.dailyRate/basePrice/weeklyRate/monthlyRate/currency`" + `
+- Preço: ` + "`pricing.dailyRate/basePrice/weeklyRate/monthlyRate/cleaningFee/serviceFee/minNights/currency`" + `
 - Conteúdo: ` + "`description, shortDescription, photos, coverPhoto, tags, amenities`" + `
 
 REGRAS IMPORTANTES DO CONTRATO:

@@ -297,7 +297,24 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
         'Campos opcionais: guests (número), guestEmail, guestPhone, message.',
         'Retorna: id, reservationCode, totalPrice, currency, status, message.',
         'Valida disponibilidade antes de criar (retorna 409 se conflito com reserva/bloqueio existente).',
-        'O preço é calculado como dailyRate × nights (sem descontos/taxas adicionais por enquanto).'
+        'Valida minNights: retorna 400 se número de noites < mínimo exigido para o imóvel.',
+        'O preço total inclui: (dailyRate × nights) + cleaningFee + serviceFee (taxas reais do banco).'
+      ]
+    },
+    {
+      id: 'calculate-price',
+      title: 'Calcular Preço (antes de reservar) — estável',
+      method: 'POST',
+      pathTemplate: '/client-sites/api/:subdomain/calculate-price',
+      stability: 'stable',
+      notes: [
+        'Calcula o preço detalhado ANTES de criar a reserva (para exibir breakdown ao usuário).',
+        'Campos obrigatórios: propertyId, checkIn (YYYY-MM-DD), checkOut (YYYY-MM-DD).',
+        'Retorna breakdown: { pricePerNight, nightsTotal, cleaningFee, serviceFee }, total, minNights.',
+        'Valida minNights: retorna 400 com minNightsRequired e nightsRequested se violado.',
+        '⚠️ OBRIGATÓRIO usar este endpoint para exibir preços no site, NUNCA calcular manualmente.',
+        '❌ PROIBIDO: Inventar taxa de limpeza, taxa de serviço ou outros valores no front-end.',
+        '✅ CORRETO: Chamar calculate-price e exibir breakdown.cleaningFee, breakdown.serviceFee, etc.'
       ]
     }
   ] satisfies ClientSitesCatalogEndpoint[],
@@ -337,12 +354,21 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
         'pricing.basePrice',
         'pricing.weeklyRate',
         'pricing.monthlyRate',
+        'pricing.cleaningFee',
+        'pricing.serviceFee',
+        'pricing.petFee',
+        'pricing.minNights',
         'pricing.salePrice (planned)',
         'pricing.currency'
       ],
       notes: [
         'pricing.dailyRate é o campo canônico para valor diário (compatível com sites).',
         'Para anúncios vindos do Anúncio Ultimate, o backend deriva pricing.dailyRate a partir de preco_base_noite (fonte de verdade do admin).',
+        'pricing.cleaningFee é a taxa de limpeza (taxa_limpeza no admin).',
+        'pricing.serviceFee é a taxa de serviços extras (taxa_servicos_extras no admin).',
+        'pricing.petFee é a taxa pet (taxa_pet no admin).',
+        'pricing.minNights é o mínimo de noites para reserva (default: 1).',
+        '⚠️ IMPORTANTE: O site DEVE usar os valores REAIS de taxas retornados pela API, NUNCA inventar/mockar valores.',
         'Locação residencial: preferir pricing.monthlyRate (mensal).',
         'Venda: será padronizado em pricing.salePrice (planejado). Até lá, alguns fluxos usam basePrice como fallback.',
         'pricing.basePrice deve permanecer por compatibilidade com templates antigos.'

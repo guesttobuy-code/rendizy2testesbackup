@@ -220,6 +220,10 @@ function normalizePricing(d: any): {
   weeklyRate: number;
   monthlyRate: number;
   currency: string;
+  cleaningFee: number;
+  serviceFee: number;
+  petFee: number;
+  minNights: number;
 } {
   const daily = numberOrZero(
     d?.pricing?.dailyRate ??
@@ -235,14 +239,40 @@ function normalizePricing(d: any): {
       0
   );
 
+  // Taxas adicionais (mapeamento Rendizy)
+  const cleaningFee = numberOrZero(
+    d?.taxa_limpeza ?? d?.taxaLimpeza ?? d?.cleaningFee ?? d?.cleaning_fee ?? 0
+  );
+  const serviceFee = numberOrZero(
+    d?.taxa_servicos_extras ?? d?.taxaServicosExtras ?? d?.serviceFee ?? d?.service_fee ?? 0
+  );
+  const petFee = numberOrZero(
+    d?.taxa_pet ?? d?.taxaPet ?? d?.petFee ?? d?.pet_fee ?? 0
+  );
+  const minNights = Math.max(1, numberOrZero(
+    d?.minimoNoites ?? d?.minNights ?? d?.min_nights ?? d?.restrictions?.minNights ?? 1
+  ));
+
+  // Preços semanais/mensais reais se definidos, senão calcula
+  const weeklyRate = numberOrZero(
+    d?.preco_semanal ?? d?.precoSemanal ?? d?.weeklyRate ?? d?.weekly_rate ?? 0
+  ) || daily * 7;
+  const monthlyRate = numberOrZero(
+    d?.preco_mensal ?? d?.precoMensal ?? d?.monthlyRate ?? d?.monthly_rate ?? 0
+  ) || daily * 30;
+
   // Contract strategy (scalable): always return daily/weekly/monthly even if 0.
   // This avoids UI NaN issues across client sites while we evolve upstream pricing.
   return {
     basePrice: daily,
     dailyRate: daily,
-    weeklyRate: daily * 7,
-    monthlyRate: daily * 30,
+    weeklyRate,
+    monthlyRate,
     currency: d?.pricing?.currency || d?.currency || d?.moeda || "BRL",
+    cleaningFee,
+    serviceFee,
+    petFee,
+    minNights,
   };
 }
 
@@ -1053,8 +1083,10 @@ clientSites.get("/api/:subdomain/calendar", async (c: Context) => {
     }
 
     const propData = propRow.data || {};
-    const pricing = propData.pricing || {};
-    const baseDailyRate = numberOrZero(pricing.dailyRate);
+    // Use normalizePricing to get real values from anuncio
+    const pricing = normalizePricing(propData);
+    const baseDailyRate = pricing.dailyRate;
+    const defaultMinNights = pricing.minNights;
 
     // Fetch blocks and reservations
     const [{ data: blockRows }, { data: reservationRows }] = await Promise.all([
@@ -1099,7 +1131,7 @@ clientSites.get("/api/:subdomain/calendar", async (c: Context) => {
         date: ymd,
         status,
         price: baseDailyRate,
-        minNights: 1,
+        minNights: defaultMinNights,
       };
     });
 
@@ -1111,6 +1143,153 @@ clientSites.get("/api/:subdomain/calendar", async (c: Context) => {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-cache, no-store, must-revalidate",
       })
+    );
+  } catch (err) {
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
+});
+
+// ============================================================
+// PUBLIC: Calculate price for a stay (before reservation)
+// POST /client-sites/api/:subdomain/calculate-price
+// Returns detailed pricing breakdown with real fees
+// ============================================================
+clientSites.post("/api/:subdomain/calculate-price", async (c: Context) => {
+  try {
+    const subdomain = (c.req.param("subdomain") || "").trim().toLowerCase();
+    if (!subdomain) {
+      return c.json(
+        { success: false, error: "Subdomain ausente" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const body = await c.req.json().catch(() => null);
+    if (!body) {
+      return c.json(
+        { success: false, error: "Body JSON inválido" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const propertyId = (body.propertyId || "").trim();
+    const checkIn = (body.checkIn || "").trim();
+    const checkOut = (body.checkOut || "").trim();
+
+    if (!propertyId || !checkIn || !checkOut) {
+      return c.json(
+        { success: false, error: "Campos obrigatórios: propertyId, checkIn, checkOut" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    if (!isYmd(checkIn) || !isYmd(checkOut)) {
+      return c.json(
+        { success: false, error: "Formato de data inválido (use YYYY-MM-DD)" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const checkInDate = ymdToDateUtc(checkIn);
+    const checkOutDate = ymdToDateUtc(checkOut);
+    if (!checkInDate || !checkOutDate || checkInDate.getTime() >= checkOutDate.getTime()) {
+      return c.json(
+        { success: false, error: "Check-out deve ser após check-in" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // Validate site
+    const { data: sqlSite, error: sqlError } = await supabase
+      .from("client_sites")
+      .select("organization_id")
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (sqlError || !sqlSite) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const organizationId = (sqlSite as { organization_id: string }).organization_id;
+
+    // Fetch property pricing from anuncios_ultimate
+    const { data: anuncio } = await supabase
+      .from("anuncios_ultimate")
+      .select("id,data")
+      .eq("organization_id", organizationId)
+      .eq("id", propertyId)
+      .maybeSingle();
+
+    if (!anuncio) {
+      return c.json(
+        { success: false, error: "Imóvel não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const d = (anuncio as any)?.data || {};
+    const pricing = normalizePricing(d);
+
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Validate minNights
+    if (nights < pricing.minNights) {
+      return c.json(
+        {
+          success: false,
+          error: `Este período só aceita reservas com no mínimo ${pricing.minNights} noites.`,
+          minNightsRequired: pricing.minNights,
+          nightsRequested: nights,
+        },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Calculate breakdown
+    const baseTotal = pricing.dailyRate * nights;
+    const cleaningFee = pricing.cleaningFee;
+    const serviceFee = pricing.serviceFee;
+    const total = baseTotal + cleaningFee + serviceFee;
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          propertyId,
+          checkIn,
+          checkOut,
+          nights,
+          currency: pricing.currency,
+          breakdown: {
+            pricePerNight: pricing.dailyRate,
+            nightsTotal: baseTotal,
+            cleaningFee,
+            serviceFee,
+          },
+          total,
+          minNights: pricing.minNights,
+        },
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
     );
   } catch (err) {
     return c.json(
@@ -1212,7 +1391,7 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
 
     // Validate property belongs to this organization
     let propertyExists = false;
-    let pricing = { dailyRate: 0, currency: "BRL" };
+    let pricing = { dailyRate: 0, currency: "BRL", cleaningFee: 0, serviceFee: 0, minNights: 1 };
 
     // Check properties table first
     const { data: prop } = await supabase
@@ -1227,6 +1406,9 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
       pricing = {
         dailyRate: numberOrZero((prop as any).pricing_base_price),
         currency: (prop as any).pricing_currency || "BRL",
+        cleaningFee: 0,
+        serviceFee: 0,
+        minNights: 1,
       };
     } else {
       // Fallback to anuncios_ultimate
@@ -1241,7 +1423,13 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
         propertyExists = true;
         const d = (anuncio as any)?.data || {};
         const p = normalizePricing(d);
-        pricing = { dailyRate: numberOrZero(p.dailyRate), currency: p.currency || "BRL" };
+        pricing = {
+          dailyRate: p.dailyRate,
+          currency: p.currency || "BRL",
+          cleaningFee: p.cleaningFee,
+          serviceFee: p.serviceFee,
+          minNights: p.minNights,
+        };
       }
     }
 
@@ -1249,6 +1437,16 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
       return c.json(
         { success: false, error: "Imóvel não encontrado" },
         404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Validate minNights
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (nights < pricing.minNights) {
+      return c.json(
+        { success: false, error: `Este período só aceita reservas com no mínimo ${pricing.minNights} noites.` },
+        400,
         withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
       );
     }
@@ -1281,9 +1479,12 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
       );
     }
 
-    // Calculate total price
-    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-    const totalPrice = pricing.dailyRate * nights;
+    // Calculate total price with real fees
+    // nights was already calculated above for minNights validation
+    const baseTotal = pricing.dailyRate * nights;
+    const cleaningFee = pricing.cleaningFee;
+    const serviceFee = pricing.serviceFee;
+    const totalPrice = baseTotal + cleaningFee + serviceFee;
 
     // Generate reservation ID and code
     const reservationId = crypto.randomUUID();
@@ -1302,7 +1503,9 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
         guests_adults: guestsCount,
         guests_total: guestsCount,
         pricing_price_per_night: pricing.dailyRate,
-        pricing_base_total: totalPrice,
+        pricing_base_total: baseTotal,
+        pricing_cleaning_fee: cleaningFee,
+        pricing_service_fee: serviceFee,
         pricing_total: totalPrice,
         pricing_currency: pricing.currency,
         status: "pending",
