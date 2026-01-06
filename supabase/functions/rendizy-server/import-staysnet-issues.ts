@@ -4,7 +4,7 @@
  * Objetivo: nunca perder dados silenciosamente.
  * Este endpoint expõe as "issues" abertas geradas durante importações,
  * por exemplo reservas que vieram da StaysNet mas não puderam ser vinculadas
- * a um imóvel (anuncios_ultimate).
+ * a um imóvel (properties).
  */
 
 import { getSupabaseClient } from './kv_store.tsx';

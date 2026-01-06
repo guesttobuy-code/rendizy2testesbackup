@@ -511,7 +511,7 @@ app.post("/rendizy-server/staysnet/reservations/reconcile/:organizationId", stay
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade
 // ============================================================================
-app.post("/rendizy-server/make-server-67caf26a/staysnet/import/properties", importStaysNetProperties); // 🏠 Properties → anuncios_ultimate
+app.post("/rendizy-server/make-server-67caf26a/staysnet/import/properties", importStaysNetProperties); // 🏠 Properties → properties
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/reservations", importStaysNetReservations); // 🏨 Reservations → reservations
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/guests", importStaysNetGuests); // 👤 Guests → guests
 app.post("/rendizy-server/make-server-67caf26a/staysnet/import/blocks", importStaysNetBlocks); // ⛔ Blocks → blocks

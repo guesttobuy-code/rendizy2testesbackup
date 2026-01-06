@@ -1204,15 +1204,15 @@ export async function previewStaysNetImport(c: Context) {
 
     const supabase = getSupabaseClient(c);
 
-    // Buscar apenas em anuncios_ultimate (tabela oficial), considerando todos os formatos de external_id
+    // Buscar apenas em properties (tabela oficial), considerando todos os formatos de external_id
     // ✅ CORREÇÃO: Buscar apenas 'data' pois 'external_ids' não existe mais (migrado para data->externalIds)
     const { data: ultimateData, error: ultimateError } = await supabase
-      .from('anuncios_ultimate')
+      .from('properties')
       .select('id, data')
       .eq('organization_id', organizationId);
 
     if (ultimateError) {
-      console.warn('[StaysNet Import Preview] ⚠️ Falha ao consultar anuncios_ultimate:', ultimateError.message);
+      console.warn('[StaysNet Import Preview] ⚠️ Falha ao consultar properties:', ultimateError.message);
     }
 
     let allExisting = [...(ultimateData || [])];
@@ -1220,11 +1220,11 @@ export async function previewStaysNetImport(c: Context) {
     // Fallback: se não encontrou nada para a organização atual, faz varredura global (apenas IDs) para detectar duplicados históricos
     if (allExisting.length === 0) {
       const { data: ultimateAny, error: ultimateAnyError } = await supabase
-        .from('anuncios_ultimate')
+        .from('properties')
         .select('id, data');
 
       if (ultimateAnyError) {
-        console.warn('[StaysNet Import Preview] ⚠️ Falha fallback anuncios_ultimate (global):', ultimateAnyError.message);
+        console.warn('[StaysNet Import Preview] ⚠️ Falha fallback properties (global):', ultimateAnyError.message);
       }
 
       allExisting = [...(ultimateAny || [])];
@@ -1238,7 +1238,7 @@ export async function previewStaysNetImport(c: Context) {
       }
     };
 
-    console.log(`[StaysNet Import Preview] 🔍 Analisando ${allExisting.length} registros em anuncios_ultimate...`);
+    console.log(`[StaysNet Import Preview] 🔍 Analisando ${allExisting.length} registros em properties...`);
 
     allExisting.forEach((row: any) => {
       const data = row?.data || {};

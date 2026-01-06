@@ -430,11 +430,11 @@ export async function getRealSamplesForReconciliation(c: Context) {
     const db = getSupabaseClient();
     const sampleReservation = await selectSampleRow(db, 'reservations', organizationId).catch(() => null);
     const sampleGuest = await selectSampleRow(db, 'guests', organizationId).catch(() => null);
-    const sampleAnuncioUltimate = await selectSampleRow(db, 'anuncios_ultimate', organizationId).catch(() => null);
+    const sampleAnuncioUltimate = await selectSampleRow(db, 'properties', organizationId).catch(() => null);
 
     const sampleReservations = await selectSampleRows(db, 'reservations', organizationId, Math.min(25, limit)).catch(() => []);
     const sampleGuests = await selectSampleRows(db, 'guests', organizationId, Math.min(25, limit)).catch(() => []);
-    const sampleAnunciosUltimate = await selectSampleRows(db, 'anuncios_ultimate', organizationId, Math.min(25, limit)).catch(() => []);
+    const sampleAnunciosUltimate = await selectSampleRows(db, 'properties', organizationId, Math.min(25, limit)).catch(() => []);
 
     const rendizyReservationFields = sampleReservations.length > 0
       ? mergeFieldLists(
@@ -479,7 +479,7 @@ export async function getRealSamplesForReconciliation(c: Context) {
           sampleAnunciosUltimate.map((a: any) =>
             flattenToFields(a, {
               idPrefix: 'db_anuncio_tmp',
-              descriptionPrefix: 'Campo real (Supabase anuncios_ultimate)',
+              descriptionPrefix: 'Campo real (Supabase properties)',
               baseCategory: 'property',
             })
           ),
@@ -488,7 +488,7 @@ export async function getRealSamplesForReconciliation(c: Context) {
       : (sampleAnuncioUltimate
           ? flattenToFields(sampleAnuncioUltimate, {
               idPrefix: 'db_anuncio',
-              descriptionPrefix: 'Campo real (Supabase anuncios_ultimate)',
+              descriptionPrefix: 'Campo real (Supabase properties)',
               baseCategory: 'property',
             })
           : []);

@@ -89,7 +89,7 @@ async function findSettingsRow(
   settingsKey: string,
 ) {
   const { data, error } = await supabase
-    .from('anuncios_ultimate')
+    .from('properties')
     .select('id,data,organization_id,user_id,created_at,updated_at')
     .eq('organization_id', organizationId)
     .eq('data->>__kind', SETTINGS_KIND)
@@ -128,8 +128,8 @@ app.get("/lista", async (c) => {
     console.log(`🔒 [ZONA_CRITICA] /lista chamada para org: ${organizationId}`);
 
     const { data, error } = await supabase
-      // ✅ Tabela oficial do sistema: anuncios_ultimate (NÃO existe anuncios_drafts)
-      .from("anuncios_ultimate")
+      // ✅ Tabela oficial do sistema: properties (NÃO existe anuncios_drafts)
+      .from("properties")
       .select("id,data,status,organization_id,user_id,created_at,updated_at")
       .eq('organization_id', organizationId)
       // Excluir registros internos de settings (mantém anúncios normais onde __kind é NULL)
@@ -155,7 +155,7 @@ app.get("/lista", async (c) => {
 /**
  * GET /anuncios-ultimate/settings/locations-listings
  * Carrega configurações do módulo "Locais e Anúncios".
- * Persistência: registro dedicado em anuncios_ultimate.data com __kind='settings'.
+ * Persistência: registro dedicado em properties.data com __kind='settings'.
  */
 app.get('/settings/locations-listings', async (c) => {
   try {
@@ -200,7 +200,7 @@ app.post('/settings/locations-listings', async (c) => {
 
     if (existing?.id) {
       const { data, error } = await supabase
-        .from('anuncios_ultimate')
+        .from('properties')
         .update({ data: dataPayload, user_id: userId })
         .eq('id', existing.id)
         .select('id,data,organization_id,user_id,updated_at')
@@ -215,7 +215,7 @@ app.post('/settings/locations-listings', async (c) => {
     }
 
     const { data, error } = await supabase
-      .from('anuncios_ultimate')
+      .from('properties')
       .insert({ organization_id: orgId, user_id: userId, data: dataPayload })
       .select('id,data,organization_id,user_id,created_at,updated_at')
       .single();
@@ -246,8 +246,8 @@ app.get("/:id", async (c) => {
     const organizationId = await resolveOrgId(c);
 
     const { data, error } = await supabase
-      // ✅ Tabela canônica: anuncios_ultimate
-      .from("anuncios_ultimate")
+      // ✅ Tabela canônica: properties
+      .from("properties")
       .select("id, data, organization_id, user_id, status, created_at, updated_at")
       .eq("id", id)
       .eq('organization_id', organizationId)
@@ -297,7 +297,7 @@ app.post("/create", async (c) => {
     };
 
     const { data, error } = await supabase
-      .from("anuncios_ultimate")
+      .from("properties")
       .insert(payload)
       .select('id, data, organization_id, user_id, status, created_at, updated_at')
       .single();
@@ -405,7 +405,7 @@ app.post("/save-field", async (c) => {
     // ------------------------------------------------------------------------
     // 🔁 REMOVIDO: Sync para tabela `properties` (2026-01-06)
     // A tabela `properties` foi depreciada e removida.
-    // Todos os dados de propriedades agora ficam apenas em `anuncios_ultimate`.
+    // Todos os dados de propriedades agora ficam apenas em `properties`.
     // ------------------------------------------------------------------------
 
     return c.json({ ok: true, anuncio: result });
@@ -450,11 +450,11 @@ app.patch('/:id', async (c) => {
       updated_at: new Date().toISOString(),
     };
 
-    // IMPORTANT: never overwrite anuncios_ultimate.data with a partial object.
+    // IMPORTANT: never overwrite properties.data with a partial object.
     // Always merge server-side to prevent accidental loss of unrelated keys.
     if (body?.data && typeof body.data === 'object') {
       const { data: current, error: curErr } = await supabase
-        .from('anuncios_ultimate')
+        .from('properties')
         .select('id,data')
         .eq('id', id)
         .eq('organization_id', organizationId)
@@ -475,7 +475,7 @@ app.patch('/:id', async (c) => {
     update.user_id = resolveUserId(c);
 
     const { data, error } = await supabase
-      .from('anuncios_ultimate')
+      .from('properties')
       .update(update)
       .eq('id', id)
       .eq('organization_id', organizationId)
@@ -490,7 +490,7 @@ app.patch('/:id', async (c) => {
     // ------------------------------------------------------------------------
     // 🔁 REMOVIDO: Sync para tabela `properties` (2026-01-06)
     // A tabela `properties` foi depreciada e removida.
-    // Todos os dados de propriedades agora ficam apenas em `anuncios_ultimate`.
+    // Todos os dados de propriedades agora ficam apenas em `properties`.
     // ------------------------------------------------------------------------
 
     return c.json({ ok: true, anuncio: data });
@@ -514,7 +514,7 @@ app.delete('/:id', async (c) => {
     const organizationId = await resolveOrgId(c);
 
     const { error } = await supabase
-      .from('anuncios_ultimate')
+      .from('properties')
       .delete()
       .eq('id', id)
       .eq('organization_id', organizationId);

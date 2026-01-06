@@ -1,19 +1,19 @@
 /**
- * Adapter de Compatibilidade: anuncios_ultimate ↔ Property (legado)
+ * Adapter de Compatibilidade: properties ↔ Property (legado)
  * 
  * ============================================================================
  * CONTEXTO (2026-01-06):
  * ============================================================================
  * A tabela `properties` foi REMOVIDA do banco.
- * O sistema agora usa `anuncios_ultimate` como fonte de verdade.
+ * O sistema agora usa `properties` como fonte de verdade.
  * 
  * Este adapter permite que rotas antigas que esperavam o formato `Property`
- * continuem funcionando, lendo/escrevendo em `anuncios_ultimate`.
+ * continuem funcionando, lendo/escrevendo em `properties`.
  * 
  * ============================================================================
  * MAPEAMENTO DE CAMPOS:
  * ============================================================================
- * | Campo Property (legado)     | Campo anuncios_ultimate                   |
+ * | Campo Property (legado)     | Campo properties                   |
  * |-----------------------------|-------------------------------------------|
  * | id                          | id                                        |
  * | organization_id             | organization_id                           |
@@ -37,7 +37,7 @@
 import type { Property } from "./types.ts";
 
 /**
- * Campos a selecionar de anuncios_ultimate para adaptar para Property
+ * Campos a selecionar de properties para adaptar para Property
  */
 export const ANUNCIO_SELECT_FOR_PROPERTY = `
   id,
@@ -53,9 +53,9 @@ export const ANUNCIO_SELECT_FOR_PROPERTY = `
 `.replace(/\s+/g, " ").trim();
 
 /**
- * Converte um registro de anuncios_ultimate para o formato Property (legado)
+ * Converte um registro de properties para o formato Property (legado)
  * 
- * @param row - Registro de anuncios_ultimate
+ * @param row - Registro de properties
  * @returns Objeto Property compatível com API antiga + organizationId extra
  * @note Retorna any para evitar problemas de tipagem com organizationId extra
  */
@@ -188,12 +188,12 @@ export function anuncioToProperty(row: any): any {
 }
 
 /**
- * Converte dados no formato Property (legado) para o formato anuncios_ultimate
+ * Converte dados no formato Property (legado) para o formato properties
  * 
  * @param property - Objeto Property
  * @param organizationId - ID da organização
  * @param userId - ID do usuário (opcional)
- * @returns Objeto pronto para inserir/atualizar em anuncios_ultimate
+ * @returns Objeto pronto para inserir/atualizar em properties
  */
 export function propertyToAnuncio(
   property: Partial<Property>, 
@@ -282,7 +282,7 @@ export function propertyToAnuncio(
 }
 
 /**
- * Converte dados de atualização parcial para formato anuncios_ultimate
+ * Converte dados de atualização parcial para formato properties
  * Usado em PATCH/UPDATE
  */
 export function propertyUpdateToAnuncioUpdate(updates: Partial<Property>): any {

@@ -1,14 +1,14 @@
 // ============================================================================
-// ✅ REFATORADO 2026-01-06: Migrado de `properties` para `anuncios_ultimate`
+// ✅ REFATORADO 2026-01-06: Migrado de `properties` para `properties`
 // ============================================================================
 // A tabela `properties` foi REMOVIDA do banco de dados.
-// Este arquivo agora usa `anuncios_ultimate` como fonte de verdade.
+// Este arquivo agora usa `properties` como fonte de verdade.
 //
 // ADAPTER UTILIZADO: utils-anuncio-property-adapter.ts
-// - anuncioToProperty(): Converte registro anuncios_ultimate → formato Property
-// - propertyToAnuncio(): Converte formato Property → registro anuncios_ultimate
+// - anuncioToProperty(): Converte registro properties → formato Property
+// - propertyToAnuncio(): Converte formato Property → registro properties
 //
-// TABELA FONTE: `anuncios_ultimate` (JSONB data column)
+// TABELA FONTE: `properties` (JSONB data column)
 // ============================================================================
 
 // ============================================================================
@@ -103,7 +103,7 @@ import {
   sqlToProperty,
   PROPERTY_SELECT_FIELDS,
 } from "./utils-property-mapper.ts";
-// ✅ REFATORADO 2026-01-06 - Adapter para anuncios_ultimate
+// ✅ REFATORADO 2026-01-06 - Adapter para properties
 import {
   anuncioToProperty,
   propertyToAnuncio,
@@ -129,8 +129,8 @@ export async function listProperties(c: Context) {
     );
 
     // ✅ MIGRAÇÃO: Buscar do SQL ao invés de KV Store
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
-    let query = client.from("anuncios_ultimate").select(ANUNCIO_SELECT_FOR_PROPERTY);
+    // ✅ REFATORADO 2026-01-06: Usando properties
+    let query = client.from("properties").select(ANUNCIO_SELECT_FOR_PROPERTY);
 
     // ✅ REGRA MESTRE: Filtrar por organization_id (superadmin = Rendizy master, outros = sua organização)
     const organizationId = await getOrganizationIdForRequest(c);
@@ -270,9 +270,9 @@ export async function getProperty(c: Context) {
     logInfo(`Getting property: ${id} for tenant: ${tenant.username}`);
 
     // ✅ MIGRAÇÃO: Buscar do SQL ao invés de KV Store
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    // ✅ REFATORADO 2026-01-06: Usando properties
     let query = client
-      .from("anuncios_ultimate")
+      .from("properties")
       .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .eq("id", id);
 
@@ -475,9 +475,9 @@ async function createDraftPropertyMinimal(c: Context, body: any) {
     let insertedRow: any;
     let error: any;
 
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    // ✅ REFATORADO 2026-01-06: Usando properties
     const { data, error: insertError } = await client
-      .from("anuncios_ultimate")
+      .from("properties")
       .insert(minimalDraft)
       .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .single();
@@ -503,9 +503,9 @@ async function createDraftPropertyMinimal(c: Context, body: any) {
       delete minimalDraftBasic.completion_percentage;
       delete minimalDraftBasic.completed_steps;
 
-      // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+      // ✅ REFATORADO 2026-01-06: Usando properties
       const { data: basicData, error: basicError } = await client
-        .from("anuncios_ultimate")
+        .from("properties")
         .insert(minimalDraftBasic)
         .select(ANUNCIO_SELECT_FOR_PROPERTY)
         .single();
@@ -664,9 +664,9 @@ export async function createProperty(c: Context) {
       const client = getSupabaseClient();
 
       // Buscar propriedade existente
-      // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+      // ✅ REFATORADO 2026-01-06: Usando properties
       const { data: existingRow, error: fetchError } = await client
-        .from("anuncios_ultimate")
+        .from("properties")
         .select(ANUNCIO_SELECT_FOR_PROPERTY)
         .eq("id", id)
         .single();
@@ -710,9 +710,9 @@ export async function createProperty(c: Context) {
       delete sqlData.organization_id; // Não atualizar organization_id
       delete sqlData.created_at; // Não atualizar created_at
 
-      // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+      // ✅ REFATORADO 2026-01-06: Usando properties
       const { data: updatedRow, error: updateError } = await client
-        .from("anuncios_ultimate")
+        .from("properties")
         .update(sqlData)
         .eq("id", id)
         .select(ANUNCIO_SELECT_FOR_PROPERTY)
@@ -1256,9 +1256,9 @@ export async function createProperty(c: Context) {
       code: sqlData.code,
     });
 
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    // ✅ REFATORADO 2026-01-06: Usando properties
     const { data: insertedRow, error } = await client
-      .from("anuncios_ultimate")
+      .from("properties")
       .insert(sqlData)
       .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .single();
@@ -1648,9 +1648,9 @@ export async function updateProperty(c: Context) {
     logInfo(`Updating property: ${id}`, body);
 
     // ✅ MIGRAÇÃO: Buscar propriedade existente do SQL (com filtro multi-tenant)
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    // ✅ REFATORADO 2026-01-06: Usando properties
     let query = client
-      .from("anuncios_ultimate")
+      .from("properties")
       .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .eq("id", id);
 
@@ -1725,10 +1725,10 @@ export async function updateProperty(c: Context) {
     );
 
     // ✅ MIGRAÇÃO: Se mudando o código, verificar se já existe no SQL
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    // ✅ REFATORADO 2026-01-06: Usando properties
     if (extractedCode && extractedCode !== existing.code) {
       let codeQuery = client
-        .from("anuncios_ultimate")
+        .from("properties")
         .select("id")
         .eq("data->>codigo", extractedCode)
         .neq("id", id);
@@ -2092,8 +2092,8 @@ export async function updateProperty(c: Context) {
     delete sqlData.created_at;
 
     // ✅ Fazer UPDATE no SQL (com filtro multi-tenant)
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
-    let updateQuery = client.from("anuncios_ultimate").update(sqlData).eq("id", id);
+    // ✅ REFATORADO 2026-01-06: Usando properties
+    let updateQuery = client.from("properties").update(sqlData).eq("id", id);
 
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
     if (tenant.type === "imobiliaria") {
@@ -2150,9 +2150,9 @@ export async function deleteProperty(c: Context) {
     );
 
     // ✅ MIGRAÇÃO: Buscar propriedade do SQL (com filtro multi-tenant)
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    // ✅ REFATORADO 2026-01-06: Usando properties
     let query = client
-      .from("anuncios_ultimate")
+      .from("properties")
       .select(ANUNCIO_SELECT_FOR_PROPERTY)
       .eq("id", id);
 
@@ -2188,9 +2188,9 @@ export async function deleteProperty(c: Context) {
       logInfo(`Soft deleting property: ${id}`);
 
       // ✅ MIGRAÇÃO: Marcar como inativa no SQL
-      // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+      // ✅ REFATORADO 2026-01-06: Usando properties
       let updateQuery = client
-        .from("anuncios_ultimate")
+        .from("properties")
         .update({
           status: "inactive",
           updated_at: new Date().toISOString(),
@@ -2282,8 +2282,8 @@ export async function deleteProperty(c: Context) {
     };
 
     // ✅ MIGRAÇÃO: 1. Deletar a propriedade do SQL (com filtro multi-tenant)
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
-    let deleteQuery = client.from("anuncios_ultimate").delete().eq("id", id);
+    // ✅ REFATORADO 2026-01-06: Usando properties
+    let deleteQuery = client.from("properties").delete().eq("id", id);
 
     // ✅ FILTRO MULTI-TENANT: Se for imobiliária, garantir que property pertence à organização
     if (tenant.type === "imobiliaria") {
@@ -2431,9 +2431,9 @@ export async function getPropertyListings(c: Context) {
     );
 
     // Verificar se property existe e pertence à organização
-    // ✅ REFATORADO 2026-01-06: Usando anuncios_ultimate
+    // ✅ REFATORADO 2026-01-06: Usando properties
     let propertyQuery = client
-      .from("anuncios_ultimate")
+      .from("properties")
       .select("id, organization_id")
       .eq("id", propertyId)
       .maybeSingle();

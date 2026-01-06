@@ -630,7 +630,7 @@ export async function getReservation(c: Context) {
 
     // ✅ MIGRAÇÃO: Verificar se a propriedade associada existe (do SQL)
     const { data: propertyRow } = await client
-      .from('anuncios_ultimate')
+      .from('properties')
       .select('id, organization_id')
       .eq('id', reservation.propertyId)
       .maybeSingle();
@@ -680,9 +680,9 @@ export async function checkAvailability(c: Context) {
     const organizationId = await getOrganizationIdForRequest(c);
     const orgIdFinal = organizationId || RENDIZY_MASTER_ORG_ID;
 
-    // Verificar se propriedade existe (canônico: anuncios_ultimate)
+    // Verificar se propriedade existe (canônico: properties)
     let propertyQuery = client
-      .from('anuncios_ultimate')
+      .from('properties')
       .select('id, organization_id, data')
       .eq('id', propertyId);
 
@@ -899,9 +899,9 @@ export async function createReservation(c: Context) {
     // ✅ MIGRAÇÃO: Verificar se propriedade existe no SQL (com filtro multi-tenant)
     console.log('🔍 [createReservation] Buscando propriedade:', body.propertyId);
     
-    // ✅ Tabela canônica: anuncios_ultimate (sem fallback para tabelas legadas)
+    // ✅ Tabela canônica: properties (sem fallback para tabelas legadas)
     let propertyQuery = client
-      .from('anuncios_ultimate')
+      .from('properties')
       .select('id, title, data, organization_id')
       .eq('id', body.propertyId);
     
@@ -919,7 +919,7 @@ export async function createReservation(c: Context) {
     }
     
     if (!propertyRow) {
-      console.error('❌ [createReservation] Propriedade não encontrada em anuncios_ultimate:', body.propertyId);
+      console.error('❌ [createReservation] Propriedade não encontrada em properties:', body.propertyId);
       return c.json(notFoundResponse('Property'), 404);
     }
     
@@ -1351,7 +1351,7 @@ export async function updateReservation(c: Context) {
       
       // ✅ MIGRAÇÃO: Verificar se o novo imóvel existe no SQL (com filtro multi-tenant)
       let newPropertyQuery = client
-        .from('anuncios_ultimate')
+        .from('properties')
         .select('id, pricing_base_price, pricing_currency, pricing_weekly_discount, pricing_biweekly_discount, pricing_monthly_discount')
         .eq('id', body.propertyId);
       
@@ -1419,7 +1419,7 @@ export async function updateReservation(c: Context) {
 
       // ✅ MIGRAÇÃO: Buscar property do SQL
       const { data: propertyRow, error: propertyError } = await client
-        .from('anuncios_ultimate')
+        .from('properties')
         .select('id, pricing_base_price, pricing_currency, pricing_weekly_discount, pricing_biweekly_discount, pricing_monthly_discount')
         .eq('id', existing.propertyId)
         .maybeSingle();
@@ -1838,7 +1838,7 @@ export async function detectConflicts(c: Context) {
 
     // ✅ MIGRAÇÃO: Buscar todas as propriedades do SQL (com filtro multi-tenant)
     let propertiesQuery = client
-      .from('anuncios_ultimate')
+      .from('properties')
       .select('id, title');
     
     // ✅ FILTRO MULTI-TENANT

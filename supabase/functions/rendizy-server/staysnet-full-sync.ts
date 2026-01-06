@@ -350,7 +350,7 @@ export async function fullSyncStaysNet(
           // Atualizar property com owner_id válido
           property.ownerId = defaultOwnerId;
           
-          // ✅ Salvar em anuncios_ultimate (tabela correta do sistema Ultimate)
+          // ✅ Salvar em properties (tabela correta do sistema Ultimate)
           const anuncioData = {
             id: propertyId,
             organization_id: finalOrgId,
@@ -384,7 +384,7 @@ export async function fullSyncStaysNet(
           console.log(`[StaysNet Full Sync] [${reqId}]    Org ID: ${finalOrgId}`);
           
           const { data: existingByStaysId, error: dedupError1 } = await supabase
-            .from('anuncios_ultimate')
+            .from('properties')
             .select('id')
             .eq('organization_id', finalOrgId)
             .contains('data', { externalIds: { stays_property_id: staysListingId } })
@@ -398,7 +398,7 @@ export async function fullSyncStaysNet(
           if (!existing) {
             console.log(`[StaysNet Full Sync] [${reqId}]    Tentando stays_net_id (legado)...`);
             const { data: legacyOrg, error: dedupError2 } = await supabase
-              .from('anuncios_ultimate')
+              .from('properties')
               .select('id')
               .eq('organization_id', finalOrgId)
               .contains('data', { externalIds: { stays_net_id: staysListingId } })
@@ -411,7 +411,7 @@ export async function fullSyncStaysNet(
           if (!existing && !existingLegacy) {
             console.log(`[StaysNet Full Sync] [${reqId}]    Fallback: buscando globalmente (todas orgs)...`);
             const { data: existingAny, error: dedupError3 } = await supabase
-              .from('anuncios_ultimate')
+              .from('properties')
               .select('id')
               .contains('data', { externalIds: { stays_property_id: staysListingId } })
               .maybeSingle();
@@ -421,7 +421,7 @@ export async function fullSyncStaysNet(
             if (!existing) {
               console.log(`[StaysNet Full Sync] [${reqId}]    Fallback: tentando stays_net_id globalmente...`);
               const { data: legacyAny, error: dedupError4 } = await supabase
-                .from('anuncios_ultimate')
+                .from('properties')
                 .select('id')
                 .contains('data', { externalIds: { stays_net_id: staysListingId } })
                 .maybeSingle();
@@ -444,7 +444,7 @@ export async function fullSyncStaysNet(
             }));
             
             const { data: updateResult, error: updateError } = await supabase
-              .from('anuncios_ultimate')
+              .from('properties')
               .update({
                 data: anuncioData.data,
                 status: anuncioData.status,
@@ -470,7 +470,7 @@ export async function fullSyncStaysNet(
             console.log(`[StaysNet Full Sync] [${reqId}]    Payload completo:`, JSON.stringify(anuncioData, null, 2).substring(0, 500));
             
             const { data: insertResult, error: insertError } = await supabase
-              .from('anuncios_ultimate')
+              .from('properties')
               .insert(anuncioData)
               .select();
             
@@ -540,9 +540,9 @@ export async function fullSyncStaysNet(
       stats.reservations.fetched = staysReservations.length;
       console.log(`[StaysNet Full Sync] ✅ ${stats.reservations.fetched} reservas encontradas`);
       
-      // ✅ MIGRAÇÃO 2026-01-06: Tabela `properties` removida - usar anuncios_ultimate
+      // ✅ MIGRAÇÃO 2026-01-06: Tabela `properties` removida - usar properties
       const { data: allAnuncios } = await supabase
-        .from('anuncios_ultimate')
+        .from('properties')
         .select('id, data')
         .eq('organization_id', organizationId);
       

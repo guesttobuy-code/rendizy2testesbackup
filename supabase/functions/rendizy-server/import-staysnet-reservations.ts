@@ -74,19 +74,19 @@ async function resolveAnuncioUltimateIdFromStaysId(
 
   for (const l of lookups) {
     const { data: row, error } = await supabase
-      .from('anuncios_ultimate')
+      .from('properties')
       .select('id')
       .eq('organization_id', organizationId)
       .contains('data', l.needle)
       .maybeSingle();
 
     if (error) {
-      console.warn(`   ⚠️ Erro ao buscar anuncios_ultimate via ${l.label}: ${error.message}`);
+      console.warn(`   ⚠️ Erro ao buscar properties via ${l.label}: ${error.message}`);
       continue;
     }
 
     if (row?.id) {
-      console.log(`   ✅ Property vinculado (anuncios_ultimate via ${l.label}): ${row.id}`);
+      console.log(`   ✅ Property vinculado (properties via ${l.label}): ${row.id}`);
       return row.id;
     }
   }
@@ -163,7 +163,7 @@ async function upsertStaysnetImportIssueMissingPropertyMapping(
       partner: input.partner,
       platform_source: input.platform,
       status: 'open',
-      message: 'Reserva StaysNet sem vínculo com imóvel (anuncios_ultimate) — importar imóveis/upsert e reprocessar',
+      message: 'Reserva StaysNet sem vínculo com imóvel (properties) — importar imóveis/upsert e reprocessar',
       raw_payload: minimalRawPayload,
     };
 
@@ -248,7 +248,7 @@ async function resolveStaysnetImportIssueForReservation(
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
-// ⚠️ REGRA CANÔNICA: reserva SEMPRE precisa de um imóvel válido (anuncios_ultimate).
+// ⚠️ REGRA CANÔNICA: reserva SEMPRE precisa de um imóvel válido (properties).
 // Não existe fallback/placeholder para property_id.
 
 // ============================================================================
@@ -608,7 +608,7 @@ export async function importStaysNetReservations(c: Context) {
   const errorDetails: Array<{reservation: string, error: string}> = [];
 
   // 🧭 AUDIT: reservas puladas por falta de mapping do imóvel
-  // (stays `_idlisting` / `propertyId` não encontrado em anuncios_ultimate)
+  // (stays `_idlisting` / `propertyId` não encontrado em properties)
   const missingPropertyMappingByListingId = new Map<
     string,
     {
@@ -936,7 +936,7 @@ export async function importStaysNetReservations(c: Context) {
         }
 
         // ====================================================================
-        // 2.2: RESOLVER property_id (anuncios_ultimate) ANTES DO DEDUP
+        // 2.2: RESOLVER property_id (properties) ANTES DO DEDUP
         // ====================================================================
         // StaysNet pode enviar IDs do imóvel/listing em múltiplos campos (e às vezes dentro de objetos `listing/property`).
         // Usar um extrator robusto evita “reservas órfãs” por diferença de ID entre endpoints.

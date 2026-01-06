@@ -182,7 +182,7 @@ blocks.post('/', async (c) => {
 
     // ✅ MIGRAÇÃO 2026-01-06: Verificar se anúncio existe (tabela properties removida)
     let anuncioQuery = client
-      .from('anuncios_ultimate')
+      .from('properties')
       .select('id')
       .eq('id', property_id);
     

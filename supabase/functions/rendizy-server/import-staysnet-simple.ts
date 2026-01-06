@@ -58,7 +58,7 @@ export async function importStaysNetSimple(c: Context) {
         };
         
         const { error } = await supabase
-          .from('anuncios_ultimate')
+          .from('properties')
           .insert(record);
         
         if (error) {

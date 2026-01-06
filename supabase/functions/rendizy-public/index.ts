@@ -534,9 +534,9 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
 
     const organizationId = (sqlSite as { organization_id: string }).organization_id;
 
-    // NOTA: Tabela `properties` foi depreciada. Usar apenas `anuncios_ultimate` como fonte de dados.
+    // NOTA: Tabela `properties` foi depreciada. Usar apenas `properties` como fonte de dados.
     const { data: anuncios, error: anunciosError } = await supabase
-      .from("anuncios_ultimate")
+      .from("properties")
       .select("id,status,organization_id,data,created_at,updated_at")
       .eq("organization_id", organizationId)
       .in("status", ["active", "published"])
@@ -754,11 +754,11 @@ clientSites.get("/api/:subdomain/properties/:propertyId/availability", async (c:
 
     const organizationId = (sqlSite as { organization_id: string }).organization_id;
 
-    // NOTA: Tabela `properties` foi depreciada. Usar apenas `anuncios_ultimate`.
+    // NOTA: Tabela `properties` foi depreciada. Usar apenas `properties`.
     let pricing = { dailyRate: 0, currency: "BRL" };
     {
       const { data: anuncio, error: anuncioErr } = await supabase
-        .from("anuncios_ultimate")
+        .from("properties")
         .select("id,organization_id,data")
         .eq("organization_id", organizationId)
         .eq("id", propertyId)
@@ -964,7 +964,7 @@ clientSites.get("/api/:subdomain/calendar", async (c: Context) => {
 
     // Validate property belongs to org
     const { data: propRow, error: propError } = await supabase
-      .from("anuncios_ultimate")
+      .from("properties")
       .select("id, data")
       .eq("id", propertyId)
       .eq("organization_id", orgId)
@@ -1124,9 +1124,9 @@ clientSites.post("/api/:subdomain/calculate-price", async (c: Context) => {
 
     const organizationId = (sqlSite as { organization_id: string }).organization_id;
 
-    // Fetch property pricing from anuncios_ultimate
+    // Fetch property pricing from properties
     const { data: anuncio } = await supabase
-      .from("anuncios_ultimate")
+      .from("properties")
       .select("id,data")
       .eq("organization_id", organizationId)
       .eq("id", propertyId)
@@ -1289,9 +1289,9 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
     let propertyExists = false;
     let pricing = { dailyRate: 0, currency: "BRL", cleaningFee: 0, serviceFee: 0, minNights: 1 };
 
-    // Query from anuncios_ultimate (source of truth for properties)
+    // Query from properties (source of truth for properties)
     const { data: anuncio } = await supabase
-      .from("anuncios_ultimate")
+      .from("properties")
       .select("id,data")
       .eq("organization_id", organizationId)
       .eq("id", propertyId)

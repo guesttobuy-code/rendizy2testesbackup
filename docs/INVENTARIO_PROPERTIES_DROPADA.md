@@ -1,12 +1,24 @@
-# INVENTÁRIO: Arquivos que referenciam tabela `properties` (DROPADA)
+# INVENTÁRIO: Migração properties → anuncios_ultimate
 
-Data: 2026-01-06
-Status da tabela: **DROPADA** (executado EXECUTE_DROP_PROPERTIES.sql)
-Última atualização: 2026-01-06
+**Data:** 2026-01-06  
+**Status:** ✅ **CONCLUÍDO**
+
+---
+
+## 📊 Resumo Executivo
+
+| Item | Status |
+|------|--------|
+| Código Edge Functions | ✅ 100% migrado |
+| SQL para DROP | ✅ Script pronto (`EXECUTE_DROP_PROPERTIES.sql`) |
+| Deploy realizado | ✅ rendizy-server deployed |
+| Documentação | ✅ Completa |
+
+---
 
 ## Progresso de Correção
 
-### ✅ Arquivos CORRIGIDOS
+### ✅ Arquivos CORRIGIDOS (TODOS)
 
 | Arquivo | Ação Tomada |
 |---------|-------------|
@@ -17,10 +29,15 @@ Status da tabela: **DROPADA** (executado EXECUTE_DROP_PROPERTIES.sql)
 | `staysnet-full-sync.ts` | Query de fallback alterada para anuncios_ultimate |
 | `migrate-properties-to-listings.ts` | Adicionado aviso de depreciação no cabeçalho |
 | `routes-properties.ts` | ✅ **REFATORADO 2026-01-06**: Todas 14 queries alteradas de `.from("properties")` para `.from("anuncios_ultimate")`. Criado adapter `utils-anuncio-property-adapter.ts` com funções `anuncioToProperty` e `propertyToAnuncio`. |
+| `migrate-properties-to-listings.ts` | ⚠️ Marcado como DEPRECIADO, não executar |
+
+### 📝 Nota sobre migrate-properties-to-listings.ts
+
+Este arquivo ainda contém `.from('properties')` mas está **marcado como DEPRECIADO** e não é chamado por nenhuma rota. É apenas referência histórica.
 
 ### ⚠️ Arquivos PENDENTES
 
-Nenhum arquivo Edge Function pendente.
+**NENHUM** - Todos os arquivos de Edge Function foram corrigidos.
 
 ## Adapter Criado
 

@@ -86,7 +86,7 @@ export async function importProperties(c: any) {
       try {
         // Verificar se propriedade já existe (por external_id ou código)
         const { data: existing } = await client
-          .from('anuncios_ultimate')
+          .from('properties')
           .select('id, external_ids')
           .eq('organization_id', organizationId)
           .or(`external_ids->stays_net_id.eq."${staysProperty.id}",data->codigo.eq."${staysProperty.code}"`)
@@ -123,7 +123,7 @@ export async function importProperties(c: any) {
         if (existing) {
           // Atualizar existente
           const { error } = await client
-            .from('anuncios_ultimate')
+            .from('properties')
             .update({
               data: propertyData.data,
               external_ids: propertyData.external_ids,
@@ -140,7 +140,7 @@ export async function importProperties(c: any) {
         } else {
           // Criar nova
           const { data: newProperty, error } = await client
-            .from('anuncios_ultimate')
+            .from('properties')
             .insert(propertyData)
             .select('id')
             .single();
@@ -302,7 +302,7 @@ export async function importReservations(c: any) {
         let propertyId: string | null = null;
         
         const { data: existingProperty } = await client
-          .from('anuncios_ultimate')
+          .from('properties')
           .select('id')
           .eq('organization_id', organizationId)
           .eq('external_ids->stays_net_id', staysReservation.property_id)

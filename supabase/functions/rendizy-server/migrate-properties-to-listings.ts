@@ -3,7 +3,7 @@
  * 
  * A tabela `properties` foi removida do banco de dados.
  * Este script de migração não é mais necessário pois todos os dados
- * de propriedades agora estão em `anuncios_ultimate`.
+ * de propriedades agora estão em `properties`.
  * 
  * Manter apenas para referência histórica.
  * NÃO EXECUTAR - vai falhar pois a tabela não existe mais.

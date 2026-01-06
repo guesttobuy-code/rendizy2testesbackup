@@ -15,11 +15,11 @@
  * 
  * PADRÃO ATÔMICO:
  * - Usa RPC save_anuncio_field (UPSERT + idempotency)
- * - Salva em anuncios_ultimate campo por campo
+ * - Salva em properties campo por campo
  * - Deduplica via staysnet_property_id em externalIds
  * 
  * ENDPOINT API: GET /content/listings
- * TABELA DESTINO: anuncios_ultimate
+ * TABELA DESTINO: properties
  * 
  * REFERÊNCIA: docs/architecture/PERSISTENCIA_ATOMICA_PADRAO_VITORIOSO.md
  */
@@ -453,7 +453,7 @@ export async function importStaysNetProperties(c) {
   console.log('⚡ IMPORT STAYSNET - PROPERTIES (IMÓVEIS)');
   console.log('═══════════════════════════════════════════════════');
   console.log('📍 API Endpoint: /content/listings');
-  console.log('📍 Tabela Destino: anuncios_ultimate');
+  console.log('📍 Tabela Destino: properties');
   console.log('📍 Método: RPC save_anuncio_field (atomic)');
   console.log('═══════════════════════════════════════════════════\n');
 
@@ -486,7 +486,7 @@ export async function importStaysNetProperties(c) {
     // ========================================================================
 
     // NOTE (2025-12-27): fonte de verdade versionada.
-    // `anuncios_ultimate.data.staysnet_raw` é útil para debug rápido, mas a exigência é
+    // `properties.data.staysnet_raw` é útil para debug rápido, mas a exigência é
     // salvar o JSON completo de forma escalável e deduplicada (por hash) em `staysnet_raw_objects`.
     // A persistência do RAW é feita por property, dentro do loop de importação.
 
@@ -531,9 +531,9 @@ export async function importStaysNetProperties(c) {
     // ========================================================================
     // O modal normalmente envia IDs da Stays (listing._id ou listing.id).
     // Porém, em alguns fluxos operacionais, pode ser útil informar:
-    // - anuncios_ultimate.id (UUID)
-    // - anuncios_ultimate.data.internalId
-    // - anuncios_ultimate.data.codigo
+    // - properties.id (UUID)
+    // - properties.data.internalId
+    // - properties.data.codigo
     // Quando isso ocorre, resolvemos para externalIds.* (staysnet_listing_id/code) e
     // adicionamos esses candidatos ao conjunto de seleção.
 
@@ -560,11 +560,11 @@ export async function importStaysNetProperties(c) {
         const looksLikeStaysMongoId = /^[a-f0-9]{24}$/i.test(selectedId);
         if (looksLikeStaysMongoId) continue;
 
-        // 1) anuncios_ultimate.id
+        // 1) properties.id
         let row: any | null = null;
         try {
           const q1 = await supabase
-            .from('anuncios_ultimate')
+            .from('properties')
             .select('id,data')
             .eq('organization_id', organizationId)
             .eq('id', selectedId)
@@ -574,11 +574,11 @@ export async function importStaysNetProperties(c) {
           // ignore
         }
 
-        // 2) anuncios_ultimate.data.internalId
+        // 2) properties.data.internalId
         if (!row) {
           try {
             const q2 = await supabase
-              .from('anuncios_ultimate')
+              .from('properties')
               .select('id,data')
               .eq('organization_id', organizationId)
               .eq('data->>internalId', selectedId)
@@ -589,11 +589,11 @@ export async function importStaysNetProperties(c) {
           }
         }
 
-        // 3) anuncios_ultimate.data.codigo
+        // 3) properties.data.codigo
         if (!row) {
           try {
             const q3 = await supabase
-              .from('anuncios_ultimate')
+              .from('properties')
               .select('id,data')
               .eq('organization_id', organizationId)
               .eq('data->>codigo', selectedId)
@@ -638,7 +638,7 @@ export async function importStaysNetProperties(c) {
       }
 
       if (Object.keys(resolvedSelectedFromDb).length > 0) {
-        console.log('🔁 [RESOLVE] IDs resolvidos via anuncios_ultimate → Stays IDs');
+        console.log('🔁 [RESOLVE] IDs resolvidos via properties → Stays IDs');
         console.log('   ', JSON.stringify(resolvedSelectedFromDb));
       }
     }
@@ -878,12 +878,12 @@ export async function importStaysNetProperties(c) {
     // - O StaysNet envia `customFields: [{id, val}]` (id numérico) no listing.
     // - Aqui fazemos best-effort para resolver id -> nome (via endpoints settings/content) e
     //   casar por NOME com os campos configurados no Rendizy, salvando em
-    //   anuncios_ultimate.data.custom_description_fields_values (por field.id estável).
+    //   properties.data.custom_description_fields_values (por field.id estável).
     // ========================================================================
     const rendizyCustomFieldIdByLabelKey = new Map<string, string>();
     try {
       const settingsRowRes = await supabase
-        .from('anuncios_ultimate')
+        .from('properties')
         .select('data')
         .eq('organization_id', organizationId)
         .eq('data->>__kind', 'settings')
@@ -1213,14 +1213,14 @@ export async function importStaysNetProperties(c) {
         data: {
           stats: { total: 0, created: 0, updated: 0, errors: 0 },
           method: 'import-properties',
-          table: 'anuncios_ultimate',
+          table: 'properties',
           message: 'Nenhuma property para importar'
         }
       });
     }
 
     // ========================================================================
-    // STEP 4: SALVAR CADA PROPERTY EM anuncios_ultimate
+    // STEP 4: SALVAR CADA PROPERTY EM properties
     // ========================================================================
     for (let i = 0; i < properties.length; i++) {
       const propListPayload = properties[i];
@@ -1403,7 +1403,7 @@ export async function importStaysNetProperties(c) {
 
         for (const candidate of dedupeCandidates) {
           const res = await supabase
-            .from('anuncios_ultimate')
+            .from('properties')
             .select('id, data')
             .eq('organization_id', organizationId)
             .contains('data', candidate.needle)
@@ -1533,14 +1533,14 @@ export async function importStaysNetProperties(c) {
           });
 
           const { data: statusRow, error: statusColumnError } = await supabase
-            .from('anuncios_ultimate')
+            .from('properties')
             .update({ status: anuncioStatus })
             .eq('id', anuncioId)
             .select('id,status,organization_id')
             .maybeSingle();
 
           if (statusColumnError) {
-            console.error(`      ❌ Erro ao atualizar coluna status em anuncios_ultimate:`, statusColumnError.message);
+            console.error(`      ❌ Erro ao atualizar coluna status em properties:`, statusColumnError.message);
           } else if (!statusRow) {
             console.error(`      ❌ Coluna status não foi atualizada (nenhuma linha retornada) anuncioId=${anuncioId}`);
           } else if (statusRow.status !== anuncioStatus) {
@@ -2757,8 +2757,8 @@ export async function importStaysNetProperties(c) {
         }
 
         // === STATUS ===
-        // Importante: a UI de "Anúncios Ultimate" lê a COLUNA anuncios_ultimate.status.
-        // A RPC save_anuncio_field salva apenas dentro de anuncios_ultimate.data (JSONB).
+        // Importante: a UI de "Anúncios Ultimate" lê a COLUNA properties.status.
+        // A RPC save_anuncio_field salva apenas dentro de properties.data (JSONB).
         // Se a coluna ficar como default (ex: 'created'), a UI cai no default => "Rascunho".
         const staysStatus = (prop.status || '').toString().toLowerCase();
 
@@ -2803,14 +2803,14 @@ export async function importStaysNetProperties(c) {
         // Importante: não filtrar por organization_id aqui; se houver qualquer mismatch entre
         // org inferida no Edge Function e org aplicada pela RPC, o update viraria no-op silencioso.
         const { data: statusUpdatedRow, error: statusColumnError } = await supabase
-          .from('anuncios_ultimate')
+          .from('properties')
           .update({ status: anuncioStatus })
           .eq('id', anuncioId)
           .select('id,status,organization_id')
           .maybeSingle();
 
         if (statusColumnError) {
-          console.error(`      ❌ Erro ao atualizar coluna status em anuncios_ultimate:`, statusColumnError.message);
+          console.error(`      ❌ Erro ao atualizar coluna status em properties:`, statusColumnError.message);
         } else if (!statusUpdatedRow) {
           console.warn(`      ⚠️ Coluna status não atualizada (nenhuma linha retornada) para anuncioId=${anuncioId}`);
         }
@@ -2912,7 +2912,7 @@ export async function importStaysNetProperties(c) {
     return c.json({
       success: errors < fetched,
       method: 'import-properties',
-      table: 'anuncios_ultimate',
+      table: 'properties',
       debug: {
         amenitiesTranslationCount: globalAmenityTitleById.size,
         amenitiesTranslationSources: translationFetch.sources,
@@ -2940,7 +2940,7 @@ export async function importStaysNetProperties(c) {
           errors,
         },
         method: 'import-properties',
-        table: 'anuncios_ultimate',
+        table: 'properties',
         errorDetails: errors > 0 ? errorDetails : undefined,
         message,
       },
@@ -2956,7 +2956,7 @@ export async function importStaysNetProperties(c) {
       {
         success: false,
         method: 'import-properties',
-        table: 'anuncios_ultimate',
+        table: 'properties',
         stats: {
           fetched,
           saved,

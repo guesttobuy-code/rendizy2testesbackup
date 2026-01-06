@@ -2,7 +2,7 @@
  * IMPORTAÇÃO STAYSNET usando RPC save_anuncio_field
  * 
  * USA O MESMO PADRÃO QUE FORMULARIOANUNCIO.TSX:
- * - Salva em anuncios_ultimate (tabela renomeada em 21/12/2025)
+ * - Salva em properties (tabela renomeada em 21/12/2025)
  * - Usa RPC save_anuncio_field (UPSERT automático)
  * - Campo por campo (igual wizard de anúncios)
  */
@@ -12,7 +12,7 @@ import { getSupabaseClient } from './kv_store.tsx';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 
 export async function importStaysNetRPC(c: Context) {
-  console.log('🚀 [RPC] IMPORT STAYSNET → anuncios_ultimate - Usando save_anuncio_field');
+  console.log('🚀 [RPC] IMPORT STAYSNET → properties - Usando save_anuncio_field');
   
   const orgId = '00000000-0000-0000-0000-000000000000';
   const userId = '00000000-0000-0000-0000-000000000002';
@@ -53,7 +53,7 @@ export async function importStaysNetRPC(c: Context) {
       try {
         console.log(`\n💾 [RPC] Salvando: ${prop.internalName || prop._id}`);
         
-        // Campo 1: title (criar novo anúncio em anuncios_ultimate)
+        // Campo 1: title (criar novo anúncio em properties)
         const { data: anuncioData, error: createError } = await supabase.rpc('save_anuncio_field', {
           p_anuncio_id: null,  // NULL = criar novo anúncio
           p_field: 'title',
@@ -108,7 +108,7 @@ export async function importStaysNetRPC(c: Context) {
           p_value: JSON.stringify(prop)
         });
         
-        console.log(`✅ [RPC] ${prop.internalName} salvo em anuncios_ultimate`);
+        console.log(`✅ [RPC] ${prop.internalName} salvo em properties`);
         saved++;
         
       } catch (err: any) {
@@ -128,7 +128,7 @@ export async function importStaysNetRPC(c: Context) {
     return c.json({
       success: true,
       method: 'RPC save_anuncio_field',
-      table: 'anuncios_ultimate',
+      table: 'properties',
       stats: { fetched, saved, errors },
       message: `Importados ${saved}/${fetched} anúncios usando RPC (igual FormularioAnuncio)`
     });

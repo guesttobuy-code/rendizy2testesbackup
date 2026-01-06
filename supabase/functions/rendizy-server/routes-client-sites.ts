@@ -2672,9 +2672,9 @@ app.get("/api/:subdomain/properties", async (c) => {
       `[CLIENT-SITES] Buscando imóveis para organização: ${organizationId}`
     );
 
-    // ✅ MIGRAÇÃO 2026-01-06: Tabela `properties` removida - usar apenas anuncios_ultimate
+    // ✅ MIGRAÇÃO 2026-01-06: Tabela `properties` removida - usar apenas properties
     const { data: anuncios, error } = await supabase
-      .from("anuncios_ultimate")
+      .from("properties")
       .select("id,status,organization_id,data,created_at,updated_at")
       .eq("organization_id", organizationId)
       .in("status", ["active", "published"])
@@ -2682,7 +2682,7 @@ app.get("/api/:subdomain/properties", async (c) => {
       .limit(100);
 
     if (error) {
-      console.error(`[CLIENT-SITES] Erro ao buscar anuncios_ultimate:`, error);
+      console.error(`[CLIENT-SITES] Erro ao buscar properties:`, error);
       return c.json(
         {
           success: false,

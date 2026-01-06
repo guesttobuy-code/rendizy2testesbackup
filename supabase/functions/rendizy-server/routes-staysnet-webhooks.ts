@@ -455,14 +455,14 @@ async function resolveAnuncioDraftIdFromStaysId(
 
   for (const l of lookups) {
     const { data: row, error } = await supabase
-      .from('anuncios_ultimate')
+      .from('properties')
       .select('id')
       .eq('organization_id', organizationId)
       .contains('data', l.needle)
       .maybeSingle();
 
     if (error) {
-      console.warn(`⚠️ [StaysNet Webhook] Erro ao buscar anuncios_ultimate via ${l.label}: ${error.message}`);
+      console.warn(`⚠️ [StaysNet Webhook] Erro ao buscar properties via ${l.label}: ${error.message}`);
       continue;
     }
 
