@@ -1,6 +1,48 @@
 // calendar-rules-batch/index.ts
-// Edge Function para processar múltiplas regras de calendário em uma única requisição
-// Otimizado para cenários de alto volume (1000+ imobiliárias, 100+ clientes cada)
+// ============================================================================
+// EDGE FUNCTION: Batch de Regras do Calendário
+// ============================================================================
+//
+// CRIADO: 2026-01-06 (commit 178ce7d)
+// CHAMADO POR: hooks/useCalendarPricingRules.ts (flushQueue)
+//
+// PROPÓSITO:
+// Processar múltiplas operações (upsert/delete) de regras de calendário
+// em uma única requisição HTTP, reduzindo latência e overhead de conexão.
+//
+// LIMITES:
+// - MAX_BATCH_SIZE: 500 operações por request
+// - UPSERT_BATCH_SIZE: 100 operações por query (interno)
+//
+// SEGURANÇA:
+// - Requer token JWT válido (Authorization header)
+// - Verifica organization_id do usuário
+// - Operações restritas à organização do usuário
+//
+// DEPLOY:
+// npx supabase functions deploy calendar-rules-batch --project-ref odcgnzfremrqnvtitpcc
+//
+// TESTE LOCAL:
+// npx supabase functions serve calendar-rules-batch
+//
+// PAYLOAD ESPERADO:
+// {
+//   "operations": [
+//     { "type": "upsert", "property_id": "uuid", "date": "2026-01-06", "min_nights": 3 },
+//     { "type": "delete", "id": "rule-uuid", "property_id": "uuid", "date": "2026-01-07" }
+//   ]
+// }
+//
+// RESPOSTA:
+// {
+//   "success": true,
+//   "processed": 2,
+//   "failed": 0,
+//   "errors": [],
+//   "results": [{ "index": 0, "id": "uuid", "action": "updated" }, ...]
+// }
+//
+// ============================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.2';
 

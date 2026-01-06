@@ -1,6 +1,29 @@
 // CalendarQueueIndicator.tsx
-// Componente visual para mostrar status de operações pendentes no calendário
-// Mostra quantas operações estão na fila, se está processando, e erros
+// ============================================================================
+// COMPONENTE: Indicador Visual de Queue do Calendário
+// ============================================================================
+//
+// CRIADO: 2026-01-06 (commit 178ce7d)
+// RELACIONADO: hooks/useCalendarPricingRules.ts (V2.1)
+//
+// ESTADOS VISUAIS:
+// - 🟢 Verde (Check): Operações salvas com sucesso (2s de feedback)
+// - 🟡 Âmbar (Clock): Operações pendentes aguardando debounce
+// - 🔵 Azul (Spinner): Processando/enviando ao servidor
+// - 🔴 Vermelho (Alert): Erro ao salvar (com botão retry)
+//
+// USO NO CALENDÁRIO:
+// ```tsx
+// import { CalendarQueueIndicator } from './CalendarQueueIndicator';
+// 
+// <CalendarQueueIndicator 
+//   status={queueStatus}           // do useCalendarPricingRules
+//   onForceFlush={flushQueue}      // força envio imediato
+//   className="fixed bottom-4 right-4 z-50"
+// />
+// ```
+//
+// ============================================================================
 
 import React from 'react';
 import { Loader2, Check, AlertCircle, Clock } from 'lucide-react';

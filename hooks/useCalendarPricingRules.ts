@@ -1,17 +1,53 @@
 // useCalendarPricingRules.ts
+// ============================================================================
+// ⚠️ ATENÇÃO: ARQUIVO CRÍTICO DO CALENDÁRIO - LEIA ANTES DE MODIFICAR
+// ============================================================================
+// 
+// HISTÓRICO DE VERSÕES:
+// - V1 (original): Chamadas síncronas diretas ao Supabase
+// - V2 (2026-01-06): Debouncing + optimistic updates + batch queue
+// - V2.1 (2026-01-06): Suporte a Edge Function calendar-rules-batch
+//
+// ARQUITETURA V2.1:
+// ┌─────────────────────────────────────────────────────────────────┐
+// │ 1. Usuário clica → applyOptimisticRule() → UI atualiza IMEDIATO │
+// │ 2. Operação entra na queue (operationQueueRef)                  │
+// │ 3. Debounce 500ms agrupa múltiplas operações                    │
+// │ 4. flushQueue() → Edge Function (ou REST fallback)              │
+// │ 5. CalendarQueueIndicator mostra status visual                  │
+// └─────────────────────────────────────────────────────────────────┘
+//
+// COMMITS RELACIONADOS:
+// - ea2f48e: perf(calendar): add optimistic updates + batch queue system
+// - 178ce7d: perf(calendar): add edge function batch + queue indicator
+//
+// EDGE FUNCTION: supabase/functions/calendar-rules-batch/index.ts
+// INDICADOR: components/CalendarQueueIndicator.tsx
+// COMPONENTE ROW: components/PropertyCalendarRow.tsx (preparado para virtualização)
+//
+// REGRAS DE OURO:
+// 1. NUNCA remover o debounce - protege contra flood de requests
+// 2. SEMPRE manter o optimistic update - UX crítica para resposta rápida
+// 3. USE_EDGE_FUNCTION = true é o padrão (mais eficiente)
+// 4. Fallback para REST API existe caso Edge Function falhe
+// 5. MAX_QUEUE_SIZE força flush se fila muito grande (proteção)
+//
+// ============================================================================
 // Hook para carregar e salvar regras de calendário do banco
-// V2: Otimizado com debouncing, optimistic updates e batch queue
+// V2.1: Otimizado com debouncing, optimistic updates, batch queue + Edge Function
+// ============================================================================
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 // ============================================================================
 // CONFIGURAÇÃO DE PERFORMANCE
+// ⚠️ Ajuste com cuidado - afeta diretamente a experiência do usuário
 // ============================================================================
-const DEBOUNCE_MS = 500;           // Tempo para agrupar operações
+const DEBOUNCE_MS = 500;           // Tempo para agrupar operações (não diminuir muito!)
 const MAX_QUEUE_SIZE = 100;        // Máximo de operações na fila antes de flush forçado
-const RETRY_ATTEMPTS = 3;          // Tentativas em caso de falha
-const RETRY_DELAY_MS = 1000;       // Delay entre tentativas
-const USE_EDGE_FUNCTION = true;    // Usar Edge Function para batch (mais eficiente)
+const RETRY_ATTEMPTS = 3;          // Tentativas em caso de falha de rede
+const RETRY_DELAY_MS = 1000;       // Delay entre tentativas (exponential backoff futuro)
+const USE_EDGE_FUNCTION = true;    // true = Edge Function (recomendado), false = REST direto
 
 // Tipo da regra de calendário
 export interface CalendarPricingRule {

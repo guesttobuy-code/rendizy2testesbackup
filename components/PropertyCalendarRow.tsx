@@ -1,7 +1,40 @@
 // PropertyCalendarRow.tsx
-// Componente isolado para renderizar uma linha de propriedade no calendário
-// Otimizado com React.memo para evitar re-renders desnecessários
-// Preparado para virtualização com react-window
+// ============================================================================
+// COMPONENTE: Linha de Propriedade do Calendário (Isolada)
+// ============================================================================
+//
+// CRIADO: 2026-01-06 (commit 178ce7d)
+// STATUS: ✅ Pronto para uso, 🔄 Integração com CalendarGrid pendente
+//
+// PROPÓSITO:
+// Isolar a renderização de cada propriedade do calendário em um componente
+// separado com React.memo para evitar re-renders desnecessários.
+//
+// OTIMIZAÇÕES INCLUÍDAS:
+// 1. React.memo com comparação customizada (arePropsEqual)
+// 2. Preparado para virtualização futura com react-window
+// 3. Aceita prop `style` para posicionamento virtual
+//
+// INTEGRAÇÃO FUTURA (Sprint 4):
+// Este componente será usado com react-window para virtualizar o grid:
+// ```tsx
+// import { VariableSizeList as List } from 'react-window';
+// 
+// <List itemCount={properties.length} itemSize={() => ROW_HEIGHT}>
+//   {({ index, style }) => (
+//     <PropertyCalendarRow 
+//       data={{ property: properties[index], ... }}
+//       handlers={handlers}
+//       style={style}
+//     />
+//   )}
+// </List>
+// ```
+//
+// ⚠️ NOTA: Por enquanto NÃO está integrado no CalendarGrid.tsx
+// A integração foi adiada para evitar riscos em arquivo de 1600+ linhas.
+//
+// ============================================================================
 
 import React, { memo, useMemo, useCallback } from 'react';
 import { Property, Reservation } from '../App';
