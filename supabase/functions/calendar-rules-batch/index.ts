@@ -55,7 +55,10 @@ interface BatchOperation {
   id?: string; // Para updates/deletes
   property_id: string;
   organization_id?: string;
-  date: string; // YYYY-MM-DD
+  // Suporte a ambos formatos: date (1 dia) ou start_date+end_date (range)
+  date?: string; // YYYY-MM-DD - converte para start_date=end_date=date
+  start_date?: string; // YYYY-MM-DD
+  end_date?: string; // YYYY-MM-DD
   // Campos opcionais para upsert
   base_price?: number;
   min_nights?: number;
@@ -189,14 +192,24 @@ Deno.serve(async (req: Request) => {
       const op = body.operations[i];
 
       // Validate required fields
-      if (!op.property_id || !op.date) {
-        result.errors.push({ index: i, error: 'Missing property_id or date' });
+      if (!op.property_id) {
+        result.errors.push({ index: i, error: 'Missing property_id' });
+        result.failed++;
+        continue;
+      }
+
+      // Normalizar datas: aceitar date OU start_date+end_date
+      const startDate = op.start_date || op.date;
+      const endDate = op.end_date || op.date;
+      
+      if (!startDate || !endDate) {
+        result.errors.push({ index: i, error: 'Missing date (use date or start_date+end_date)' });
         result.failed++;
         continue;
       }
 
       // Validate date format
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(op.date)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
         result.errors.push({ index: i, error: 'Invalid date format, expected YYYY-MM-DD' });
         result.failed++;
         continue;
@@ -216,12 +229,11 @@ Deno.serve(async (req: Request) => {
           data: {
             property_id: op.property_id,
             organization_id: organizationId,
-            date: op.date,
-            base_price: op.base_price,
+            start_date: startDate,
+            end_date: endDate,
             min_nights: op.min_nights,
             condition_percent: op.condition_percent,
             restriction: op.restriction,
-            notes: op.notes,
             updated_at: new Date().toISOString(),
           },
         });
@@ -252,38 +264,55 @@ Deno.serve(async (req: Request) => {
     }
 
     // Process upserts in batches of 100
+    // Strategy: delete existing rules for same org/property/dates, then insert new ones
     const UPSERT_BATCH_SIZE = 100;
     for (let i = 0; i < upsertOps.length; i += UPSERT_BATCH_SIZE) {
       const batch = upsertOps.slice(i, i + UPSERT_BATCH_SIZE);
-      const dataToUpsert = batch.map(b => b.data);
+      
+      // First, delete existing rules that match the same org/property/date combination
+      for (const b of batch) {
+        const { error: delError } = await supabase
+          .from('calendar_pricing_rules')
+          .delete()
+          .eq('organization_id', b.data.organization_id)
+          .eq('property_id', b.data.property_id)
+          .eq('start_date', b.data.start_date)
+          .eq('end_date', b.data.end_date);
+        
+        if (delError) {
+          console.warn(`[calendar-rules-batch] Delete before insert failed: ${delError.message}`);
+          // Continue anyway - insert might still work
+        }
+      }
+      
+      const dataToInsert = batch.map(b => b.data);
 
-      const { data: upsertedData, error: upsertError } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from('calendar_pricing_rules')
-        .upsert(dataToUpsert, {
-          onConflict: 'property_id,date',
-          ignoreDuplicates: false,
-        })
-        .select('id, property_id, date');
+        .insert(dataToInsert)
+        .select('id, property_id, start_date, end_date');
 
-      if (upsertError) {
+      if (insertError) {
         // Mark batch as failed
         for (const b of batch) {
-          result.errors.push({ index: b.index, error: upsertError.message });
+          result.errors.push({ index: b.index, error: insertError.message });
           result.failed++;
         }
       } else {
         // Match results back to original indexes
         for (let j = 0; j < batch.length; j++) {
           const original = batch[j];
-          const matchedResult = upsertedData?.find(
-            r => r.property_id === original.data.property_id && r.date === original.data.date
+          const matchedResult = insertedData?.find(
+            r => r.property_id === original.data.property_id && 
+                 r.start_date === original.data.start_date &&
+                 r.end_date === original.data.end_date
           );
 
           if (matchedResult) {
             result.results.push({
               index: original.index,
               id: matchedResult.id,
-              action: 'updated', // Upsert treats inserts as updates
+              action: 'inserted',
             });
             result.processed++;
           } else {

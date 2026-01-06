@@ -492,8 +492,9 @@ export function useCalendarPricingRules({
           type: op.type as 'upsert' | 'delete',
           id: op.rule.id,
           property_id: op.rule.property_id || '',
-          date: op.rule.start_date || '',
-          base_price: (op.rule as any).base_price,
+          // Usar start_date e end_date (formato da tabela)
+          start_date: op.rule.start_date || '',
+          end_date: op.rule.end_date || op.rule.start_date || '',
           min_nights: op.rule.min_nights,
           condition_percent: op.rule.condition_percent,
           restriction: op.rule.restriction,

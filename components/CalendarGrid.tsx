@@ -1589,7 +1589,8 @@ export function Calendar({
                   rules.push({
                     property_id: property.id,
                     organization_id: organizationId,
-                    date: dateStr,
+                    start_date: dateStr,
+                    end_date: dateStr,
                     condition_percent: conditionPercent
                   });
                 }
@@ -1621,7 +1622,8 @@ export function Calendar({
                   rules.push({
                     property_id: property.id,
                     organization_id: organizationId,
-                    date: dateStr,
+                    start_date: dateStr,
+                    end_date: dateStr,
                     restriction: data.restrictionType
                   });
                 }
@@ -1653,7 +1655,8 @@ export function Calendar({
                   rules.push({
                     property_id: property.id,
                     organization_id: organizationId,
-                    date: dateStr,
+                    start_date: dateStr,
+                    end_date: dateStr,
                     min_nights: data.minNights
                   });
                 }
