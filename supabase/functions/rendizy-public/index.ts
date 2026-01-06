@@ -1103,9 +1103,9 @@ clientSites.get("/api/:subdomain/calendar", async (c: Context) => {
       };
     });
 
-    // Return in format: { days: [...] }
+    // Return in format expected by Bolt sites: { success: true, data: { days: [...] } }
     return c.json(
-      { days: daysResult },
+      { success: true, data: { days: daysResult } },
       200,
       withCorsHeaders({
         "Content-Type": "application/json; charset=utf-8",

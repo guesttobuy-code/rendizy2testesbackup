@@ -264,7 +264,7 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
       stability: 'stable',
       notes: [
         'Alias do endpoint /availability com parâmetros via query string (compatibilidade com sites Bolt.new).',
-        'Retorna: { days: [{ date, status, price, minNights, propertyId }] }',
+        'Retorna: { success: true, data: { days: [{ date, status, price, minNights, propertyId }] } } — segue wrapperType padrão.',
         '⚠️ IMPORTANTE: status é STRING ("available" | "blocked" | "reserved"), NÃO booleano!',
         '❌ ERRADO: if (day.available) { ... } — o campo "available" NÃO EXISTE!',
         '✅ CORRETO: if (day.status === "available") { ... }',

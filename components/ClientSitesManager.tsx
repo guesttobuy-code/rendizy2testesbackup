@@ -1830,8 +1830,13 @@ async function fetchCalendar(subdomain: string, propertyId: string, startDate: s
   }).toString();
   const res = await fetch(url, { method: 'GET' });
   const json = await res.json();
-  // json.days = [{ date: 'YYYY-MM-DD', status: 'available'|'blocked'|'reserved', price: number, minNights: number }]
-  return json;
+  // ⚠️ FORMATO DA RESPOSTA (wrapper padrão):
+  // json = { success: true, data: { days: [...] } }
+  // Onde days = [{ date: 'YYYY-MM-DD', status: 'available'|'blocked'|'reserved', price: number, minNights: number }]
+  if (!json.success || !json.data) {
+    throw new Error(json.error || 'Erro ao carregar calendário');
+  }
+  return json.data.days; // Array de CalendarDay
 }
 
 // Função para verificar se um range de datas está disponível:
