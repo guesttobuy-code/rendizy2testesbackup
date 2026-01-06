@@ -11,6 +11,7 @@ const DEBOUNCE_MS = 500;           // Tempo para agrupar operações
 const MAX_QUEUE_SIZE = 100;        // Máximo de operações na fila antes de flush forçado
 const RETRY_ATTEMPTS = 3;          // Tentativas em caso de falha
 const RETRY_DELAY_MS = 1000;       // Delay entre tentativas
+const USE_EDGE_FUNCTION = true;    // Usar Edge Function para batch (mais eficiente)
 
 // Tipo da regra de calendário
 export interface CalendarPricingRule {
@@ -444,47 +445,56 @@ export function useCalendarPricingRules({
     console.log(`[useCalendarPricingRules] Flushing ${operations.length} operations`);
     
     try {
-      // Agrupar upserts
-      const upserts = operations
-        .filter(op => op.type === 'upsert')
-        .map(op => ({
-          ...op.rule,
-          organization_id: organizationId,
-          updated_at: new Date().toISOString()
-        }));
-      
-      // Agrupar deletes
-      const deleteIds = operations
-        .filter(op => op.type === 'delete' && op.rule.id)
-        .map(op => op.rule.id!);
-      
-      // Executar upserts em batch
-      if (upserts.length > 0) {
-        const url = `https://${projectId}.supabase.co/rest/v1/calendar_pricing_rules`;
+      // ======================================================================
+      // V2.1: Usar Edge Function para batch quando habilitado
+      // ======================================================================
+      if (USE_EDGE_FUNCTION) {
+        const edgeFunctionUrl = `https://${projectId}.supabase.co/functions/v1/calendar-rules-batch`;
         
-        // Tentar com retry
+        // Converter operações para formato da Edge Function
+        const batchOperations = operations.map(op => ({
+          type: op.type as 'upsert' | 'delete',
+          id: op.rule.id,
+          property_id: op.rule.property_id || '',
+          date: op.rule.start_date || '',
+          base_price: (op.rule as any).base_price,
+          min_nights: op.rule.min_nights,
+          condition_percent: op.rule.condition_percent,
+          restriction: op.rule.restriction,
+        }));
+        
         let attempt = 0;
         let success = false;
         
         while (attempt < RETRY_ATTEMPTS && !success) {
           try {
-            const resp = await fetch(url, {
+            const resp = await fetch(edgeFunctionUrl, {
               method: 'POST',
-              headers: {
-                ...getAuthHeaders(),
-                'Prefer': 'return=representation,resolution=merge-duplicates'
-              },
-              body: JSON.stringify(upserts)
+              headers: getAuthHeaders(),
+              body: JSON.stringify({
+                operations: batchOperations,
+                organization_id: organizationId,
+              }),
             });
             
             if (resp.ok) {
+              const result = await resp.json();
+              console.log(`[useCalendarPricingRules] Edge batch result:`, result);
               success = true;
+              
+              if (result.failed > 0) {
+                setQueueStatus(prev => ({
+                  ...prev,
+                  errors: [...prev.errors, `${result.failed} operations failed`],
+                }));
+              }
             } else {
               const body = await resp.text();
-              throw new Error(`HTTP ${resp.status}: ${body}`);
+              throw new Error(`Edge Function HTTP ${resp.status}: ${body}`);
             }
           } catch (err) {
             attempt++;
+            console.warn(`[useCalendarPricingRules] Edge batch attempt ${attempt} failed:`, err);
             if (attempt < RETRY_ATTEMPTS) {
               await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
             } else {
@@ -492,12 +502,67 @@ export function useCalendarPricingRules({
             }
           }
         }
-      }
-      
-      // Executar deletes
-      for (const id of deleteIds) {
-        const url = `https://${projectId}.supabase.co/rest/v1/calendar_pricing_rules?id=eq.${id}`;
-        await fetch(url, { method: 'DELETE', headers: getAuthHeaders() });
+        
+      } else {
+        // ====================================================================
+        // Fallback: Usar REST API direta (método anterior)
+        // ====================================================================
+        
+        // Agrupar upserts
+        const upserts = operations
+          .filter(op => op.type === 'upsert')
+          .map(op => ({
+            ...op.rule,
+            organization_id: organizationId,
+            updated_at: new Date().toISOString()
+          }));
+        
+        // Agrupar deletes
+        const deleteIds = operations
+          .filter(op => op.type === 'delete' && op.rule.id)
+          .map(op => op.rule.id!);
+        
+        // Executar upserts em batch
+        if (upserts.length > 0) {
+          const url = `https://${projectId}.supabase.co/rest/v1/calendar_pricing_rules`;
+          
+          // Tentar com retry
+          let attempt = 0;
+          let success = false;
+          
+          while (attempt < RETRY_ATTEMPTS && !success) {
+            try {
+              const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                  ...getAuthHeaders(),
+                  'Prefer': 'return=representation,resolution=merge-duplicates'
+                },
+                body: JSON.stringify(upserts)
+              });
+              
+              if (resp.ok) {
+                success = true;
+              } else {
+                const body = await resp.text();
+                throw new Error(`HTTP ${resp.status}: ${body}`);
+              }
+            } catch (err) {
+              attempt++;
+              if (attempt < RETRY_ATTEMPTS) {
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+              } else {
+                throw err;
+              }
+            }
+          }
+        }
+        
+        // Executar deletes
+        for (const id of deleteIds) {
+          const url = `https://${projectId}.supabase.co/rest/v1/calendar_pricing_rules?id=eq.${id}`;
+          await fetch(url, { method: 'DELETE', headers: getAuthHeaders() });
+        }
       }
       
       setQueueStatus(prev => ({
