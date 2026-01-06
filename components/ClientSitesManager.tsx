@@ -1545,7 +1545,7 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.7)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.8)
 
 ---
 ## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
@@ -2019,7 +2019,7 @@ Implemente explicitamente estes blocos (mesma intenção do catálogo):
 - Header, Hero, Footer
 - Listagem: ` + "`properties-grid`" + ` + ` + "`property-card`" + `
 - Detalhe: ` + "`property-detail`" + ` + ` + "`property-gallery`" + ` + ` + "`property-amenities`" + `
-- Localização/Mapa: ` + "`property-map`" + ` (step 2 do anúncios_ultimate)
+- Localização/Mapa: ` + "`property-map`" + ` (step 2 do properties)
 - CTA de contato (` + "`contact-cta`" + `) usando WhatsApp/link (sem backend)
 - Formulário de reserva (` + "`booking-form`" + `): permite criar reservas via POST /reservations
 
