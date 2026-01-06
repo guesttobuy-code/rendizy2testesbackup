@@ -62,6 +62,12 @@ CREATE INDEX IF NOT EXISTS idx_calendar_pricing_rules_global
 -- RLS (Row Level Security)
 ALTER TABLE calendar_pricing_rules ENABLE ROW LEVEL SECURITY;
 
+-- Drop policies if they exist (para permitir re-execução)
+DROP POLICY IF EXISTS calendar_pricing_rules_select_policy ON calendar_pricing_rules;
+DROP POLICY IF EXISTS calendar_pricing_rules_insert_policy ON calendar_pricing_rules;
+DROP POLICY IF EXISTS calendar_pricing_rules_update_policy ON calendar_pricing_rules;
+DROP POLICY IF EXISTS calendar_pricing_rules_delete_policy ON calendar_pricing_rules;
+
 -- Política: usuários só veem regras da sua organização
 CREATE POLICY calendar_pricing_rules_select_policy ON calendar_pricing_rules
   FOR SELECT
