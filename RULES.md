@@ -349,7 +349,7 @@ git status
 ### 4.1 Destino correto de dados
 
 ```
-✅ SEMPRE: anuncios_ultimate
+✅ SEMPRE: properties
 ❌ NUNCA: properties / tabelas legadas
 ```
 
@@ -531,7 +531,7 @@ const response = await fetch(
 
 ```typescript
 const { data, error } = await supabase
-  .from('anuncios_ultimate')
+  .from('properties')
   .select('*')
   .eq('status', 'active');
 // RLS aplica automaticamente: WHERE organization_id = auth.organization_id()
@@ -559,7 +559,7 @@ const response = await fetch(
 ### 4.1 Destino Correto de Dados
 
 ```
-✅ SEMPRE: anuncios_ultimate
+✅ SEMPRE: properties
 ❌ NUNCA: properties (era bug antigo - Issue #47)
 ```
 
@@ -570,7 +570,7 @@ const response = await fetch(
 ```typescript
 // ✅ Código correto (verificar se está assim)
 await supabase
-  .from('anuncios_ultimate')  // ✅ Tabela correta
+  .from('properties')  // ✅ Tabela correta
   .insert({
     title: property.name,
     data: {
@@ -589,7 +589,7 @@ await supabase
 ```typescript
 // ✅ CORRETO - Verificar antes de inserir
 const { data: existing } = await supabase
-  .from('anuncios_ultimate')
+  .from('properties')
   .select('id')
   .eq('data->>externalIds->>stays_net_id', staysNetId)
   .single();
@@ -597,13 +597,13 @@ const { data: existing } = await supabase
 if (existing) {
   // Atualizar existente
   await supabase
-    .from('anuncios_ultimate')
+    .from('properties')
     .update({ data: newData })
     .eq('id', existing.id);
 } else {
   // Inserir novo
   await supabase
-    .from('anuncios_ultimate')
+    .from('properties')
     .insert({ data: newData });
 }
 ```
@@ -643,7 +643,7 @@ if (existing) {
   - Se a migration/tabela ainda não existe em produção, o import deve continuar (logar warning).
 
 4) ✅ Tabela de domínio continua “flat” (performance)
-  - `reservations`, `guests`, `anuncios_ultimate` ficam com campos normalizados.
+  - `reservations`, `guests`, `properties` ficam com campos normalizados.
   - O RAW completo fica em `staysnet_raw_objects` para auditoria, replay, e backfill.
 
 **Documentação da arquitetura:** ver `docs/architecture/STAYSNET_RAW_OBJECT_STORE.md`.
@@ -660,7 +660,7 @@ if (existing) {
 
 **Regra de integridade (não negociável):**
 
-- ✅ `reservations.property_id` precisa existir em `anuncios_ultimate` (mesma org).
+- ✅ `reservations.property_id` precisa existir em `properties` (mesma org).
 - ✅ Se não conseguir resolver o imóvel durante o import Stays.net: **SKIP** da reserva (não criar placeholder).
 - ✅ Porém, é obrigatório persistir o motivo como issue durável em `staysnet_import_issues` (ex: `missing_property_mapping`).
 
@@ -691,7 +691,7 @@ Objetivo: evitar “sumir 1 reserva” e permitir reprocessamento depois que o i
 ```typescript
 // ✅ Preservar ID original
 await supabase
-  .from('anuncios_ultimate')
+  .from('properties')
   .insert({
     id: originalProperty.id,  // ✅ Mesmo UUID
     title: originalProperty.name,
@@ -772,7 +772,7 @@ git commit -m "fix(anuncios): corrige URL lista v1.0.103.404
 fix(anuncios): corrige deduplicação StaysNet v1.0.103.403
 
 - Issue #47: Importação salvava em properties (tabela errada)
-- Correção: Agora salva em anuncios_ultimate
+- Correção: Agora salva em properties
 - Deduplicação: Usa data->externalIds->stays_net_id
 - Arquivo: supabase/functions/rendizy-server/staysnet-full-sync.ts
 - Testado: Importação de 5 propriedades sem duplicatas
@@ -970,19 +970,19 @@ supabase db execute --file script.sql
 
 ```sql
 -- Total de anúncios (esperado: 159)
-SELECT COUNT(*) FROM anuncios_ultimate;
+SELECT COUNT(*) FROM properties;
 
 -- Verificar duplicatas por título (esperado: 0 rows)
 -- (se aplicável) adapte a expressão do título ao schema real.
 -- Exemplo comum em JSONB:
--- SELECT data->>'title' as title, COUNT(*) FROM anuncios_ultimate GROUP BY 1 HAVING COUNT(*) > 1;
+-- SELECT data->>'title' as title, COUNT(*) FROM properties GROUP BY 1 HAVING COUNT(*) > 1;
 
 -- Anúncios com reservas vinculadas (PROTEGIDOS)
 SELECT 
   a.id, 
   a.data->>'title' as title,
   COUNT(r.id) as total_reservas
-FROM anuncios_ultimate a
+FROM properties a
 LEFT JOIN reservations r ON r.property_id = a.id
 GROUP BY a.id, a.data->>'title'
 HAVING COUNT(r.id) > 0
@@ -993,7 +993,7 @@ SELECT
   id, 
   title, 
   data->'externalIds'->>'stays_net_id' as stays_net_id
-FROM anuncios_ultimate
+FROM properties
 WHERE data->'externalIds'->>'stays_net_id' IS NOT NULL;
 
 -- Anúncios migrados de properties
@@ -1001,7 +1001,7 @@ SELECT
   id, 
   title, 
   data->>'migrated_from' as origem
-FROM anuncios_ultimate
+FROM properties
 WHERE data->>'migrated_from' = 'properties';
 
 ```
@@ -1012,14 +1012,14 @@ WHERE data->>'migrated_from' = 'properties';
 
 | ❌ Erro Cometido | ✅ Solução Permanente | Issue# | Data |
 |------------------|----------------------|--------|------|
-| StaysNet salvava em `properties` | SEMPRE usar `anuncios_ultimate` | #47 | 19/12/2024 |
+| StaysNet salvava em `properties` | SEMPRE usar `properties` | #47 | 19/12/2024 |
 | REST API sem org context | Edge Functions com `X-Auth-Token` | #48 | 19/12/2024 |
 | URL com prefixo `/make-server-*` | Padrão `/functions/v1/rendizy-server/` | #49 | 20/12/2024 |
 | Deduplicação por `code` (mutável) | Usar `externalIds->stays_net_id` | #47 | 19/12/2024 |
 | Deletar anúncios sem verificar | Sempre checar FK (reservas/bloqueios) | - | 20/12/2024 |
 | Gerar novo UUID na migração | Preservar ID original (manter FKs) | - | 20/12/2024 |
 | Parser errors (emojis em .ps1) | ASCII encoding, sem caracteres especiais | - | 20/12/2024 |
-| 157 anúncios invisíveis | Migração `properties` → `anuncios_ultimate` | #49 | 20/12/2024 |
+| 157 anúncios invisíveis | Migração `properties` → `properties` | #49 | 20/12/2024 |
 
 ---
 

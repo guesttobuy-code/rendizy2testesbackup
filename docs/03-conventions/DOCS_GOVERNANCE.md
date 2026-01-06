@@ -10,7 +10,7 @@ Este repositório trata documentação como **produto**: poucas fontes de verdad
 
 2. **Dados & Persistência (contratos)**
    - Regras de multi-tenant (`organization_id`), token/header, e persistência atômica via RPC.
-   - **Regra do produto**: tabela única `anuncios_ultimate` (não existe `anuncios_drafts`).
+   - **Regra do produto**: tabela única `properties` (não existe `anuncios_drafts`).
    - Pastas: `docs/02-architecture/`, `docs/04-modules/`.
 
 3. **Operação (runbooks) & Troubleshooting**

@@ -185,7 +185,7 @@ Error: violates foreign key constraint "reservations_property_id_fkey"
 ```
 
 **Causa:**
-FK aponta para tabela errada (properties) ao invés de anuncios_ultimate
+FK aponta para tabela errada (properties) ao invés de properties
 
 **Solução:**
 ```sql

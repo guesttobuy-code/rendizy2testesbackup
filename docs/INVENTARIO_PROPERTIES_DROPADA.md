@@ -1,4 +1,4 @@
-# INVENTÁRIO: Migração properties → anuncios_ultimate
+# INVENTÁRIO: Migração properties → properties
 
 **Data:** 2026-01-06  
 **Status:** ✅ **CONCLUÍDO**
@@ -22,13 +22,13 @@
 
 | Arquivo | Ação Tomada |
 |---------|-------------|
-| `rendizy-public/index.ts` | Removidas queries `.from("properties")`, usa apenas anuncios_ultimate |
+| `rendizy-public/index.ts` | Removidas queries `.from("properties")`, usa apenas properties |
 | `routes-anuncios.ts` | Removida função `syncCapacityToProperties` (2 ocorrências) |
-| `routes-blocks.ts` | Query de validação alterada para anuncios_ultimate |
-| `routes-client-sites.ts` | Removido bloco de properties, usa apenas anuncios_ultimate |
-| `staysnet-full-sync.ts` | Query de fallback alterada para anuncios_ultimate |
+| `routes-blocks.ts` | Query de validação alterada para properties |
+| `routes-client-sites.ts` | Removido bloco de properties, usa apenas properties |
+| `staysnet-full-sync.ts` | Query de fallback alterada para properties |
 | `migrate-properties-to-listings.ts` | Adicionado aviso de depreciação no cabeçalho |
-| `routes-properties.ts` | ✅ **REFATORADO 2026-01-06**: Todas 14 queries alteradas de `.from("properties")` para `.from("anuncios_ultimate")`. Criado adapter `utils-anuncio-property-adapter.ts` com funções `anuncioToProperty` e `propertyToAnuncio`. |
+| `routes-properties.ts` | ✅ **REFATORADO 2026-01-06**: Todas 14 queries alteradas de `.from("properties")` para `.from("properties")`. Criado adapter `utils-anuncio-property-adapter.ts` com funções `anuncioToProperty` e `propertyToAnuncio`. |
 | `migrate-properties-to-listings.ts` | ⚠️ Marcado como DEPRECIADO, não executar |
 
 ### 📝 Nota sobre migrate-properties-to-listings.ts
@@ -43,8 +43,8 @@ Este arquivo ainda contém `.from('properties')` mas está **marcado como DEPREC
 
 **utils-anuncio-property-adapter.ts** (407 linhas)
 - `ANUNCIO_SELECT_FOR_PROPERTY` - campos a selecionar
-- `anuncioToProperty(row)` - converte anuncios_ultimate → Property
-- `propertyToAnuncio(property, orgId, userId?)` - converte Property → anuncios_ultimate
+- `anuncioToProperty(row)` - converte properties → Property
+- `propertyToAnuncio(property, orgId, userId?)` - converte Property → properties
 - `buildAnuncioDataUpdate(updates, existingData)` - helper para updates parciais
 
 ## Componentes Frontend Afetados
@@ -57,9 +57,9 @@ Este arquivo ainda contém `.from('properties')` mas está **marcado como DEPREC
 
 ## Estratégia de Correção para routes-properties.ts
 
-### Opção A: Refatorar para anuncios_ultimate
+### Opção A: Refatorar para properties
 - Manter rotas `/properties` funcionando
-- Traduzir campos internamente para anuncios_ultimate.data
+- Traduzir campos internamente para properties.data
 - PRÓS: Compatibilidade total
 - CONTRAS: Trabalho extensivo (~2500 linhas)
 
@@ -75,9 +75,9 @@ Este arquivo ainda contém `.from('properties')` mas está **marcado como DEPREC
 - PRÓS: Arquitetura limpa
 - CONTRAS: Mais trabalho no frontend
 
-## Campos de Mapeamento properties → anuncios_ultimate
+## Campos de Mapeamento properties → properties
 
-| Campo properties | Equivalente anuncios_ultimate.data |
+| Campo properties | Equivalente properties.data |
 |------------------|-----------------------------------|
 | name | data.name / data.title |
 | code | data.codigo / data.propertyCode |

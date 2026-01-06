@@ -102,7 +102,7 @@
 ### **5. Documentação de Fixes**
 - `⚡_FIX_LISTA_ANUNCIOS_VIA_BACKEND_v1.0.103.404.md` (Issue #48)
 - `⚡_FIX_MIGRACAO_PROPERTIES_v1.0.103.405.md` (Issue #49)
-- `⚡_FIX_STAYSNET_TARGET_ANUNCIOS_ULTIMATE_v1.0.103.403.md` (Issue #47)
+- `⚡_FIX_STAYSNET_TARGET_properties_v1.0.103.403.md` (Issue #47)
 
 ---
 

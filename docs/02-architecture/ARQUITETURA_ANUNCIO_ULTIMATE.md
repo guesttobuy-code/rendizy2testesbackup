@@ -23,7 +23,7 @@
 ❌ **Falta de fila de persistência** - Se o usuário digitar rápido, alguns saves podem falhar silenciosamente  
 ❌ **Ausência de retry automático** - Erros de rede não são recuperados  
 ❌ **Estado local não sincronizado** - Frontend pode mostrar dados desatualizados após falha  
-❌ **Sem sistema de rascunhos** - Tudo vai direto para `anuncios_ultimate`  
+❌ **Sem sistema de rascunhos** - Tudo vai direto para `properties`  
 ❌ **Falta de versionamento** - Não há histórico de mudanças (apenas logs)  
 ❌ **Validação insuficiente** - Campos podem ser salvos com valores inválidos
 
@@ -41,7 +41,7 @@
 ### 2.1 Pilares de Design
 
 1. **Rascunho/Publicado (status no mesmo registro)**
-  - Existe **uma tabela única**: `anuncios_ultimate`
+  - Existe **uma tabela única**: `properties`
   - O “estado” (draft/publicado/pausado/etc) vive em campos do próprio registro (ex.: `status` + flags)
 
 2. **Fila de Persistência no Frontend**
@@ -65,10 +65,10 @@
 
 ## 3. ESTRUTURA DE BANCO DE DADOS PROPOSTA
 
-### 3.1 Tabela Única (`anuncios_ultimate`)
+### 3.1 Tabela Única (`properties`)
 
 ```sql
-CREATE TABLE public.anuncios_ultimate (
+CREATE TABLE public.properties (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id),
   user_id uuid NOT NULL REFERENCES users(id),
@@ -95,15 +95,15 @@ CREATE TABLE public.anuncios_ultimate (
 );
 
 -- Índices críticos para performance
-CREATE INDEX idx_anuncios_user ON anuncios_ultimate(user_id, updated_at DESC);
-CREATE INDEX idx_anuncios_org ON anuncios_ultimate(organization_id, status);
-CREATE INDEX idx_anuncios_title ON anuncios_ultimate USING gin(to_tsvector('portuguese', coalesce(title, '')));
-CREATE INDEX idx_anuncios_data ON anuncios_ultimate USING gin(data jsonb_path_ops);
+CREATE INDEX idx_anuncios_user ON properties(user_id, updated_at DESC);
+CREATE INDEX idx_anuncios_org ON properties(organization_id, status);
+CREATE INDEX idx_anuncios_title ON properties USING gin(to_tsvector('portuguese', coalesce(title, '')));
+CREATE INDEX idx_anuncios_data ON properties USING gin(data jsonb_path_ops);
 ```
 
 ### 3.2 Publicação (sem tabela separada)
 
-No modelo atual, **não existe** tabela separada de “published”. Publicar = atualizar campos (ex.: `status`, `visibility`, `slug`) no mesmo registro em `anuncios_ultimate`.
+No modelo atual, **não existe** tabela separada de “published”. Publicar = atualizar campos (ex.: `status`, `visibility`, `slug`) no mesmo registro em `properties`.
 
 ### 3.3 Tabela de Versionamento
 
@@ -208,7 +208,7 @@ DECLARE
 BEGIN
   -- Criar ou recuperar anúncio
   IF p_anuncio_id IS NULL THEN
-    INSERT INTO public.anuncios_ultimate (organization_id, user_id, data)
+    INSERT INTO public.properties (organization_id, user_id, data)
     VALUES (p_organization_id, p_user_id, '{}'::jsonb)
     RETURNING id INTO v_id;
   ELSE
@@ -233,7 +233,7 @@ BEGIN
       END IF;
 
       -- Aplicar mudança
-      UPDATE public.anuncios_ultimate
+      UPDATE public.properties
         SET data = jsonb_set(data, ARRAY[v_field], v_value, true),
             last_edited_field = v_field,
             last_edited_at = now()
@@ -265,7 +265,7 @@ BEGIN
     'changes_applied', v_applied,
     'changes_skipped', v_skipped
   ) INTO v_result
-  FROM anuncios_ultimate WHERE id = v_id;
+  FROM properties WHERE id = v_id;
 
   RETURN v_result;
 END;
@@ -583,7 +583,7 @@ DECLARE
   v_total int := array_length(v_required_fields, 1);
   v_percentage int;
 BEGIN
-  SELECT data INTO v_data FROM anuncios_ultimate WHERE id = p_anuncio_id;
+  SELECT data INTO v_data FROM properties WHERE id = p_anuncio_id;
 
   FOREACH v_field IN ARRAY v_required_fields LOOP
     IF v_data ? v_field AND v_data->>v_field IS NOT NULL AND v_data->>v_field != '' THEN
@@ -593,7 +593,7 @@ BEGIN
 
   v_percentage := (v_completed * 100) / v_total;
 
-  UPDATE anuncios_ultimate
+  UPDATE properties
     SET completion_percentage = v_percentage,
         status = CASE
           WHEN v_percentage = 100 THEN 'ready_to_publish'
@@ -618,7 +618,7 @@ DECLARE
   v_completion int;
 BEGIN
   SELECT completion_percentage INTO v_completion
-  FROM anuncios_ultimate
+  FROM properties
   WHERE id = p_anuncio_id;
 
   IF NOT FOUND THEN
@@ -629,7 +629,7 @@ BEGIN
     RAISE EXCEPTION 'Anúncio incompleto. Complete todos os campos obrigatórios.';
   END IF;
 
-  UPDATE anuncios_ultimate
+  UPDATE properties
     SET status = 'published'
     WHERE id = p_anuncio_id;
 
@@ -648,7 +648,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE VIEW public.anuncios_health AS
 SELECT
   -- Rascunhos ativos
-  (SELECT count(*) FROM anuncios_ultimate WHERE status = 'draft') as drafts_active,
+  (SELECT count(*) FROM properties WHERE status = 'draft') as drafts_active,
   
   -- Mudanças pendentes
   (SELECT count(*) FROM anuncios_pending_changes WHERE status = 'pending') as changes_pending,

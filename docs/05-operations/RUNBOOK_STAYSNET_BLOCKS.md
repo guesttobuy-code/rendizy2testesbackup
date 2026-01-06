@@ -30,7 +30,7 @@ O calendário busca bloqueios por `propertyIds` internos via rota SQL:
 - `GET /calendar/blocks?propertyIds=<uuid1,uuid2,...>`
 
 Se os blocks existem no banco mas não aparecem:
-- Confirmar que `property_id` do block é o UUID do `anuncios_ultimate.id`.
+- Confirmar que `property_id` do block é o UUID do `properties.id`.
 - Confirmar que `start_date/end_date` estão no range visível.
 
 ## 4) Se “sumiram todos os cards”

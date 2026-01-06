@@ -185,12 +185,12 @@ Se propriedades sumirem:
 1. Verificar console do navegador por logs `[ZONA_CRITICA]`
 2. Verificar logs do Edge Function no Supabase Dashboard
 3. Confirmar `organization_id` do usuário logado
-4. Checar tabela `anuncios_ultimate` diretamente
+4. Checar tabela `properties` diretamente
 
 ```sql
 -- Verificar anúncios por organização
 SELECT organization_id, COUNT(*) 
-FROM anuncios_ultimate 
+FROM properties 
 GROUP BY organization_id;
 ```
 

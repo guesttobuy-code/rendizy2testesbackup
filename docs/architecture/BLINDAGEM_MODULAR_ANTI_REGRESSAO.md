@@ -296,7 +296,7 @@ Antes de **qualquer deploy**, validar:
 3. **docs/architecture/CAPSULAS_MODULARES.md** - Isolamento de módulos
 4. **Ligando os motores único.md** - Histórico de vitórias e derrotas
 5. **LOGIN_VITORIAS_CONSOLIDADO.md** - Aprendizados de login
-6. **ARQUITETURA_ANUNCIO_ULTIMATE.md** - Padrão atômico em anuncios_ultimate
+6. **ARQUITETURA_ANUNCIO_ULTIMATE.md** - Padrão atômico em properties
 7. **PROPOSTA_ARQUITETURA_PERSISTENCIA.md** - Repository Pattern
 
 ---

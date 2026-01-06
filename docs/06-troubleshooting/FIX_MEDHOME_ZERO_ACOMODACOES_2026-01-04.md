@@ -19,7 +19,7 @@
 2) **API pública de imóveis retornava vazio**
 - `GET /client-sites/api/medhome/properties` voltava `{ success: true, data: [], total: 0 }`.
 - A org tinha `properties` (mas `status=draft`, filtrado fora por design).
-- A org também tinha `anuncios_ultimate` ativo (mas o fallback só existia no código local, ainda não deployado / ou o deploy não estava realmente válido).
+- A org também tinha `properties` ativo (mas o fallback só existia no código local, ainda não deployado / ou o deploy não estava realmente válido).
 
 3) **Deploy do Edge Function falhava silenciosamente (bundle quebrado)**
 - `rendizy-public` usava imports incompatíveis com Deno/Supabase Edge (`hono`, `jszip`, `@supabase/supabase-js`).
@@ -34,7 +34,7 @@
 
 - Proxy Vercel: fallback automático de Storage `extracted/dist/index.html` → `public-sites/<sub>/index.html` quando receber `Object not found`.
 - Edge Function `rendizy-public`:
-  - fallback `properties` → `anuncios_ultimate` quando a lista vier vazia;
+  - fallback `properties` → `properties` quando a lista vier vazia;
   - imports corrigidos para Deno (`npm:`).
 - Proxy Vercel: patch in-flight do bundle JS para derivar `pricing.dailyRate` a partir de `basePrice`.
 
@@ -50,7 +50,7 @@ Esperado:
 ## Próximos ajustes (consequência)
 
 - Preço `R$ NaN`: significa que o site ainda não recebe valor numérico consistente (corrigir mapeamento/shape de pricing).
-- Fotos/capa: mapear campos corretos do `anuncios_ultimate.data` para `photos`/`coverPhoto`.
+- Fotos/capa: mapear campos corretos do `properties.data` para `photos`/`coverPhoto`.
 - Regras de filtros/ocupação: revisar com o produto.
 
 ## Referência de arquitetura

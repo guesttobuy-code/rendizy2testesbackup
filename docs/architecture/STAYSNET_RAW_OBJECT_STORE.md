@@ -8,7 +8,7 @@ Garantir que **todo JSON retornado pela Stays** (reservas, hóspedes/clients, li
 - Reprocessamento/backfill sem depender de reimport manual
 - Investigação de bugs de normalização (ex: faltas no payload de lista)
 
-> Regra: tabelas “flat” (`reservations`, `guests`, `anuncios_ultimate`) continuam existindo por performance.
+> Regra: tabelas “flat” (`reservations`, `guests`, `properties`) continuam existindo por performance.
 > O **RAW completo** fica em uma tabela genérica e versionada.
 
 ---
@@ -66,7 +66,7 @@ Se o código não fornecer `externalId`, o helper deriva um valor estável basea
   - Grava domain `clients` + atualiza `guests.staysnet_raw` com o JSON completo do client (quando disponível)
 
 - Listings: `supabase/functions/rendizy-server/import-staysnet-properties.ts`
-  - Além de `anuncios_ultimate.data.staysnet_raw`, grava domain `listings`
+  - Além de `properties.data.staysnet_raw`, grava domain `listings`
 
 - Finance: `supabase/functions/rendizy-server/import-staysnet-finance.ts`
   - Grava `/finance/payment-providers` e `/finance/owners` como RAW (domain `finance`)

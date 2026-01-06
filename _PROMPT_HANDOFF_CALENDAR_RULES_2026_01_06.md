@@ -9,7 +9,7 @@
 
 O usuário reportou que as regras de calendário em massa (ajuste de preço %, mínimo de noites, restrições) "salvam por um mero instante, depois some tudo". Investigamos e descobrimos que:
 
-1. **CAUSA RAIZ RESOLVIDA:** A tabela `calendar_pricing_rules` tinha uma FK para `properties(id)`, mas a tabela `properties` foi **descontinuada** - o sistema usa `anuncios_ultimate` como fonte de imóveis. Isso causava erro de FK violation em todos os inserts.
+1. **CAUSA RAIZ RESOLVIDA:** A tabela `calendar_pricing_rules` tinha uma FK para `properties(id)`, mas a tabela `properties` foi **descontinuada** - o sistema usa `properties` como fonte de imóveis. Isso causava erro de FK violation em todos os inserts.
 
 2. **BACKEND FUNCIONANDO:** Após remover a FK, o Edge Function `calendar-rules-batch` salva corretamente (confirmado com 5 regras no banco).
 
@@ -44,8 +44,8 @@ Descobrimos via script de teste que o erro era:
 
 A FK referenciava `properties(id)`, mas:
 - A tabela `properties` só tinha 1 registro de teste (`cfd4c4d3-12bb-4d4a-a855-1912f1a6caee`)
-- Os property IDs usados no calendário vêm de `anuncios_ultimate` (ex: `0e0a0f3d-cf93-4414-a731-e5d70d9a8258`)
-- Usuário confirmou: **"properties não existe mais... usamos anuncios_ultimate como padrão"**
+- Os property IDs usados no calendário vêm de `properties` (ex: `0e0a0f3d-cf93-4414-a731-e5d70d9a8258`)
+- Usuário confirmou: **"properties não existe mais... usamos properties como padrão"**
 
 ### 2. Remoção da FK (executado manualmente no Supabase SQL Editor)
 
@@ -54,7 +54,7 @@ ALTER TABLE calendar_pricing_rules
   DROP CONSTRAINT IF EXISTS calendar_pricing_rules_property_id_fkey;
 
 COMMENT ON COLUMN calendar_pricing_rules.property_id IS 
-  'ID do imóvel em anuncios_ultimate (sem FK por design - fonte é anuncios_ultimate)';
+  'ID do imóvel em properties (sem FK por design - fonte é properties)';
 ```
 
 **Arquivo de referência:** `EXECUTE_NO_SUPABASE_SQL_EDITOR.sql` (na raiz do workspace)
@@ -118,7 +118,7 @@ console.log(`[useCalendarPricingRules] First rule:`, rulesArray[0]);
 
 ### Tabelas Importantes
 - `calendar_pricing_rules` - Regras de calendário (condição %, min_nights, restriction)
-- `anuncios_ultimate` - Fonte correta de property IDs (NÃO usar `properties`)
+- `properties` - Fonte correta de property IDs (NÃO usar `properties`)
 - `organizations` - Multi-tenant (FK válida em calendar_pricing_rules)
 - `sessions` - Autenticação customizada (não usa Supabase Auth)
 
@@ -269,7 +269,7 @@ Workspace root/
 
 ## ⚠️ PONTOS CRÍTICOS
 
-1. **NUNCA use tabela `properties`** - está descontinuada, usar `anuncios_ultimate`
+1. **NUNCA use tabela `properties`** - está descontinuada, usar `properties`
 
 2. **Autenticação customizada** - Sistema usa `sessions` table, não Supabase Auth. O token vem do header `x-auth-token`.
 
@@ -283,7 +283,7 @@ Workspace root/
 
 - Usuário disse que vai dormir e continua amanhã
 - Quer que as regras de calendário em massa funcionem (salvar e exibir)
-- Já confirmou que o sistema deve usar `anuncios_ultimate` como fonte de imóveis
+- Já confirmou que o sistema deve usar `properties` como fonte de imóveis
 
 ---
 

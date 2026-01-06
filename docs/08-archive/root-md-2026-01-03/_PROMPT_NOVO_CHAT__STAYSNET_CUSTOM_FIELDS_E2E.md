@@ -25,7 +25,7 @@
 4. **E2E real comprovado**: seed → import → persistência no anúncio.
    - Settings seedados com `customDescriptionFieldsCount=2`.
    - Import via service role executado.
-   - Persistência confirmada em `anuncios_ultimate.data.custom_description_fields_values` e `custom_description_fields_meta`.
+   - Persistência confirmada em `properties.data.custom_description_fields_values` e `custom_description_fields_meta`.
 
 5. **Correção crítica no import** para não depender das “definições” do StaysNet.
    - Quando StaysNet não expõe endpoints de definições/labels, o import agora usa fallback `Stays customField {id}` e ainda assim casa com settings.
@@ -68,14 +68,14 @@
 
 ### 2.3 Persistência (Supabase Postgres)
 
-- **Settings** armazenados como um registro especial dentro de `anuncios_ultimate.data`:
+- **Settings** armazenados como um registro especial dentro de `properties.data`:
   - `__kind = 'settings'`
   - `__settings_key = 'locations_listings'`
 
 - **Valores por anúncio**:
-  - `anuncios_ultimate.data.custom_description_fields_values`
+  - `properties.data.custom_description_fields_values`
     - Mapa: `fieldId(UUID) -> { pt: string, en: string, es: string }`
-  - `anuncios_ultimate.data.custom_description_fields_meta`
+  - `properties.data.custom_description_fields_meta`
     - Metadados do valor (ex.: origem StaysNet, stays_custom_field_id, stays_label).
 
 ---

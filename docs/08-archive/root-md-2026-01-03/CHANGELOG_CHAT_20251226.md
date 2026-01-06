@@ -5,7 +5,7 @@ Este arquivo registra, em alto nível, as alterações e operações executadas 
 ## Objetivo da sessão
 
 - Eliminar duplicações e garantir idempotência no import Stays.net.
-- Tornar `anuncios_ultimate` a fonte canônica (imports + rotas + leituras no frontend).
+- Tornar `properties` a fonte canônica (imports + rotas + leituras no frontend).
 - Resolver erro `502` no import de properties/listings (Stays.net) e validar com teste modular.
 - Viabilizar “wipe + reimport” confiável e rastreável.
 
@@ -13,8 +13,8 @@ Este arquivo registra, em alto nível, as alterações e operações executadas 
 
 ### Banco (Supabase migrations)
 
-- **Novo:** `supabase/migrations/20251226_fix_fk_reservations_blocks_to_anuncios_ultimate.sql`
-  - Ajusta FK de `reservations.property_id` para apontar para `anuncios_ultimate(id)` com `ON DELETE CASCADE`.
+- **Novo:** `supabase/migrations/20251226_fix_fk_reservations_blocks_to_properties.sql`
+  - Ajusta FK de `reservations.property_id` para apontar para `properties(id)` com `ON DELETE CASCADE`.
   - Cria índice para `reservations.property_id`.
   - Mantém bloco guardado/condicional para FK de `blocks.property_id`.
 
@@ -27,17 +27,17 @@ Este arquivo registra, em alto nível, as alterações e operações executadas 
   - Ajusta payload de resposta para incluir `message/stats` no topo e manter compatibilidade legada via `data.stats`.
 
 - `supabase/functions/rendizy-server/import-staysnet-reservations.ts`
-  - Resolver de propriedade passa a preferir `anuncios_ultimate`.
+  - Resolver de propriedade passa a preferir `properties`.
   - Dedupe reforçado para múltiplos candidatos de `external_id` quando aplicável.
 
 - `supabase/functions/rendizy-server/import-staysnet-blocks.ts`
-  - Resolver de propriedade passa a preferir `anuncios_ultimate`.
+  - Resolver de propriedade passa a preferir `properties`.
 
 - `supabase/functions/rendizy-server/routes-reservations.ts`
-  - Rotas de reservas ajustadas para preferir `anuncios_ultimate` (com fallback quando necessário).
+  - Rotas de reservas ajustadas para preferir `properties` (com fallback quando necessário).
 
 - `supabase/functions/rendizy-server/routes-staysnet.ts`
-  - Ajustes de resolução/preview e webhook para trabalhar com `anuncios_ultimate`.
+  - Ajustes de resolução/preview e webhook para trabalhar com `properties`.
 
 ### Frontend
 
@@ -47,7 +47,7 @@ Este arquivo registra, em alto nível, as alterações e operações executadas 
 - `components/anuncio-ultimate/ListaAnuncios.tsx`
 
 Mudanças principais:
-- Leituras/consultas que dependiam de `anuncios_drafts` foram migradas para `anuncios_ultimate`, alinhando com o caminho canônico.
+- Leituras/consultas que dependiam de `anuncios_drafts` foram migradas para `properties`, alinhando com o caminho canônico.
 
 ## Operações executadas (fora do git)
 

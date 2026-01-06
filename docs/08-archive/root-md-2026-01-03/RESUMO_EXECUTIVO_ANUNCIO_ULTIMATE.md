@@ -41,7 +41,7 @@ Você relatou que "às vezes a IA conserta uma coisa e bagunça outra". Após an
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  CAMADA 3: BANCO DE DADOS ROBUSTO                           │
-│  - anuncios_ultimate (tabela única: rascunho/publicado)     │
+│  - properties (tabela única: rascunho/publicado)     │
 │  - anuncios_versions (snapshots para rollback)             │
 │  - anuncios_pending_changes (recovery automático)           │
 └─────────────────────────────────────────────────────────────┘
@@ -111,7 +111,7 @@ POST /anuncio-ultimate/save-batch
 
 ### 4. Tabelas de Banco
 
-**anuncios_ultimate** - Tabela única (rascunho/publicação via status)
+**properties** - Tabela única (rascunho/publicação via status)
 ```sql
 {
   id: uuid,
@@ -311,7 +311,7 @@ SELECT * FROM anuncios_health;
 
 ### Q: Vou perder dados existentes?
 
-**R**: Não. O modelo atual usa **tabela única** `anuncios_ultimate`. Qualquer migração deve manter os dados existentes e não criar uma “tabela de drafts” separada.
+**R**: Não. O modelo atual usa **tabela única** `properties`. Qualquer migração deve manter os dados existentes e não criar uma “tabela de drafts” separada.
 
 ### Q: E se eu quiser voltar atrás?
 

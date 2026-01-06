@@ -50,7 +50,7 @@ Responsabilidades:
 
 - `client_sites`: configura subdomain + organização + referência de onde o site está no Storage (`archive_path`, `extracted_base_url`, etc.).
 - `properties`: imóveis “clássicos” (muitas vezes vazia ou status não-publicado em ambientes de testes).
-- `anuncios_ultimate`: imóveis importados/centralizados (ex.: StaysNet) usados como **fallback**.
+- `properties`: imóveis importados/centralizados (ex.: StaysNet) usados como **fallback**.
 
 ---
 
@@ -76,7 +76,7 @@ Browser
   └─ GET https://<supabase>/functions/v1/rendizy-public/client-sites/api/<sub>/properties
        ├─ Busca organization_id em client_sites
        ├─ Tenta properties (status active/published)
-       └─ Se vazio: fallback anuncios_ultimate (status active/published)
+       └─ Se vazio: fallback properties (status active/published)
 ```
 
 ---
@@ -118,12 +118,12 @@ Observação importante:
 
 ### 4.4 Capacidade (hóspedes) vinha como 0 apesar das camas indicarem 3
 
-No caso MedHome, o anúncio tinha inventário de camas em `anuncios_ultimate.data.rooms[].beds` (ex.: casal + solteiro), mas o site recebia `maxGuests=0`.
+No caso MedHome, o anúncio tinha inventário de camas em `properties.data.rooms[].beds` (ex.: casal + solteiro), mas o site recebia `maxGuests=0`.
 
 Correções aplicadas:
 
 - Backend (`rendizy-public`) passa a **derivar `maxGuests` a partir das camas** e publicar em `capacity.maxGuests` no DTO.
-- Backfill no `anuncios_ultimate.data` para persistir `guests/maxGuests/max_guests` (para que a fonte já fique canônica).
+- Backfill no `properties.data` para persistir `guests/maxGuests/max_guests` (para que a fonte já fique canônica).
 
 ---
 
@@ -151,7 +151,7 @@ Esperado:
 Após o “básico funcionar”, os próximos ajustes típicos para qualidade do catálogo:
 
 - Preço: garantir que o dado real de diária está presente (hoje pode vir `0` e o site pode mostrar `NaN` se tentar formatar `undefined`/string inválida).
-- Fotos: mapear `photos`/`coverPhoto` com os campos reais do `anuncios_ultimate.data`.
+- Fotos: mapear `photos`/`coverPhoto` com os campos reais do `properties.data`.
 - Capacidade: bedrooms/maxGuests/bathrooms conforme origem.
 - Status/ocupação: ajustar regras de “ocupado” vs disponibilidade.
 

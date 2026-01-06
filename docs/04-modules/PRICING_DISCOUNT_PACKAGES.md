@@ -25,14 +25,14 @@ Exemplo:
 
 ### 2) Override por anúncio
 
-- Local: `anuncios_ultimate.data.discount_packages_override`
+- Local: `properties.data.discount_packages_override`
 - Tipo: objeto com `rules[]` (mesmo formato do global)
 
 ## Precedência
 
 Regra de precedência (sempre):
 
-1. Se existir override no anúncio (`anuncios_ultimate.data.discount_packages_override`), usar ele.
+1. Se existir override no anúncio (`properties.data.discount_packages_override`), usar ele.
 2. Senão, usar o global da organização (`organizations.metadata.discount_packages`).
 
 ## UI (frontend)

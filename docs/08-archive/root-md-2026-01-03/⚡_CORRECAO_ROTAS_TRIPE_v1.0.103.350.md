@@ -116,7 +116,7 @@ app.use("/calendar/*", tenancyMiddleware);
 ### 1. **IMÓVEIS (Properties/Anuncios)**
 
 **Tabela Principal:** `anuncios_drafts`  
-**Tabela Legacy:** `anuncios_ultimate` (não usar mais)
+**Tabela Legacy:** `properties` (não usar mais)
 
 **Responsabilidades:**
 - Armazenar dados de imóveis (nome, endereço, amenidades, fotos)

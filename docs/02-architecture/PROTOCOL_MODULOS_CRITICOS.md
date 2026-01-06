@@ -77,7 +77,7 @@ Arquivo:
 Evolução recomendada:
 - Adicionar um smoke E2E (com `.env.local`) que valida persistência real no Supabase:
   - salva um campo em anúncio
-  - valida que `anuncios_ultimate.data` mudou
+  - valida que `properties.data` mudou
   - valida que existe audit em `anuncios_field_changes`
 
 ## 5) Regra de ouro

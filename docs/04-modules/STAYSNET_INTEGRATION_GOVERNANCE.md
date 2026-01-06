@@ -20,14 +20,14 @@ Este documento existe para **blindar** a integração Stays.net (modal + robôs 
 
 3) **Modal envia IDs da Stays; DB usa UUID interno**
 - A seleção no modal usa `property.id`/`_id` da Stays.
-- O backend precisa **resolver** para `anuncios_ultimate.id` (UUID interno) antes de salvar em `blocks`/`reservations`.
+- O backend precisa **resolver** para `properties.id` (UUID interno) antes de salvar em `blocks`/`reservations`.
 
 4) **Em falha temporária, UI não pode zerar dados**
 - Nunca retornar `[]` como “fallback” de erro para reservas/bloqueios.
 - Em erro de rede/token, **lançar erro** para React Query manter o último cache bom.
 
 5) **Reserva sem imóvel: SKIP + issue (nunca silencioso)**
-- `reservations.property_id` precisa existir em `anuncios_ultimate`.
+- `reservations.property_id` precisa existir em `properties`.
 - Se não resolver mapping do listing da Stays: **SKIP** da reserva (não criar placeholder).
 - Porém, deve persistir `staysnet_import_issues` (`missing_property_mapping`) para auditoria + reprocess.
 - Documento canônico: `docs/04-modules/STAYSNET_IMPORT_ISSUES.md`.
@@ -56,7 +56,7 @@ Use sempre a cápsula correspondente.
 Backend deve:
 - Validar tenant (org) quando há token.
 - Filtrar seleção por IDs Stays antes de resolver.
-- Resolver para UUID interno (`anuncios_ultimate.id`).
+- Resolver para UUID interno (`properties.id`).
 - Persistir em `blocks` com `property_id`, `start_date`, `end_date`.
 
 ## Onde mexer (e onde NÃO mexer)

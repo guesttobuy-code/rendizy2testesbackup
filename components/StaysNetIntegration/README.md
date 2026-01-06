@@ -84,7 +84,7 @@ Essas regras existem porque este módulo é “coração do sistema” e já pro
 
 1) **IDs selecionados no modal são IDs da Stays (não UUID interno)**
 - `selectedPropertyIds` enviados ao backend são `property.id`/`_id` da Stays.
-- O backend deve resolver para `anuncios_ultimate.id` antes de salvar `blocks`/`reservations`.
+- O backend deve resolver para `properties.id` antes de salvar `blocks`/`reservations`.
 
 2) **Em falha de API/token, nunca “limpar” calendário**
 - Não usar fallback `[]` em erro para reservas/bloqueios.

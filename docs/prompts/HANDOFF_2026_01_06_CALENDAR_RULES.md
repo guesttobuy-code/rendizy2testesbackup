@@ -160,7 +160,7 @@ npx supabase functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc
 
 # Verificar anúncios no banco (PowerShell)
 $key="<SERVICE_KEY>"; $h=@{apikey=$key;Authorization="Bearer $key"}
-$u="https://odcgnzfremrqnvtitpcc.supabase.co/rest/v1/anuncios_ultimate?select=id,organization_id&limit=10"
+$u="https://odcgnzfremrqnvtitpcc.supabase.co/rest/v1/properties?select=id,organization_id&limit=10"
 Invoke-RestMethod -Uri $u -Headers $h | ConvertTo-Json
 
 # Verificar regras de calendário

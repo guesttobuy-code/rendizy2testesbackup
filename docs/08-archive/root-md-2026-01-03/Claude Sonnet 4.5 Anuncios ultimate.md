@@ -984,7 +984,7 @@ END IF;
 - ✨ Wizard Step 1 implementado
 - ✨ Edge Function básica
 - ✨ RPC save_anuncio_field
-- ✨ Tabela anuncios_ultimate
+- ✨ Tabela properties
 - 🐛 Fix: CORS headers
 - 🐛 Fix: Auth com ANON_KEY
 - 🐛 Fix: RPC ambiguidade de colunas

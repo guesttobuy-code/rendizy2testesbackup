@@ -50,7 +50,7 @@ Padrão recomendado:
 
 ### 4.1) Anúncios (Imóveis)
 
-- **Tabela canônica**: `public.anuncios_ultimate`
+- **Tabela canônica**: `public.properties`
 - Endpoints canônicos:
   - `GET  /functions/v1/rendizy-server/anuncios-ultimate/lista`
   - `GET  /functions/v1/rendizy-server/anuncios-ultimate/:id`
@@ -60,7 +60,7 @@ Padrão recomendado:
   - `DELETE /functions/v1/rendizy-server/anuncios-ultimate/:id`
 
 Registros internos:
-- Configurações internas do módulo podem ficar em `anuncios_ultimate.data` com:
+- Configurações internas do módulo podem ficar em `properties.data` com:
   - `data.__kind = 'settings'`
   - `data.__settings_key = 'locations_listings'`
 - A rota `/lista` **deve excluir** registros de settings.
@@ -83,7 +83,7 @@ Registros internos:
 - Retornar dados sem filtro de `organization_id`.
 - Confiar em `organization_id` fornecido pelo cliente (body/query) para usuários normais.
 - Misturar tenants no mesmo endpoint (ex.: “listar tudo” sem org).
-- Consultar tabelas legadas/erradas para anúncios (o sistema oficial é `anuncios_ultimate`).
+- Consultar tabelas legadas/erradas para anúncios (o sistema oficial é `properties`).
 
 ---
 
@@ -93,4 +93,4 @@ Registros internos:
 - [ ] Rota calcula org via `getOrganizationIdForRequest(c)`.
 - [ ] Query inclui `.eq('organization_id', organizationId)`.
 - [ ] Endpoints por `:id` validam UUID e filtram por org.
-- [ ] Anúncios usam `anuncios_ultimate` e não retornam settings na lista.
+- [ ] Anúncios usam `properties` e não retornam settings na lista.

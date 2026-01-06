@@ -1,7 +1,7 @@
 # Regra Canônica: Reservas sem imóvel NÃO existem
 
 ## Objetivo
-Evitar “reservas fantasma” (linhas em `reservations` sem vínculo com um imóvel válido em `anuncios_ultimate`).
+Evitar “reservas fantasma” (linhas em `reservations` sem vínculo com um imóvel válido em `properties`).
 
 Quando isso acontece:
 - telas exibem **“Propriedade não encontrada”**,
@@ -9,7 +9,7 @@ Quando isso acontece:
 - a conciliação com integrações (Stays.net, Booking, etc.) vira ruído.
 
 **Regra canônica do sistema:**
-> Toda reserva deve ter `property_id` apontando para um registro existente em `public.anuncios_ultimate` **da mesma organização**.
+> Toda reserva deve ter `property_id` apontando para um registro existente em `public.properties` **da mesma organização**.
 > Se não há imóvel, a reserva deve ser **descartada (SKIP)** ou **removida** (se já foi criada por erro legado).
 
 ## Aplicação (camadas de blindagem)
@@ -47,7 +47,7 @@ Se aparecer “Propriedade não encontrada”, é sinal de:
 - Card/lista de reservas mostra “Propriedade não encontrada”.
 
 ### Ação recomendada
-1) Garantir que a FK `reservations.property_id -> anuncios_ultimate(id)` está aplicada com `ON DELETE CASCADE`.
+1) Garantir que a FK `reservations.property_id -> properties(id)` está aplicada com `ON DELETE CASCADE`.
 2) Aplicar a migration de blindagem `20251228_reservations_must_have_property.sql`.
 3) Reimportar o que for necessário (primeiro imóveis, depois reservas).
 

@@ -16,7 +16,7 @@
 - Problema: override de “Descontos por pacote de dias” por anúncio não refletia no calendário individualmente.
 - Correção aplicada no código:
   - O calendário agora usa, por imóvel:
-    - `anuncios_ultimate.data.discount_packages_override` **se existir**, senão usa o padrão da organização.
+    - `properties.data.discount_packages_override` **se existir**, senão usa o padrão da organização.
   - O App agora carrega esse campo no objeto `Property`.
   - Ao salvar “Precificação Individual” no wizard, dispara refresh do cache de propriedades para refletir no calendário sem F5.
 

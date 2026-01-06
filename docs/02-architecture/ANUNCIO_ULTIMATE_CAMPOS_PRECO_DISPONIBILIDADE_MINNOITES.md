@@ -9,7 +9,7 @@
 
 Na prática, o catálogo público tem duas camadas:
 
-- **Fonte**: `anuncios_ultimate.data` (JSONB)
+- **Fonte**: `properties.data` (JSONB)
 - **Contrato público (DTO)**: resposta do endpoint `rendizy-public` em:
   - `GET /client-sites/api/:subdomain/properties`
 
@@ -17,7 +17,7 @@ A estratégia escalável é: **o backend garante o shape do DTO**, mesmo que `da
 
 ---
 
-## 2) O que existe hoje em `anuncios_ultimate.data` (observado no caso MedHome)
+## 2) O que existe hoje em `properties.data` (observado no caso MedHome)
 
 ### 2.1 Fotos
 
@@ -49,7 +49,7 @@ Quando o Client Site tenta formatar preço a partir de `undefined`/`null` (ou st
 
 ---
 
-## 3) Contrato recomendado (canônico) dentro de `anuncios_ultimate.data`
+## 3) Contrato recomendado (canônico) dentro de `properties.data`
 
 Para evitar múltiplos formatos e “adivinhar” campos em cada site, padronizar em `data.pricing` + `data.rules`.
 
@@ -105,7 +105,7 @@ Importante: disponibilidade geralmente não vive “fixa” dentro do anúncio, 
 
 Recomendação:
 
-- **Não** tentar “serializar a disponibilidade inteira” em `anuncios_ultimate.data`.
+- **Não** tentar “serializar a disponibilidade inteira” em `properties.data`.
 - Servir disponibilidade via endpoint próprio (e cacheável) por intervalo:
 
 ```
@@ -166,7 +166,7 @@ Notas:
 - Definir 1 “contrato público” e manter compatibilidade retroativa.
 - Evitar depender do bundle compilado do site para “normalizar dados”.
 - Onde for determinístico (ex.: capacidade por camas), fazer:
-  - normalização no backend + backfill em `anuncios_ultimate.data`.
+  - normalização no backend + backfill em `properties.data`.
 - Onde não for determinístico (ex.: preço e disponibilidade), exigir:
   - preenchimento explícito na origem (ingest/admin) ou
   - um pipeline confiável que compute/importe.

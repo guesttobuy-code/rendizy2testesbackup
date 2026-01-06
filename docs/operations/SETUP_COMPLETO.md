@@ -61,7 +61,7 @@ Se for começar nova tarefa:
 
 ### 🔑 INFORMAÇÕES CRÍTICAS:
 - **StaysNet**: Usa `X-Auth-Token` (NÃO Bearer)
-- **Tabela principal**: `anuncios_ultimate` (tabela única; não existe tabela separada de rascunhos)
+- **Tabela principal**: `properties` (tabela única; não existe tabela separada de rascunhos)
 - **Arquitetura**: Modular em cápsulas (não monolítico)
 - **Commits**: Conventional Commits obrigatório
 

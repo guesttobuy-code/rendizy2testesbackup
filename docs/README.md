@@ -86,7 +86,7 @@ docs/
 - **ARQUITETURA_ANUNCIO_ULTIMATE.md** - Módulo de anúncios
   - Estrutura JSONB
   - Sistema de tabs vs wizard
-  - Tabela única: `anuncios_ultimate` (não existe tabela separada de rascunhos)
+  - Tabela única: `properties` (não existe tabela separada de rascunhos)
 
 - **ARQUITETURA_ESCALAVEL_SAAS.md** - Arquitetura SaaS multi-tenant
   - Row Level Security (RLS)
@@ -173,7 +173,7 @@ docs/
 
 #### **Anúncios Ultimate**
 - `README.md` - Overview do módulo
-- `Claude_Sonnet_Anuncios_Ultimate.md` - Documento de controle (histórico completo)
+- `Claude_Sonnet_properties.md` - Documento de controle (histórico completo)
 - Todas as issues e fixes relacionados
 
 #### **StaysNet**

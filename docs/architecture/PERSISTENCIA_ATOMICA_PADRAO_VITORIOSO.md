@@ -17,7 +17,7 @@ Este documento consolida o **padrão de persistência atômica** que vencemos e 
 2. Não há padrão documentado de persistência para integrações
 3. A I.A. não sabia que temos um padrão vitorioso de persistência
 
-**Solução**: Documentar o padrão atômico que **JÁ FUNCIONA** em `anuncios_ultimate` para **REPLICAR** em novos módulos.
+**Solução**: Documentar o padrão atômico que **JÁ FUNCIONA** em `properties` para **REPLICAR** em novos módulos.
 
 ---
 
@@ -309,7 +309,7 @@ ORDER BY created_at DESC;
 
 ```sql
 -- Restaurar estado anterior
-UPDATE anuncios_ultimate 
+UPDATE properties 
 SET data = (
   SELECT value 
   FROM anuncios_field_changes 
@@ -340,7 +340,7 @@ WHERE id = '...';
 
 ## 🎓 LIÇÕES APRENDIDAS
 
-### Vitória #1: anuncios_ultimate (Dezembro 2025)
+### Vitória #1: properties (Dezembro 2025)
 
 - **Problema**: Formulário de anúncios perdendo dados, duplicatas, race conditions
 - **Solução**: RPC `save_anuncio_field` com UPSERT + idempotência

@@ -107,7 +107,7 @@ Antes de fazer qualquer mudança:
 ```
 organizations (tenant raiz)
     ├── users (usuários do tenant)
-    ├── anuncios_ultimate (imóveis/propriedades) ← FONTE DE VERDADE
+    ├── properties (imóveis/propriedades) ← FONTE DE VERDADE
     │     ├── reservations (reservas)
     │     ├── blocks (bloqueios de calendário)
     │     └── calendar_pricing_rules (regras de preço)
@@ -118,7 +118,7 @@ organizations (tenant raiz)
 
 ---
 
-## 📊 TABELA #1: `anuncios_ultimate` - IMÓVEIS
+## 📊 TABELA #1: `properties` - IMÓVEIS
 
 | Atributo | Valor |
 |----------|-------|
@@ -129,7 +129,7 @@ organizations (tenant raiz)
 
 **Estrutura:**
 ```sql
-CREATE TABLE anuncios_ultimate (
+CREATE TABLE properties (
   id UUID PRIMARY KEY,
   organization_id UUID NOT NULL,
   user_id UUID,
@@ -163,7 +163,7 @@ CREATE TABLE anuncios_ultimate (
 2. **NUNCA** criar tabela `listings` separada
 3. **NUNCA** criar tabela `imoveis` em português
 4. **NUNCA** criar tabela `apartments`, `houses`, etc.
-5. **SEMPRE** usar `anuncios_ultimate` para qualquer dado de imóvel
+5. **SEMPRE** usar `properties` para qualquer dado de imóvel
 6. Dados flexíveis VÃO em `data` (JSONB), não em colunas novas
 
 ---
@@ -175,13 +175,13 @@ CREATE TABLE anuncios_ultimate (
 | **Propósito** | Armazenar todas as reservas de hospedagem |
 | **Tipo de ID** | UUID |
 | **Multi-tenant** | Sim (`organization_id`) |
-| **FK Principal** | `property_id` → `anuncios_ultimate.id` |
+| **FK Principal** | `property_id` → `properties.id` |
 
 ### ⛔ REGRAS INVIOLÁVEIS PARA RESERVAS
 
 1. **NUNCA** criar tabela `bookings` concorrente
 2. **NUNCA** criar tabela `reservas` em português
-3. `property_id` **SEMPRE** referencia `anuncios_ultimate.id`
+3. `property_id` **SEMPRE** referencia `properties.id`
 
 ---
 
@@ -192,13 +192,13 @@ CREATE TABLE anuncios_ultimate (
 | **Propósito** | Bloquear datas no calendário |
 | **Tipo de ID** | UUID |
 | **Multi-tenant** | Sim (`organization_id`) |
-| **FK Principal** | `property_id` → `anuncios_ultimate.id` |
+| **FK Principal** | `property_id` → `properties.id` |
 
 ### ⛔ REGRAS INVIOLÁVEIS PARA BLOQUEIOS
 
 1. **NUNCA** criar tabela `bloqueios` em português
 2. **NUNCA** criar tabela `unavailable_dates`
-3. `property_id` **SEMPRE** referencia `anuncios_ultimate.id`
+3. `property_id` **SEMPRE** referencia `properties.id`
 
 ---
 
@@ -254,12 +254,12 @@ CREATE TABLE anuncios_ultimate (
 | Atributo | Valor |
 |----------|-------|
 | **Propósito** | Regras de precificação por período |
-| **FK Principal** | `property_id` → `anuncios_ultimate.id` |
+| **FK Principal** | `property_id` → `properties.id` |
 
 ### ⛔ REGRAS INVIOLÁVEIS
 
 1. **NUNCA** criar FK para `properties` (tabela não existe)
-2. `property_id` referencia `anuncios_ultimate.id`
+2. `property_id` referencia `properties.id`
 
 ---
 
@@ -267,9 +267,9 @@ CREATE TABLE anuncios_ultimate (
 
 | Nome Proibido | Motivo | Use Isso |
 |---------------|--------|----------|
-| `properties` | REMOVIDA em 2026-01-06 | `anuncios_ultimate` |
-| `listings` | Duplicaria anuncios | `anuncios_ultimate` |
-| `imoveis` | Português proibido | `anuncios_ultimate` |
+| `properties` | REMOVIDA em 2026-01-06 | `properties` |
+| `listings` | Duplicaria anuncios | `properties` |
+| `imoveis` | Português proibido | `properties` |
 | `bookings` | Duplicaria reservations | `reservations` |
 | `reservas` | Português proibido | `reservations` |
 | `hospedes` | Português proibido | `guests` |
@@ -284,7 +284,7 @@ CREATE TABLE anuncios_ultimate (
 ### ✅ CORRETO - Buscar Imóveis
 ```typescript
 const { data } = await supabase
-  .from('anuncios_ultimate')
+  .from('properties')
   .select('id, status, organization_id, data')
   .eq('organization_id', organizationId)
   .in('status', ['active', 'published']);
@@ -319,7 +319,7 @@ const hospedes = d.guests || d.maxGuests || d.max_guests || 0;
 
 | Data | Mudança | Motivo |
 |------|---------|--------|
-| 2026-01-06 | Removida tabela `properties` | Duplicava `anuncios_ultimate` |
+| 2026-01-06 | Removida tabela `properties` | Duplicava `properties` |
 | 2026-01-06 | Atualizado Rules.md v2.0 | Canonizar arquitetura de dados |
 
 ---

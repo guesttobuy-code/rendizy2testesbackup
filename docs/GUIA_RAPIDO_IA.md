@@ -116,8 +116,8 @@ headers: {
 
 ### **3. Sistema de Anúncios**
 ```sql
--- ✅ Sistema ATIVO: anuncios_ultimate (Sistema Ultimate)
--- Tabela única: anuncios_ultimate
+-- ✅ Sistema ATIVO: properties (Sistema Ultimate)
+-- Tabela única: properties
 -- Não existe tabela separada de rascunhos
 
 -- ❌ Sistema DESCONTINUADO: properties (Wizard antigo)
@@ -259,7 +259,7 @@ export async function createReservation(c: Context) {
 ### **Problema: Reserva não é criada (FK error)**
 ```sql
 -- CAUSA: FK aponta para tabela errada (properties)
--- SOLUÇÃO: FK deve apontar para anuncios_ultimate
+-- SOLUÇÃO: FK deve apontar para properties
 ```
 
 ---

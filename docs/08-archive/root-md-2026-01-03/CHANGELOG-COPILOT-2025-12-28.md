@@ -34,7 +34,7 @@ Commit: `a0234f52370a27e7657bee549e73a5e9be0d99a8` (branch `final-clean`)
   - Limpa reservas órfãs (sem `property_id` / property inexistente / org mismatch).
   - Trigger bloqueia novas reservas órfãs e aplica `ALTER TABLE reservations ALTER COLUMN property_id SET NOT NULL`.
 - Bloqueio de placeholders Stays em anúncios:
-  - Trigger impede criar/atualizar `anuncios_ultimate` com título/nome interno padrão “Propriedade Stays.net …”.
+  - Trigger impede criar/atualizar `properties` com título/nome interno padrão “Propriedade Stays.net …”.
 
 ## Frontend — Exportação Excel (.xls)
 - Botão “Exportar Excel (.xls)” exporta **todas** as reservas do filtro atual (busca todas as páginas), não só a página visível.

@@ -1,10 +1,10 @@
 # Stays.net — Import Issues (Reservas sem imóvel)
 
-Este documento define o **comportamento canônico** quando o import Stays.net encontra dados que **não podem ser persistidos** por falta de vínculo com imóvel (`anuncios_ultimate`).
+Este documento define o **comportamento canônico** quando o import Stays.net encontra dados que **não podem ser persistidos** por falta de vínculo com imóvel (`properties`).
 
 ## Problema que isso resolve
 
-Em produção, pode existir reserva na Stays.net cujo `listing/property id` ainda **não está mapeado** em `anuncios_ultimate`.
+Em produção, pode existir reserva na Stays.net cujo `listing/property id` ainda **não está mapeado** em `properties`.
 
 Sem governança, isso vira o pior bug:
 - a importação “passa”
@@ -15,7 +15,7 @@ A solução é: **não criar placeholder de imóvel** e **não perder a informa�
 
 ## Regra canônica
 
-- `reservations.property_id` **sempre** deve apontar para um registro existente em `public.anuncios_ultimate` **da mesma organization**.
+- `reservations.property_id` **sempre** deve apontar para um registro existente em `public.properties` **da mesma organization**.
 - Se não for possível resolver o imóvel:
   - a reserva **não pode** ser criada (SKIP)
   - deve ser registrado um **Import Issue durável** em `public.staysnet_import_issues`
@@ -58,7 +58,7 @@ Arquivo: `supabase/functions/rendizy-server/import-staysnet-issues.ts`
 
 Durante `import-staysnet-reservations.ts`:
 
-1) Resolver `listing/property id` da Stays → `anuncios_ultimate.id` via JSONB `data`.
+1) Resolver `listing/property id` da Stays → `properties.id` via JSONB `data`.
 2) Se não resolver:
 - registrar issue `missing_property_mapping` (best-effort; não quebrar o import)
 - **SKIP** da reserva (por regra canônica)
@@ -82,7 +82,7 @@ Compatibilidade:
 
 ## Como o mapping é encontrado (regra de resolução)
 
-A resolução do `anuncios_ultimate.id` para um `staysId` consulta `anuncios_ultimate.data` com `.contains(...)` em ordem:
+A resolução do `properties.id` para um `staysId` consulta `properties.data` com `.contains(...)` em ordem:
 - `data.externalIds.staysnet_property_id`
 - `data.externalIds.staysnet_listing_id`
 - `data.staysnet_raw._id`

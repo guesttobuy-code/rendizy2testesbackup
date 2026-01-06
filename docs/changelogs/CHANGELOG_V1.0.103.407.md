@@ -1,11 +1,11 @@
 # CHANGELOG v1.0.103.407
 
-> Nota (atual): o sistema de anúncios usa **tabela única** `anuncios_ultimate` (não existe tabela separada de drafts).
+> Nota (atual): o sistema de anúncios usa **tabela única** `properties` (não existe tabela separada de drafts).
 
 ## Backend / Supabase Edge (rendizy-server)
 - Registradas todas as rotas StaysNet (settings, test, imports) no entrypoint para garantir persistência e evitar resposta padrão "Edge Function funcionando".
 - Deploy executado via `npx supabase@latest functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc`, liberando GET/POST de config e imports no ambiente.
-- Novo `/staysnet/import/preview` cruza `stays_net_id` dos anúncios existentes (`anuncios_ultimate`) com a lista vinda da Stays e retorna totais (remotos, existentes, novos) para evitar duplicação.
+- Novo `/staysnet/import/preview` cruza `stays_net_id` dos anúncios existentes (`properties`) com a lista vinda da Stays e retorna totais (remotos, existentes, novos) para evitar duplicação.
 - Corrigidas rotas de `/reservations` para aplicar `tenancyMiddleware`, evitando erro 500 (TenantContext ausente) e permitindo a listagem no frontend.
 - Segurança: removida rota/local reimport e referência a arquivo não versionado, prevenindo risco de credenciais hardcoded.
 

@@ -1,4 +1,4 @@
-# 🔁 Sync de Capacidade: `anuncios_ultimate` → `properties`
+# 🔁 Sync de Capacidade: `properties` → `properties`
 
 ## Problema (por que “funcionava” e parou)
 
@@ -11,11 +11,11 @@ A UI de cards/listas (ex.: gestão de unidades) exibe **quartos / banheiros / ca
 
 Já a edição interna do anúncio (Anúncio Ultimate) grava os cômodos em:
 
-- `anuncios_ultimate.data.rooms` (JSON)
+- `properties.data.rooms` (JSON)
 
 Ou seja: ao editar `rooms[]`, os números no card não mudavam porque **o card não lê `rooms[]`** — ele lê a tabela `properties`.
 
-Isso parecia “funcionar” quando `properties.*` era atualizado junto (ex.: fluxos antigos/imports). Ao mudar o fluxo para editar apenas `anuncios_ultimate.data`, o card ficou “travado”.
+Isso parecia “funcionar” quando `properties.*` era atualizado junto (ex.: fluxos antigos/imports). Ao mudar o fluxo para editar apenas `properties.data`, o card ficou “travado”.
 
 ---
 
@@ -52,7 +52,7 @@ A partir de `rooms[]`:
 ## Por que isso evita regressão
 
 - A tabela `properties` continua sendo o **modelo de leitura rápida** para cards/listas.
-- O JSON `anuncios_ultimate.data` continua sendo o **modelo canônico** para edição interna.
+- O JSON `properties.data` continua sendo o **modelo canônico** para edição interna.
 - A sincronização garante consistência entre os dois sem depender de refresh manual ou “import”.
 
 ---
