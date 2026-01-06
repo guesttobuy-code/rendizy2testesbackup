@@ -87,4 +87,13 @@ Antes de fazer qualquer mudança:
 ---
 
 *Última atualização: 2026-01-05*
-*Versão: 1.0*
+*Versão: 1.1*
+
+---
+
+## 📚 DOCUMENTOS RELACIONADOS
+
+| Documento | Descrição |
+|-----------|-----------|
+| [AI_RULES.md](../.github/AI_RULES.md) | Regras específicas para AI/Copilot - Zonas Críticas do código |
+| [.cursorrules](../.cursorrules) | Regras para Cursor/Copilot (formato compacto) |

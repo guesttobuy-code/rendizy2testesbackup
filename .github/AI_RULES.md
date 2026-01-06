@@ -2,6 +2,8 @@
 
 > **ATENÇÃO AI:** Este arquivo contém regras que DEVEM ser seguidas ao modificar código neste repositório.
 > Violações podem causar problemas graves em produção.
+>
+> 📚 **Documento principal:** [docs/Rules.md](../docs/Rules.md) - Regras canônicas gerais do Rendizy
 
 ## 🔴 ZONAS CRÍTICAS - NÃO MODIFICAR SEM AUTORIZAÇÃO
 
