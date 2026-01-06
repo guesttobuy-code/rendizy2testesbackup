@@ -121,7 +121,9 @@ const BIModule = React.lazy(() => import('./components/bi/BIModule'));
 const AdminMasterModule = React.lazy(() =>
   import('./components/admin/AdminMasterModule').then((m) => ({ default: m.AdminMasterModule }))
 );
-const DashboardModule = React.lazy(() => import('./components/dashboard/DashboardModule'));
+const DashboardModule = React.lazy(() =>
+  import('./components/dashboard/DashboardModule').then((m) => ({ default: m.DashboardModule }))
+);
 const CalendarModule = React.lazy(() =>
   import('./components/calendar/CalendarModule').then((m) => ({ default: m.CalendarModule }))
 );
