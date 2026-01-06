@@ -420,7 +420,7 @@ export function ReservationsManagement({
 
   const loadProperties = async () => {
     try {
-      // ✅ Buscar de anuncios_ultimate (Anúncios Ultimate)
+      // ✅ Buscar de properties (tabela canônica de propriedades)
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
       const ANON_KEY = publicAnonKey;
       

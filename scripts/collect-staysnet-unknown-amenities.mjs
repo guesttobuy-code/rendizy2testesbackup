@@ -175,7 +175,7 @@ async function main() {
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (listingKey && uuidRegex.test(listingKey)) {
-    const q = `/rest/v1/anuncios_ultimate?select=organization_id,id,data&limit=1&id=eq.${encodeURIComponent(listingKey)}`;
+    const q = `/rest/v1/properties?select=organization_id,id,data&limit=1&id=eq.${encodeURIComponent(listingKey)}`;
     const rows = await restGet(q);
     const row = Array.isArray(rows) ? rows[0] : null;
     if (row?.organization_id) organizationId = row.organization_id;

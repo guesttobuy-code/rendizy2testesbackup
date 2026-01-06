@@ -163,7 +163,7 @@ export interface Property {
   coverPhoto?: string;
   /** Preço base do anúncio (ex.: preco_base_noite / pricing.basePrice). */
   basePrice?: number;
-  /** Override por anúncio (salvo em anuncios_ultimate.data.discount_packages_override). */
+  /** Override por anúncio (salvo em properties.data.discount_packages_override). */
   discountPackagesOverride?: any;
   type: string;
   location: string;

@@ -165,7 +165,7 @@ function sourceFromDescription(desc) {
   const d = String(desc || '').toLowerCase();
   if (d.includes('supabase reservations')) return 'Supabase: reservations';
   if (d.includes('supabase guests')) return 'Supabase: guests';
-  if (d.includes('supabase anuncios_ultimate')) return 'Supabase: anuncios_ultimate';
+  if (d.includes('supabase properties')) return 'Supabase: properties';
   if (d.includes('stays /booking/reservations')) return 'Stays: /booking/reservations';
   if (d.includes('stays /content/properties')) return 'Stays: /content/properties';
   return desc ? `Fonte: ${desc}` : '';

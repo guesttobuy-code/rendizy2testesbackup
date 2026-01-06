@@ -16,7 +16,7 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 // ============================================
 
 /**
- * Hook para carregar propriedades de anuncios_ultimate
+ * Hook para carregar propriedades da tabela properties
  * Cache: 5 minutos
  * Refetch: ao focar janela
  */

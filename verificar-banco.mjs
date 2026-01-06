@@ -97,8 +97,8 @@ async function verificarEdgeFunction() {
 
 // Executar verificações
 (async () => {
-  console.log('1️⃣ Verificando tabela anuncios_ultimate...');
-  const tabela1 = await verificarTabela('anuncios_ultimate');
+  console.log('1️⃣ Verificando tabela properties...');
+  const tabela1 = await verificarTabela('properties');
   
   console.log('\n2️⃣ Verificando tabela anuncios_field_changes...');
   const tabela2 = await verificarTabela('anuncios_field_changes');
@@ -111,7 +111,7 @@ async function verificarEdgeFunction() {
   
   console.log('\n📊 RESULTADO FINAL:');
   console.log('═══════════════════════════════════════');
-  console.log(`Tabela anuncios_ultimate:      ${tabela1 ? '✅' : '❌'}`);
+  console.log(`Tabela properties:             ${tabela1 ? '✅' : '❌'}`);
   console.log(`Tabela anuncios_field_changes: ${tabela2 ? '✅' : '❌'}`);
   console.log(`RPC save_anuncio_field:        ${rpc ? '✅' : '❌'}`);
   console.log(`Edge Function:                 ${edge ? '✅' : '❌'}`);
