@@ -152,6 +152,30 @@
 
 ---
 
+### 8. Stays.net (imports + webhooks) — custo e escala
+
+**Arquivos principais:**
+- `supabase/functions/rendizy-server/import-staysnet-*.ts`
+- `supabase/functions/rendizy-server/routes-staysnet*.ts`
+
+**PROIBIDO:**
+- ❌ Logar credenciais, headers completos, ou payloads completos de Stays.net
+- ❌ Fazer fan-out por item sem orçamento (ex.: 1 request por reserva/cliente sem limite)
+- ❌ Fazer DB roundtrip por item quando existir alternativa em lote (dedupe/insert/update)
+- ❌ Executar “full import” inline dentro de webhook (webhook deve enfileirar e sair)
+- ❌ Criar pipeline paralelo de sync (full-sync e modular devem convergir)
+
+**OBRIGATÓRIO:**
+- ✅ Respeitar multi-tenancy (`organization_id`) em todas as queries
+- ✅ Implementar/usar cursor de continuidade (`next.skip` / `hasMore`) em imports
+- ✅ Aplicar orçamento de runtime (`maxRuntimeMs`) e timeout de fetch (`fetchTimeoutMs`) em imports
+- ✅ Padrão de logs: endpoint/status/duration/contagens (sem dados sensíveis)
+
+**DOCUMENTO CANÔNICO:**
+- `docs/06-integrations/STAYSNET_SCALE_ROADMAP.md`
+
+---
+
 ## 🟡 REGRAS GERAIS
 
 ### Antes de Alterar Código Crítico
@@ -196,5 +220,74 @@ GROUP BY organization_id;
 
 ---
 
-**Última atualização:** 2026-01-05  
+## 🛡️ REGRAS DE COMMIT SEGURO (OBRIGATÓRIO PARA IA)
+
+> **ATENÇÃO AI:** Esta seção define o fluxo OBRIGATÓRIO para qualquer mudança de código.
+> Seguir estas regras previne quebra de código em produção.
+
+### Fluxo Obrigatório
+
+```
+1. git checkout -b feature/nome-descritivo
+2. Fazer mudanças
+3. git commit -m "tipo(escopo): descrição"
+4. git push origin feature/nome-descritivo
+5. MOSTRAR O DIFF ao usuário antes de qualquer merge
+6. AGUARDAR aprovação explícita ("siga", "merge", "aprovo")
+7. Só então: git checkout main && git merge feature/nome
+```
+
+### ❌ PROIBIDO
+
+- ❌ `git push origin main` direto (NUNCA!)
+- ❌ Merge sem mostrar diff ao usuário
+- ❌ Assumir que mudança é "pequena demais para PR"
+- ❌ Modificar múltiplos módulos críticos no mesmo commit
+
+### ✅ OBRIGATÓRIO
+
+- ✅ Sempre usar branch para qualquer mudança
+- ✅ Mostrar resumo do diff antes de pedir aprovação
+- ✅ Commits atômicos (uma mudança = um commit)
+- ✅ Mensagens de commit seguindo Conventional Commits
+
+### 📦 Módulos Protegidos (v1.0.104-stable)
+
+Estes módulos estão **validados e funcionando**. Qualquer alteração requer:
+1. Branch separada
+2. Review do diff
+3. Teste de smoke após merge
+
+| Módulo | Caminho | Status |
+|--------|---------|--------|
+| Import Blocks | `supabase/functions/rendizy-server/modules/staysnet/import-staysnet-blocks.ts` | ✅ Validado 2026-01-09 |
+| Import Reservations | `supabase/functions/rendizy-server/modules/staysnet/import-staysnet-reservations.ts` | ✅ Validado |
+| Import Properties | `supabase/functions/rendizy-server/modules/staysnet/import-staysnet-properties.ts` | ✅ Validado |
+| Auth Module | `supabase/functions/rendizy-server/modules/auth/*` | ✅ Crítico |
+| Client Sites | `supabase/functions/rendizy-public/*` | ✅ Medhome funcionando |
+| Multi-Tenant | `supabase/functions/rendizy-server/utils-multi-tenant.ts` | ✅ Crítico |
+
+### 🏷️ Tags de Estabilidade
+
+Antes de mudanças grandes, criar tag:
+```bash
+git tag -a vX.Y.Z-stable -m "Descrição do estado estável"
+git push origin vX.Y.Z-stable
+```
+
+Para restaurar estado estável:
+```bash
+git checkout vX.Y.Z-stable
+```
+
+### 📜 Script de Commit Seguro
+
+Use `scripts/safe-commit.ps1` para garantir o fluxo:
+```powershell
+.\scripts\safe-commit.ps1 -Branch "feature/minha-mudanca" -Message "tipo(escopo): descrição"
+```
+
+---
+
+**Última atualização:** 2026-01-09  
 **Mantido por:** Equipe Rendizy

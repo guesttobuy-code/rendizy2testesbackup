@@ -1,17 +1,22 @@
 <#
 .SYNOPSIS
-    Script padrão de commit com verificação de código.
-    REGRA: SEMPRE revisar antes de commitar.
+    Script padrão de commit com verificação de código e fluxo de branch/PR.
+    REGRA: SEMPRE criar branch e revisar antes de commitar.
 
 .DESCRIPTION
-    Este script executa verificações automáticas antes de permitir commit:
-    1. Verifica erros de TypeScript (tsc --noEmit)
-    2. Verifica erros de lint (se disponível)
-    3. Mostra diff das alterações para revisão
-    4. Pede confirmação antes de commitar
+    Este script garante que mudanças NUNCA vão direto para main:
+    1. Cria branch se especificada (RECOMENDADO)
+    2. Verifica erros de TypeScript (tsc --noEmit)
+    3. Verifica erros de lint (se disponível)
+    4. Mostra diff das alterações para revisão
+    5. Pede confirmação antes de commitar
+    6. Opcionalmente faz merge para main após confirmação
 
 .PARAMETER Message
     Mensagem do commit (obrigatório)
+
+.PARAMETER Branch
+    Nome da branch a criar (ex: feature/fix-blocks). SE NÃO ESPECIFICADO E ESTIVER NA MAIN, BLOQUEIA!
 
 .PARAMETER Files
     Arquivos específicos para add (opcional, default = todos os modificados)
@@ -22,14 +27,24 @@
 .PARAMETER Push
     Fazer push após commit
 
+.PARAMETER AllowMain
+    Permitir commit direto na main (NÃO RECOMENDADO - use apenas em emergências)
+
 .EXAMPLE
-    .\scripts\safe-commit.ps1 -Message "fix: calendar handlers"
-    .\scripts\safe-commit.ps1 -Message "feat: new modal" -Files "App.tsx","components/MyModal.tsx" -Push
+    .\scripts\safe-commit.ps1 -Branch "feature/fix-blocks" -Message "fix: calendar handlers"
+    .\scripts\safe-commit.ps1 -Branch "chore/update-docs" -Message "docs: atualizar AI_RULES" -Push
+
+.NOTES
+    Mantido por: Equipe Rendizy
+    Última atualização: 2026-01-09
 #>
 
 param(
     [Parameter(Mandatory=$true)]
     [string]$Message,
+    
+    [Parameter(Mandatory=$false)]
+    [string]$Branch,
     
     [Parameter(Mandatory=$false)]
     [string[]]$Files,
@@ -38,7 +53,10 @@ param(
     [switch]$SkipCheck,
     
     [Parameter(Mandatory=$false)]
-    [switch]$Push
+    [switch]$Push,
+    
+    [Parameter(Mandatory=$false)]
+    [switch]$AllowMain
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,6 +76,37 @@ Write-Host "  SAFE COMMIT - Revisar antes de commitar" -ForegroundColor Magenta
 Write-Host "========================================`n" -ForegroundColor Magenta
 
 Set-Location -LiteralPath $repoRoot
+
+# 0. Verificar branch atual e criar nova se necessário
+$currentBranch = git branch --show-current
+Write-Host "📍 Branch atual: $currentBranch" -ForegroundColor Cyan
+
+if ($currentBranch -eq "main" -and -not $AllowMain) {
+    if (-not $Branch) {
+        Write-Err "❌ BLOQUEADO: Você está na main sem especificar -Branch!"
+        Write-Host ""
+        Write-Host "Por segurança, commits diretos na main são bloqueados." -ForegroundColor Yellow
+        Write-Host "Use: .\safe-commit.ps1 -Branch 'feature/minha-mudanca' -Message '...'" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Se REALMENTE precisa commitar na main (emergência):" -ForegroundColor DarkGray
+        Write-Host "  .\safe-commit.ps1 -AllowMain -Message '...'" -ForegroundColor DarkGray
+        exit 1
+    }
+}
+
+if ($Branch -and $currentBranch -ne $Branch) {
+    Write-Step "0. Criando branch: $Branch"
+    git checkout -b $Branch 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Branch já existe, fazendo checkout..." -ForegroundColor Yellow
+        git checkout $Branch
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Falha ao criar/checkout branch $Branch"
+            exit 1
+        }
+    }
+    Write-OK "Agora em: $Branch"
+}
 
 # 1. Verificar status do git
 Write-Step "1. Verificando status do repositório"
@@ -186,13 +235,43 @@ git --no-pager log -1 --oneline
 # 8. Push (se solicitado)
 if ($Push) {
     Write-Step "8. Fazendo push"
-    git push
+    $currentBranchNow = git branch --show-current
+    git push -u origin $currentBranchNow
     
     if ($LASTEXITCODE -eq 0) {
         Write-OK "Push realizado com sucesso!"
     } else {
         Write-Err "Push falhou!"
         exit 1
+    }
+    
+    # Se estava em branch separada, perguntar sobre merge
+    if ($currentBranchNow -ne "main") {
+        Write-Host ""
+        Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Yellow
+        Write-Host "  📊 DIFF vs main" -ForegroundColor Yellow
+        Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Yellow
+        git diff main...$currentBranchNow --stat
+        
+        Write-Host ""
+        $mergeConfirm = Read-Host "Deseja fazer merge para main agora? (s/N)"
+        if ($mergeConfirm -eq 's' -or $mergeConfirm -eq 'S') {
+            git checkout main
+            git merge $currentBranchNow
+            git push origin main
+            Write-OK "Merge para main concluído!"
+            
+            $deleteBranch = Read-Host "Deletar branch local '$currentBranchNow'? (s/N)"
+            if ($deleteBranch -eq 's' -or $deleteBranch -eq 'S') {
+                git branch -d $currentBranchNow
+                Write-Host "🗑️  Branch local deletada." -ForegroundColor DarkGray
+            }
+        } else {
+            Write-Host ""
+            Write-Host "⏸️  Merge adiado. Branch '$currentBranchNow' está salva no origin." -ForegroundColor Cyan
+            Write-Host "Para fazer merge depois:" -ForegroundColor DarkGray
+            Write-Host "  git checkout main && git merge $currentBranchNow && git push" -ForegroundColor DarkGray
+        }
     }
 }
 
