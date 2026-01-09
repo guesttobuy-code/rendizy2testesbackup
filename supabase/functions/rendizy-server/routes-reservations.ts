@@ -310,8 +310,10 @@ export async function getReservationsKpis(c: Context) {
     const startOfDay = `${today}T00:00:00-03:00`;
     const endOfDay = `${today}T23:59:59.999-03:00`;
     // Status que NÃO representam hóspedes ocupando um imóvel.
-    // (bloqueios/manutenção/pedidos pendentes/cancelados/no-show não entram em KPIs operacionais)
-    const statusNotIn = '("cancelled","no_show","blocked","maintenance","pending")';
+    // (bloqueios/manutenção/cancelados/no-show não entram em KPIs operacionais)
+    // NOTA: "pending" (pré-reserva) CONTA nos KPIs para alertar o operacional.
+    // Se não se confirmar, é melhor errar por mais do que por menos.
+    const statusNotIn = '("cancelled","no_show","blocked","maintenance")';
 
     const qCheckins = client
       .from('reservations')
