@@ -27,6 +27,30 @@ export interface ApiResponse<T = any> {
 }
 
 // ============================================================================
+// PAYMENTS (Provider-agnostic)
+// ============================================================================
+
+export type PaymentProviderId = 'stripe' | 'pagarme';
+
+export type CreateCheckoutSessionRequest = {
+  reservationId: string;
+  successUrl: string;
+  cancelUrl: string;
+  amountTotalCents?: number;
+  currency?: string;
+  customerEmail?: string;
+  provider?: PaymentProviderId;
+  clientSiteSubdomain?: string;
+};
+
+export type CreateCheckoutSessionResponse = {
+  provider?: PaymentProviderId;
+  url: string | null;
+  checkoutSessionId?: string;
+  paymentIntentId?: string | null;
+};
+
+// ============================================================================
 // LOCATION (Prédio/Condomínio - Container físico)
 // ============================================================================
 
@@ -847,6 +871,24 @@ export const reservationsApi = {
     return apiRequest<null>(`/reservations/${id}`, {
       method: 'DELETE',
     });
+  },
+};
+
+// ============================================================================
+// PAYMENTS API
+// ============================================================================
+
+export const paymentsApi = {
+  createCheckoutSession: async (
+    payload: CreateCheckoutSessionRequest
+  ): Promise<ApiResponse<CreateCheckoutSessionResponse>> => {
+    return apiRequest<CreateCheckoutSessionResponse>(
+      '/make-server-67caf26a/payments/checkout/session',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
   },
 };
 
