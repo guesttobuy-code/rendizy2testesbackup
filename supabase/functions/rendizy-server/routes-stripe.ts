@@ -449,6 +449,346 @@ export async function createStripeCheckoutSession(c: Context) {
   }
 }
 
+// ============================================================================
+// PRODUCTS & PRICES
+// ============================================================================
+
+type CreateProductPayload = {
+  name: string;
+  description?: string;
+  unitAmountCents: number;
+  currency?: string;
+  recurring?: {
+    interval: 'day' | 'week' | 'month' | 'year';
+    intervalCount?: number;
+  } | null;
+  metadata?: Record<string, string>;
+};
+
+type StripeProduct = {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  defaultPriceId: string | null;
+  metadata: Record<string, string>;
+  created: number;
+};
+
+type StripePrice = {
+  id: string;
+  productId: string;
+  unitAmount: number;
+  currency: string;
+  type: 'one_time' | 'recurring';
+  recurring: { interval: string; intervalCount: number } | null;
+  active: boolean;
+};
+
+type ProductWithPrice = StripeProduct & {
+  price: StripePrice | null;
+};
+
+/**
+ * GET /stripe/products
+ * Lista produtos do Stripe da organização
+ */
+export async function listStripeProducts(c: Context) {
+  try {
+    logInfo('[Stripe] Listing products');
+
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const config = await loadStripeConfigOrThrow(organizationId);
+
+    if (!config.enabled) {
+      return c.json(errorResponse('Stripe is disabled for this organization'), 400);
+    }
+    if (!config.secret_key_encrypted) {
+      return c.json(errorResponse('Stripe secret key not configured'), 400);
+    }
+
+    const secretKey = await decryptSensitive(config.secret_key_encrypted);
+
+    // Buscar produtos ativos
+    const productsResp = await fetch('https://api.stripe.com/v1/products?active=true&limit=100', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+      },
+    });
+
+    if (!productsResp.ok) {
+      const errText = await productsResp.text();
+      return c.json(errorResponse('Stripe API error listing products', { status: productsResp.status, body: errText }), 502);
+    }
+
+    const productsData = await productsResp.json();
+    const products: any[] = productsData?.data || [];
+
+    // Buscar preços ativos
+    const pricesResp = await fetch('https://api.stripe.com/v1/prices?active=true&limit=100', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+      },
+    });
+
+    if (!pricesResp.ok) {
+      const errText = await pricesResp.text();
+      return c.json(errorResponse('Stripe API error listing prices', { status: pricesResp.status, body: errText }), 502);
+    }
+
+    const pricesData = await pricesResp.json();
+    const prices: any[] = pricesData?.data || [];
+
+    // Mapear preços por produto
+    const pricesByProduct = new Map<string, any>();
+    for (const p of prices) {
+      const prodId = typeof p.product === 'string' ? p.product : p.product?.id;
+      if (prodId && !pricesByProduct.has(prodId)) {
+        pricesByProduct.set(prodId, p);
+      }
+    }
+
+    // Montar resultado
+    const result: ProductWithPrice[] = products.map((prod) => {
+      const price = pricesByProduct.get(prod.id) || null;
+      return {
+        id: prod.id,
+        name: prod.name || '',
+        description: prod.description || null,
+        active: Boolean(prod.active),
+        defaultPriceId: prod.default_price || null,
+        metadata: prod.metadata || {},
+        created: prod.created || 0,
+        price: price
+          ? {
+              id: price.id,
+              productId: prod.id,
+              unitAmount: price.unit_amount || 0,
+              currency: price.currency || 'brl',
+              type: price.type || 'one_time',
+              recurring: price.recurring
+                ? {
+                    interval: price.recurring.interval,
+                    intervalCount: price.recurring.interval_count || 1,
+                  }
+                : null,
+              active: Boolean(price.active),
+            }
+          : null,
+      };
+    });
+
+    return c.json(successResponse({ products: result }));
+  } catch (error: any) {
+    logError('[Stripe] Error listing products', error);
+    return c.json(errorResponse('Failed to list products', { details: error.message }), 500);
+  }
+}
+
+/**
+ * POST /stripe/products
+ * Cria produto + preço no Stripe
+ */
+export async function createStripeProduct(c: Context) {
+  try {
+    const body = await c.req.json<CreateProductPayload>();
+    logInfo('[Stripe] Creating product', { name: body?.name });
+
+    if (!body?.name || typeof body.name !== 'string' || !body.name.trim()) {
+      return c.json(validationErrorResponse('name é obrigatório'), 400);
+    }
+    if (typeof body.unitAmountCents !== 'number' || body.unitAmountCents <= 0) {
+      return c.json(validationErrorResponse('unitAmountCents deve ser > 0'), 400);
+    }
+
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const config = await loadStripeConfigOrThrow(organizationId);
+
+    if (!config.enabled) {
+      return c.json(errorResponse('Stripe is disabled for this organization'), 400);
+    }
+    if (!config.secret_key_encrypted) {
+      return c.json(errorResponse('Stripe secret key not configured'), 400);
+    }
+
+    const secretKey = await decryptSensitive(config.secret_key_encrypted);
+    const currency = (body.currency || 'BRL').toLowerCase();
+
+    // 1) Criar produto
+    const productForm = new URLSearchParams();
+    productForm.set('name', body.name.trim());
+    if (body.description) {
+      productForm.set('description', body.description.trim());
+    }
+    // Metadata para vincular à organização
+    productForm.set('metadata[organization_id]', organizationId);
+    if (body.metadata) {
+      for (const [k, v] of Object.entries(body.metadata)) {
+        productForm.set(`metadata[${k}]`, String(v));
+      }
+    }
+
+    const productResp = await fetch('https://api.stripe.com/v1/products', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: productForm.toString(),
+    });
+
+    if (!productResp.ok) {
+      const errText = await productResp.text();
+      return c.json(errorResponse('Stripe API error creating product', { status: productResp.status, body: errText }), 502);
+    }
+
+    const product = await productResp.json();
+    const productId: string = product?.id;
+
+    if (!productId) {
+      return c.json(errorResponse('Stripe response missing product id'), 502);
+    }
+
+    // 2) Criar preço
+    const priceForm = new URLSearchParams();
+    priceForm.set('product', productId);
+    priceForm.set('unit_amount', String(Math.round(body.unitAmountCents)));
+    priceForm.set('currency', currency);
+
+    if (body.recurring && body.recurring.interval) {
+      priceForm.set('recurring[interval]', body.recurring.interval);
+      if (body.recurring.intervalCount && body.recurring.intervalCount > 1) {
+        priceForm.set('recurring[interval_count]', String(body.recurring.intervalCount));
+      }
+    }
+
+    const priceResp = await fetch('https://api.stripe.com/v1/prices', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: priceForm.toString(),
+    });
+
+    if (!priceResp.ok) {
+      const errText = await priceResp.text();
+      // Produto foi criado mas preço falhou - logar erro
+      logError('[Stripe] Product created but price failed', { productId, error: errText });
+      return c.json(errorResponse('Stripe API error creating price', { status: priceResp.status, body: errText, productId }), 502);
+    }
+
+    const price = await priceResp.json();
+    const priceId: string = price?.id;
+
+    // 3) Atualizar produto com default_price
+    if (priceId) {
+      const updateForm = new URLSearchParams();
+      updateForm.set('default_price', priceId);
+
+      await fetch(`https://api.stripe.com/v1/products/${productId}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: updateForm.toString(),
+      });
+    }
+
+    return c.json(
+      successResponse({
+        product: {
+          id: productId,
+          name: product.name,
+          description: product.description || null,
+          active: Boolean(product.active),
+          defaultPriceId: priceId || null,
+          metadata: product.metadata || {},
+          created: product.created || 0,
+        },
+        price: {
+          id: priceId,
+          productId,
+          unitAmount: price.unit_amount || body.unitAmountCents,
+          currency: price.currency || currency,
+          type: price.type || (body.recurring ? 'recurring' : 'one_time'),
+          recurring: price.recurring
+            ? {
+                interval: price.recurring.interval,
+                intervalCount: price.recurring.interval_count || 1,
+              }
+            : null,
+          active: Boolean(price.active),
+        },
+      })
+    );
+  } catch (error: any) {
+    logError('[Stripe] Error creating product', error);
+    return c.json(errorResponse('Failed to create product', { details: error.message }), 500);
+  }
+}
+
+/**
+ * DELETE /stripe/products/:productId
+ * Arquiva (desativa) um produto no Stripe
+ */
+export async function archiveStripeProduct(c: Context) {
+  try {
+    const { productId } = c.req.param();
+    if (!productId) {
+      return c.json(validationErrorResponse('productId é obrigatório'), 400);
+    }
+
+    logInfo('[Stripe] Archiving product', { productId });
+
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const config = await loadStripeConfigOrThrow(organizationId);
+
+    if (!config.enabled) {
+      return c.json(errorResponse('Stripe is disabled for this organization'), 400);
+    }
+    if (!config.secret_key_encrypted) {
+      return c.json(errorResponse('Stripe secret key not configured'), 400);
+    }
+
+    const secretKey = await decryptSensitive(config.secret_key_encrypted);
+
+    // Desativar produto
+    const form = new URLSearchParams();
+    form.set('active', 'false');
+
+    const resp = await fetch(`https://api.stripe.com/v1/products/${productId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: form.toString(),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      return c.json(errorResponse('Stripe API error archiving product', { status: resp.status, body: errText }), 502);
+    }
+
+    const product = await resp.json();
+
+    return c.json(
+      successResponse({
+        id: product.id,
+        active: Boolean(product.active),
+        archived: true,
+      })
+    );
+  } catch (error: any) {
+    logError('[Stripe] Error archiving product', error);
+    return c.json(errorResponse('Failed to archive product', { details: error.message }), 500);
+  }
+}
+
 /**
  * POST /stripe/webhook/:organizationId
  * Receiver de webhook do Stripe com verificação de assinatura + idempotência.

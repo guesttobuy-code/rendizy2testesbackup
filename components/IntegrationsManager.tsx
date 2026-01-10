@@ -23,7 +23,11 @@ import {
   TrendingUp,
   Bot,
   AlertCircle,
-  Save
+  Save,
+  Plus,
+  Trash2,
+  Package,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -510,6 +514,38 @@ function StripePaymentIntegration() {
   const [webhookUrl, setWebhookUrl] = useState<string>('');
   const [enabled, setEnabled] = useState<boolean>(false);
 
+  // Products state
+  type StripeProduct = {
+    id: string;
+    name: string;
+    description: string | null;
+    active: boolean;
+    defaultPriceId: string | null;
+    metadata: Record<string, string>;
+    created: number;
+    price: {
+      id: string;
+      productId: string;
+      unitAmount: number;
+      currency: string;
+      type: 'one_time' | 'recurring';
+      recurring: { interval: string; intervalCount: number } | null;
+      active: boolean;
+    } | null;
+  };
+
+  const [products, setProducts] = useState<StripeProduct[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [isDeletingProduct, setIsDeletingProduct] = useState<string | null>(null);
+
+  // New product form
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductDescription, setNewProductDescription] = useState('');
+  const [newProductPrice, setNewProductPrice] = useState('');
+  const [newProductRecurring, setNewProductRecurring] = useState<'one_time' | 'monthly' | 'yearly'>('one_time');
+
   useEffect(() => {
     let mounted = true;
 
@@ -609,6 +645,141 @@ function StripePaymentIntegration() {
     setDefaultWebhookUrl(cfg.defaultWebhookUrl || '');
   };
 
+  // Products API functions
+  const loadProducts = async () => {
+    setIsLoadingProducts(true);
+    setProductsError(null);
+    try {
+      const token = localStorage.getItem('rendizy-token');
+      if (!token) throw new Error('Token não encontrado.');
+
+      const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/stripe/products`;
+      const headers = {
+        'X-Auth-Token': token,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicAnonKey}`,
+        'apikey': publicAnonKey,
+      } as const;
+
+      const response = await fetch(url, { method: 'GET', headers });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      if (!data?.success) {
+        throw new Error(data?.error || 'Falha ao carregar produtos.');
+      }
+
+      setProducts(data.data?.products || []);
+    } catch (err: any) {
+      setProductsError(err?.message || 'Erro ao carregar produtos.');
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  const createProduct = async () => {
+    if (!newProductName.trim()) return;
+    const priceValue = parseFloat(newProductPrice.replace(',', '.'));
+    if (isNaN(priceValue) || priceValue <= 0) {
+      setProductsError('Preço inválido.');
+      return;
+    }
+
+    setIsCreatingProduct(true);
+    setProductsError(null);
+    try {
+      const token = localStorage.getItem('rendizy-token');
+      if (!token) throw new Error('Token não encontrado.');
+
+      const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/stripe/products`;
+      const headers = {
+        'X-Auth-Token': token,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicAnonKey}`,
+        'apikey': publicAnonKey,
+      } as const;
+
+      const payload: any = {
+        name: newProductName.trim(),
+        description: newProductDescription.trim() || undefined,
+        unitAmountCents: Math.round(priceValue * 100),
+        currency: 'BRL',
+      };
+
+      if (newProductRecurring !== 'one_time') {
+        payload.recurring = {
+          interval: newProductRecurring === 'monthly' ? 'month' : 'year',
+        };
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      if (!data?.success) {
+        throw new Error(data?.error || 'Falha ao criar produto.');
+      }
+
+      // Clear form and reload
+      setNewProductName('');
+      setNewProductDescription('');
+      setNewProductPrice('');
+      setNewProductRecurring('one_time');
+      await loadProducts();
+    } catch (err: any) {
+      setProductsError(err?.message || 'Erro ao criar produto.');
+    } finally {
+      setIsCreatingProduct(false);
+    }
+  };
+
+  const archiveProduct = async (productId: string) => {
+    setIsDeletingProduct(productId);
+    setProductsError(null);
+    try {
+      const token = localStorage.getItem('rendizy-token');
+      if (!token) throw new Error('Token não encontrado.');
+
+      const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/stripe/products/${productId}`;
+      const headers = {
+        'X-Auth-Token': token,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicAnonKey}`,
+        'apikey': publicAnonKey,
+      } as const;
+
+      const response = await fetch(url, { method: 'DELETE', headers });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+      }
+
+      await loadProducts();
+    } catch (err: any) {
+      setProductsError(err?.message || 'Erro ao arquivar produto.');
+    } finally {
+      setIsDeletingProduct(null);
+    }
+  };
+
+  const formatPrice = (cents: number, currency: string) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(cents / 100);
+  };
+
   return (
     <div className="space-y-6">
       <Alert>
@@ -667,11 +838,12 @@ function StripePaymentIntegration() {
       </div>
 
       <Tabs defaultValue="credentials" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="credentials">Credenciais</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+          <TabsTrigger value="products">Produtos</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
-          <TabsTrigger value="solutions">Soluções criadas</TabsTrigger>
+          <TabsTrigger value="solutions">Roadmap</TabsTrigger>
         </TabsList>
 
         <TabsContent value="credentials" className="space-y-4 mt-4">
@@ -824,6 +996,217 @@ function StripePaymentIntegration() {
               <Save className="w-4 h-4 mr-2" />
               {isSavingWebhook ? 'Salvando...' : 'Salvar Webhook Secret'}
             </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="products" className="space-y-4 mt-4">
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Produtos e Preços
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Crie produtos diretamente via API (zero dashboard Stripe)
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadProducts}
+                disabled={isLoadingProducts || !enabled}
+              >
+                {isLoadingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Atualizar'}
+              </Button>
+            </div>
+
+            {!enabled && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Configure as credenciais do Stripe primeiro para gerenciar produtos.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {productsError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{productsError}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Create Product Form */}
+            {enabled && canConfigureIntegrations && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Novo Produto
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="product-name">Nome do Produto *</Label>
+                      <Input
+                        id="product-name"
+                        placeholder="Ex: Plano Premium, Taxa de Limpeza..."
+                        value={newProductName}
+                        onChange={(e) => setNewProductName(e.target.value)}
+                        disabled={isCreatingProduct}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="product-price">Preço (R$) *</Label>
+                      <Input
+                        id="product-price"
+                        placeholder="99,90"
+                        value={newProductPrice}
+                        onChange={(e) => setNewProductPrice(e.target.value)}
+                        disabled={isCreatingProduct}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="product-description">Descrição (opcional)</Label>
+                    <Input
+                      id="product-description"
+                      placeholder="Descrição do produto..."
+                      value={newProductDescription}
+                      onChange={(e) => setNewProductDescription(e.target.value)}
+                      disabled={isCreatingProduct}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Tipo de Cobrança</Label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="recurring"
+                          checked={newProductRecurring === 'one_time'}
+                          onChange={() => setNewProductRecurring('one_time')}
+                          disabled={isCreatingProduct}
+                        />
+                        <span className="text-sm">Único</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="recurring"
+                          checked={newProductRecurring === 'monthly'}
+                          onChange={() => setNewProductRecurring('monthly')}
+                          disabled={isCreatingProduct}
+                        />
+                        <span className="text-sm">Mensal</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="recurring"
+                          checked={newProductRecurring === 'yearly'}
+                          onChange={() => setNewProductRecurring('yearly')}
+                          disabled={isCreatingProduct}
+                        />
+                        <span className="text-sm">Anual</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    onClick={createProduct}
+                    disabled={isCreatingProduct || !newProductName.trim() || !newProductPrice.trim()}
+                  >
+                    {isCreatingProduct ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Criando...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Criar Produto
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Products List */}
+            {enabled && (
+              <div className="space-y-3">
+                <h5 className="font-medium text-sm">Produtos Cadastrados ({products.length})</h5>
+                
+                {isLoadingProducts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : products.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Nenhum produto cadastrado ainda.</p>
+                    <p className="text-sm">Crie seu primeiro produto acima.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {products.map((product) => (
+                      <Card key={product.id} className="relative">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h6 className="font-medium truncate">{product.name}</h6>
+                              {product.description && (
+                                <p className="text-xs text-muted-foreground truncate">{product.description}</p>
+                              )}
+                              {product.price && (
+                                <div className="mt-1 flex items-center gap-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {formatPrice(product.price.unitAmount, product.price.currency)}
+                                    {product.price.recurring && (
+                                      <span className="ml-1">
+                                        /{product.price.recurring.interval === 'month' ? 'mês' : 'ano'}
+                                      </span>
+                                    )}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {product.price.type === 'recurring' ? 'Recorrente' : 'Único'}
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+                            {canConfigureIntegrations && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => archiveProduct(product.id)}
+                                disabled={isDeletingProduct === product.id}
+                              >
+                                {isDeletingProduct === product.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            ID: <code className="bg-muted px-1 py-0.5 rounded">{product.id}</code>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
 
