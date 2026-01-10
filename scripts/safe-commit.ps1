@@ -238,7 +238,16 @@ git --no-pager log -1 --oneline
 if ($Push) {
     Write-Step "8. Fazendo push"
     $currentBranchNow = git branch --show-current
-    git push -u origin $currentBranchNow
+    
+    # Detectar remote (preferir 'testes', fallback para 'origin')
+    $remote = "origin"
+    $testesRemote = git remote | Where-Object { $_ -eq "testes" }
+    if ($testesRemote) {
+        $remote = "testes"
+    }
+    Write-Host "📡 Remote: $remote" -ForegroundColor DarkGray
+    
+    git push -u $remote $currentBranchNow
     
     if ($LASTEXITCODE -eq 0) {
         Write-OK "Push realizado com sucesso!"
@@ -262,47 +271,66 @@ if ($Push) {
         
         if ($ghAvailable) {
             Write-Host "🤖 GitHub CLI detectado!" -ForegroundColor Cyan
-            $createPR = Read-Host "Criar Pull Request com Copilot Review? (S/n)"
-            if ($createPR -ne 'n' -and $createPR -ne 'N') {
-                Write-Step "9. Criando Pull Request"
+            
+            Write-Step "9. Criando Pull Request automaticamente"
+            
+            # Criar PR
+            $prOutput = gh pr create --base main --head $currentBranchNow --title $Message --body "## Alterações`n`n$Message`n`n---`n*PR criado via safe-commit.ps1*" 2>&1
+            
+            if ($LASTEXITCODE -eq 0) {
+                Write-OK "Pull Request criado!"
                 
-                # Criar PR
-                $prOutput = gh pr create --base main --head $currentBranchNow --title $Message --body "## Alterações`n`n$Message`n`n---`n*PR criado via safe-commit.ps1*" 2>&1
+                # Extrair número do PR
+                $prUrl = $prOutput | Select-String -Pattern "https://github.com/.+/pull/(\d+)" | ForEach-Object { $_.Matches[0].Value }
+                $prNumber = $prUrl -replace ".*/pull/", ""
                 
-                if ($LASTEXITCODE -eq 0) {
-                    Write-OK "Pull Request criado!"
-                    
-                    # Extrair número do PR
-                    $prUrl = $prOutput | Select-String -Pattern "https://github.com/.+/pull/(\d+)" | ForEach-Object { $_.Matches[0].Value }
-                    $prNumber = $prUrl -replace ".*/pull/", ""
-                    
-                    if ($prNumber) {
-                        Write-Host "📎 PR #$prNumber: $prUrl" -ForegroundColor Cyan
-                        
-                        # Solicitar Copilot Review
-                        Write-Step "10. Solicitando GitHub Copilot Review"
-                        Write-Host "⏳ Solicitando revisão automática do Copilot..." -ForegroundColor Yellow
-                        
-                        # Tentar via gh api (Copilot review é via API)
-                        # Nota: O Copilot Review pode ser solicitado via UI ou pela I.A. assistente
-                        Write-Host ""
-                        Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Magenta
-                        Write-Host "  🤖 COPILOT REVIEW OBRIGATÓRIO" -ForegroundColor Magenta
-                        Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Magenta
-                        Write-Host ""
-                        Write-Host "Para a I.A. assistente (GitHub Copilot / Claude):" -ForegroundColor White
-                        Write-Host "Use: mcp_github_request_copilot_review" -ForegroundColor Green
-                        Write-Host "  owner: guesttobuy-code" -ForegroundColor DarkGray
-                        Write-Host "  repo: rendizy2testesbackup" -ForegroundColor DarkGray
-                        Write-Host "  pullNumber: $prNumber" -ForegroundColor DarkGray
-                        Write-Host ""
-                        Write-Host "Ou acesse: $prUrl" -ForegroundColor Cyan
-                        Write-Host "E clique em 'Request review from Copilot'" -ForegroundColor DarkGray
-                        Write-Host ""
-                    }
-                } else {
-                    Write-Warn "Falha ao criar PR: $prOutput"
+                # Detectar owner/repo do remote
+                $remoteUrl = git remote get-url $remote 2>$null
+                $repoMatch = $remoteUrl | Select-String -Pattern "github.com[:/]([^/]+)/([^/.]+)" 
+                $owner = "guesttobuy-code"
+                $repo = "rendizy2testesbackup"
+                if ($repoMatch) {
+                    $owner = $repoMatch.Matches[0].Groups[1].Value
+                    $repo = $repoMatch.Matches[0].Groups[2].Value -replace "\.git$", ""
                 }
+                
+                if ($prNumber) {
+                    Write-Host "📎 PR #$prNumber: $prUrl" -ForegroundColor Cyan
+                    
+                    Write-Step "10. Solicitando GitHub Copilot Review"
+                    
+                    # Tentar solicitar Copilot Review via gh api
+                    Write-Host "⏳ Tentando solicitar revisão automática..." -ForegroundColor Yellow
+                    $reviewResult = gh api --method POST "repos/$owner/$repo/pulls/$prNumber/requested_reviewers" -f "reviewers[]=github-copilot[bot]" 2>&1
+                    
+                    Write-Host ""
+                    Write-Host "═══════════════════════════════════════════════════════════════════" -ForegroundColor Magenta
+                    Write-Host "  🤖 INSTRUÇÕES PARA I.A. ASSISTENTE (COPILOT/CLAUDE)" -ForegroundColor Magenta
+                    Write-Host "═══════════════════════════════════════════════════════════════════" -ForegroundColor Magenta
+                    Write-Host ""
+                    Write-Host "  Execute o seguinte comando MCP para solicitar Copilot Review:" -ForegroundColor White
+                    Write-Host ""
+                    Write-Host "    mcp_github_request_copilot_review" -ForegroundColor Green
+                    Write-Host "      owner: $owner" -ForegroundColor Cyan
+                    Write-Host "      repo: $repo" -ForegroundColor Cyan
+                    Write-Host "      pullNumber: $prNumber" -ForegroundColor Cyan
+                    Write-Host ""
+                    Write-Host "  Após review aprovado, faça merge:" -ForegroundColor White
+                    Write-Host ""
+                    Write-Host "    mcp_github_merge_pull_request" -ForegroundColor Green
+                    Write-Host "      owner: $owner" -ForegroundColor Cyan
+                    Write-Host "      repo: $repo" -ForegroundColor Cyan
+                    Write-Host "      pullNumber: $prNumber" -ForegroundColor Cyan
+                    Write-Host "      merge_method: squash" -ForegroundColor Cyan
+                    Write-Host ""
+                    Write-Host "═══════════════════════════════════════════════════════════════════" -ForegroundColor Magenta
+                    Write-Host ""
+                    Write-Host "  🔗 Link do PR: $prUrl" -ForegroundColor Yellow
+                    Write-Host ""
+                }
+            } else {
+                Write-Warn "Falha ao criar PR: $prOutput"
+                Write-Host "Crie manualmente: gh pr create --base main --head $currentBranchNow" -ForegroundColor DarkGray
             }
         } else {
             # Fallback: Lembrete para criar PR manualmente ou via I.A.
@@ -327,7 +355,7 @@ if ($Push) {
             if ($mergeConfirm -eq 's' -or $mergeConfirm -eq 'S') {
                 git checkout main
                 git merge $currentBranchNow
-                git push origin main
+                git push $remote main
                 Write-OK "Merge para main concluído!"
                 
                 $deleteBranch = Read-Host "Deletar branch local '$currentBranchNow'? (s/N)"
@@ -337,7 +365,7 @@ if ($Push) {
                 }
             } else {
                 Write-Host ""
-                Write-Host "⏸️  Merge adiado. Branch '$currentBranchNow' está salva no origin." -ForegroundColor Cyan
+                Write-Host "⏸️  Merge adiado. Branch '$currentBranchNow' está salva no $remote." -ForegroundColor Cyan
             }
         }
     }
