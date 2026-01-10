@@ -2,6 +2,7 @@ export type PaymentProviderId = 'stripe' | 'pagarme';
 
 export type PaymentFeatureId =
   | 'checkout_sessions'
+  | 'products'
   | 'payment_links'
   | 'invoices'
   | 'customers'
@@ -38,6 +39,11 @@ export const paymentProviders: PaymentProviderDefinition[] = [
         id: 'checkout_sessions',
         title: 'Checkout Sessions',
         description: 'Criar sessões de checkout e redirecionar o hóspede para pagamento.',
+      },
+      {
+        id: 'products',
+        title: 'Products & Prices',
+        description: 'Gerenciar produtos e preços diretamente via API (sem usar dashboard Stripe).',
       },
       {
         id: 'payment_links',

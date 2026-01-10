@@ -37,6 +37,7 @@ const PAYMENT_PROVIDER_STABILITY: Record<PaymentProviderId, 'stable' | 'planned'
 const PAYMENT_FEATURE_STABILITY: Record<PaymentProviderId, Partial<Record<PaymentFeatureId, 'stable' | 'planned'>>> = {
   stripe: {
     checkout_sessions: 'stable',
+    products: 'stable',
     webhooks: 'stable',
     payment_links: 'planned',
     invoices: 'planned',
