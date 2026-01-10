@@ -80,6 +80,31 @@ Antes de fazer qualquer mudança:
 
 ---
 
+## 🔀 GIT WORKFLOW & PR REVIEWS
+
+### Regras de Commit e PR
+
+1. **Branches de Feature**: Para mudanças significativas, usar branch `feat/nome-feature`
+2. **Commits Semânticos**: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`
+3. **Script de Commit**: Usar `safe-commit.ps1` quando disponível
+4. **Tags de Versão**: `v1.0.XXX-descricao` após cada milestone
+
+### ⭐ REVISÃO OBRIGATÓRIA: GitHub Copilot Review
+
+**PADRÃO**: Todo Pull Request DEVE solicitar revisão do GitHub Copilot antes de merge.
+
+**Como funciona:**
+- Após criar o PR, solicitar `mcp_github_request_copilot_review`
+- Aguardar feedback do Copilot (análise automática de código)
+- Corrigir issues apontados antes do merge
+- Ideal para: segurança, best practices, bugs potenciais
+
+**Exceções:**
+- Hotfixes críticos em produção (documentar motivo)
+- Mudanças apenas de documentação (.md files)
+
+---
+
 ## 🤖 NOTA PARA IA ASSISTENTE
 
 **LEIA ISTO ANTES DE QUALQUER AÇÃO:**
