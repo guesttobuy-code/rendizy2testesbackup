@@ -89,7 +89,7 @@ Write-Host "envPath: $envPath"
 Write-Host "url: $url"
 Write-Host ("mode: " + ($(if ($XAuthToken) { 'user-token' } else { 'service-role' })))
 
-Write-Host "\n== GET =="
+Write-Host "`n== GET =="
 $get = Invoke-WebRequest -Uri $url -Method GET -Headers $headers -TimeoutSec 60 -SkipHttpErrorCheck
 Write-Host ("HTTP " + $get.StatusCode)
 if ($get.Content) {
@@ -97,7 +97,7 @@ if ($get.Content) {
 }
 
 if (-not $Write) {
-  Write-Host "\n(ok) GET-only. Passe -Write para fazer POST." 
+  Write-Host "`n(ok) GET-only. Passe -Write para fazer POST." 
   exit 0
 }
 
@@ -115,7 +115,7 @@ if ($payload.Keys.Count -eq 0) {
 }
 
 $body = ($payload | ConvertTo-Json -Depth 6)
-Write-Host "\n== POST =="
+Write-Host "`n== POST =="
 Write-Host "payload keys: $($payload.Keys -join ', ')"
 
 $post = Invoke-WebRequest -Uri $url -Method POST -Headers $headers -Body $body -TimeoutSec 120 -SkipHttpErrorCheck
