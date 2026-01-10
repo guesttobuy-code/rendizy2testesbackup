@@ -1798,6 +1798,8 @@ Use como fonte de verdade o catálogo interno em **Edição de Sites → Compone
 - ` + "`GET /client-sites/api/:subdomain/calendar?propertyId=UUID&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`" + ` = **stable** (use para calendário de disponibilidade).
 - ` + "`GET /client-sites/api/:subdomain/properties/:propertyId/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`" + ` = **stable** (alternativa ao /calendar; mesma funcionalidade).
 - ` + "`POST /client-sites/api/:subdomain/reservations`" + ` = **stable** (use para criar reservas; veja seção abaixo).
+- ` + "`POST /client-sites/api/:subdomain/calculate-price`" + ` = **stable** (use para calcular preço antes de reservar).
+- ` + "`POST /client-sites/api/:subdomain/checkout/session`" + ` = **stable** (cria sessão de pagamento Stripe; requer Stripe configurado).
 - Leads = **planned** (não implemente integração real por enquanto).
 
 ### 2.0.1) ⚠️ PROIBIDO usar dados mock para calendário
@@ -1975,6 +1977,78 @@ async function calculatePrice(subdomain: string, propertyId: string, checkIn: st
   // + breakdown.cleaningFee (Taxa de limpeza)
   // + breakdown.serviceFee (Taxa de serviço)
   // = total
+}
+` + "```" + `
+
+### 2.3) Endpoint de Checkout Stripe (stable) — Pagamento integrado
+O endpoint de checkout permite criar sessões de pagamento no Stripe após a reserva ser criada.
+
+**Pré-requisitos:**
+- Stripe configurado e habilitado no painel (Configurações → Integrações → Stripe)
+- Reserva já criada via ` + "`POST /reservations`" + `
+
+**Request:**
+` + "```" + `
+POST /client-sites/api/:subdomain/checkout/session
+Content-Type: application/json
+
+{
+  "reservationId": "uuid da reserva criada",
+  "successUrl": "https://seusite.com/sucesso",
+  "cancelUrl": "https://seusite.com/cancelado"
+}
+` + "```" + `
+
+**Response (200 OK):**
+` + "```" + `json
+{
+  "success": true,
+  "data": {
+    "sessionId": "cs_test_xxxxxxxxxxxx",
+    "checkoutUrl": "https://checkout.stripe.com/pay/cs_test_xxxx...",
+    "amount": 48000,
+    "currency": "brl",
+    "reservationId": "uuid"
+  }
+}
+` + "```" + `
+
+**Fluxo completo de reserva + pagamento:**
+1. ` + "`POST /calculate-price`" + ` → exibe breakdown para o usuário
+2. ` + "`POST /reservations`" + ` → cria a reserva (status: pending)
+3. ` + "`POST /checkout/session`" + ` → cria sessão no Stripe
+4. Redireciona usuário para ` + "`checkoutUrl`" + `
+5. Após pagamento, Stripe redireciona para ` + "`successUrl`" + ` ou ` + "`cancelUrl`" + `
+6. Webhook atualiza status da reserva automaticamente
+
+**Erros comuns:**
+- ` + "`400`" + `: Stripe não configurado ou desabilitado
+- ` + "`404`" + `: Reserva não encontrada
+- ` + "`404`" + `: Site não encontrado
+
+**Exemplo de uso no cliente:**
+` + "```" + `typescript
+async function redirectToCheckout(subdomain: string, reservationId: string) {
+  const baseUrl = 'https://odcgnzfremrqnvtitpcc.supabase.co';
+  const url = ` + "`${baseUrl}/functions/v1/rendizy-public/client-sites/api/${subdomain}/checkout/session`" + `;
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      reservationId,
+      successUrl: window.location.origin + '/sucesso',
+      cancelUrl: window.location.origin + '/cancelado'
+    })
+  });
+  
+  const json = await res.json();
+  if (!json.success || !json.data?.checkoutUrl) {
+    throw new Error(json.error || 'Erro ao criar checkout');
+  }
+  
+  // Redireciona para o Stripe
+  window.location.href = json.data.checkoutUrl;
 }
 ` + "```" + `
 

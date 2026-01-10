@@ -1438,6 +1438,240 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
 });
 
 // ============================================================
+// PUBLIC: Create Stripe Checkout Session from client site
+// POST /client-sites/api/:subdomain/checkout/session
+// ============================================================
+clientSites.post("/api/:subdomain/checkout/session", async (c: Context) => {
+  try {
+    const subdomain = (c.req.param("subdomain") || "").trim().toLowerCase();
+    if (!subdomain) {
+      return c.json(
+        { success: false, error: "Subdomain ausente" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const body = await c.req.json().catch(() => null);
+    if (!body) {
+      return c.json(
+        { success: false, error: "Body JSON inválido" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const reservationId = (body.reservationId || "").trim();
+    const successUrl = (body.successUrl || "").trim();
+    const cancelUrl = (body.cancelUrl || "").trim();
+
+    // Validate required fields
+    if (!reservationId || !successUrl || !cancelUrl) {
+      return c.json(
+        { success: false, error: "Campos obrigatórios: reservationId, successUrl, cancelUrl" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // Validate site exists and get organization
+    const { data: sqlSite, error: sqlError } = await supabase
+      .from("client_sites")
+      .select("organization_id,subdomain,is_active")
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (sqlError || !sqlSite) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const organizationId = (sqlSite as any).organization_id;
+
+    // Load Stripe config for this organization
+    const { data: stripeConfig, error: stripeError } = await supabase
+      .from("stripe_configs")
+      .select("enabled, is_test_mode, secret_key_encrypted")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (stripeError || !stripeConfig) {
+      return c.json(
+        { success: false, error: "Stripe não configurado para esta organização" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    if (!(stripeConfig as any).enabled) {
+      return c.json(
+        { success: false, error: "Stripe está desabilitado para esta organização" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    if (!(stripeConfig as any).secret_key_encrypted) {
+      return c.json(
+        { success: false, error: "Chave secreta do Stripe não configurada" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Load reservation for this organization
+    const { data: reservation, error: reservationError } = await supabase
+      .from("reservations")
+      .select("id, pricing_total, pricing_currency, status, property_id, check_in, check_out, nights")
+      .eq("id", reservationId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (reservationError || !reservation) {
+      return c.json(
+        { success: false, error: "Reserva não encontrada" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const res = reservation as any;
+
+    // Decrypt secret key (inline implementation for rendizy-public)
+    const ENCRYPTION_KEY = Deno.env.get("ENCRYPTION_KEY");
+    if (!ENCRYPTION_KEY) {
+      console.error("[rendizy-public] ENCRYPTION_KEY missing");
+      return c.json(
+        { success: false, error: "Configuração de criptografia ausente" },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    let secretKey: string;
+    try {
+      const encrypted = (stripeConfig as any).secret_key_encrypted;
+      const [ivHex, encryptedHex] = encrypted.split(":");
+      const iv = new Uint8Array(ivHex.match(/.{2}/g)!.map((b: string) => parseInt(b, 16)));
+      const encryptedBytes = new Uint8Array(encryptedHex.match(/.{2}/g)!.map((b: string) => parseInt(b, 16)));
+      
+      const keyBytes = new TextEncoder().encode(ENCRYPTION_KEY.slice(0, 32).padEnd(32, "0"));
+      const cryptoKey = await crypto.subtle.importKey(
+        "raw",
+        keyBytes,
+        { name: "AES-GCM" },
+        false,
+        ["decrypt"]
+      );
+      
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        cryptoKey,
+        encryptedBytes
+      );
+      
+      secretKey = new TextDecoder().decode(decrypted);
+    } catch (decryptErr) {
+      console.error("[rendizy-public] Decryption failed:", decryptErr);
+      return c.json(
+        { success: false, error: "Erro ao descriptografar chave do Stripe" },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Create Stripe Checkout Session via Stripe API
+    const amountCents = Math.round((res.pricing_total || 0) * 100);
+    const currency = (res.pricing_currency || "brl").toLowerCase();
+
+    const stripePayload = new URLSearchParams({
+      "mode": "payment",
+      "success_url": successUrl,
+      "cancel_url": cancelUrl,
+      "line_items[0][price_data][currency]": currency,
+      "line_items[0][price_data][unit_amount]": String(amountCents),
+      "line_items[0][price_data][product_data][name]": `Reserva ${res.check_in} a ${res.check_out} (${res.nights} noites)`,
+      "line_items[0][quantity]": "1",
+      "metadata[reservation_id]": reservationId,
+      "metadata[organization_id]": organizationId,
+      "metadata[subdomain]": subdomain,
+    });
+
+    const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${secretKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: stripePayload.toString(),
+    });
+
+    if (!stripeResponse.ok) {
+      const stripeError = await stripeResponse.json().catch(() => ({}));
+      console.error("[rendizy-public] Stripe API error:", stripeError);
+      return c.json(
+        { success: false, error: "Erro ao criar sessão de checkout", details: (stripeError as any).error?.message },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const stripeSession = await stripeResponse.json();
+
+    // Store checkout session in database
+    const { error: insertError } = await supabase
+      .from("stripe_checkout_sessions")
+      .insert({
+        id: crypto.randomUUID(),
+        organization_id: organizationId,
+        stripe_session_id: (stripeSession as any).id,
+        reservation_id: reservationId,
+        amount: amountCents,
+        currency: currency,
+        status: (stripeSession as any).payment_status || "unpaid",
+        checkout_url: (stripeSession as any).url,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: { subdomain, source: "client-site" },
+        created_at: new Date().toISOString(),
+      });
+
+    if (insertError) {
+      console.error("[rendizy-public] Error saving checkout session:", insertError);
+      // Continue anyway - the Stripe session was created successfully
+    }
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          sessionId: (stripeSession as any).id,
+          checkoutUrl: (stripeSession as any).url,
+          amount: amountCents,
+          currency: currency,
+          reservationId: reservationId,
+        },
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  } catch (err) {
+    console.error("[rendizy-public] Checkout session error:", err);
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
+});
+
+// ============================================================
 // PUBLIC (PROTO/STUB): Lead capture (planned)
 // POST /client-sites/api/:subdomain/leads
 // ============================================================

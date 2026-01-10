@@ -320,6 +320,23 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
         '❌ PROIBIDO: Inventar taxa de limpeza, taxa de serviço ou outros valores no front-end.',
         '✅ CORRETO: Chamar calculate-price e exibir breakdown.cleaningFee, breakdown.serviceFee, etc.'
       ]
+    },
+    {
+      id: 'checkout-session',
+      title: 'Checkout Stripe (pagamento) — estável',
+      method: 'POST',
+      pathTemplate: '/client-sites/api/:subdomain/checkout/session',
+      stability: 'stable',
+      notes: [
+        'Cria sessão de checkout no Stripe para pagamento da reserva.',
+        'Campos obrigatórios: reservationId (UUID da reserva criada), successUrl, cancelUrl.',
+        'Retorna: sessionId, checkoutUrl, amount (centavos), currency, reservationId.',
+        'O site deve redirecionar o hóspede para checkoutUrl após receber a resposta.',
+        'Após pagamento, Stripe redireciona para successUrl ou cancelUrl.',
+        '⚠️ IMPORTANTE: A reserva deve existir (status=pending) antes de criar checkout.',
+        '⚠️ IMPORTANTE: O Stripe deve estar configurado e habilitado para a organização.',
+        'Fluxo típico: 1) calculate-price → 2) reservations → 3) checkout/session → 4) redirect.'
+      ]
     }
   ] satisfies ClientSitesCatalogEndpoint[],
 
@@ -620,6 +637,27 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       'Preço total = dailyRate × nights (calculado no backend).',
       'Resposta de sucesso inclui reservationCode para o usuário anotar.',
       'Reservas criadas ficam com status "pending" aguardando confirmação do admin.'
+    ]
+  },
+  {
+    id: 'stripe-checkout',
+    title: 'Botão de Pagamento Stripe',
+    stability: 'stable',
+    description:
+      'Botão que cria sessão de checkout no Stripe e redireciona o usuário para pagamento. Usado após criar reserva.',
+    usesEndpoints: ['checkout-session', 'reservation-create'],
+    requiredFields: [
+      'reservationId (UUID retornado pelo endpoint de reserva)',
+      'successUrl (URL de sucesso após pagamento)',
+      'cancelUrl (URL de cancelamento)'
+    ],
+    notes: [
+      'Fluxo completo: (1) calculate-price → (2) reservation-create → (3) checkout-session → (4) redirect para Stripe.',
+      'O endpoint retorna checkoutUrl do Stripe para onde o hóspede deve ser redirecionado.',
+      '⚠️ IMPORTANTE: Só funciona se o Stripe estiver configurado e habilitado no IntegrationsManager.',
+      'Após pagamento, o Stripe redireciona para successUrl (sucesso) ou cancelUrl (cancelamento).',
+      'Webhook do Stripe atualiza o status da reserva automaticamente.',
+      'Componente de exemplo: components/client-sites/StripeCheckoutButton.example.tsx'
     ]
   }
 ] satisfies ClientSitesCatalogBlock[];
