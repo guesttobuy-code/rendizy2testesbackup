@@ -8,7 +8,7 @@
  * @date 2025-10-29
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Zap,
   Building2,
