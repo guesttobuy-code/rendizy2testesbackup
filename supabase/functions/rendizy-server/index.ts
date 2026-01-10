@@ -530,7 +530,7 @@ app.get("/make-server-67caf26a/staysnet/import/issues", listStaysNetImportIssues
 // ============================================================================
 
 // ============================================================================
-// STRIPE (Checkout + Webhooks)
+// STRIPE (Checkout + Webhooks + Products)
 // ============================================================================
 // Settings (multi-tenant via token): usado pelo modal de integrações no /settings
 app.get("/rendizy-server/make-server-67caf26a/settings/stripe", stripeRoutes.getStripeConfig);
@@ -542,10 +542,18 @@ app.post(
   stripeRoutes.createStripeCheckoutSession
 );
 
+// Products & Prices (ATIVIDADE 02)
+app.get("/rendizy-server/make-server-67caf26a/stripe/products", stripeRoutes.listStripeProducts);
+app.post("/rendizy-server/make-server-67caf26a/stripe/products", stripeRoutes.createStripeProduct);
+app.delete("/rendizy-server/make-server-67caf26a/stripe/products/:productId", stripeRoutes.archiveStripeProduct);
+
 // Compat extra: alguns frontends chamam sem prefixo /rendizy-server
 app.get("/make-server-67caf26a/settings/stripe", stripeRoutes.getStripeConfig);
 app.post("/make-server-67caf26a/settings/stripe", stripeRoutes.saveStripeConfig);
 app.post("/make-server-67caf26a/stripe/checkout/session", stripeRoutes.createStripeCheckoutSession);
+app.get("/make-server-67caf26a/stripe/products", stripeRoutes.listStripeProducts);
+app.post("/make-server-67caf26a/stripe/products", stripeRoutes.createStripeProduct);
+app.delete("/make-server-67caf26a/stripe/products/:productId", stripeRoutes.archiveStripeProduct);
 
 // Webhook (externo): sem auth; valida assinatura + idempotência em stripe_webhook_events
 app.post("/stripe/webhook/:organizationId", stripeRoutes.receiveStripeWebhook);
