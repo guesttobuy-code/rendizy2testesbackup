@@ -944,22 +944,138 @@ app.post('/channels/whatsapp/webhook', async (c) => {
     const organizationId = orgConfig.organization_id;
     console.log(`✅ [Chat] Found organization: ${organizationId}`);
 
-    // ✅ NOTA: Por enquanto, apenas logamos a mensagem recebida
-    // A implementação completa de salvamento em SQL pode ser adicionada depois
-    // se necessário, mas não é crítica para o funcionamento básico
+    // =========================================================================
+    // FASE 1: SALVAMENTO MULTI-TENANT DE MENSAGENS RECEBIDAS
+    // v1.0.104.002 - 2026-01-10
+    // =========================================================================
+
+    // 1) Encontrar ou criar a conversation
+    let conversationId: string | null = null;
+    const remoteJid = senderJid; // ex: 5511999999999@s.whatsapp.net
+    
+    try {
+      // Buscar conversa existente por external_conversation_id (remoteJid)
+      const { data: existingConv } = await client
+        .from('conversations')
+        .select('id, unread_count')
+        .eq('organization_id', organizationId)
+        .eq('external_conversation_id', remoteJid)
+        .maybeSingle();
+
+      if (existingConv?.id) {
+        conversationId = existingConv.id;
+        
+        // Atualizar conversa com última mensagem e incrementar unread
+        await client
+          .from('conversations')
+          .update({
+            last_message: messageText.substring(0, 500),
+            last_message_at: new Date().toISOString(),
+            unread_count: (existingConv.unread_count || 0) + 1,
+            guest_name: senderName || undefined, // Atualizar nome se disponível
+          })
+          .eq('id', conversationId);
+          
+        console.log(`✅ [Chat] Updated existing conversation: ${conversationId}`);
+      } else {
+        // Criar nova conversa
+        const convInsert = {
+          organization_id: organizationId,
+          external_conversation_id: remoteJid,
+          guest_name: senderName,
+          guest_phone: senderPhone,
+          channel: 'whatsapp',
+          status: 'normal',
+          conversation_type: 'guest',
+          last_message: messageText.substring(0, 500),
+          last_message_at: new Date().toISOString(),
+          unread_count: 1,
+          channel_metadata: {
+            instance: instanceName,
+            pushName: senderName,
+          },
+        };
+        
+        const { data: newConv, error: convError } = await client
+          .from('conversations')
+          .insert(convInsert)
+          .select('id')
+          .single();
+          
+        if (convError) {
+          console.error('❌ [Chat] Erro ao criar conversa:', convError);
+        } else {
+          conversationId = newConv?.id || null;
+          console.log(`✅ [Chat] Created new conversation: ${conversationId}`);
+        }
+      }
+    } catch (convErr) {
+      console.error('❌ [Chat] Erro ao processar conversa:', convErr);
+    }
+
+    // 2) Salvar mensagem
+    let savedMessageId: string | null = null;
+    
+    if (conversationId) {
+      try {
+        const msgRow = {
+          organization_id: organizationId,
+          conversation_id: conversationId,
+          sender_type: 'guest',
+          sender_name: senderName,
+          sender_id: senderPhone,
+          content: messageText,
+          attachments: [], // TODO: Processar attachments
+          channel: 'whatsapp',
+          direction: 'incoming',
+          external_id: messageId,
+          external_status: 'delivered',
+          sent_at: new Date().toISOString(),
+          metadata: {
+            remoteJid,
+            pushName: senderName,
+            instance: instanceName,
+          },
+        };
+
+        const { data: savedMsg, error: msgError } = await client
+          .from('messages')
+          .insert(msgRow)
+          .select('id')
+          .single();
+
+        if (msgError) {
+          // Se for duplicate key, a mensagem já foi processada
+          if (msgError.code === '23505') {
+            console.log('⏭️ [Chat] Mensagem duplicada, ignorando:', messageId);
+          } else {
+            console.error('❌ [Chat] Erro ao salvar mensagem:', msgError);
+          }
+        } else {
+          savedMessageId = savedMsg?.id || null;
+          console.log(`✅ [Chat] Saved message: ${savedMessageId}`);
+        }
+      } catch (msgErr) {
+        console.error('❌ [Chat] Erro ao inserir mensagem:', msgErr);
+      }
+    }
 
     console.log('✅ [Chat] WhatsApp message processed:', {
       organization_id: organizationId,
+      conversation_id: conversationId,
+      message_id: savedMessageId,
       sender: senderName,
       phone: senderPhone,
-      message: messageText.substring(0, 50) + '...',
+      preview: messageText.substring(0, 50) + (messageText.length > 50 ? '...' : ''),
     });
 
     return c.json({ 
       success: true, 
-      message: 'Message processed',
+      message: 'Message saved',
       data: {
         organization_id: organizationId,
+        conversation_id: conversationId,
+        message_id: savedMessageId,
         sender: senderName,
         phone: senderPhone,
       }
