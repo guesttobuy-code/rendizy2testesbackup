@@ -1545,7 +1545,7 @@ function DocsAIModal({ open, onClose }: {
 }) {
   const [copied, setCopied] = useState(false);
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v2.9)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v3.0)
 
 ---
 ## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
@@ -2102,6 +2102,16 @@ Implemente explicitamente estes blocos (mesma intenção do catálogo):
 - Localização/Mapa: ` + "`property-map`" + ` (step 2 do properties)
 - CTA de contato (` + "`contact-cta`" + `) usando WhatsApp/link (sem backend)
 - Formulário de reserva (` + "`booking-form`" + `): permite criar reservas via POST /reservations
+- Pagamento Stripe (` + "`stripe-checkout`" + `): botão que redireciona para checkout do Stripe após criar reserva
+
+#### Fluxo completo de reserva com pagamento:
+1. Usuário seleciona datas → ` + "`/calendar`" + ` (valida disponibilidade)
+2. Submete formulário → ` + "`POST /reservations`" + ` (cria reserva, retorna reservationId)
+3. Clica "Pagar" → ` + "`POST /checkout-session`" + ` (cria sessão Stripe, retorna checkoutUrl)
+4. Redireciona para Stripe → usuário paga
+5. Stripe redireciona para successUrl ou cancelUrl
+
+⚠️ O bloco ` + "`stripe-checkout`" + ` só deve aparecer se o Stripe estiver habilitado na org (verificar via ` + "`site-config.features.stripeCheckout`" + `).
 
 Para Header/Hero/Footer:
 - Preferir dados vindos de ` + "`site-config`" + ` (título, descrição, contato, redes, features), quando disponível.
