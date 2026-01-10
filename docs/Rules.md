@@ -59,6 +59,12 @@ Os endpoints, tipos e formatos documentados em `catalog.ts` e no prompt são **i
 | Regras canônicas | Este arquivo (`Rules.md`) |
 | Tipos TypeScript | Arquivos `.d.ts` e interfaces no código |
 
+### Integrações (escala/custo)
+
+| Integração | Documento canônico |
+|-----------|---------------------|
+| Stays.net (escala + eficiência) | `docs/06-integrations/STAYSNET_SCALE_ROADMAP.md` |
+
 **Conflitos são resolvidos consultando a fonte de verdade, não adaptando código.**
 
 ---

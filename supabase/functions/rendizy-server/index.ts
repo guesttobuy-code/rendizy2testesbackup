@@ -66,6 +66,8 @@ import { registerDiscountPackagesRoutes } from "./routes-discount-packages.ts";
 import * as organizationsRoutes from "./routes-organizations.ts";
 import usersApp from "./routes-users.ts";
 import * as photosRoutes from "./routes-photos.ts";
+import * as stripeRoutes from "./routes-stripe.ts";
+import * as paymentsRoutes from "./routes-payments.ts";
 
 const app = new Hono();
 
@@ -525,6 +527,47 @@ app.post("/make-server-67caf26a/staysnet/import/guests", importStaysNetGuests);
 app.post("/make-server-67caf26a/staysnet/import/blocks", importStaysNetBlocks);
 app.post("/make-server-67caf26a/staysnet/import/finance", importStaysNetFinance);
 app.get("/make-server-67caf26a/staysnet/import/issues", listStaysNetImportIssues);
+// ============================================================================
+
+// ============================================================================
+// STRIPE (Checkout + Webhooks)
+// ============================================================================
+// Settings (multi-tenant via token): usado pelo modal de integrações no /settings
+app.get("/rendizy-server/make-server-67caf26a/settings/stripe", stripeRoutes.getStripeConfig);
+app.post("/rendizy-server/make-server-67caf26a/settings/stripe", stripeRoutes.saveStripeConfig);
+
+// Checkout Session (P1)
+app.post(
+  "/rendizy-server/make-server-67caf26a/stripe/checkout/session",
+  stripeRoutes.createStripeCheckoutSession
+);
+
+// Compat extra: alguns frontends chamam sem prefixo /rendizy-server
+app.get("/make-server-67caf26a/settings/stripe", stripeRoutes.getStripeConfig);
+app.post("/make-server-67caf26a/settings/stripe", stripeRoutes.saveStripeConfig);
+app.post("/make-server-67caf26a/stripe/checkout/session", stripeRoutes.createStripeCheckoutSession);
+
+// Webhook (externo): sem auth; valida assinatura + idempotência em stripe_webhook_events
+app.post("/stripe/webhook/:organizationId", stripeRoutes.receiveStripeWebhook);
+app.post("/rendizy-server/stripe/webhook/:organizationId", stripeRoutes.receiveStripeWebhook);
+
+// ============================================================================
+
+// ============================================================================
+// PAYMENTS (Provider-agnostic checkout)
+// ============================================================================
+// Primary (used by internal app)
+app.post(
+  "/rendizy-server/make-server-67caf26a/payments/checkout/session",
+  paymentsRoutes.createPaymentsCheckoutSession
+);
+
+// Compat extra: alguns frontends chamam sem prefixo /rendizy-server
+app.post(
+  "/make-server-67caf26a/payments/checkout/session",
+  paymentsRoutes.createPaymentsCheckoutSession
+);
+
 // ============================================================================
 
 // ============================================================================

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, X, RotateCcw, Eye, Check, AlertCircle, Image as ImageIcon, Save, Settings as SettingsIcon, Zap, Building2 } from 'lucide-react';
+import { Upload, X, RotateCcw, Eye, Check, AlertCircle, Image as ImageIcon, Save, Settings as SettingsIcon, Zap, Building2, CreditCard } from 'lucide-react';
 import { Button } from './ui/button';
 import { GlobalSettingsManager } from './GlobalSettingsManager';
 import { useAuth } from '../src/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 import { Slider } from './ui/slider';
 import { Switch } from './ui/switch';
@@ -20,6 +21,10 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ onLogoChange }: SettingsPanelProps) {
+  const { user, organization, isAdmin, isSuperAdmin } = useAuth();
+  const organizationId = organization?.id || user?.organizationId;
+  const canConfigureIntegrations = isAdmin || isSuperAdmin;
+
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState<number>(7); // h-7 padrão
   const [showPreview, setShowPreview] = useState(false);
@@ -441,7 +446,16 @@ export function SettingsPanel({ onLogoChange }: SettingsPanelProps) {
         </TabsContent>
 
         <TabsContent value="policies" className="mt-6">
-          <GlobalSettingsManager organizationId={organizationId} />
+          {organizationId ? (
+            <GlobalSettingsManager organizationId={organizationId} />
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Não foi possível identificar a organização atual para carregar as políticas globais.
+              </AlertDescription>
+            </Alert>
+          )}
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 mt-6">
@@ -528,6 +542,76 @@ export function SettingsPanel({ onLogoChange }: SettingsPanelProps) {
                 </CardContent>
               </Card>
 
+              {/* Stripe Payment Gateway */}
+              <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          Stripe
+                          <Badge className="bg-purple-600 text-white">Pagamentos</Badge>
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Gateway de pagamento global
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Processe pagamentos com cartão, PIX, boleto e assinaturas recorrentes com a plataforma líder mundial.
+                  </p>
+                  <Button 
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                    onClick={() => {
+                      document.getElementById('stripe-integration')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    Configurar Integração
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* PagarMe Payment Gateway */}
+              <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-600 to-emerald-600 flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          Pagar.me
+                          <Badge className="bg-green-600 text-white">Pagamentos</Badge>
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Pagamentos para o mercado brasileiro
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Aceite pagamentos com PIX, cartão, boleto e split de pagamento com taxas competitivas para o Brasil.
+                  </p>
+                  <Button 
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    onClick={() => {
+                      document.getElementById('pagarme-integration')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    Configurar Integração
+                  </Button>
+                </CardContent>
+              </Card>
+
               {/* Airbnb - Em breve */}
               <Card className="overflow-hidden opacity-60">
                 <CardHeader className="pb-3">
@@ -601,6 +685,555 @@ export function SettingsPanel({ onLogoChange }: SettingsPanelProps) {
             {/* Booking.com Integration Component */}
             <div id="bookingcom-integration">
               <BookingComIntegration />
+            </div>
+
+            <Separator className="my-8" />
+
+            {/* Stripe Payment Integration */}
+            <div id="stripe-integration">
+              <Card className="border-2 border-purple-200">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
+                      <CreditCard className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl">Stripe Payment Gateway</CardTitle>
+                      <CardDescription>
+                        Configure pagamentos com Stripe para processar cartões, PIX, boletos e assinaturas
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Documentação:</strong> Consulte o guia completo em{' '}
+                      <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                        docs/06-integrations/API_STRIPE_REFERENCE.md
+                      </code>
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">Dores resolvidas</p>
+                        <p className="text-sm text-muted-foreground">
+                          O que essa integração elimina no dia a dia (operação e financeiro)
+                        </p>
+                      </div>
+                      <Badge variant="secondary">Multi-tenant</Badge>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">Checkout e cobrança padronizados</Badge>
+                      <Badge variant="outline">Confirmação automática via webhook</Badge>
+                      <Badge variant="outline">Menos conciliação manual</Badge>
+                      <Badge variant="outline">Reembolso e estorno rastreáveis</Badge>
+                      <Badge variant="outline">Assinaturas e recorrência</Badge>
+                    </div>
+
+                    <div className="text-sm text-muted-foreground">
+                      {canConfigureIntegrations ? (
+                        <p>
+                          Como <strong>Admin</strong>, você configura credenciais e ativa recursos. A operação usa as
+                          soluções abaixo no dia a dia.
+                        </p>
+                      ) : (
+                        <p>
+                          Como <strong>usuário da operação</strong>, você consome as soluções já habilitadas pelo Admin
+                          (pagamentos, reembolsos, assinaturas e status).
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <Tabs defaultValue="credentials" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="credentials">Credenciais</TabsTrigger>
+                      <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+                      <TabsTrigger value="settings">Configurações</TabsTrigger>
+                      <TabsTrigger value="solutions">Soluções criadas</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="credentials" className="space-y-4 mt-4">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="stripe-publishable-key">Publishable Key</Label>
+                          <input
+                            id="stripe-publishable-key"
+                            type="text"
+                            placeholder="pk_test_... ou pk_live_..."
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Chave pública para uso no frontend (Stripe.js)
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="stripe-secret-key">Secret Key</Label>
+                          <input
+                            id="stripe-secret-key"
+                            type="password"
+                            placeholder="sk_test_... ou sk_live_..."
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Chave secreta para uso no backend (nunca exponha no frontend)
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="stripe-restricted-key">Restricted Key (Opcional)</Label>
+                          <input
+                            id="stripe-restricted-key"
+                            type="password"
+                            placeholder="rk_test_... ou rk_live_..."
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Chave com permissões limitadas para maior segurança
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-2 pt-4">
+                          <Switch id="stripe-test-mode" defaultChecked />
+                          <Label htmlFor="stripe-test-mode" className="cursor-pointer">
+                            Modo de Teste (Sandbox)
+                          </Label>
+                        </div>
+
+                        <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                          <Save className="w-4 h-4 mr-2" />
+                          Salvar Credenciais
+                        </Button>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="webhooks" className="space-y-4 mt-4">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="stripe-webhook-secret">Webhook Signing Secret</Label>
+                          <input
+                            id="stripe-webhook-secret"
+                            type="password"
+                            placeholder="whsec_..."
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Secret para validar a autenticidade dos eventos do Stripe
+                          </p>
+                        </div>
+
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            <div className="space-y-2">
+                              <p className="font-semibold">Configure o webhook no Stripe Dashboard:</p>
+                              <ol className="list-decimal list-inside space-y-1 text-sm">
+                                <li>Acesse: https://dashboard.stripe.com/webhooks</li>
+                                <li>Clique em "Add endpoint"</li>
+                                <li>URL: <code className="bg-muted px-1 py-0.5 rounded">https://seu-dominio.com/api/webhooks/stripe</code></li>
+                                <li>Eventos recomendados:
+                                  <ul className="list-disc list-inside ml-4 mt-1">
+                                    <li>payment_intent.succeeded</li>
+                                    <li>payment_intent.payment_failed</li>
+                                    <li>charge.refunded</li>
+                                    <li>customer.subscription.created</li>
+                                    <li>customer.subscription.updated</li>
+                                    <li>customer.subscription.deleted</li>
+                                  </ul>
+                                </li>
+                              </ol>
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+
+                        <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                          <Save className="w-4 h-4 mr-2" />
+                          Salvar Webhook Secret
+                        </Button>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="settings" className="space-y-4 mt-4">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Aceitar PIX</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Habilitar pagamentos via PIX (Brasil)
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+
+                        <Separator />
+
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Aceitar Boleto</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Habilitar pagamentos via boleto bancário
+                            </p>
+                          </div>
+                          <Switch />
+                        </div>
+
+                        <Separator />
+
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Captura Automática</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Capturar pagamentos automaticamente após autorização
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+
+                        <Separator />
+
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Assinaturas Recorrentes</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Habilitar planos de assinatura (Free, Basic, Premium, Enterprise)
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+
+                        <Alert className="bg-purple-50 border-purple-200">
+                          <Zap className="h-4 w-4 text-purple-600" />
+                          <AlertDescription>
+                            <strong className="text-purple-900">Recursos avançados:</strong> Consulte a documentação completa para implementar Split Payments, Connect Platform e Issuing.
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="solutions" className="space-y-4 mt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center justify-between gap-2 text-base">
+                              <span>Cartão (PaymentIntents)</span>
+                              <Badge className="bg-purple-600 text-white">MVP</Badge>
+                            </CardTitle>
+                            <CardDescription>
+                              Cobrança segura com confirmação automática e rastreabilidade.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-2 text-sm">
+                            <p><strong>Dor resolvida:</strong> pagamento manual/instável e pouca visibilidade de status.</p>
+                            {canConfigureIntegrations ? (
+                              <p><strong>Admin:</strong> configure credenciais e webhook; defina captura automática conforme o fluxo.</p>
+                            ) : (
+                              <p><strong>Como usar:</strong> gere a cobrança/checkout e acompanhe o status (pago, falhou, reembolsado).</p>
+                            )}
+                            <p className="text-muted-foreground"><strong>Roadmap:</strong> 3DS/Wallets → Radar → conciliação avançada.</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center justify-between gap-2 text-base">
+                              <span>PIX</span>
+                              <Badge variant="secondary">MVP</Badge>
+                            </CardTitle>
+                            <CardDescription>
+                              Pagamento instantâneo no Brasil, com baixa fricção.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-2 text-sm">
+                            <p><strong>Dor resolvida:</strong> abandono por falta de método de pagamento local.</p>
+                            {canConfigureIntegrations ? (
+                              <p><strong>Admin:</strong> ative “Aceitar PIX” e valide se a conta Stripe está habilitada para BR.</p>
+                            ) : (
+                              <p><strong>Como usar:</strong> ofereça PIX no checkout e confirme automaticamente via webhook.</p>
+                            )}
+                            <p className="text-muted-foreground"><strong>Roadmap:</strong> QR dinâmico + expiração → conciliação por lote.</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center justify-between gap-2 text-base">
+                              <span>Boleto</span>
+                              <Badge variant="outline">MVP</Badge>
+                            </CardTitle>
+                            <CardDescription>
+                              Emissão e baixa via confirmação assíncrona (webhook).
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-2 text-sm">
+                            <p><strong>Dor resolvida:</strong> cobrança offline sem rastreio e baixa manual.</p>
+                            {canConfigureIntegrations ? (
+                              <p><strong>Admin:</strong> ative “Aceitar Boleto” e garanta webhooks para confirmação.</p>
+                            ) : (
+                              <p><strong>Como usar:</strong> emita o boleto e acompanhe o status até a compensação.</p>
+                            )}
+                            <p className="text-muted-foreground"><strong>Roadmap:</strong> lembretes automáticos → regras de expiração.</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center justify-between gap-2 text-base">
+                              <span>Assinaturas (Billing)</span>
+                              <Badge className="bg-indigo-600 text-white">MVP</Badge>
+                            </CardTitle>
+                            <CardDescription>
+                              Recorrência, invoices e recuperação de inadimplência.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-2 text-sm">
+                            <p><strong>Dor resolvida:</strong> recorrência manual e inadimplência sem automação.</p>
+                            {canConfigureIntegrations ? (
+                              <p><strong>Admin:</strong> mantenha “Assinaturas Recorrentes” ativo e configure eventos de assinatura/invoice.</p>
+                            ) : (
+                              <p><strong>Como usar:</strong> acompanhe status (ativa, cancelada, em atraso) e comunicação com o cliente.</p>
+                            )}
+                            <p className="text-muted-foreground"><strong>Roadmap:</strong> dunning guiado → upgrade/downgrade self-serve.</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Alert className="bg-purple-50 border-purple-200">
+                        <AlertCircle className="h-4 w-4 text-purple-700" />
+                        <AlertDescription>
+                          <strong>Importante:</strong> as soluções dependem de Webhooks e idempotência. Veja os eventos recomendados na aba
+                          <strong> Webhooks</strong> e o playbook no guia Stripe.
+                        </AlertDescription>
+                      </Alert>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Separator className="my-8" />
+
+            {/* Pagar.me Payment Integration */}
+            <div id="pagarme-integration">
+              <Card className="border-2 border-green-200">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-600 to-emerald-600 flex items-center justify-center">
+                      <CreditCard className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl">Pagar.me Payment Gateway</CardTitle>
+                      <CardDescription>
+                        Configure pagamentos com Pagar.me - especializado no mercado brasileiro
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Taxas competitivas:</strong> O Pagar.me oferece as melhores taxas para o mercado brasileiro com PIX (0,99%), cartão de crédito (3,79%) e boleto (R$ 2,99).
+                    </AlertDescription>
+                  </Alert>
+
+                  <Tabs defaultValue="credentials" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="credentials">Credenciais</TabsTrigger>
+                      <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+                      <TabsTrigger value="settings">Configurações</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="credentials" className="space-y-4 mt-4">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="pagarme-api-key">API Key</Label>
+                          <input
+                            id="pagarme-api-key"
+                            type="text"
+                            placeholder="ak_test_... ou ak_live_..."
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Chave de API do Pagar.me (Dashboard → Configurações → Chaves de API)
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="pagarme-encryption-key">Encryption Key</Label>
+                          <input
+                            id="pagarme-encryption-key"
+                            type="password"
+                            placeholder="ek_test_... ou ek_live_..."
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Chave de criptografia para uso no frontend (Checkout Pagar.me)
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="pagarme-recipient-id">Recipient ID (Opcional)</Label>
+                          <input
+                            id="pagarme-recipient-id"
+                            type="text"
+                            placeholder="re_..."
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            ID do recebedor para split de pagamento (marketplace)
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-2 pt-4">
+                          <Switch id="pagarme-test-mode" defaultChecked />
+                          <Label htmlFor="pagarme-test-mode" className="cursor-pointer">
+                            Modo de Teste (Sandbox)
+                          </Label>
+                        </div>
+
+                        <Button className="w-full bg-green-600 hover:bg-green-700">
+                          <Save className="w-4 h-4 mr-2" />
+                          Salvar Credenciais
+                        </Button>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="webhooks" className="space-y-4 mt-4">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="pagarme-webhook-url">URL do Webhook</Label>
+                          <input
+                            id="pagarme-webhook-url"
+                            type="text"
+                            value="https://seu-dominio.com/api/webhooks/pagarme"
+                            className="w-full px-3 py-2 border rounded-md bg-muted"
+                            readOnly
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Configure esta URL no Dashboard do Pagar.me
+                          </p>
+                        </div>
+
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            <div className="space-y-2">
+                              <p className="font-semibold">Configure o webhook no Pagar.me Dashboard:</p>
+                              <ol className="list-decimal list-inside space-y-1 text-sm">
+                                <li>Acesse: https://dashboard.pagar.me</li>
+                                <li>Vá em: Configurações → Webhooks → Adicionar Webhook</li>
+                                <li>Cole a URL acima</li>
+                                <li>Selecione eventos:
+                                  <ul className="list-disc list-inside ml-4 mt-1">
+                                    <li>transaction_status_changed</li>
+                                    <li>subscription_status_changed</li>
+                                    <li>charge_status_changed</li>
+                                    <li>refund_created</li>
+                                  </ul>
+                                </li>
+                                <li>Versão da API: Recomendamos v5 (última versão estável)</li>
+                              </ol>
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="pagarme-webhook-secret">Webhook Secret (Opcional)</Label>
+                          <input
+                            id="pagarme-webhook-secret"
+                            type="password"
+                            placeholder="Deixe vazio ou configure um secret personalizado"
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Token secreto para validar a autenticidade dos webhooks
+                          </p>
+                        </div>
+
+                        <Button className="w-full bg-green-600 hover:bg-green-700">
+                          <Save className="w-4 h-4 mr-2" />
+                          Salvar Configuração de Webhook
+                        </Button>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="settings" className="space-y-4 mt-4">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>PIX Instantâneo</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Pagamento via PIX com confirmação em até 5 minutos
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+
+                        <Separator />
+
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Boleto Bancário</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Pagamento via boleto com vencimento configurável
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+
+                        <Separator />
+
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Cartão de Crédito</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Aceitar cartões Visa, Mastercard, Elo, Amex, etc.
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+
+                        <Separator />
+
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Parcelamento</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Permitir parcelamento em até 12x sem juros
+                            </p>
+                          </div>
+                          <Switch defaultChecked />
+                        </div>
+
+                        <Separator />
+
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Split de Pagamento</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Dividir automaticamente pagamentos entre recebedores (marketplace)
+                            </p>
+                          </div>
+                          <Switch />
+                        </div>
+
+                        <Alert className="bg-green-50 border-green-200">
+                          <Zap className="h-4 w-4 text-green-600" />
+                          <AlertDescription>
+                            <strong className="text-green-900">Antifraude incluído:</strong> O Pagar.me inclui análise antifraude gratuita em todas as transações com cartão.
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </TabsContent>

@@ -435,11 +435,25 @@ export async function importStaysNetGuests(c: Context) {
     const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
     // ✅ Segurança anti-timeout (Edge): limitar páginas por request.
     // O caller pode continuar via `next.skip` em múltiplas chamadas.
+    // OBS: antes estava travado em 1 página, o que multiplicava invocations.
     const requestedMaxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 5));
-    const maxPages = Math.min(1, requestedMaxPages);
+    const maxPages = Math.min(20, requestedMaxPages);
+    const maxRuntimeMs = Math.min(45_000, Math.max(5_000, Number(c.req.query('maxRuntimeMs') || body?.maxRuntimeMs || 25_000)));
+    const startedAt = Date.now();
     let skip = Math.max(0, Number(c.req.query('skip') || body?.skip || 0));
     const startSkip = skip;
     let hasMore = false;
+
+    // Enriquecimento de cliente (/booking/clients/{id}) pode custar caro (egress).
+    // Modo:
+    // - on/1/true  => sempre buscar quando tiver clientId
+    // - off/0/false => nunca buscar
+    // - auto (default) => buscar só quando faltar email/phone/nome (ou email sintético)
+    const rawEnrichClients = String(c.req.query('enrichClients') || (body as any)?.enrichClients || 'auto').trim().toLowerCase();
+    const enrichClientsMode: 'on' | 'off' | 'auto' =
+      (rawEnrichClients === '1' || rawEnrichClients === 'true' || rawEnrichClients === 'on') ? 'on'
+        : (rawEnrichClients === '0' || rawEnrichClients === 'false' || rawEnrichClients === 'off') ? 'off'
+          : 'auto';
 
     const includeCanceled = String(c.req.query('includeCanceled') || body?.includeCanceled || '').trim() === '1';
     const rawTypes = normalizeReservationTypes(body?.types ?? body?.type ?? c.req.query('types') ?? c.req.query('type'));
@@ -455,6 +469,8 @@ export async function importStaysNetGuests(c: Context) {
     console.log(`   📌 dateType: ${dateType} (raw=${rawDateType})`);
     console.log(`   🧾 types: ${types.join(',')}`);
     console.log(`   📄 Paginação: limit=${limit}, maxPages=${maxPages}, skip=${skip}`);
+    console.log(`   ⏱️ Runtime budget: ${maxRuntimeMs}ms`);
+    console.log(`   👤 enrichClients: ${enrichClientsMode}`);
     
     // ✅ Basic Auth (não x-api-key)
     const staysConfig = await loadStaysNetRuntimeConfigOrThrow(orgId);
@@ -502,6 +518,12 @@ export async function importStaysNetGuests(c: Context) {
     let pages = 0;
 
     while (pages < maxPages) {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= maxRuntimeMs) {
+        hasMore = true;
+        console.log(`   ⏱️ Interrompido por budget de runtime (${elapsed}ms >= ${maxRuntimeMs}ms)`);
+        break;
+      }
       const params = new URLSearchParams({
         from: fromFinal,
         to: toFinal,
@@ -584,7 +606,21 @@ export async function importStaysNetGuests(c: Context) {
 
         // Enriquecimento opcional via /booking/clients/{clientId}
         let clientRaw: StaysNetClientRaw | null = null;
-        if (guestData.staysnetClientId) {
+        const needsClientEnrichment = (() => {
+          if (!guestData) return false;
+          const email = String(guestData.email || '').trim().toLowerCase();
+          const isSyntheticEmail = email.endsWith('@staysnet.local');
+          const missingEmail = !email;
+          const missingPhone = !String(guestData.phone || '').trim();
+          const missingName = !String(guestData.firstName || '').trim();
+          return isSyntheticEmail || missingEmail || missingPhone || missingName;
+        })();
+
+        const shouldFetchClient = Boolean(guestData.staysnetClientId)
+          && enrichClientsMode !== 'off'
+          && (enrichClientsMode === 'on' || needsClientEnrichment);
+
+        if (shouldFetchClient && guestData.staysnetClientId) {
           clientRaw = await getClientRaw(guestData.staysnetClientId);
           if (clientRaw) {
             // Se vier informação mais confiável do client, preferir.

@@ -1,6 +1,8 @@
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 
+import { paymentProviders, type PaymentFeatureId, type PaymentProviderId } from '../../data/paymentProviders';
+
 import {
   CLIENT_SITES_BLOCKS_CATALOG,
   CLIENT_SITES_PUBLIC_CONTRACT_V1,
@@ -25,6 +27,68 @@ function StabilityBadge({ stability }: { stability: 'stable' | 'planned' }) {
   }
 
   return <Badge variant="outline">Planejado</Badge>;
+}
+
+const PAYMENT_PROVIDER_STABILITY: Record<PaymentProviderId, 'stable' | 'planned'> = {
+  stripe: 'stable',
+  pagarme: 'planned',
+};
+
+const PAYMENT_FEATURE_STABILITY: Record<PaymentProviderId, Partial<Record<PaymentFeatureId, 'stable' | 'planned'>>> = {
+  stripe: {
+    checkout_sessions: 'stable',
+    webhooks: 'stable',
+    payment_links: 'planned',
+    invoices: 'planned',
+    customers: 'planned',
+    refunds: 'planned',
+    tax: 'planned',
+    connect_splits: 'planned',
+    subscriptions: 'planned',
+    customer_portal: 'planned',
+  },
+  pagarme: {
+    checkout_sessions: 'planned',
+    refunds: 'planned',
+    webhooks: 'planned',
+  },
+};
+
+function PaymentProviderCard({ provider }: { provider: (typeof paymentProviders)[number] }) {
+  const providerStability = PAYMENT_PROVIDER_STABILITY[provider.id] ?? 'planned';
+  const featureStabilityMap = PAYMENT_FEATURE_STABILITY[provider.id] ?? {};
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="text-base">{provider.name}</CardTitle>
+            <CardDescription className="mt-1">{provider.description}</CardDescription>
+          </div>
+          <StabilityBadge stability={providerStability} />
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-3">
+        <div className="text-sm font-medium text-gray-900">Funções disponíveis</div>
+        <div className="space-y-2">
+          {provider.features.map((f) => {
+            const stability = featureStabilityMap[f.id] ?? 'planned';
+            return (
+              <div key={f.id} className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900">{f.title}</div>
+                  <div className="text-sm text-gray-600">{f.description}</div>
+                </div>
+                <StabilityBadge stability={stability} />
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function EndpointCard({ endpoint }: { endpoint: ClientSitesCatalogEndpoint }) {
@@ -205,6 +269,43 @@ export function ComponentsAndDataTab() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Plataformas de Pagamentos</h2>
+          <p className="text-sm text-gray-600">
+            Checkout padrão (genérico) para sites/fluxos do produto. Por demanda, cada site pode escolher a operadora
+            (Stripe, Pagar.me, etc.).
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Checkout padrão (provider-agnostic)</CardTitle>
+            <CardDescription>
+              O front chama um único endpoint. O backend decide qual operadora usar por:
+              (1) payload.provider, (2) client_sites.site_config.paymentProvider, ou (3) fallback (Stripe se enabled).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <CodeBlock
+              title="Endpoint canônico"
+              code={`POST /make-server-67caf26a/payments/checkout/session\n\nBody:\n{\n  \"reservationId\": \"<uuid>\",\n  \"successUrl\": \"https://.../sucesso\",\n  \"cancelUrl\": \"https://.../cancelar\",\n  \"provider\": \"stripe\" | \"pagarme\"?,\n  \"clientSiteSubdomain\": \"medhome\"?\n}`}
+            />
+
+            <div className="text-sm text-gray-600">
+              Observação: para site público, a estratégia de endpoint pode ser diferente (ex: módulo público). Para o
+              painel/admin, este endpoint é o padrão.
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {paymentProviders.map((p) => (
+            <PaymentProviderCard key={p.id} provider={p} />
+          ))}
+        </div>
+      </div>
 
       <div className="space-y-3">
         <div>

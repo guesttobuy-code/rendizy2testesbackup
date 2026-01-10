@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { CancelReservationModal, CancelReservationData } from './CancelReservationModal';
 import { useQueryClient } from '@tanstack/react-query';
 import { reservationsApi } from '../utils/api';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import {
   Calendar,
   User,
@@ -49,6 +50,7 @@ import {
 // ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
 import type { Reservation } from '../types/reservation';
 import { toast } from 'sonner';
+import { paymentsApi } from '../utils/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseDateLocal } from '../utils/dateLocal';
@@ -182,11 +184,45 @@ export function ReservationDetailsModal({
     }
   };
 
-  const handleGeneratePaymentLink = () => {
-    const link = `https://pay.rendizy.com/${reservation.id}`;
-    setPaymentLink(link);
-    setShowPaymentLink(true);
-    toast.success('Link de pagamento gerado!');
+  const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
+
+  const handleGeneratePaymentLink = async () => {
+    try {
+      setIsGeneratingPaymentLink(true);
+      const successUrl = window.location.href;
+      const cancelUrl = window.location.href;
+
+      const data = await paymentsApi.createCheckoutSession({
+        reservationId: reservation.id,
+        successUrl,
+        cancelUrl,
+      });
+
+      const checkoutUrl = data?.data?.url as string | null | undefined;
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Falha ao gerar checkout.');
+      }
+
+      if (!checkoutUrl) {
+        throw new Error('O provedor de pagamento não retornou uma URL de checkout.');
+      }
+
+      setPaymentLink(checkoutUrl);
+      setShowPaymentLink(true);
+      toast.success('Link de pagamento gerado!', {
+        description: 'Checkout criado com sucesso.',
+      });
+
+      window.open(checkoutUrl, '_blank');
+    } catch (error) {
+      console.error('❌ Erro ao gerar link de pagamento:', error);
+      toast.error('Erro ao gerar link de pagamento', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+      });
+    } finally {
+      setIsGeneratingPaymentLink(false);
+    }
   };
 
   const handleCopyPaymentLink = async () => {
@@ -519,9 +555,10 @@ export function ReservationDetailsModal({
                               className="w-full"
                               onClick={handleGeneratePaymentLink}
                               variant="default"
+                              disabled={isGeneratingPaymentLink}
                             >
                               <Link2 className="w-4 h-4 mr-2" />
-                              Gerar Link de Pagamento
+                              {isGeneratingPaymentLink ? 'Gerando link...' : 'Gerar Link de Pagamento'}
                             </Button>
 
                             {showPaymentLink && (

@@ -307,14 +307,42 @@ export async function importStaysNetBlocks(c: Context) {
         ? (body.propertyIds as unknown[]).map(String).map((s) => s.trim()).filter(Boolean)
         : [];
 
-    // Seleção pode vir como IDs Stays (padrão do modal) ou UUID interno.
+    // Seleção pode vir como IDs Stays (padrão do modal) ou IDs internos (properties.id).
+    // ⚠️ Importante: Stays pode usar IDs em formato UUID. Então NÃO podemos assumir "UUID => interno".
+    // Regra segura:
+    // - se o ID existir em `properties.id` (para a org), tratamos como interno;
+    // - caso contrário, tratamos como ID Stays.
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidCandidates = selectedPropertyIds.filter((id) => uuidRegex.test(id));
+
     const selectedInternalIdSet = new Set<string>();
     const selectedStaysIdSet = new Set<string>();
-    for (const id of selectedPropertyIds) {
-      if (uuidRegex.test(id)) selectedInternalIdSet.add(id);
-      else selectedStaysIdSet.add(id);
+
+    if (uuidCandidates.length > 0) {
+      try {
+        const { data: rows, error } = await supabase
+          .from('properties')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .in('id', uuidCandidates);
+
+        if (error) {
+          console.warn(`   ⚠️ Falha ao validar selectedPropertyIds internos (properties.id): ${error.message}`);
+        } else {
+          for (const r of rows ?? []) {
+            if (r?.id) selectedInternalIdSet.add(String(r.id));
+          }
+        }
+      } catch (e: any) {
+        console.warn(`   ⚠️ Exceção ao validar selectedPropertyIds internos: ${e?.message || String(e)}`);
+      }
     }
+
+    for (const id of selectedPropertyIds) {
+      if (selectedInternalIdSet.has(id)) continue;
+      selectedStaysIdSet.add(id);
+    }
+
     const filterBySelected = selectedInternalIdSet.size > 0 || selectedStaysIdSet.size > 0;
 
     const propertyIdCache = new Map<string, string | null>();
@@ -340,7 +368,8 @@ export async function importStaysNetBlocks(c: Context) {
     const dateType = String((c.req.query('dateType') || body?.dateType || 'included') ?? '').trim();
     // ✅ Stays.net: limit max 20
     const limit = Math.min(20, Math.max(1, Number(c.req.query('limit') || body?.limit || 20)));
-    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 500));
+    // ✅ Segurança anti-timeout/custo: default menor. Caller pode continuar via `next.skip`.
+    const maxPages = Math.max(1, Number(c.req.query('maxPages') || body?.maxPages || 50));
 
     const maxRuntimeMs = Math.max(5_000, Number(body?.maxRuntimeMs || 25_000));
     const fetchTimeoutMs = Math.max(3_000, Number(body?.fetchTimeoutMs || 15_000));

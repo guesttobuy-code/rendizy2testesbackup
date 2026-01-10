@@ -1,4 +1,4 @@
-import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, SUPABASE_PROJECT_REF } from './utils-env.ts';
+import { SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from './utils-env.ts';
 /**
  * Utilidades de criptografia simétrica para dados sensíveis (ex.: API keys).
  * Usa AES-GCM com chave derivada de variável de ambiente.

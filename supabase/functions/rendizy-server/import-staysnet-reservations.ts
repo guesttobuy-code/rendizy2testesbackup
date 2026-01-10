@@ -693,7 +693,13 @@ export async function importStaysNetReservations(c: Context) {
     const includeCanceled = String(c.req.query('includeCanceled') || body?.includeCanceled || '').trim() === '1';
     // ✅ Por padrão, buscar detalhe por reserva para capturar hóspede (guestsDetails.list) e outros campos.
     // O endpoint de lista (/booking/reservations) pode vir truncado e não traz dados de contato.
-    const expandDetails = String(c.req.query('expandDetails') || body?.expandDetails || '1').trim() !== '0';
+    const rawExpandDetails = String(c.req.query('expandDetails') || (body as any)?.expandDetails || 'auto').trim().toLowerCase();
+    const expandDetailsMode: 'on' | 'off' | 'auto' =
+      (rawExpandDetails === '1' || rawExpandDetails === 'true' || rawExpandDetails === 'on') ? 'on'
+        : (rawExpandDetails === '0' || rawExpandDetails === 'false' || rawExpandDetails === 'off') ? 'off'
+          : 'auto';
+    // Budget anti-egress: no máximo N fetches de detalhes por execução (default 10)
+    let detailsFetchBudget = Math.min(200, Math.max(0, Number(c.req.query('maxDetailsFetches') || (body as any)?.maxDetailsFetches || 10)));
     const rawTypes = normalizeReservationTypes(body?.types ?? body?.type ?? c.req.query('types') ?? c.req.query('type'));
     const types = rawTypes.length > 0 ? rawTypes : ['reserved', 'booked', 'contract'];
     if (includeCanceled && !types.includes('canceled')) types.push('canceled');
@@ -702,6 +708,7 @@ export async function importStaysNetReservations(c: Context) {
     console.log(`   📌 dateType: ${dateType} (raw=${rawDateType})`);
     console.log(`   🧾 types: ${types.join(',')}`);
     console.log(`   📄 Paginação: limit=${limit}, maxPages=${maxPages}`);
+    console.log(`   🔎 expandDetails: ${expandDetailsMode} (maxDetailsFetches=${detailsFetchBudget})`);
     if (filterBySelectedProperties) {
       console.log(`   🏠 Filtro: ${selectedPropertyIdSet.size} imóvel(is) selecionado(s)`);
     }
@@ -828,10 +835,16 @@ export async function importStaysNetReservations(c: Context) {
       const hasDirectContact = Boolean((res as any).guestPhone || (res as any).guestEmail || (res as any).guestName);
       const needsDetails = !hasGuestsList && !hasDirectContact;
 
-      const detailPayload = (expandDetails && needsDetails)
-        ? (await fetchStaysReservationDetails(staysConfig.baseUrl, credentials, String(res._id || '').trim()) ||
+      const shouldTryDetails = needsDetails
+        && expandDetailsMode !== 'off'
+        && (expandDetailsMode === 'on' || expandDetailsMode === 'auto')
+        && detailsFetchBudget > 0;
+
+      const detailPayload = shouldTryDetails
+        ? (detailsFetchBudget--,
+          (await fetchStaysReservationDetails(staysConfig.baseUrl, credentials, String(res._id || '').trim()) ||
             await fetchStaysReservationDetails(staysConfig.baseUrl, credentials, String((res as any).id || '').trim()) ||
-            null)
+            null))
         : null;
 
       const resFull: StaysNetReservation = detailPayload ? ({ ...res, ...detailPayload } as StaysNetReservation) : res;
