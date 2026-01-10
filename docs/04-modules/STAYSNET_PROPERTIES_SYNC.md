@@ -1,231 +1,174 @@
-# Stays.net Properties Sync - Sincronização Automática de Imóveis
+# 🔄 Staysnet Properties Sync
 
-> **Versão**: 1.0.111  
-> **Data**: 2026-01-10  
-> **Autor**: GitHub Copilot  
+> **Versão:** v1.0.111  
+> **Data:** 2026-01-10  
+> **Autor:** GitHub Copilot  
 
-## Problema Resolvido
+---
 
-A Stays.net **NÃO envia webhooks** quando uma nova propriedade é criada. Isso causa dessincronização: imóveis existem na Stays mas não aparecem no Rendizy.
+## 📋 Resumo
 
-### Evidência
+Sistema de sincronização automática de propriedades entre Stays.net e Rendizy.
+Criado porque **Stays.net NÃO envia webhooks quando novas propriedades são criadas**.
 
-Análise dos webhooks recebidos na última semana (10/jan/2026):
+---
 
-| Tipo de Webhook | Count |
-|-----------------|-------|
-| `message.added` | 501 |
-| `calendar.rates.modified` | 131 |
-| `calendar.restrictions.modified` | 125 |
-| `reservation.payments.modified` | 64 |
-| `reservation.modified` | 48 |
-| `reservation.payments.created` | 48 |
-| `reservation.created` | 38 |
-| `client.created` | 23 |
-| `reservation.payments.deleted` | 10 |
-| `reservation.canceled` | 7 |
-| `reservation.deleted` | 5 |
+## 🤖 Robôs Criados
 
-**Nenhum evento `listing.*` ou `property.*` foi encontrado.**
+### 1. Auto-Fetch Property (inline no webhook)
 
-## Solução Implementada
+**Arquivo:** `supabase/functions/rendizy-server/utils-staysnet-auto-fetch-property.ts`
 
-### Componentes
+**Função:** `tryAutoFetchAndImportPropertyFromStays()`
 
-1. **Edge Function**: `staysnet-properties-sync-cron`
-   - Caminho: `supabase/functions/staysnet-properties-sync-cron/index.ts`
-   - Propósito: Sincroniza propriedades entre Stays.net e Rendizy
+**Quando executa:** Durante processamento de webhook de reserva, se a propriedade não existir localmente.
 
-2. **Tabela de Log**: `staysnet_sync_log`
-   - Migration: `20260110_create_staysnet_sync_log.sql`
-   - Registra cada execução do cron
+**Fluxo:**
+1. Webhook de reserva chega com `listingId`
+2. Busca na tabela `properties` por `staysnet_id`
+3. Se não encontrar → chama API Stays `/content/listings/{id}`
+4. Importa a propriedade via RPC `save_anuncio_field`
+5. Retorna o `propertyId` para continuar o fluxo
 
-3. **Módulo de Rotas** (opcional): `routes-staysnet-properties-sync.ts`
-   - Para uso interno via rendizy-server
+**Retorno:**
+```typescript
+interface AutoFetchPropertyResult {
+  success: boolean;
+  propertyId?: string;
+  error?: string;
+  mode: 'found_local' | 'fetched_api' | 'not_found';
+}
+```
 
-### Fluxo de Execução
+---
 
+### 2. Import Issues Registry
+
+**Arquivo:** `supabase/functions/rendizy-server/utils-staysnet-import-issues.ts`
+
+**Funções:**
+- `upsertStaysnetImportIssueMissingPropertyMapping()` - Registra problema
+- `resolveStaysnetImportIssue()` - Resolve problema após sucesso
+
+**Tabela:** `staysnet_import_issues`
+
+**Quando usa:**
+- Registra quando propriedade não é encontrada (nem local, nem API)
+- Resolve automaticamente após upsert bem-sucedido da reserva
+
+---
+
+### 3. Properties Sync Cron (2x/dia)
+
+**Arquivo:** `supabase/functions/staysnet-properties-sync-cron/index.ts`
+
+**Quando executa:** 08:00 e 20:00 BRT (via pg_cron)
+
+**Fluxo:**
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    CRON (08:00 e 20:00 BRT)                     │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  1. Buscar organizações com staysnet_config.enabled = true      │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  2. Para cada organização:                                       │
-│     a. GET /content/listings (API Stays.net)                    │
-│     b. Buscar properties.data.externalIds.staysnet_listing_id   │
-│     c. Comparar e identificar propriedades novas                │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  3. Importar propriedades novas via RPC save_anuncio_field      │
-│     - Status: 'draft' (para revisão manual)                     │
-│     - importSource: 'staysnet_sync_cron'                        │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  4. Registrar em staysnet_sync_log                              │
+│                    STAYSNET PROPERTIES SYNC CRON                │
+├─────────────────────────────────────────────────────────────────┤
+│  1. Listar todas organizações com Stays.net conectado          │
+│  2. Para cada org: chamar API /content/listings                 │
+│  3. Comparar com properties locais (staysnet_id)                │
+│  4. Detectar propriedades novas (não existem localmente)        │
+│  5. Importar propriedades novas via RPC save_anuncio_field      │
+│  6. Registrar resultado em staysnet_sync_log                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Configuração do Cron
-
-### Via pg_cron no Supabase
+**Tabela de log:** `staysnet_sync_log`
 
 ```sql
--- Habilitar extensões necessárias
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+CREATE TABLE staysnet_sync_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'running',
+  total_api_listings INT,
+  total_local_properties INT,
+  new_properties_detected INT,
+  new_properties_imported INT,
+  errors JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
 
--- 08:00 BRT (11:00 UTC)
+---
+
+## 🗓️ Configuração pg_cron
+
+```sql
+-- Executar no Supabase SQL Editor
 SELECT cron.schedule(
   'staysnet-properties-sync-morning',
-  '0 11 * * *',
-  $$
-    SELECT net.http_post(
-      'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/staysnet-properties-sync-cron',
-      '{}',
-      '{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb
-    );
-  $$
+  '0 11 * * *',  -- 08:00 BRT = 11:00 UTC
+  $$SELECT net.http_post(
+    'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/staysnet-properties-sync-cron',
+    '{}',
+    '{"Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'
+  )$$
 );
 
--- 20:00 BRT (23:00 UTC)
 SELECT cron.schedule(
   'staysnet-properties-sync-evening',
-  '0 23 * * *',
-  $$
-    SELECT net.http_post(
-      'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/staysnet-properties-sync-cron',
-      '{}',
-      '{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb
-    );
-  $$
+  '0 23 * * *',  -- 20:00 BRT = 23:00 UTC
+  $$SELECT net.http_post(
+    'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/staysnet-properties-sync-cron',
+    '{}',
+    '{"Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'
+  )$$
 );
 ```
 
-### Verificar Jobs Agendados
+---
 
-```sql
-SELECT * FROM cron.job;
-```
+## 📁 Arquivos Relacionados
 
-### Remover Jobs
+| Arquivo | Descrição |
+|---------|-----------|
+| `utils-staysnet-auto-fetch-property.ts` | Auto-fetch inline no webhook |
+| `utils-staysnet-import-issues.ts` | Registry de import issues |
+| `staysnet-properties-sync-cron/index.ts` | Edge Function do cron |
+| `migrations/20260110_create_staysnet_sync_log.sql` | Migration da tabela de log |
 
-```sql
-SELECT cron.unschedule('staysnet-properties-sync-morning');
-SELECT cron.unschedule('staysnet-properties-sync-evening');
-```
+---
 
-## Variáveis de Ambiente
+## 🔍 Contexto: Por que foi criado?
 
-| Variável | Descrição | Obrigatório |
-|----------|-----------|-------------|
-| `SUPABASE_URL` | URL do projeto Supabase | Sim |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key | Sim |
-| `STAYSNET_CRON_SECRET` | Secret para autenticação do cron | Não |
+**Problema:** Reserva FE37J chegou via webhook mas propriedade não existia localmente.
+O robô não registrou `import_issue` (skip silencioso).
 
-## API
+**Root cause:** Stays.net NÃO envia webhooks para `listing.created` ou `property.created`.
+Analisamos 1000+ webhooks e confirmamos: só existem eventos de reserva.
 
-### POST /staysnet-properties-sync-cron
+**Solução:**
+1. Auto-fetch property durante webhook (se não existir)
+2. SEMPRE registrar import_issue quando skip
+3. Sync cron 2x/dia para detectar novas propriedades
 
-Executa sincronização de propriedades.
+---
 
-**Request Body (opcional)**:
-```json
-{
-  "organizationId": "uuid" // Se não informado, sincroniza todas as orgs
-}
-```
+## ✅ Status
 
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Properties sync completed",
-  "summary": {
-    "organizations": 1,
-    "newPropertiesFound": 2,
-    "imported": 2,
-    "errors": 0
-  },
-  "details": [
-    {
-      "organizationId": "00000000-0000-0000-0000-000000000000",
-      "staysCount": 45,
-      "rendizyCount": 43,
-      "newProperties": ["listing_id_1", "listing_id_2"],
-      "imported": 2,
-      "errors": [],
-      "executedAt": "2026-01-10T11:00:00.000Z"
-    }
-  ]
-}
-```
+- [x] utils-staysnet-auto-fetch-property.ts criado
+- [x] utils-staysnet-import-issues.ts criado  
+- [x] staysnet-properties-sync-cron Edge Function criada
+- [x] Migration staysnet_sync_log criada
+- [x] Deploy rendizy-server
+- [x] Deploy staysnet-properties-sync-cron
+- [ ] Configurar pg_cron jobs (pendente)
+- [ ] PR #6 aguardando review
 
-## Monitoramento
+---
 
-### Query: Últimos Syncs
+## 📝 Changelog
 
-```sql
-SELECT 
-  organization_id,
-  stays_count,
-  rendizy_count,
-  new_count,
-  imported_count,
-  array_length(errors, 1) as error_count,
-  executed_at
-FROM staysnet_sync_log
-ORDER BY executed_at DESC
-LIMIT 20;
-```
-
-### Query: Propriedades Faltando
-
-```sql
--- Comparar IDs Stays com IDs no Rendizy
-WITH stays_ids AS (
-  -- Esta query requer acesso à API Stays
-  -- Use o endpoint /staysnet/properties-sync-status
-  SELECT unnest(ARRAY['id1', 'id2']) as stays_id
-),
-rendizy_ids AS (
-  SELECT 
-    data->'externalIds'->>'staysnet_listing_id' as stays_id
-  FROM properties
-  WHERE organization_id = '00000000-0000-0000-0000-000000000000'
-)
-SELECT s.stays_id
-FROM stays_ids s
-LEFT JOIN rendizy_ids r ON s.stays_id = r.stays_id
-WHERE r.stays_id IS NULL;
-```
-
-## Tratamento de Erros
-
-1. **Falha na API Stays.net**: Registrado em `errors[]`, sync continua para outras orgs
-2. **Falha no import**: Registrado em `errors[]`, continua para outras propriedades
-3. **Org sem config**: Pulada silenciosamente
-
-## Relacionamento com Outros Módulos
-
-- **utils-staysnet-auto-fetch-property.ts**: Import individual de propriedades (usado em webhooks)
-- **import-staysnet-properties.ts**: Import via modal (seleção manual)
-- **staysnet_import_issues**: Tracking de problemas de import
-
-## Changelog
-
-### v1.0.111 (2026-01-10)
-- ✅ Criada Edge Function `staysnet-properties-sync-cron`
-- ✅ Criada tabela `staysnet_sync_log`
-- ✅ Documentação completa
-- ✅ Configuração de cron para 08:00 e 20:00 BRT
+**v1.0.111** (2026-01-10)
+- feat(staysnet): auto-fetch property from Stays API when missing
+- feat(staysnet): always register import_issue on skip (never silent)
+- feat(staysnet): resolve import_issue after successful upsert
+- feat(staysnet): properties sync cron 2x/day
+- feat(staysnet): staysnet_sync_log table for audit trail

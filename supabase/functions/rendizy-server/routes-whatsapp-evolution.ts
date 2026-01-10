@@ -1404,57 +1404,30 @@ export function whatsappEvolutionRoutes(app: Hono) {
 
   // ==========================================================================
   // POST /rendizy-server/whatsapp/webhook - Receber eventos da Evolution API
-  // ✅ CORREÇÃO 6: Processa e salva eventos no Supabase
+  // ⚠️ DEPRECATED: Use /rendizy-server/chat/channels/whatsapp/webhook
+  // Este endpoint agora apenas loga e retorna success para não quebrar integrações
+  // O salvamento real é feito em routes-chat.ts
   // ==========================================================================
   app.post('/rendizy-server/make-server-67caf26a/whatsapp/webhook', async (c) => {
     try {
       const payload = await c.req.json();
-      const { event, data } = payload;
+      const { event } = payload;
 
-      console.log('[WhatsApp Webhook] 📨 Recebido evento:', event);
+      // Log para debug - o processamento real está em routes-chat.ts
+      console.log('[WhatsApp Webhook Evolution] ⚠️ DEPRECATED - Use /chat/channels/whatsapp/webhook');
+      console.log('[WhatsApp Webhook Evolution] 📨 Evento recebido:', event);
 
-      // ✅ CORREÇÃO 6: Processar eventos e salvar no Supabase
-      // Identificar organization_id pela instância ou configuração
-      // TODO: Mapear instance_name → organization_id
-
-      switch (event) {
-        case 'messages.upsert':
-          console.log('[WhatsApp Webhook] ✉️ Nova mensagem recebida');
-          // TODO: Salvar mensagem em chat_messages via routes-chat
-          break;
-
-        case 'messages.update':
-          console.log('[WhatsApp Webhook] 🔄 Mensagem atualizada');
-          // TODO: Atualizar mensagem em chat_messages
-          break;
-
-        case 'connection.update':
-          console.log('[WhatsApp Webhook] 🔌 Status de conexão atualizado:', data?.state);
-          // TODO: Atualizar status em organization_channel_config
-          break;
-
-        case 'qr.updated':
-          console.log('[WhatsApp Webhook] 📱 QR Code atualizado');
-          // TODO: Atualizar QR Code em organization_channel_config
-          break;
-
-        case 'chats.upsert':
-          console.log('[WhatsApp Webhook] 💬 Nova conversa criada');
-          // TODO: Salvar conversa em chat_conversations
-          break;
-
-        case 'chats.update':
-          console.log('[WhatsApp Webhook] 💬 Conversa atualizada');
-          // TODO: Atualizar conversa em chat_conversations
-          break;
-
-        default:
-          console.log('[WhatsApp Webhook] ℹ️ Evento não tratado:', event);
-      }
-
-      return c.json({ success: true, message: 'Webhook processado com sucesso' });
+      // Apenas retorna success - o salvamento real é feito no routes-chat.ts
+      // Configure o webhook da Evolution API para apontar para:
+      // /rendizy-server/chat/channels/whatsapp/webhook
+      
+      return c.json({ 
+        success: true, 
+        message: 'Webhook received (deprecated endpoint)',
+        note: 'Use /rendizy-server/chat/channels/whatsapp/webhook for full processing'
+      });
     } catch (error) {
-      console.error('[WhatsApp Webhook] ❌ Erro ao processar webhook:', error);
+      console.error('[WhatsApp Webhook Evolution] ❌ Erro:', error);
       return c.json({ success: false, error: 'Erro ao processar webhook' }, 500);
     }
   });
