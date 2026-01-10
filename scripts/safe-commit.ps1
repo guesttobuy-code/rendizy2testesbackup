@@ -2,6 +2,7 @@
 .SYNOPSIS
     Script padrão de commit com verificação de código e fluxo de branch/PR.
     REGRA: SEMPRE criar branch e revisar antes de commitar.
+    PADRÃO: Todo PR deve ter GitHub Copilot Review (docs/Rules.md).
 
 .DESCRIPTION
     Este script garante que mudanças NUNCA vão direto para main:
@@ -10,7 +11,8 @@
     3. Verifica erros de lint (se disponível)
     4. Mostra diff das alterações para revisão
     5. Pede confirmação antes de commitar
-    6. Opcionalmente faz merge para main após confirmação
+    6. Cria Pull Request automaticamente (se gh CLI disponível)
+    7. Exibe instruções para Copilot Review (OBRIGATÓRIO)
 
 .PARAMETER Message
     Mensagem do commit (obrigatório)
@@ -245,7 +247,7 @@ if ($Push) {
         exit 1
     }
     
-    # Se estava em branch separada, perguntar sobre merge
+    # Se estava em branch separada, criar PR com Copilot Review
     if ($currentBranchNow -ne "main") {
         Write-Host ""
         Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Yellow
@@ -254,23 +256,89 @@ if ($Push) {
         git diff main...$currentBranchNow --stat
         
         Write-Host ""
-        $mergeConfirm = Read-Host "Deseja fazer merge para main agora? (s/N)"
-        if ($mergeConfirm -eq 's' -or $mergeConfirm -eq 'S') {
-            git checkout main
-            git merge $currentBranchNow
-            git push origin main
-            Write-OK "Merge para main concluído!"
-            
-            $deleteBranch = Read-Host "Deletar branch local '$currentBranchNow'? (s/N)"
-            if ($deleteBranch -eq 's' -or $deleteBranch -eq 'S') {
-                git branch -d $currentBranchNow
-                Write-Host "🗑️  Branch local deletada." -ForegroundColor DarkGray
+        
+        # Verificar se gh CLI está disponível
+        $ghAvailable = Get-Command gh -ErrorAction SilentlyContinue
+        
+        if ($ghAvailable) {
+            Write-Host "🤖 GitHub CLI detectado!" -ForegroundColor Cyan
+            $createPR = Read-Host "Criar Pull Request com Copilot Review? (S/n)"
+            if ($createPR -ne 'n' -and $createPR -ne 'N') {
+                Write-Step "9. Criando Pull Request"
+                
+                # Criar PR
+                $prOutput = gh pr create --base main --head $currentBranchNow --title $Message --body "## Alterações`n`n$Message`n`n---`n*PR criado via safe-commit.ps1*" 2>&1
+                
+                if ($LASTEXITCODE -eq 0) {
+                    Write-OK "Pull Request criado!"
+                    
+                    # Extrair número do PR
+                    $prUrl = $prOutput | Select-String -Pattern "https://github.com/.+/pull/(\d+)" | ForEach-Object { $_.Matches[0].Value }
+                    $prNumber = $prUrl -replace ".*/pull/", ""
+                    
+                    if ($prNumber) {
+                        Write-Host "📎 PR #$prNumber: $prUrl" -ForegroundColor Cyan
+                        
+                        # Solicitar Copilot Review
+                        Write-Step "10. Solicitando GitHub Copilot Review"
+                        Write-Host "⏳ Solicitando revisão automática do Copilot..." -ForegroundColor Yellow
+                        
+                        # Tentar via gh api (Copilot review é via API)
+                        # Nota: O Copilot Review pode ser solicitado via UI ou pela I.A. assistente
+                        Write-Host ""
+                        Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Magenta
+                        Write-Host "  🤖 COPILOT REVIEW OBRIGATÓRIO" -ForegroundColor Magenta
+                        Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Magenta
+                        Write-Host ""
+                        Write-Host "Para a I.A. assistente (GitHub Copilot / Claude):" -ForegroundColor White
+                        Write-Host "Use: mcp_github_request_copilot_review" -ForegroundColor Green
+                        Write-Host "  owner: guesttobuy-code" -ForegroundColor DarkGray
+                        Write-Host "  repo: rendizy2testesbackup" -ForegroundColor DarkGray
+                        Write-Host "  pullNumber: $prNumber" -ForegroundColor DarkGray
+                        Write-Host ""
+                        Write-Host "Ou acesse: $prUrl" -ForegroundColor Cyan
+                        Write-Host "E clique em 'Request review from Copilot'" -ForegroundColor DarkGray
+                        Write-Host ""
+                    }
+                } else {
+                    Write-Warn "Falha ao criar PR: $prOutput"
+                }
             }
         } else {
+            # Fallback: Lembrete para criar PR manualmente ou via I.A.
             Write-Host ""
-            Write-Host "⏸️  Merge adiado. Branch '$currentBranchNow' está salva no origin." -ForegroundColor Cyan
-            Write-Host "Para fazer merge depois:" -ForegroundColor DarkGray
-            Write-Host "  git checkout main && git merge $currentBranchNow && git push" -ForegroundColor DarkGray
+            Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Magenta
+            Write-Host "  🔔 LEMBRETE: COPILOT REVIEW OBRIGATÓRIO" -ForegroundColor Magenta
+            Write-Host "═══════════════════════════════════════════════════════" -ForegroundColor Magenta
+            Write-Host ""
+            Write-Host "Para seguir o padrão do projeto (docs/Rules.md):" -ForegroundColor White
+            Write-Host ""
+            Write-Host "1. Crie um Pull Request:" -ForegroundColor Yellow
+            Write-Host "   gh pr create --base main --head $currentBranchNow" -ForegroundColor DarkGray
+            Write-Host ""
+            Write-Host "2. Solicite Copilot Review (via I.A. assistente):" -ForegroundColor Yellow
+            Write-Host "   mcp_github_request_copilot_review" -ForegroundColor Green
+            Write-Host ""
+            Write-Host "💡 Dica: Instale GitHub CLI para automação:" -ForegroundColor Cyan
+            Write-Host "   winget install GitHub.cli" -ForegroundColor DarkGray
+            Write-Host ""
+            
+            $mergeConfirm = Read-Host "Deseja fazer merge para main agora (sem PR)? (s/N)"
+            if ($mergeConfirm -eq 's' -or $mergeConfirm -eq 'S') {
+                git checkout main
+                git merge $currentBranchNow
+                git push origin main
+                Write-OK "Merge para main concluído!"
+                
+                $deleteBranch = Read-Host "Deletar branch local '$currentBranchNow'? (s/N)"
+                if ($deleteBranch -eq 's' -or $deleteBranch -eq 'S') {
+                    git branch -d $currentBranchNow
+                    Write-Host "🗑️  Branch local deletada." -ForegroundColor DarkGray
+                }
+            } else {
+                Write-Host ""
+                Write-Host "⏸️  Merge adiado. Branch '$currentBranchNow' está salva no origin." -ForegroundColor Cyan
+            }
         }
     }
 }
