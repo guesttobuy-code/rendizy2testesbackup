@@ -7,6 +7,31 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.0.111] - 2026-01-10
+
+### Added
+- 🔄 **StaysNet Properties Sync Cron**: Sincronização automática de propriedades 2x/dia
+  - Edge Function `staysnet-properties-sync-cron` para detectar e importar novas propriedades
+  - Tabela `staysnet_sync_log` para registrar execuções do cron
+  - Documentação completa em `docs/04-modules/STAYSNET_PROPERTIES_SYNC.md`
+  - Horários: 08:00 e 20:00 BRT via pg_cron
+  - **Problema resolvido**: Stays.net NÃO envia webhook quando nova propriedade é criada
+
+- 🔧 **StaysNet Webhook Resilience**: Auto-fetch e import_issue obrigatório
+  - `utils-staysnet-auto-fetch-property.ts`: Baixa propriedade da API Stays quando não existe
+  - `utils-staysnet-import-issues.ts`: Módulo compartilhado para registrar/resolver issues
+  - Webhook processor agora tenta auto-fetch antes de dar skip
+  - Import_issue SEMPRE registrado quando não consegue resolver propriedade
+  - Import_issue resolvido automaticamente após sucesso no upsert
+
+### Fixed
+- 🐛 **Reserva FE37J**: Identificada causa raiz e implementada correção
+  - Webhook chegou corretamente mas property lookup falhou
+  - Nenhum import_issue foi registrado (bug de rastreabilidade)
+  - Correção garante auditoria completa de falhas
+
+---
+
 ## [Unreleased]
 
 ### Added

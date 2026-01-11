@@ -17,6 +17,8 @@ import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 import { resolveOrCreateGuestIdFromStaysReservation } from './utils-staysnet-guest-link.ts';
 import type { Block, BlockSubtype } from './types.ts';
 import { blockToSql } from './utils-block-mapper.ts';
+import { upsertStaysnetImportIssueMissingPropertyMapping, resolveStaysnetImportIssue } from './utils-staysnet-import-issues.ts';
+import { tryAutoFetchAndImportPropertyFromStays } from './utils-staysnet-auto-fetch-property.ts';
 
 /**
  * POST /staysnet/webhook/:organizationId
@@ -1713,8 +1715,27 @@ export async function processPendingStaysNetWebhooksForOrg(
       }
 
       let resolvedPropertyId: string | null = null;
-      if (listingCandidate) {
-        resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, String(listingCandidate));
+      const listingIdStr = listingCandidate ? String(listingCandidate) : null;
+
+      // Tentativa 1: Resolver via lookup JSONB (property já existe)
+      if (listingIdStr) {
+        resolvedPropertyId = await resolveAnuncioDraftIdFromStaysId(supabase, organizationId, listingIdStr);
+      }
+
+      // Tentativa 2: AUTO-FETCH da Stays.net (se não encontrou e tem listing_id)
+      // 🚀 NOVO v1.0.111: Elimina pontas soltas - se a reserva vem com imóvel que
+      // não existe no Rendizy, baixamos automaticamente da API Stays.net.
+      if (!resolvedPropertyId && listingIdStr) {
+        console.log(`   🔄 [Webhook] Property não encontrada, tentando auto-fetch: ${listingIdStr}`);
+        
+        const autoFetchResult = await tryAutoFetchAndImportPropertyFromStays(organizationId, listingIdStr);
+        
+        if (autoFetchResult.success && autoFetchResult.propertyId) {
+          resolvedPropertyId = autoFetchResult.propertyId;
+          console.log(`   ✅ [Webhook] Auto-fetch bem-sucedido: ${resolvedPropertyId} (mode: ${autoFetchResult.mode})`);
+        } else {
+          console.warn(`   ⚠️ [Webhook] Auto-fetch falhou: ${autoFetchResult.error || 'unknown'}`);
+        }
       }
 
       // ✅ Resolver/criar guest automaticamente (se ainda não vinculado)
@@ -1737,8 +1758,22 @@ export async function processPendingStaysNetWebhooksForOrg(
             .eq('id', existing.id);
         }
 
+        // 🆕 Registra import_issue SEMPRE que falhar resolver propriedade
+        await upsertStaysnetImportIssueMissingPropertyMapping(supabase, {
+          organizationId,
+          externalId: sqlData.external_id || null,
+          reservationCode: bookingCode || null,
+          listingId: listingIdStr || '',
+          listingCandidates: listingIdStr ? [listingIdStr] : [],
+          checkInDate: sqlData.check_in || null,
+          checkOutDate: sqlData.check_out || null,
+          partner: null,
+          platform: 'staysnet',
+          rawPayload: hook.payload,
+        });
+
         skipped++;
-        await staysnetDB.markWebhookProcessedDB(hook.id, 'Skipped: property not resolved (reservation without property is forbidden)');
+        await staysnetDB.markWebhookProcessedDB(hook.id, 'Skipped: property not resolved (import_issue registered for tracking)');
         continue;
       }
 
@@ -1747,6 +1782,15 @@ export async function processPendingStaysNetWebhooksForOrg(
         .upsert(sqlData, { onConflict: 'organization_id,platform,external_id' });
 
       if (upErr) throw new Error(`Upsert failed: ${upErr.message}`);
+
+      // 🆕 Resolve import_issue se existir após sucesso no upsert
+      if (sqlData.external_id || bookingCode) {
+        await resolveStaysnetImportIssue(supabase, {
+          organizationId,
+          externalId: sqlData.external_id || null,
+          reservationCode: bookingCode || null,
+        });
+      }
 
       updated++;
       await staysnetDB.markWebhookProcessedDB(hook.id);
