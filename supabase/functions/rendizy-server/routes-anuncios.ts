@@ -341,13 +341,13 @@ app.post("/save-field", async (c) => {
     const userId = resolveUserId(c);
 
     // Chama RPC wrapper V1→V2
+    // IMPORTANTE: A assinatura correta é: (p_anuncio_id, p_organization_id, p_user_id, p_field, p_value)
     const { data, error } = await supabase.rpc("save_anuncio_field", {
       p_anuncio_id: anuncio_id || null,
-      p_field: field,
-      p_value: value === undefined ? null : value,
-      p_idempotency_key: idempotency_key || null,
       p_organization_id: organizationId,
       p_user_id: userId,
+      p_field: field,
+      p_value: value === undefined ? null : value,
     });
 
     if (error) {
