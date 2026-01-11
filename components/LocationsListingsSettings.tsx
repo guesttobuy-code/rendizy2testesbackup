@@ -203,10 +203,13 @@ export const LocationsListingsSettings = () => {
 
     (async () => {
       try {
+        const token = localStorage.getItem('rendizy-token');
         const resp = await fetch(settingsUrl, {
           method: 'GET',
           headers: {
+            'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
             'Accept': 'application/json',
           },
         });
@@ -241,11 +244,14 @@ export const LocationsListingsSettings = () => {
     setSaving(true);
     
     try {
+      const token = localStorage.getItem('rendizy-token');
       const resp = await fetch(settingsUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': token || '',
         },
         body: JSON.stringify({ settings }),
       });

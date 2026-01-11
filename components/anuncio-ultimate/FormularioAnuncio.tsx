@@ -515,6 +515,34 @@ export default function FormularioAnuncio() {
   const [completedTabs, setCompletedTabs] = useState<string[]>([]);
   
   // ============================================================================
+  // HELPERS DE MODALIDADE - Determinam quais campos/tabs são visíveis
+  // ============================================================================
+  // Derivados do formData.modalidades selecionadas
+  const isTemporada = formData.modalidades.includes('temporada');
+  const isVenda = formData.modalidades.includes('compra-venda');
+  const isResidencial = formData.modalidades.includes('locacao');
+  
+  // Pelo menos uma modalidade precisa estar ativa
+  const hasAnyModalidade = isTemporada || isVenda || isResidencial;
+  
+  // Helper para campos de aluguel (temporada ou residencial)
+  const isAluguel = isTemporada || isResidencial;
+  
+  // Sincroniza tipoNegocio com modalidades selecionadas (para compatibilidade com salvamento)
+  // Só sincroniza quando há pelo menos uma modalidade ativa (evita sobrescrever valor carregado do backend)
+  useEffect(() => {
+    if (!hasAnyModalidade) return; // Não sincroniza se nenhuma modalidade ativa
+    
+    if (isAluguel && isVenda) {
+      setTipoNegocio('ambos');
+    } else if (isVenda) {
+      setTipoNegocio('venda');
+    } else {
+      setTipoNegocio('aluguel');
+    }
+  }, [isAluguel, isVenda, hasAnyModalidade]);
+  
+  // ============================================================================
   // LOAD DATA
   // ============================================================================
   
@@ -1762,6 +1790,82 @@ export default function FormularioAnuncio() {
   };
   
   // ============================================================================
+  // STEP 01 - BÁSICO (Tipo e Identificação)
+  // ============================================================================
+  const saveBasicoFields = async () => {
+    console.log('🏠 [SAVE] SALVANDO DADOS BÁSICOS');
+    
+    if (!anuncioId) {
+      toast.error('❌ ID do anúncio não encontrado');
+      return false;
+    }
+    
+    // Validações
+    if (!formData.title?.trim()) {
+      toast.error('❌ Preencha a identificação interna');
+      return false;
+    }
+    if (!formData.tipoLocal) {
+      toast.error('❌ Selecione o tipo de local');
+      return false;
+    }
+    if (!formData.tipoAcomodacao) {
+      toast.error('❌ Selecione o tipo de acomodação');
+      return false;
+    }
+    if (formData.modalidades.length === 0) {
+      toast.error('❌ Selecione pelo menos uma modalidade');
+      return false;
+    }
+
+    try {
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      
+      const fields = [
+        { field: 'title', value: formData.title },
+        { field: 'tipo_local', value: formData.tipoLocal },
+        { field: 'tipo_acomodacao', value: formData.tipoAcomodacao },
+        { field: 'subtype', value: formData.subtype },
+        { field: 'modalidades', value: JSON.stringify(formData.modalidades) },
+        { field: 'estrutura', value: formData.estrutura },
+      ];
+
+      for (const { field, value } of fields) {
+        const token = localStorage.getItem('rendizy-token');
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
+          },
+          body: JSON.stringify({
+            anuncio_id: anuncioId,
+            field,
+            value
+          })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(`Erro ao salvar ${field}: ${data.error || response.status}`);
+        }
+      }
+
+      console.log('✅ Dados básicos salvos!');
+      toast.success('✅ Dados básicos salvos!');
+      calculateProgress(formData);
+      return true;
+
+    } catch (error) {
+      console.error('❌ Erro ao salvar dados básicos:', error);
+      toast.error('❌ Erro ao salvar dados básicos');
+      return false;
+    }
+  };
+  
+  // ============================================================================
   // STEP 09 - PREÇOS LOCAÇÃO E VENDA
   // ============================================================================
   const savePrecosBase = async () => {
@@ -2410,7 +2514,8 @@ export default function FormularioAnuncio() {
                     </div>
                   </TabsTrigger>
                   
-                  <TabsTrigger value="precos-temporada" className="relative">
+                  {/* @MODALIDADE: [TEMPORADA] - Tab só visível quando modalidade temporada está ativa */}
+                  <TabsTrigger value="precos-temporada" className={`relative ${!isTemporada ? 'hidden' : ''}`}>
                     <div className="flex flex-col items-center gap-1 py-2">
                       <span className="font-medium text-xs">Temporada</span>
                       {completedTabs.includes('precos-temporada') && (
@@ -2419,7 +2524,8 @@ export default function FormularioAnuncio() {
                     </div>
                   </TabsTrigger>
                   
-                  <TabsTrigger value="precos-individuais" className="relative">
+                  {/* @MODALIDADE: [TEMPORADA] - Tab só visível quando modalidade temporada está ativa */}
+                  <TabsTrigger value="precos-individuais" className={`relative ${!isTemporada ? 'hidden' : ''}`}>
                     <div className="flex flex-col items-center gap-1 py-2">
                       <span className="font-medium text-xs">Preços Individuais</span>
                       {completedTabs.includes('precos-individuais') && (
@@ -2428,7 +2534,8 @@ export default function FormularioAnuncio() {
                     </div>
                   </TabsTrigger>
                   
-                  <TabsTrigger value="precos-derivados" className="relative">
+                  {/* @MODALIDADE: [TEMPORADA] - Tab só visível quando modalidade temporada está ativa */}
+                  <TabsTrigger value="precos-derivados" className={`relative ${!isTemporada ? 'hidden' : ''}`}>
                     <div className="flex flex-col items-center gap-1 py-2">
                       <span className="font-medium text-xs">Preços Derivados</span>
                       {completedTabs.includes('precos-derivados') && (
@@ -2789,6 +2896,20 @@ export default function FormularioAnuncio() {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Botão Salvar */}
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    type="button"
+                    onClick={saveBasicoFields}
+                    disabled={isSaving}
+                    className="bg-slate-900"
+                  >
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    Salvar Dados Básicos
+                  </Button>
                 </div>
               </div>
             </TabsContent>
@@ -4440,145 +4561,127 @@ export default function FormularioAnuncio() {
                   <p className="text-sm text-slate-500">
                     Configure valores base para locação residencial e/ou venda
                   </p>
+                  {!hasAnyModalidade && (
+                    <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+                      ⚠️ Selecione pelo menos uma modalidade na aba "Detalhes" para configurar os preços
+                    </div>
+                  )}
                 </div>
 
-                {/* Tipo de Negócio */}
-                <Card>
+                {/* Valores de Aluguel - @MODALIDADE: [TEMPORADA, RESIDENCIAL] */}
+                <Card className={!isAluguel ? 'opacity-40 pointer-events-none' : ''}>
                   <CardContent className="pt-6">
-                    <Label className="text-base font-semibold mb-4 block">Tipo de Negócio</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant={tipoNegocio === 'aluguel' ? "default" : "outline"}
-                        onClick={() => setTipoNegocio('aluguel')}
-                        className="flex-1"
-                      >
-                        Aluguel
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={tipoNegocio === 'venda' ? "default" : "outline"}
-                        onClick={() => setTipoNegocio('venda')}
-                        className="flex-1"
-                      >
-                        Venda
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={tipoNegocio === 'ambos' ? "default" : "outline"}
-                        onClick={() => setTipoNegocio('ambos')}
-                        className="flex-1"
-                      >
-                        Ambos
-                      </Button>
+                    <h4 className="font-semibold text-base mb-4">
+                      💵 Valores de Aluguel
+                      {!isAluguel && <span className="text-xs ml-2 text-slate-400">(Selecione Temporada ou Residencial)</span>}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Valor do Aluguel (R$)</Label>
+                        <Input
+                          type="number"
+                          value={valorAluguel}
+                          onChange={(e) => setValorAluguel(Number(e.target.value))}
+                          placeholder="0.00"
+                          disabled={!isAluguel}
+                        />
+                      </div>
+                      <div>
+                        <Label>IPTU Mensal (R$)</Label>
+                        <Input
+                          type="number"
+                          value={valorIptu}
+                          onChange={(e) => setValorIptu(Number(e.target.value))}
+                          placeholder="0.00"
+                          disabled={!isAluguel}
+                        />
+                      </div>
+                      <div>
+                        <Label>Condomínio (R$)</Label>
+                        <Input
+                          type="number"
+                          value={valorCondominio}
+                          onChange={(e) => setValorCondominio(Number(e.target.value))}
+                          placeholder="0.00"
+                          disabled={!isAluguel}
+                        />
+                      </div>
+                      <div>
+                        <Label>Taxa de Serviço (R$)</Label>
+                        <Input
+                          type="number"
+                          value={taxaServico}
+                          onChange={(e) => setTaxaServico(Number(e.target.value))}
+                          placeholder="0.00"
+                          disabled={!isAluguel}
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Valores de Aluguel */}
-                {(tipoNegocio === 'aluguel' || tipoNegocio === 'ambos') && (
-                  <Card>
-                    <CardContent className="pt-6">
-                      <h4 className="font-semibold text-base mb-4">💵 Valores de Aluguel</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Valor do Aluguel (R$)</Label>
-                          <Input
-                            type="number"
-                            value={valorAluguel}
-                            onChange={(e) => setValorAluguel(Number(e.target.value))}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <Label>IPTU Mensal (R$)</Label>
-                          <Input
-                            type="number"
-                            value={valorIptu}
-                            onChange={(e) => setValorIptu(Number(e.target.value))}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <Label>Condomínio (R$)</Label>
-                          <Input
-                            type="number"
-                            value={valorCondominio}
-                            onChange={(e) => setValorCondominio(Number(e.target.value))}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <Label>Taxa de Serviço (R$)</Label>
-                          <Input
-                            type="number"
-                            value={taxaServico}
-                            onChange={(e) => setTaxaServico(Number(e.target.value))}
-                            placeholder="0.00"
-                          />
-                        </div>
+                {/* Valores de Venda - @MODALIDADE: [VENDA] */}
+                <Card className={!isVenda ? 'opacity-40 pointer-events-none' : ''}>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">
+                      🏠 Valores de Venda
+                      {!isVenda && <span className="text-xs ml-2 text-slate-400">(Selecione Compra e Venda)</span>}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <Label>Valor de Venda (R$)</Label>
+                        <Input
+                          type="number"
+                          value={valorVenda}
+                          onChange={(e) => setValorVenda(Number(e.target.value))}
+                          placeholder="0.00"
+                          disabled={!isVenda}
+                        />
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Valores de Venda */}
-                {(tipoNegocio === 'venda' || tipoNegocio === 'ambos') && (
-                  <Card>
-                    <CardContent className="pt-6">
-                      <h4 className="font-semibold text-base mb-4">🏠 Valores de Venda</h4>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <Label>Valor de Venda (R$)</Label>
-                          <Input
-                            type="number"
-                            value={valorVenda}
-                            onChange={(e) => setValorVenda(Number(e.target.value))}
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <Label>IPTU Anual (R$)</Label>
-                          <Input
-                            type="number"
-                            value={iptuAnual}
-                            onChange={(e) => setIptuAnual(Number(e.target.value))}
-                            placeholder="0.00"
-                          />
-                        </div>
+                      <div>
+                        <Label>IPTU Anual (R$)</Label>
+                        <Input
+                          type="number"
+                          value={iptuAnual}
+                          onChange={(e) => setIptuAnual(Number(e.target.value))}
+                          placeholder="0.00"
+                          disabled={!isVenda}
+                        />
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="aceita-financiamento"
-                            checked={aceitaFinanciamento}
-                            onCheckedChange={(checked) => setAceitaFinanciamento(checked as boolean)}
-                          />
-                          <Label htmlFor="aceita-financiamento" className="cursor-pointer">
-                            Aceita financiamento bancário
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="aceita-permuta"
-                            checked={aceitaPermuta}
-                            onCheckedChange={(checked) => setAceitaPermuta(checked as boolean)}
-                          />
-                          <Label htmlFor="aceita-permuta" className="cursor-pointer">
-                            Aceita permuta
-                          </Label>
-                        </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="aceita-financiamento"
+                          checked={aceitaFinanciamento}
+                          onCheckedChange={(checked) => setAceitaFinanciamento(checked as boolean)}
+                          disabled={!isVenda}
+                        />
+                        <Label htmlFor="aceita-financiamento" className="cursor-pointer">
+                          Aceita financiamento bancário
+                        </Label>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="aceita-permuta"
+                          checked={aceitaPermuta}
+                          onCheckedChange={(checked) => setAceitaPermuta(checked as boolean)}
+                          disabled={!isVenda}
+                        />
+                        <Label htmlFor="aceita-permuta" className="cursor-pointer">
+                          Aceita permuta
+                        </Label>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* Botão Salvar */}
                 <div className="flex justify-end gap-3 pt-4">
                   <Button
                     type="button"
                     onClick={savePrecosBase}
-                    disabled={isSaving}
+                    disabled={isSaving || !hasAnyModalidade}
                     className="bg-slate-900"
                   >
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -4589,8 +4692,8 @@ export default function FormularioAnuncio() {
               </div>
             </TabsContent>
 
-            {/* TAB 10: PREÇOS TEMPORADA */}
-            <TabsContent value="precos-temporada" className="mt-0">
+            {/* TAB 10: PREÇOS TEMPORADA - @MODALIDADE: [TEMPORADA] */}
+            <TabsContent value="precos-temporada" className={`mt-0 ${!isTemporada ? 'hidden' : ''}`}>
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Configuração de Preço Temporada</h3>
@@ -4769,8 +4872,8 @@ export default function FormularioAnuncio() {
               </div>
             </TabsContent>
 
-            {/* TAB 11: PREÇOS INDIVIDUAIS */}
-            <TabsContent value="precos-individuais" className="mt-0">
+            {/* TAB 11: PREÇOS INDIVIDUAIS - @MODALIDADE: [TEMPORADA] */}
+            <TabsContent value="precos-individuais" className={`mt-0 ${!isTemporada ? 'hidden' : ''}`}>
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Precificação Individual</h3>
@@ -4860,8 +4963,8 @@ export default function FormularioAnuncio() {
               </div>
             </TabsContent>
 
-            {/* TAB 12: PREÇOS DERIVADOS */}
-            <TabsContent value="precos-derivados" className="mt-0">
+            {/* TAB 12: PREÇOS DERIVADOS - @MODALIDADE: [TEMPORADA] */}
+            <TabsContent value="precos-derivados" className={`mt-0 ${!isTemporada ? 'hidden' : ''}`}>
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Preços Derivados</h3>

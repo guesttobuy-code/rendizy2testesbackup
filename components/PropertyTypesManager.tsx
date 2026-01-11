@@ -403,11 +403,14 @@ export const PropertyTypesManager: React.FC = () => {
   const loadTypes = async () => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('rendizy-token');
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/property-types`,
         {
           headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Auth-Token': token || '',
           },
         }
       );
@@ -415,9 +418,11 @@ export const PropertyTypesManager: React.FC = () => {
       if (!response.ok) throw new Error('Erro ao carregar tipos');
 
       const data = await response.json();
+      // Garante que data seja um array
+      const typesArray = Array.isArray(data) ? data : (data?.types || data?.data || []);
       
-      setLocationTypes(data.filter((t: PropertyType) => t.category === 'location'));
-      setAccommodationTypes(data.filter((t: PropertyType) => t.category === 'accommodation'));
+      setLocationTypes(typesArray.filter((t: PropertyType) => t.category === 'location'));
+      setAccommodationTypes(typesArray.filter((t: PropertyType) => t.category === 'accommodation'));
     } catch (error) {
       console.error('Erro ao carregar tipos:', error);
       toast.error('Erro ao carregar tipos de propriedades');
@@ -432,13 +437,16 @@ export const PropertyTypesManager: React.FC = () => {
 
   const handleCreate = async (typeData: Partial<PropertyType>) => {
     try {
+      const token = localStorage.getItem('rendizy-token');
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/property-types`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify(typeData),
         }
@@ -459,13 +467,16 @@ export const PropertyTypesManager: React.FC = () => {
     if (!editingType) return;
 
     try {
+      const token = localStorage.getItem('rendizy-token');
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/property-types/${editingType.id}`,
         {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Auth-Token': token || '',
           },
           body: JSON.stringify(typeData),
         }
@@ -487,12 +498,15 @@ export const PropertyTypesManager: React.FC = () => {
     if (!typeToDelete) return;
 
     try {
+      const token = localStorage.getItem('rendizy-token');
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/property-types/${typeToDelete.id}`,
         {
           method: 'DELETE',
           headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Auth-Token': token || '',
           },
         }
       );
