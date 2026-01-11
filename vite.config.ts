@@ -18,7 +18,19 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       open: true,
-      host: true
+      host: true,
+      // Fix para WebSocket em caminhos com espaços (OneDrive)
+      hmr: {
+        protocol: 'ws',
+        host: 'localhost',
+        port: 3000,
+        clientPort: 3000
+      },
+      watch: {
+        // Usar polling para evitar problemas com OneDrive
+        usePolling: true,
+        interval: 1000
+      }
     },
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx'],
