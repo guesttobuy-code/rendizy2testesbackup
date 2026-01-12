@@ -147,19 +147,55 @@ async function importNewProperty(
       staysnet_raw: listing,
     }
 
-    const { data, error } = await supabase.rpc('save_anuncio_field', {
-      _org: organizationId,
-      _user: '00000000-0000-0000-0000-000000000002',
-      _id: null,
-      _key: 'import_batch',
-      _val: anuncioData,
+    // Criar propriedade com título primeiro
+    const { data: created, error: createError } = await supabase.rpc('save_anuncio_field', {
+      p_anuncio_id: null,  // NULL = criar novo anúncio
+      p_field: 'title',
+      p_value: anuncioData.title,
+      p_organization_id: organizationId,
+      p_user_id: '00000000-0000-0000-0000-000000000002',
+      p_idempotency_key: `staysnet_sync_${listingId}_title`,
+    })
+
+    if (createError) {
+      return { success: false, error: createError.message }
+    }
+
+    const propertyId = created?.[0]?.id || created?.id
+
+    if (!propertyId) {
+      return { success: false, error: 'Falha ao obter ID do anúncio criado' }
+    }
+
+    // Salvar externalIds para mapeamento
+    const { error: extError } = await supabase.rpc('save_anuncio_field', {
+      p_anuncio_id: propertyId,
+      p_field: 'externalIds',
+      p_value: anuncioData.externalIds,
+      p_organization_id: organizationId,
+      p_user_id: '00000000-0000-0000-0000-000000000002',
+      p_idempotency_key: `staysnet_sync_${listingId}_externalIds`,
+    })
+
+    if (extError) {
+      console.warn(`⚠️ Erro ao salvar externalIds: ${extError.message}`)
+    }
+
+    // Salvar dados completos do staysnet
+    const { error } = await supabase.rpc('save_anuncio_field', {
+      p_anuncio_id: propertyId,
+      p_field: 'staysnet_raw',
+      p_value: anuncioData.staysnet_raw,
+      p_organization_id: organizationId,
+      p_user_id: '00000000-0000-0000-0000-000000000002',
+      p_idempotency_key: `staysnet_sync_${listingId}_raw`,
     })
 
     if (error) {
       return { success: false, error: error.message }
     }
 
-    return { success: true, propertyId: data?.id || data }
+    return { success: true, propertyId }
   } catch (err: any) {
     return { success: false, error: err.message || 'Unknown error' }
   }
