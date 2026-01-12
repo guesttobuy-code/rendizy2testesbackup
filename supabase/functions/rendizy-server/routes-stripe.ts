@@ -19,6 +19,7 @@ type StripeConfigRow = {
   webhook_signing_secret_encrypted: string | null;
   restricted_key_encrypted: string | null;
   webhook_url: string | null;
+  stripe_webhook_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -65,6 +66,80 @@ function buildDefaultStripeWebhookUrl(organizationId: string): string {
 
   // preferimos endpoint sem prefixo /rendizy-server (igual StaysNet), pois o Stripe chama externamente.
   return `${base}/functions/v1/rendizy-server/stripe/webhook/${organizationId}`;
+}
+
+/**
+ * Cria ou atualiza o webhook endpoint no Stripe via API.
+ * Retorna o signing secret para salvar no banco.
+ */
+async function createOrUpdateStripeWebhook(
+  secretKey: string,
+  webhookUrl: string,
+  existingWebhookId?: string | null
+): Promise<{ webhookId: string; signingSecret: string } | null> {
+  const enabledEvents = [
+    'checkout.session.completed',
+    'checkout.session.expired',
+    'payment_intent.succeeded',
+    'payment_intent.payment_failed',
+  ];
+
+  try {
+    // Se já existe um webhook, tenta atualizar
+    if (existingWebhookId) {
+      const updateForm = new URLSearchParams();
+      updateForm.set('url', webhookUrl);
+      enabledEvents.forEach((evt, i) => updateForm.append('enabled_events[]', evt));
+
+      const updateRes = await fetch(`https://api.stripe.com/v1/webhook_endpoints/${existingWebhookId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: updateForm.toString(),
+      });
+
+      if (updateRes.ok) {
+        const data = await updateRes.json();
+        logInfo(`[Stripe] Webhook ${existingWebhookId} atualizado com sucesso`);
+        // Nota: update não retorna o secret, mantemos o existente
+        return { webhookId: data.id, signingSecret: '' };
+      }
+      // Se falhou (ex: webhook deletado manualmente), tenta criar novo
+      logInfo(`[Stripe] Webhook ${existingWebhookId} não existe mais, criando novo...`);
+    }
+
+    // Criar novo webhook
+    const createForm = new URLSearchParams();
+    createForm.set('url', webhookUrl);
+    enabledEvents.forEach((evt) => createForm.append('enabled_events[]', evt));
+
+    const createRes = await fetch('https://api.stripe.com/v1/webhook_endpoints', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: createForm.toString(),
+    });
+
+    if (!createRes.ok) {
+      const errData = await createRes.json().catch(() => ({}));
+      logError('[Stripe] Falha ao criar webhook:', errData);
+      return null;
+    }
+
+    const data = await createRes.json();
+    logInfo(`[Stripe] Webhook criado com sucesso: ${data.id}`);
+    return {
+      webhookId: data.id,
+      signingSecret: data.secret || '',
+    };
+  } catch (err: any) {
+    logError('[Stripe] Erro ao criar/atualizar webhook:', err);
+    return null;
+  }
 }
 
 async function loadStripeConfigOrThrow(organizationId: string): Promise<StripeConfigRow> {
@@ -266,6 +341,38 @@ export async function saveStripeConfig(c: Context) {
       return c.json(validationErrorResponse('Para habilitar Stripe, informe a secretKey.'), 400);
     }
 
+    // =========================================================================
+    // AUTO-CREATE WEBHOOK: Criar webhook no Stripe automaticamente
+    // =========================================================================
+    let stripeWebhookId: string | null = (existing as any)?.stripe_webhook_id ?? null;
+    
+    // Se tem secret key e não tem webhook signing secret, criar webhook automaticamente
+    if (secretKeyEncrypted && !webhookSigningSecretEncrypted) {
+      const defaultWebhookUrl = buildDefaultStripeWebhookUrl(organizationId);
+      const secretKeyPlain = await decryptSensitive(secretKeyEncrypted);
+      
+      logInfo(`[Stripe] Criando webhook automaticamente para org ${organizationId}...`);
+      
+      const webhookResult = await createOrUpdateStripeWebhook(
+        secretKeyPlain,
+        defaultWebhookUrl,
+        stripeWebhookId
+      );
+      
+      if (webhookResult) {
+        stripeWebhookId = webhookResult.webhookId;
+        
+        // Se recebemos o signing secret (criação nova), salvamos
+        if (webhookResult.signingSecret) {
+          webhookSigningSecretEncrypted = await encryptSensitive(webhookResult.signingSecret);
+          logInfo(`[Stripe] Webhook signing secret salvo automaticamente para org ${organizationId}`);
+        }
+      } else {
+        logError(`[Stripe] Falha ao criar webhook automaticamente para org ${organizationId}`);
+        // Não retornamos erro, apenas log - o cliente pode configurar manualmente
+      }
+    }
+
     const payload = {
       organization_id: organizationId,
       enabled,
@@ -275,6 +382,7 @@ export async function saveStripeConfig(c: Context) {
       webhook_signing_secret_encrypted: webhookSigningSecretEncrypted,
       restricted_key_encrypted: restrictedKeyEncrypted,
       webhook_url: webhookUrl || null,
+      stripe_webhook_id: stripeWebhookId,
     };
 
     const { data, error } = await client
@@ -290,15 +398,17 @@ export async function saveStripeConfig(c: Context) {
 
     const row = data as StripeConfigRow;
     const defaultWebhookUrl = buildDefaultStripeWebhookUrl(organizationId);
-    const publicConfig: StripeConfigPublic = {
+    const publicConfig: StripeConfigPublic & { webhookAutoCreated?: boolean; stripeWebhookId?: string } = {
       enabled: Boolean(row.enabled),
       isTestMode: Boolean(row.is_test_mode),
       publishableKey: row.publishable_key || '',
-      webhookUrl: row.webhook_url || '',
+      webhookUrl: row.webhook_url || defaultWebhookUrl,
       hasSecretKey: Boolean(row.secret_key_encrypted),
       hasWebhookSigningSecret: Boolean(row.webhook_signing_secret_encrypted),
       hasRestrictedKey: Boolean(row.restricted_key_encrypted),
       defaultWebhookUrl,
+      webhookAutoCreated: Boolean(row.stripe_webhook_id),
+      stripeWebhookId: row.stripe_webhook_id || undefined,
     };
 
     return c.json(successResponse(publicConfig));
