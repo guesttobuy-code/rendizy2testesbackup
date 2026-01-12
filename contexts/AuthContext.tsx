@@ -142,7 +142,7 @@ export * from '../src/contexts/AuthContext';
           email: backendUser.email,
           name: backendUser.name,
           username: backendUser.username,
-          role: backendUser.type === 'superadmin' ? 'super_admin' : (backendUser.role || 'staff'),
+          role: backendUser.type === 'superadmin' ? 'super_admin' : (backendUser.type === 'imobiliaria' ? 'admin' : 'staff'),
           status: backendUser.status || 'active',
           emailVerified: true,
           createdAt: new Date(),

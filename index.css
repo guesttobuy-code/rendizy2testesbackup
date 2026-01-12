@@ -7651,3 +7651,11 @@ html {
     height: 0;
   }
 }
+
+/* ============================================================================
+   ANTI-TRANSLATION: Prevent browser auto-translate from changing brand names
+   e.g. "Stripe" → "Listra", "Pagar.me" → etc.
+   ============================================================================ */
+.notranslate {
+  translate: no;
+}

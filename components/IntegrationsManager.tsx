@@ -378,7 +378,7 @@ export function IntegrationsManager() {
                       
                       {/* Name & Badge */}
                       <div>
-                        <CardTitle className="text-base">{channel.name}</CardTitle>
+                        <CardTitle className="text-base notranslate" translate="no">{channel.name}</CardTitle>
                         {channel.badge && (
                           <Badge 
                             variant={channel.badge.variant as any}
@@ -466,7 +466,7 @@ export function IntegrationsManager() {
                       className: `w-5 h-5 ${selectedChannelData.iconColor}`
                     })}
                   </div>
-                  {selectedChannelData.name}
+                  <span className="notranslate" translate="no">{selectedChannelData.name}</span>
                 </>
               )}
             </DialogTitle>
