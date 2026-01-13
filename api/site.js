@@ -93,8 +93,11 @@ function patchHtmlForSubpath(html, baseHref, assetVersion) {
   const publicApiBase = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/api/{{SUBDOMAIN}}`;
   const runtimeConfigScript = `\n  <script>\n  (function(){\n    try {\n      var cfg = globalThis.RENDIZY_CONFIG || {};\n      cfg.supabaseUrl = cfg.supabaseUrl || ${JSON.stringify(supabaseUrl)};\n      cfg.supabaseAnonKey = cfg.supabaseAnonKey || ${JSON.stringify(anonKey)};\n      cfg.publicApiBase = cfg.publicApiBase || ${JSON.stringify(publicApiBase)};\n      globalThis.RENDIZY_CONFIG = cfg;\n      globalThis.__RENDIZY_SUPABASE_URL__ = globalThis.__RENDIZY_SUPABASE_URL__ || cfg.supabaseUrl;\n      globalThis.__RENDIZY_SUPABASE_ANON_KEY__ = globalThis.__RENDIZY_SUPABASE_ANON_KEY__ || cfg.supabaseAnonKey;\n    } catch (e) {}\n  })();\n  </script>`;
 
+  // Auto-fill script: populates reservation form with guest data from token
+  const autoFillScript = `\n  <script>\n  (function(){\n    function getGuestData(){\n      try{\n        var t=localStorage.getItem("rendizy-guest-token");\n        if(!t)return null;\n        var parts=t.split(".");\n        if(parts.length<2)return null;\n        return JSON.parse(atob(parts[1]));\n      }catch(e){return null;}\n    }\n    function fillForm(){\n      var g=getGuestData();\n      if(!g)return;\n      var fields={name:g.name||g.full_name||"",email:g.email||"",phone:g.phone||""};\n      Object.keys(fields).forEach(function(k){\n        if(!fields[k])return;\n        var inp=document.querySelector('input[name="'+k+'"],input[placeholder*="'+k+'"],input[type="'+k+'"]');\n        if(inp&&!inp.value){\n          inp.value=fields[k];\n          inp.dispatchEvent(new Event("input",{bubbles:true}));\n          inp.dispatchEvent(new Event("change",{bubbles:true}));\n        }\n      });\n      var nameInp=document.querySelector('input[placeholder*="nome"],input[name*="name"]');\n      if(nameInp&&!nameInp.value&&fields.name){nameInp.value=fields.name;nameInp.dispatchEvent(new Event("input",{bubbles:true}));}\n      var emailInp=document.querySelector('input[type="email"],input[placeholder*="email"]');\n      if(emailInp&&!emailInp.value&&fields.email){emailInp.value=fields.email;emailInp.dispatchEvent(new Event("input",{bubbles:true}));}\n      var phoneInp=document.querySelector('input[type="tel"],input[placeholder*="telefone"],input[placeholder*="phone"]');\n      if(phoneInp&&!phoneInp.value&&fields.phone){phoneInp.value=fields.phone;phoneInp.dispatchEvent(new Event("input",{bubbles:true}));}\n    }\n    if(document.readyState==="complete")fillForm();\n    else window.addEventListener("load",function(){setTimeout(fillForm,500);});\n    var obs=new MutationObserver(function(){fillForm();});\n    obs.observe(document.body||document.documentElement,{childList:true,subtree:true});\n  })();\n  </script>`;
+
   if (/<head[^>]*>/i.test(out) && !/RENDIZY_CONFIG\s*=/.test(out)) {
-    out = out.replace(/<head[^>]*>/i, (m) => `${m}${runtimeConfigScript}`);
+    out = out.replace(/<head[^>]*>/i, (m) => `${m}${runtimeConfigScript}${autoFillScript}`);
   }
 
   // Convert absolute-root assets to relative so baseHref applies.
@@ -302,6 +305,60 @@ function patchClientSiteJs(jsText, { subdomain }) {
   out = out.replace(
     /Em breve você poderá ver suas reservas aqui\./g,
     'Redirecionando para área do cliente...'
+  );
+
+  // ============================================================================
+  // PATCH #2: Header shows logged-in state from guest-area token
+  // ============================================================================
+  // Problem: User logged in guest-area, but site header still shows "Faça Login"
+  // Solution: Inject code that checks localStorage for rendizy-guest-token and
+  // updates the header to show user info if logged in.
+  // 
+  // We look for the "Faça Login" button pattern and wrap it with a conditional
+  // that checks for guest token first.
+  // Pattern: children:"Faça Login" or similar
+  out = out.replace(
+    /children:"Faça Login"/g,
+    'children:(()=>{try{const t=localStorage.getItem("rendizy-guest-token");if(t){const d=JSON.parse(atob(t.split(".")[1]));if(d&&d.name)return d.name.split(" ")[0]}return"Faça Login"}catch{return"Faça Login"}})()'
+  );
+
+  // ============================================================================
+  // PATCH #3: Redirect "Faça Login" button to guest-area
+  // ============================================================================
+  // Problem: Login button in site doesn't work or goes to wrong place
+  // Solution: Make it redirect to guest-area with return URL
+  // Pattern: onClick for login button
+  const loginButtonPattern = /to:"\/area-interna"/g;
+  const guestAreaLoginUrl = `https://rendizy2testesbackup.vercel.app/guest-area/?slug=${subdomain}&returnUrl=`;
+  out = out.replace(
+    loginButtonPattern,
+    `to:"#",onClick:(e)=>{e.preventDefault();const ret=encodeURIComponent(window.location.href);window.location.href='${guestAreaLoginUrl}'+ret;}`
+  );
+
+  // ============================================================================
+  // PATCH #4: Auto-fill reservation form with guest data
+  // ============================================================================
+  // Problem: Even logged in, user has to re-enter name, email, phone
+  // Solution: Inject code to auto-populate form from guest token
+  // We inject this at document ready to populate any form fields
+  // This is injected into the HTML, not JS (see patchHtmlForSubpath)
+
+  // ============================================================================
+  // PATCH #5: Change reservation status messages
+  // ============================================================================
+  // Problem: Shows "Reserva Confirmada" before payment is complete
+  // Solution: Change text to indicate pre-reservation pending payment
+  out = out.replace(
+    /Reserva Confirmada/g,
+    'Pré-Reserva Registrada'
+  );
+  out = out.replace(
+    /Sua reserva foi confirmada com sucesso/g,
+    'Sua pré-reserva foi registrada! Aguardando confirmação do pagamento'
+  );
+  out = out.replace(
+    /reserva foi realizada/gi,
+    'pré-reserva foi registrada'
   );
 
   return out;
