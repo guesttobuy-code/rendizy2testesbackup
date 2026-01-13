@@ -282,7 +282,7 @@ export function GuestAreaPage() {
 
     try {
       const response = await fetch(
-        `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/guest/reservations?org_id=${slug}&email=${encodeURIComponent(user.email)}`,
+        `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/guest/reservations?slug=${slug}&email=${encodeURIComponent(user.email)}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -341,14 +341,14 @@ export function GuestAreaPage() {
   const handleCheckIn = async (reservationId: string) => {
     try {
       const response = await fetch(
-        `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/guest/checkin`,
+        `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/guest/checkin`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQzMTI3NTgsImV4cCI6MjA1OTg4ODc1OH0.groS5xEMGrPCBHBN0MgMZGSAb1Nd3tPp2DrDRRMzVT8',
           },
-          body: JSON.stringify({ reservation_id: reservationId, org_id: slug })
+          body: JSON.stringify({ reservation_id: reservationId, slug })
         }
       );
 
@@ -363,14 +363,14 @@ export function GuestAreaPage() {
   const handleCheckOut = async (reservationId: string) => {
     try {
       const response = await fetch(
-        `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/guest/checkout`,
+        `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/guest/checkout`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQzMTI3NTgsImV4cCI6MjA1OTg4ODc1OH0.groS5xEMGrPCBHBN0MgMZGSAb1Nd3tPp2DrDRRMzVT8',
           },
-          body: JSON.stringify({ reservation_id: reservationId, org_id: slug })
+          body: JSON.stringify({ reservation_id: reservationId, slug })
         }
       );
 

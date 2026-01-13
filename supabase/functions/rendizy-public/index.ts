@@ -2560,4 +2560,372 @@ app.get("/health", (c: Context) =>
 app.route("/rendizy-public/client-sites", clientSites);
 app.route("/client-sites", clientSites);
 
+// ============================================================================
+// 🏠 GUEST AREA - Endpoints públicos para Área do Hóspede
+// ============================================================================
+
+const guestAreaRoutes = new Hono();
+
+/**
+ * GET /reservations?slug=X&email=Y  (ou org_id=X&email=Y)
+ * Busca reservas de um hóspede por email (usado pela cápsula Guest Area)
+ * 
+ * Aceita:
+ * - slug: subdomain do cliente (ex: medhome) - PREFERIDO
+ * - org_id: ID UUID da organização - ALTERNATIVO
+ */
+guestAreaRoutes.get("/reservations", async (c: Context) => {
+  const slugParam = c.req.query("slug");
+  let orgId = c.req.query("org_id");
+  const email = c.req.query("email");
+
+  if ((!slugParam && !orgId) || !email) {
+    return c.json(
+      { error: true, message: "Parâmetros (slug ou org_id) e email são obrigatórios" },
+      400,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient();
+
+    // Se foi passado slug, resolver para org_id
+    if (slugParam && !orgId) {
+      console.log(`🏠 [GuestArea] Resolvendo slug "${slugParam}" para org_id...`);
+      
+      // Tentar buscar pelo slug em várias formas possíveis
+      // Ex: medhome, rendizy_medhome, rendizy_medhome_teste
+      const possibleSlugs = [
+        slugParam,
+        `rendizy_${slugParam}`,
+        `rendizy_${slugParam}_teste`,
+      ];
+      
+      const { data: orgs, error: orgError } = await supabase
+        .from("organizations")
+        .select("id, slug, name")
+        .in("slug", possibleSlugs)
+        .limit(1);
+
+      if (orgError) {
+        console.error("❌ [GuestArea] Erro ao buscar organização:", orgError);
+        return c.json(
+          { error: true, message: "Erro ao buscar organização" },
+          500,
+          withCorsHeaders({ "Content-Type": "application/json" })
+        );
+      }
+
+      if (!orgs || orgs.length === 0) {
+        console.log(`⚠️ [GuestArea] Organização não encontrada para slug "${slugParam}"`);
+        return c.json(
+          { error: true, message: `Organização "${slugParam}" não encontrada` },
+          404,
+          withCorsHeaders({ "Content-Type": "application/json" })
+        );
+      }
+
+      orgId = orgs[0].id;
+      console.log(`✅ [GuestArea] Slug "${slugParam}" resolvido para org_id: ${orgId}`);
+    }
+
+    console.log(`🏠 [GuestArea] Buscando reservas para ${email} em org ${orgId}`);
+
+    // 1. Buscar o guest pelo email (tabela usa organization_id e first_name/last_name)
+    const { data: guests, error: guestError } = await supabase
+      .from("guests")
+      .select("id, first_name, last_name, email, phone")
+      .eq("organization_id", orgId)
+      .ilike("email", email)
+      .limit(1);
+
+    if (guestError) {
+      console.error("❌ [GuestArea] Erro ao buscar guest:", guestError);
+      return c.json(
+        { error: true, message: "Erro ao buscar hóspede" },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    if (!guests || guests.length === 0) {
+      console.log(`ℹ️ [GuestArea] Nenhum hóspede encontrado com email ${email}`);
+      return c.json(
+        { reservations: [], guest: null },
+        200,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const guest = guests[0];
+    const guestName = [guest.first_name, guest.last_name].filter(Boolean).join(' ') || 'Hóspede';
+    console.log(`✅ [GuestArea] Guest encontrado: ${guest.id} - ${guestName}`);
+
+    // 2. Buscar reservas do guest (tabela usa organization_id)
+    const { data: reservations, error: resError } = await supabase
+      .from("reservations")
+      .select(`
+        id,
+        property_id,
+        check_in,
+        check_out,
+        guests_total,
+        status,
+        pricing_total,
+        actual_check_in,
+        actual_check_out,
+        created_at
+      `)
+      .eq("organization_id", orgId)
+      .eq("guest_id", guest.id)
+      .order("check_in", { ascending: false });
+
+    if (resError) {
+      console.error("❌ [GuestArea] Erro ao buscar reservas:", resError);
+      return c.json(
+        { error: true, message: "Erro ao buscar reservas" },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // 3. Buscar dados das propriedades
+    const propertyIds = [...new Set((reservations || []).map((r: any) => r.property_id))];
+    
+    const propertiesMap: Record<string, { name: string; address: string; image: string }> = {};
+    
+    if (propertyIds.length > 0) {
+      const { data: properties } = await supabase
+        .from("properties")
+        .select("id, data")
+        .in("id", propertyIds);
+
+      if (properties) {
+        for (const prop of properties) {
+          const data = prop.data || {};
+          propertiesMap[prop.id] = {
+            name: data.name || data.internalName || "Imóvel",
+            address: data.address?.street 
+              ? `${data.address.street}, ${data.address.number || ''} - ${data.address.city || ''}/${data.address.state || ''}`
+              : data.address || "Endereço não informado",
+            image: data.coverPhoto || data.photos?.[0]?.url || "",
+          };
+        }
+      }
+    }
+
+    // 4. Formatar resposta
+    const formattedReservations = (reservations || []).map((r: any) => {
+      const propInfo = propertiesMap[r.property_id] || {};
+      return {
+        id: r.id,
+        property_id: r.property_id,
+        property_name: propInfo.name || "Imóvel",
+        property_image: propInfo.image || "",
+        property_address: propInfo.address || "",
+        check_in: r.check_in,
+        check_out: r.check_out,
+        guests: r.guests_total || 1,
+        status: r.status || "confirmed",
+        total_price: r.pricing_total || 0,
+        checkin_done: !!r.actual_check_in,
+        checkout_done: !!r.actual_check_out,
+        created_at: r.created_at,
+      };
+    });
+
+    console.log(`✅ [GuestArea] ${formattedReservations.length} reservas encontradas`);
+
+    return c.json(
+      {
+        guest: {
+          id: guest.id,
+          name: guestName,
+          email: guest.email,
+        },
+        reservations: formattedReservations,
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  } catch (err) {
+    console.error("❌ [GuestArea] Erro inesperado:", err);
+    return c.json(
+      { error: true, message: "Erro interno do servidor" },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  }
+});
+
+/**
+ * POST /checkin
+ * Registra check-in online do hóspede
+ * Body: { reservation_id, slug } ou { reservation_id, org_id }
+ */
+guestAreaRoutes.post("/checkin", async (c: Context) => {
+  try {
+    const body = await c.req.json();
+    const { reservation_id, slug, org_id: bodyOrgId } = body;
+    let orgId = bodyOrgId;
+
+    if (!reservation_id || (!slug && !orgId)) {
+      return c.json(
+        { error: true, message: "Parâmetros reservation_id e (slug ou org_id) são obrigatórios" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // Resolver slug para org_id se necessário
+    if (slug && !orgId) {
+      const possibleSlugs = [slug, `rendizy_${slug}`, `rendizy_${slug}_teste`];
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id")
+        .in("slug", possibleSlugs)
+        .limit(1);
+      
+      if (!orgs || orgs.length === 0) {
+        return c.json(
+          { error: true, message: `Organização "${slug}" não encontrada` },
+          404,
+          withCorsHeaders({ "Content-Type": "application/json" })
+        );
+      }
+      orgId = orgs[0].id;
+    }
+
+    console.log(`🏠 [GuestArea] Check-in para reserva ${reservation_id}`);
+
+    const { data, error } = await supabase
+      .from("reservations")
+      .update({ 
+        actual_check_in: new Date().toISOString(),
+      })
+      .eq("id", reservation_id)
+      .eq("organization_id", orgId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("❌ [GuestArea] Erro ao registrar check-in:", error);
+      return c.json(
+        { error: true, message: "Erro ao registrar check-in" },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    console.log(`✅ [GuestArea] Check-in registrado para reserva ${reservation_id}`);
+
+    return c.json(
+      {
+        success: true,
+        message: "Check-in realizado com sucesso",
+        reservation: data,
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  } catch (err) {
+    console.error("❌ [GuestArea] Erro inesperado no check-in:", err);
+    return c.json(
+      { error: true, message: "Erro interno do servidor" },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  }
+});
+
+/**
+ * POST /checkout
+ * Registra check-out online do hóspede
+ * Body: { reservation_id, slug } ou { reservation_id, org_id }
+ */
+guestAreaRoutes.post("/checkout", async (c: Context) => {
+  try {
+    const body = await c.req.json();
+    const { reservation_id, slug, org_id: bodyOrgId } = body;
+    let orgId = bodyOrgId;
+
+    if (!reservation_id || (!slug && !orgId)) {
+      return c.json(
+        { error: true, message: "Parâmetros reservation_id e (slug ou org_id) são obrigatórios" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // Resolver slug para org_id se necessário
+    if (slug && !orgId) {
+      const possibleSlugs = [slug, `rendizy_${slug}`, `rendizy_${slug}_teste`];
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id")
+        .in("slug", possibleSlugs)
+        .limit(1);
+      
+      if (!orgs || orgs.length === 0) {
+        return c.json(
+          { error: true, message: `Organização "${slug}" não encontrada` },
+          404,
+          withCorsHeaders({ "Content-Type": "application/json" })
+        );
+      }
+      orgId = orgs[0].id;
+    }
+
+    console.log(`🏠 [GuestArea] Check-out para reserva ${reservation_id}`);
+
+    const { data, error } = await supabase
+      .from("reservations")
+      .update({ 
+        actual_check_out: new Date().toISOString(),
+        status: "completed",
+      })
+      .eq("id", reservation_id)
+      .eq("organization_id", orgId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("❌ [GuestArea] Erro ao registrar check-out:", error);
+      return c.json(
+        { error: true, message: "Erro ao registrar check-out" },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    console.log(`✅ [GuestArea] Check-out registrado para reserva ${reservation_id}`);
+
+    return c.json(
+      {
+        success: true,
+        message: "Check-out realizado com sucesso",
+        reservation: data,
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  } catch (err) {
+    console.error("❌ [GuestArea] Erro inesperado no check-out:", err);
+    return c.json(
+      { error: true, message: "Erro interno do servidor" },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  }
+});
+
+// Montar rotas da Guest Area em ambos os paths
+app.route("/guest", guestAreaRoutes);
+app.route("/rendizy-public/guest", guestAreaRoutes);
+
 Deno.serve(app.fetch);
