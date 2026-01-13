@@ -13,8 +13,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { supabase } from '../../../lib/supabase';
+import { getSupabaseClient } from '../../../utils/supabase/client';
 import { Calendar, MapPin, Users, Clock, CheckCircle, XCircle, LogOut, ChevronRight, Home, AlertCircle, Loader2 } from 'lucide-react';
+
+// Singleton do cliente Supabase
+const supabase = getSupabaseClient();
 
 // ============================================
 // TIPOS
