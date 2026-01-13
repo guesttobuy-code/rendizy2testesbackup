@@ -323,19 +323,36 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
     },
     {
       id: 'checkout-session',
-      title: 'Checkout Stripe (pagamento) — estável',
+      title: 'Checkout Multi-Gateway (pagamento) — estável',
       method: 'POST',
       pathTemplate: '/client-sites/api/:subdomain/checkout/session',
       stability: 'stable',
       notes: [
-        'Cria sessão de checkout no Stripe para pagamento da reserva.',
+        'Cria sessão de checkout no gateway selecionado (Stripe ou Pagar.me).',
         'Campos obrigatórios: reservationId (UUID da reserva criada), successUrl, cancelUrl.',
-        'Retorna: sessionId, checkoutUrl, amount (centavos), currency, reservationId.',
+        'Campo opcional: paymentMethod (formato "gateway:method", ex: "stripe:credit_card", "pagarme:pix").',
+        'Se paymentMethod omitido, usa gateway com maior prioridade configurada.',
+        'Retorna: sessionId/orderId, checkoutUrl, amount, currency, reservationId, gateway, paymentMethod.',
+        'Para PIX (Pagar.me): retorna também pixQrCode, pixQrCodeUrl.',
+        'Para Boleto (Pagar.me): retorna também boletoUrl, boletoBarcode.',
         'O site deve redirecionar o hóspede para checkoutUrl após receber a resposta.',
-        'Após pagamento, Stripe redireciona para successUrl ou cancelUrl.',
-        '⚠️ IMPORTANTE: A reserva deve existir (status=pending) antes de criar checkout.',
-        '⚠️ IMPORTANTE: O Stripe deve estar configurado e habilitado para a organização.',
-        'Fluxo típico: 1) calculate-price → 2) reservations → 3) checkout/session → 4) redirect.'
+        '⚠️ IMPORTANTE: Usar em conjunto com GET /payment-methods para listar opções disponíveis.',
+        'Fluxo típico: 1) calculate-price → 2) reservations → 3) payment-methods → 4) checkout/session → 5) redirect.'
+      ]
+    },
+    {
+      id: 'payment-methods',
+      title: 'Métodos de Pagamento Disponíveis — estável',
+      method: 'GET',
+      pathTemplate: '/client-sites/api/:subdomain/payment-methods',
+      stability: 'stable',
+      notes: [
+        'Retorna os métodos de pagamento habilitados para a organização.',
+        'Usado para exibir opções ao hóspede antes do checkout (radio buttons).',
+        'Retorna: { methods: [{id, label, gateway, icon}], gateways: [{id, name, enabled, priority, methods}], hasPaymentEnabled }.',
+        'Cada method.id está no formato "gateway:method" (ex: "stripe:credit_card", "pagarme:pix").',
+        'O site deve chamar este endpoint ao iniciar fluxo de pagamento.',
+        'Se hasPaymentEnabled=false, o site pode omitir botão de pagamento ou mostrar "Entre em contato".'
       ]
     }
   ] satisfies ClientSitesCatalogEndpoint[],
@@ -641,7 +658,7 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
   },
   {
     id: 'stripe-checkout',
-    title: 'Botão de Pagamento Stripe',
+    title: 'Botão de Pagamento Stripe (legacy)',
     stability: 'stable',
     description:
       'Botão que cria sessão de checkout no Stripe e redireciona o usuário para pagamento. Usado após criar reserva.',
@@ -652,12 +669,54 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       'cancelUrl (URL de cancelamento)'
     ],
     notes: [
+      '⚠️ DEPRECADO: Preferir usar o bloco "payment-method-selector" para multi-gateway.',
       'Fluxo completo: (1) calculate-price → (2) reservation-create → (3) checkout-session → (4) redirect para Stripe.',
       'O endpoint retorna checkoutUrl do Stripe para onde o hóspede deve ser redirecionado.',
-      '⚠️ IMPORTANTE: Só funciona se o Stripe estiver configurado e habilitado no IntegrationsManager.',
       'Após pagamento, o Stripe redireciona para successUrl (sucesso) ou cancelUrl (cancelamento).',
-      'Webhook do Stripe atualiza o status da reserva automaticamente.',
-      'Componente de exemplo: components/client-sites/StripeCheckoutButton.example.tsx'
+      'Webhook do Stripe atualiza o status da reserva automaticamente.'
+    ]
+  },
+  {
+    id: 'payment-method-selector',
+    title: 'Seletor de Método de Pagamento (Multi-Gateway)',
+    stability: 'stable',
+    description:
+      'Radio buttons que permitem o hóspede escolher como pagar: Cartão, PIX, Boleto, PayPal. O backend roteia para o gateway correto (Stripe ou Pagar.me).',
+    usesEndpoints: ['payment-methods', 'checkout-session', 'reservation-create'],
+    requiredFields: [
+      'reservationId (UUID retornado pelo endpoint de reserva)',
+      'successUrl (URL de sucesso após pagamento)',
+      'cancelUrl (URL de cancelamento)',
+      'paymentMethod (formato gateway:method, ex: stripe:credit_card, pagarme:pix)'
+    ],
+    notes: [
+      'Fluxo recomendado:',
+      '  1) GET /payment-methods → lista opções disponíveis',
+      '  2) Exibir radio buttons: 💳 Cartão de Crédito, 📱 PIX, 📄 Boleto, etc.',
+      '  3) Usuário seleciona método de pagamento',
+      '  4) POST /checkout/session com paymentMethod selecionado',
+      '  5) Redirecionar para checkoutUrl (Stripe/Pagar.me)',
+      '',
+      'Para PIX (Pagar.me): o response inclui pixQrCode e pixQrCodeUrl.',
+      '  → Opção 1: Exibir QR code inline (melhor UX)',
+      '  → Opção 2: Redirecionar para pixQrCodeUrl',
+      '',
+      'Para Boleto: o response inclui boletoUrl (PDF) e boletoBarcode.',
+      '  → Exibir link para PDF e código de barras copiável.',
+      '',
+      '⚠️ IMPORTANTE: Só exibir métodos retornados por /payment-methods.',
+      '⚠️ IMPORTANTE: Se hasPaymentEnabled=false, omitir seção de pagamento.',
+      '',
+      'Exemplo de response do /payment-methods:',
+      '{',
+      '  "methods": [',
+      '    { "id": "stripe:credit_card", "label": "Cartão de Crédito", "gateway": "stripe", "icon": "💳" },',
+      '    { "id": "pagarme:pix", "label": "PIX", "gateway": "pagarme", "icon": "📱" },',
+      '    { "id": "pagarme:boleto", "label": "Boleto Bancário", "gateway": "pagarme", "icon": "📄" }',
+      '  ],',
+      '  "gateways": [...],',
+      '  "hasPaymentEnabled": true',
+      '}'
     ]
   }
 ] satisfies ClientSitesCatalogBlock[];

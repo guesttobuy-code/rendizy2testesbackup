@@ -2102,16 +2102,271 @@ Implemente explicitamente estes blocos (mesma intenção do catálogo):
 - Localização/Mapa: ` + "`property-map`" + ` (step 2 do properties)
 - CTA de contato (` + "`contact-cta`" + `) usando WhatsApp/link (sem backend)
 - Formulário de reserva (` + "`booking-form`" + `): permite criar reservas via POST /reservations
-- Pagamento Stripe (` + "`stripe-checkout`" + `): botão que redireciona para checkout do Stripe após criar reserva
+- Pagamento Multi-Gateway (` + "`payment-method-selector`" + `): seletor de método de pagamento (Cartão, PIX, Boleto) que redireciona para o checkout correto
 
-#### Fluxo completo de reserva com pagamento:
-1. Usuário seleciona datas → ` + "`/calendar`" + ` (valida disponibilidade)
+#### Fluxo completo de reserva com pagamento Multi-Gateway:
+1. Usuário seleciona datas → ` + "`GET /calendar`" + ` (valida disponibilidade)
 2. Submete formulário → ` + "`POST /reservations`" + ` (cria reserva, retorna reservationId)
-3. Clica "Pagar" → ` + "`POST /checkout-session`" + ` (cria sessão Stripe, retorna checkoutUrl)
-4. Redireciona para Stripe → usuário paga
-5. Stripe redireciona para successUrl ou cancelUrl
+3. Busca métodos → ` + "`GET /payment-methods`" + ` (lista opções: cartão, pix, boleto)
+4. Usuário seleciona método → radio buttons
+5. Clica "Pagar" → ` + "`POST /checkout/session`" + ` com ` + "`paymentMethod`" + ` (ex: ` + "`stripe:credit_card`" + ` ou ` + "`pagarme:pix`" + `)
+6. Redireciona para checkout ou exibe QR code (PIX) / link boleto
 
-⚠️ O bloco ` + "`stripe-checkout`" + ` só deve aparecer se o Stripe estiver habilitado na org (verificar via ` + "`site-config.features.stripeCheckout`" + `).
+### 2.4) Endpoint de Métodos de Pagamento (stable) — Novo!
+Antes de exibir opções de pagamento, o site DEVE chamar este endpoint para saber quais métodos estão disponíveis.
+
+**Request:**
+` + "```" + `
+GET /client-sites/api/:subdomain/payment-methods
+` + "```" + `
+
+**Response (200 OK):**
+` + "```" + `json
+{
+  "success": true,
+  "data": {
+    "methods": [
+      { "id": "stripe:credit_card", "label": "Cartão de Crédito", "gateway": "stripe", "icon": "💳" },
+      { "id": "pagarme:pix", "label": "PIX", "gateway": "pagarme", "icon": "📱" },
+      { "id": "pagarme:boleto", "label": "Boleto Bancário", "gateway": "pagarme", "icon": "📄" }
+    ],
+    "gateways": [
+      { "id": "stripe", "name": "Stripe", "enabled": true, "priority": 1, "methods": ["credit_card"] },
+      { "id": "pagarme", "name": "Pagar.me", "enabled": true, "priority": 2, "methods": ["pix", "boleto"] }
+    ],
+    "hasPaymentEnabled": true
+  }
+}
+` + "```" + `
+
+**Uso no cliente:**
+` + "```" + `typescript
+async function fetchPaymentMethods(subdomain: string) {
+  const url = ` + "`${API_BASE}/${subdomain}/payment-methods`" + `;
+  const res = await fetch(url, { method: 'GET' });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erro ao buscar métodos');
+  return json.data; // { methods, gateways, hasPaymentEnabled }
+}
+` + "```" + `
+
+### 2.5) Endpoint de Checkout Multi-Gateway (atualizado!)
+Agora aceita ` + "`paymentMethod`" + ` para rotear para o gateway correto.
+
+**Request:**
+` + "```" + `
+POST /client-sites/api/:subdomain/checkout/session
+Content-Type: application/json
+
+{
+  "reservationId": "uuid da reserva",
+  "successUrl": "https://seusite.com/sucesso",
+  "cancelUrl": "https://seusite.com/cancelado",
+  "paymentMethod": "pagarme:pix"  // NOVO! Formato: gateway:method
+}
+` + "```" + `
+
+**Response para Stripe (cartão):**
+` + "```" + `json
+{
+  "success": true,
+  "data": {
+    "sessionId": "cs_test_xxx",
+    "checkoutUrl": "https://checkout.stripe.com/...",
+    "amount": 48000,
+    "currency": "brl",
+    "reservationId": "uuid",
+    "gateway": "stripe",
+    "paymentMethod": "credit_card"
+  }
+}
+` + "```" + `
+
+**Response para Pagar.me (PIX):**
+` + "```" + `json
+{
+  "success": true,
+  "data": {
+    "orderId": "or_xxx",
+    "checkoutUrl": "...",
+    "amount": 48000,
+    "currency": "brl",
+    "reservationId": "uuid",
+    "gateway": "pagarme",
+    "paymentMethod": "pix",
+    "pixQrCode": "00020126...",       // Código copia-e-cola
+    "pixQrCodeUrl": "https://..."      // URL da imagem QR
+  }
+}
+` + "```" + `
+
+**Response para Pagar.me (Boleto):**
+` + "```" + `json
+{
+  "success": true,
+  "data": {
+    "orderId": "or_xxx",
+    "checkoutUrl": "...",
+    "amount": 48000,
+    "currency": "brl",
+    "reservationId": "uuid",
+    "gateway": "pagarme",
+    "paymentMethod": "boleto",
+    "boletoUrl": "https://.../boleto.pdf",
+    "boletoBarcode": "23793.38128..."
+  }
+}
+` + "```" + `
+
+**Exemplo completo de componente de checkout multi-gateway:**
+` + "```" + `typescript
+function PaymentMethodSelector({ 
+  reservationId, 
+  subdomain 
+}: { 
+  reservationId: string; 
+  subdomain: string 
+}) {
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [selected, setSelected] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [pixData, setPixData] = useState<{ qrCode: string; qrCodeUrl: string } | null>(null);
+  const [boletoData, setBoletoData] = useState<{ url: string; barcode: string } | null>(null);
+
+  // 1) Buscar métodos disponíveis
+  useEffect(() => {
+    fetchPaymentMethods(subdomain).then(data => {
+      if (data.hasPaymentEnabled && data.methods.length > 0) {
+        setMethods(data.methods);
+        setSelected(data.methods[0].id); // Seleciona primeiro por padrão
+      }
+    });
+  }, [subdomain]);
+
+  // 2) Processar pagamento
+  async function handlePay() {
+    if (!selected) return;
+    setLoading(true);
+    
+    try {
+      const res = await fetch(` + "`${API_BASE}/${subdomain}/checkout/session`" + `, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reservationId,
+          successUrl: window.location.origin + '/#/sucesso',
+          cancelUrl: window.location.origin + '/#/cancelado',
+          paymentMethod: selected  // ex: "stripe:credit_card" ou "pagarme:pix"
+        })
+      });
+      
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      
+      const data = json.data;
+      
+      // 3) Tratamento por tipo de pagamento
+      if (data.pixQrCode) {
+        // PIX: mostrar QR code inline
+        setPixData({ qrCode: data.pixQrCode, qrCodeUrl: data.pixQrCodeUrl });
+      } else if (data.boletoUrl) {
+        // Boleto: mostrar link e código de barras
+        setBoletoData({ url: data.boletoUrl, barcode: data.boletoBarcode });
+      } else if (data.checkoutUrl) {
+        // Cartão/outros: redirecionar
+        window.location.href = data.checkoutUrl;
+      }
+    } catch (err) {
+      alert(err.message || 'Erro ao processar pagamento');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (methods.length === 0) {
+    return <div>Pagamento online não disponível. Entre em contato.</div>;
+  }
+
+  // 4) Se já tem dados de PIX ou Boleto, mostrar
+  if (pixData) {
+    return (
+      <div className="space-y-4 text-center">
+        <h3 className="text-lg font-bold">Pague via PIX</h3>
+        <img src={pixData.qrCodeUrl} alt="QR Code PIX" className="mx-auto w-48 h-48" />
+        <div className="text-sm">
+          <p>Ou copie o código:</p>
+          <input 
+            type="text" 
+            value={pixData.qrCode} 
+            readOnly 
+            className="w-full p-2 border rounded text-xs" 
+            onClick={(e) => (e.target as HTMLInputElement).select()}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (boletoData) {
+    return (
+      <div className="space-y-4 text-center">
+        <h3 className="text-lg font-bold">Boleto Gerado</h3>
+        <a 
+          href={boletoData.url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-block px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          📄 Baixar Boleto (PDF)
+        </a>
+        <div className="text-sm">
+          <p>Código de barras:</p>
+          <input 
+            type="text" 
+            value={boletoData.barcode} 
+            readOnly 
+            className="w-full p-2 border rounded text-xs" 
+            onClick={(e) => (e.target as HTMLInputElement).select()}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // 5) Seletor de método
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-bold">Escolha como pagar</h3>
+      
+      <div className="space-y-2">
+        {methods.map(m => (
+          <label key={m.id} className="flex items-center gap-3 p-3 border rounded cursor-pointer hover:bg-gray-50">
+            <input
+              type="radio"
+              name="paymentMethod"
+              value={m.id}
+              checked={selected === m.id}
+              onChange={() => setSelected(m.id)}
+            />
+            <span className="text-xl">{m.icon}</span>
+            <span>{m.label}</span>
+          </label>
+        ))}
+      </div>
+      
+      <button
+        onClick={handlePay}
+        disabled={loading || !selected}
+        className="w-full py-3 bg-green-600 text-white rounded font-bold disabled:opacity-50"
+      >
+        {loading ? 'Processando...' : 'Pagar Agora'}
+      </button>
+    </div>
+  );
+}
+` + "```" + `
+
+⚠️ O seletor de métodos só deve aparecer se ` + "`hasPaymentEnabled === true`" + ` (verificar via ` + "`GET /payment-methods`" + `).
 
 Para Header/Hero/Footer:
 - Preferir dados vindos de ` + "`site-config`" + ` (título, descrição, contato, redes, features), quando disponível.

@@ -1438,7 +1438,151 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
 });
 
 // ============================================================
-// PUBLIC: Create Stripe Checkout Session from client site
+// PUBLIC: Get available payment methods for this organization
+// GET /client-sites/api/:subdomain/payment-methods
+// ============================================================
+clientSites.get("/api/:subdomain/payment-methods", async (c: Context) => {
+  try {
+    const subdomain = (c.req.param("subdomain") || "").trim().toLowerCase();
+    if (!subdomain) {
+      return c.json(
+        { success: false, error: "Subdomain ausente" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // Load site to get organization
+    const { data: site, error: siteError } = await supabase
+      .from("client_sites")
+      .select("organization_id, is_active")
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (siteError || !site) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    const organizationId = (site as any).organization_id;
+
+    // Load Stripe config
+    const { data: stripeConfig } = await supabase
+      .from("stripe_configs")
+      .select("enabled, payment_methods, priority")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    // Load Pagar.me config
+    const { data: pagarmeConfig } = await supabase
+      .from("pagarme_configs")
+      .select("enabled, payment_methods, priority")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    // Build available payment methods
+    type PaymentMethodOption = {
+      id: string;
+      label: string;
+      gateway: "stripe" | "pagarme";
+      icon?: string;
+    };
+
+    const PAYMENT_METHOD_LABELS: Record<string, { label: string; icon: string }> = {
+      credit_card: { label: "Cartão de Crédito", icon: "💳" },
+      pix: { label: "PIX", icon: "📱" },
+      boleto: { label: "Boleto Bancário", icon: "📄" },
+      paypal: { label: "PayPal", icon: "🅿️" },
+    };
+
+    const methods: PaymentMethodOption[] = [];
+    const gateways: Array<{ id: string; name: string; enabled: boolean; priority: number; methods: string[] }> = [];
+
+    // Process Stripe
+    if (stripeConfig && (stripeConfig as any).enabled) {
+      const stripeMethods = ((stripeConfig as any).payment_methods as string[]) || ["credit_card"];
+      const priority = (stripeConfig as any).priority ?? 1;
+      
+      gateways.push({
+        id: "stripe",
+        name: "Stripe",
+        enabled: true,
+        priority,
+        methods: stripeMethods,
+      });
+
+      for (const m of stripeMethods) {
+        const info = PAYMENT_METHOD_LABELS[m] || { label: m, icon: "💰" };
+        methods.push({
+          id: `stripe:${m}`,
+          label: info.label,
+          gateway: "stripe",
+          icon: info.icon,
+        });
+      }
+    }
+
+    // Process Pagar.me
+    if (pagarmeConfig && (pagarmeConfig as any).enabled) {
+      const pagarmeMethods = ((pagarmeConfig as any).payment_methods as string[]) || ["pix", "boleto"];
+      const priority = (pagarmeConfig as any).priority ?? 2;
+      
+      gateways.push({
+        id: "pagarme",
+        name: "Pagar.me",
+        enabled: true,
+        priority,
+        methods: pagarmeMethods,
+      });
+
+      for (const m of pagarmeMethods) {
+        // Don't duplicate if already added by Stripe with same method
+        const existing = methods.find((x) => x.id.endsWith(`:${m}`));
+        if (!existing) {
+          const info = PAYMENT_METHOD_LABELS[m] || { label: m, icon: "💰" };
+          methods.push({
+            id: `pagarme:${m}`,
+            label: info.label,
+            gateway: "pagarme",
+            icon: info.icon,
+          });
+        }
+      }
+    }
+
+    // Sort gateways by priority
+    gateways.sort((a, b) => a.priority - b.priority);
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          methods,
+          gateways,
+          hasPaymentEnabled: methods.length > 0,
+        },
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  } catch (err) {
+    console.error("[rendizy-public] Payment methods error:", err);
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : String(err) },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
+});
+
+// ============================================================
+// PUBLIC: Create Checkout Session from client site (multi-gateway)
 // POST /client-sites/api/:subdomain/checkout/session
 // ============================================================
 clientSites.post("/api/:subdomain/checkout/session", async (c: Context) => {
@@ -1464,6 +1608,8 @@ clientSites.post("/api/:subdomain/checkout/session", async (c: Context) => {
     const reservationId = (body.reservationId || "").trim();
     const successUrl = (body.successUrl || "").trim();
     const cancelUrl = (body.cancelUrl || "").trim();
+    // New: optional paymentMethod in format "gateway:method" e.g. "stripe:credit_card" or "pagarme:pix"
+    const paymentMethod = (body.paymentMethod || "").trim();
 
     // Validate required fields
     if (!reservationId || !successUrl || !cancelUrl) {
@@ -1472,6 +1618,17 @@ clientSites.post("/api/:subdomain/checkout/session", async (c: Context) => {
         400,
         withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
       );
+    }
+
+    // Parse payment method if provided
+    let requestedGateway: "stripe" | "pagarme" | null = null;
+    let requestedMethod: string | null = null;
+    if (paymentMethod && paymentMethod.includes(":")) {
+      const [gw, method] = paymentMethod.split(":");
+      if (gw === "stripe" || gw === "pagarme") {
+        requestedGateway = gw;
+        requestedMethod = method;
+      }
     }
 
     const supabase = getSupabaseAdminClient();
@@ -1494,32 +1651,54 @@ clientSites.post("/api/:subdomain/checkout/session", async (c: Context) => {
 
     const organizationId = (sqlSite as any).organization_id;
 
-    // Load Stripe config for this organization
-    const { data: stripeConfig, error: stripeError } = await supabase
+    // Load both gateway configs
+    const { data: stripeConfig } = await supabase
       .from("stripe_configs")
-      .select("enabled, is_test_mode, secret_key_encrypted")
+      .select("enabled, is_test_mode, secret_key_encrypted, payment_methods, priority")
       .eq("organization_id", organizationId)
       .maybeSingle();
 
-    if (stripeError || !stripeConfig) {
-      return c.json(
-        { success: false, error: "Stripe não configurado para esta organização" },
-        400,
-        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
-      );
+    const { data: pagarmeConfig } = await supabase
+      .from("pagarme_configs")
+      .select("enabled, is_test_mode, secret_key_encrypted, payment_methods, priority")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    // Determine which gateway to use
+    type GatewayChoice = { type: "stripe" | "pagarme"; config: any };
+    let gateway: GatewayChoice | null = null;
+
+    // If specific gateway requested, use it
+    if (requestedGateway === "stripe") {
+      if (stripeConfig && (stripeConfig as any).enabled && (stripeConfig as any).secret_key_encrypted) {
+        gateway = { type: "stripe", config: stripeConfig };
+      }
+    } else if (requestedGateway === "pagarme") {
+      if (pagarmeConfig && (pagarmeConfig as any).enabled && (pagarmeConfig as any).secret_key_encrypted) {
+        gateway = { type: "pagarme", config: pagarmeConfig };
+      }
+    } else {
+      // No specific gateway requested - use priority order
+      const gateways: Array<{ type: "stripe" | "pagarme"; config: any; priority: number }> = [];
+      
+      if (stripeConfig && (stripeConfig as any).enabled && (stripeConfig as any).secret_key_encrypted) {
+        gateways.push({ type: "stripe", config: stripeConfig, priority: (stripeConfig as any).priority ?? 1 });
+      }
+      if (pagarmeConfig && (pagarmeConfig as any).enabled && (pagarmeConfig as any).secret_key_encrypted) {
+        gateways.push({ type: "pagarme", config: pagarmeConfig, priority: (pagarmeConfig as any).priority ?? 2 });
+      }
+      
+      // Sort by priority (lower = higher priority)
+      gateways.sort((a, b) => a.priority - b.priority);
+      
+      if (gateways.length > 0) {
+        gateway = { type: gateways[0].type, config: gateways[0].config };
+      }
     }
 
-    if (!(stripeConfig as any).enabled) {
+    if (!gateway) {
       return c.json(
-        { success: false, error: "Stripe está desabilitado para esta organização" },
-        400,
-        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
-      );
-    }
-
-    if (!(stripeConfig as any).secret_key_encrypted) {
-      return c.json(
-        { success: false, error: "Chave secreta do Stripe não configurada" },
+        { success: false, error: "Nenhum gateway de pagamento configurado para esta organização" },
         400,
         withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
       );
@@ -1543,10 +1722,16 @@ clientSites.post("/api/:subdomain/checkout/session", async (c: Context) => {
 
     const res = reservation as any;
 
-    // Decrypt secret key (inline implementation for rendizy-public)
-    const ENCRYPTION_KEY = Deno.env.get("ENCRYPTION_KEY");
-    if (!ENCRYPTION_KEY) {
-      console.error("[rendizy-public] ENCRYPTION_KEY missing");
+    // Decrypt secret key using same algorithm as utils-crypto.ts (base64 format)
+    // Uses AI_PROVIDER_SECRET or SUPABASE_SERVICE_ROLE_KEY as secret source
+    const cryptoSecret = Deno.env.get("AI_PROVIDER_SECRET") 
+      || Deno.env.get("RENDAI_SECRET")
+      || Deno.env.get("ENCRYPTION_SECRET")
+      || SUPABASE_SERVICE_ROLE_KEY
+      || SUPABASE_URL; // Fallback
+
+    if (!cryptoSecret) {
+      console.error("[rendizy-public] No encryption secret available");
       return c.json(
         { success: false, error: "Configuração de criptografia ausente" },
         500,
@@ -1554,17 +1739,32 @@ clientSites.post("/api/:subdomain/checkout/session", async (c: Context) => {
       );
     }
 
-    let secretKey: string;
-    try {
-      const encrypted = (stripeConfig as any).secret_key_encrypted;
-      const [ivHex, encryptedHex] = encrypted.split(":");
-      const iv = new Uint8Array(ivHex.match(/.{2}/g)!.map((b: string) => parseInt(b, 16)));
-      const encryptedBytes = new Uint8Array(encryptedHex.match(/.{2}/g)!.map((b: string) => parseInt(b, 16)));
+    // Helper: decrypt secret key using same algorithm as utils-crypto.ts
+    const decryptSecretKey = async (encrypted: string): Promise<string> => {
+      const [ivB64, dataB64] = encrypted.split(":");
+      if (!ivB64 || !dataB64) {
+        throw new Error("Formato de dado criptografado inválido");
+      }
+
+      const base64ToBuffer = (b64: string): ArrayBuffer => {
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+      };
+
+      const iv = new Uint8Array(base64ToBuffer(ivB64));
+      const encryptedBytes = base64ToBuffer(dataB64);
       
-      const keyBytes = new TextEncoder().encode(ENCRYPTION_KEY.slice(0, 32).padEnd(32, "0"));
+      const keyMaterial = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(cryptoSecret)
+      );
       const cryptoKey = await crypto.subtle.importKey(
         "raw",
-        keyBytes,
+        keyMaterial,
         { name: "AES-GCM" },
         false,
         ["decrypt"]
@@ -1576,89 +1776,274 @@ clientSites.post("/api/:subdomain/checkout/session", async (c: Context) => {
         encryptedBytes
       );
       
-      secretKey = new TextDecoder().decode(decrypted);
-    } catch (decryptErr) {
-      console.error("[rendizy-public] Decryption failed:", decryptErr);
-      return c.json(
-        { success: false, error: "Erro ao descriptografar chave do Stripe" },
-        500,
-        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
-      );
-    }
+      return new TextDecoder().decode(decrypted);
+    };
 
-    // Create Stripe Checkout Session via Stripe API
     const amountCents = Math.round((res.pricing_total || 0) * 100);
     const currency = (res.pricing_currency || "brl").toLowerCase();
 
-    const stripePayload = new URLSearchParams({
-      "mode": "payment",
-      "success_url": successUrl,
-      "cancel_url": cancelUrl,
-      "line_items[0][price_data][currency]": currency,
-      "line_items[0][price_data][unit_amount]": String(amountCents),
-      "line_items[0][price_data][product_data][name]": `Reserva ${res.check_in} a ${res.check_out} (${res.nights} noites)`,
-      "line_items[0][quantity]": "1",
-      "metadata[reservation_id]": reservationId,
-      "metadata[organization_id]": organizationId,
-      "metadata[subdomain]": subdomain,
-    });
+    // ============================================================
+    // STRIPE CHECKOUT
+    // ============================================================
+    if (gateway.type === "stripe") {
+      let secretKey: string;
+      try {
+        secretKey = await decryptSecretKey(gateway.config.secret_key_encrypted);
+      } catch (decryptErr) {
+        console.error("[rendizy-public] Stripe decryption failed:", decryptErr);
+        return c.json(
+          { success: false, error: "Erro ao descriptografar chave do Stripe" },
+          500,
+          withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+        );
+      }
 
-    const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${secretKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: stripePayload.toString(),
-    });
+      const stripePayload = new URLSearchParams({
+        "mode": "payment",
+        "success_url": successUrl,
+        "cancel_url": cancelUrl,
+        "line_items[0][price_data][currency]": currency,
+        "line_items[0][price_data][unit_amount]": String(amountCents),
+        "line_items[0][price_data][product_data][name]": `Reserva ${res.check_in} a ${res.check_out} (${res.nights} noites)`,
+        "line_items[0][quantity]": "1",
+        "metadata[reservation_id]": reservationId,
+        "metadata[organization_id]": organizationId,
+        "metadata[subdomain]": subdomain,
+        "metadata[gateway]": "stripe",
+      });
 
-    if (!stripeResponse.ok) {
-      const stripeError = await stripeResponse.json().catch(() => ({}));
-      console.error("[rendizy-public] Stripe API error:", stripeError);
+      // Add payment method types based on requested method
+      if (requestedMethod === "pix") {
+        stripePayload.append("payment_method_types[0]", "pix");
+      } else if (requestedMethod === "boleto") {
+        stripePayload.append("payment_method_types[0]", "boleto");
+      } else if (requestedMethod === "paypal") {
+        stripePayload.append("payment_method_types[0]", "paypal");
+      } else {
+        stripePayload.append("payment_method_types[0]", "card");
+      }
+
+      const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${secretKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: stripePayload.toString(),
+      });
+
+      if (!stripeResponse.ok) {
+        const stripeError = await stripeResponse.json().catch(() => ({}));
+        console.error("[rendizy-public] Stripe API error:", stripeError);
+        return c.json(
+          { success: false, error: "Erro ao criar sessão de checkout", details: (stripeError as any).error?.message },
+          500,
+          withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+        );
+      }
+
+      const stripeSession = await stripeResponse.json();
+
+      // Store checkout session in database
+      const { error: insertError } = await supabase
+        .from("stripe_checkout_sessions")
+        .insert({
+          id: crypto.randomUUID(),
+          organization_id: organizationId,
+          stripe_session_id: (stripeSession as any).id,
+          reservation_id: reservationId,
+          amount: amountCents,
+          currency: currency,
+          status: (stripeSession as any).payment_status || "unpaid",
+          checkout_url: (stripeSession as any).url,
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+          metadata: { subdomain, source: "client-site", gateway: "stripe", paymentMethod: requestedMethod },
+          created_at: new Date().toISOString(),
+        });
+
+      if (insertError) {
+        console.error("[rendizy-public] Error saving checkout session:", insertError);
+      }
+
       return c.json(
-        { success: false, error: "Erro ao criar sessão de checkout", details: (stripeError as any).error?.message },
-        500,
+        {
+          success: true,
+          data: {
+            sessionId: (stripeSession as any).id,
+            checkoutUrl: (stripeSession as any).url,
+            amount: amountCents,
+            currency: currency,
+            reservationId: reservationId,
+            gateway: "stripe",
+            paymentMethod: requestedMethod || "credit_card",
+          },
+        },
+        200,
         withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
       );
     }
 
-    const stripeSession = await stripeResponse.json();
+    // ============================================================
+    // PAGAR.ME CHECKOUT
+    // ============================================================
+    if (gateway.type === "pagarme") {
+      let secretKey: string;
+      try {
+        secretKey = await decryptSecretKey(gateway.config.secret_key_encrypted);
+      } catch (decryptErr) {
+        console.error("[rendizy-public] Pagar.me decryption failed:", decryptErr);
+        return c.json(
+          { success: false, error: "Erro ao descriptografar chave do Pagar.me" },
+          500,
+          withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+        );
+      }
 
-    // Store checkout session in database
-    const { error: insertError } = await supabase
-      .from("stripe_checkout_sessions")
-      .insert({
-        id: crypto.randomUUID(),
-        organization_id: organizationId,
-        stripe_session_id: (stripeSession as any).id,
-        reservation_id: reservationId,
-        amount: amountCents,
-        currency: currency,
-        status: (stripeSession as any).payment_status || "unpaid",
-        checkout_url: (stripeSession as any).url,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        metadata: { subdomain, source: "client-site" },
-        created_at: new Date().toISOString(),
+      // Build Pagar.me order payload
+      // Pagar.me uses a different API structure
+      const pagarmePayload = {
+        items: [
+          {
+            amount: amountCents,
+            description: `Reserva ${res.check_in} a ${res.check_out} (${res.nights} noites)`,
+            quantity: 1,
+            code: reservationId,
+          },
+        ],
+        payments: [] as any[],
+        metadata: {
+          reservation_id: reservationId,
+          organization_id: organizationId,
+          subdomain: subdomain,
+          gateway: "pagarme",
+        },
+      };
+
+      // Configure payment method
+      if (requestedMethod === "pix") {
+        pagarmePayload.payments.push({
+          payment_method: "pix",
+          pix: {
+            expires_in: 3600, // 1 hour
+          },
+        });
+      } else if (requestedMethod === "boleto") {
+        pagarmePayload.payments.push({
+          payment_method: "boleto",
+          boleto: {
+            due_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+            instructions: "Pagar até a data de vencimento",
+          },
+        });
+      } else {
+        // credit_card - Pagar.me checkout flow
+        pagarmePayload.payments.push({
+          payment_method: "checkout",
+          checkout: {
+            expires_in: 3600,
+            billing_address_editable: false,
+            customer_editable: true,
+            accepted_payment_methods: ["credit_card"],
+            success_url: successUrl,
+            skip_checkout_success_page: false,
+          },
+        });
+      }
+
+      const pagarmeResponse = await fetch("https://api.pagar.me/core/v5/orders", {
+        method: "POST",
+        headers: {
+          "Authorization": `Basic ${btoa(secretKey + ":")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(pagarmePayload),
       });
 
-    if (insertError) {
-      console.error("[rendizy-public] Error saving checkout session:", insertError);
-      // Continue anyway - the Stripe session was created successfully
-    }
+      if (!pagarmeResponse.ok) {
+        const pagarmeError = await pagarmeResponse.json().catch(() => ({}));
+        console.error("[rendizy-public] Pagar.me API error:", pagarmeError);
+        return c.json(
+          { success: false, error: "Erro ao criar pedido no Pagar.me", details: JSON.stringify(pagarmeError) },
+          500,
+          withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+        );
+      }
 
-    return c.json(
-      {
-        success: true,
-        data: {
-          sessionId: (stripeSession as any).id,
-          checkoutUrl: (stripeSession as any).url,
+      const pagarmeOrder = await pagarmeResponse.json();
+
+      // Extract checkout URL or payment info based on method
+      let checkoutUrl = "";
+      let pixQrCode = null;
+      let pixQrCodeUrl = null;
+      let boletoUrl = null;
+      let boletoBarcode = null;
+
+      const charge = (pagarmeOrder as any).charges?.[0];
+      if (charge) {
+        if (requestedMethod === "pix" && charge.last_transaction?.qr_code) {
+          pixQrCode = charge.last_transaction.qr_code;
+          pixQrCodeUrl = charge.last_transaction.qr_code_url;
+          checkoutUrl = pixQrCodeUrl || "";
+        } else if (requestedMethod === "boleto" && charge.last_transaction?.pdf) {
+          boletoUrl = charge.last_transaction.pdf;
+          boletoBarcode = charge.last_transaction.line;
+          checkoutUrl = boletoUrl;
+        } else if (charge.last_transaction?.checkout?.payment_url) {
+          checkoutUrl = charge.last_transaction.checkout.payment_url;
+        }
+      }
+
+      // Store in pagarme_orders table (create if not exists)
+      const { error: insertError } = await supabase
+        .from("pagarme_orders")
+        .upsert({
+          id: (pagarmeOrder as any).id || crypto.randomUUID(),
+          organization_id: organizationId,
+          reservation_id: reservationId,
           amount: amountCents,
           currency: currency,
-          reservationId: reservationId,
+          status: (pagarmeOrder as any).status || "pending",
+          payment_method: requestedMethod || "credit_card",
+          checkout_url: checkoutUrl,
+          pix_qr_code: pixQrCode,
+          pix_qr_code_url: pixQrCodeUrl,
+          boleto_url: boletoUrl,
+          boleto_barcode: boletoBarcode,
+          metadata: { subdomain, source: "client-site" },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "id" });
+
+      if (insertError) {
+        console.error("[rendizy-public] Error saving Pagar.me order:", insertError);
+      }
+
+      return c.json(
+        {
+          success: true,
+          data: {
+            orderId: (pagarmeOrder as any).id,
+            checkoutUrl: checkoutUrl,
+            amount: amountCents,
+            currency: currency,
+            reservationId: reservationId,
+            gateway: "pagarme",
+            paymentMethod: requestedMethod || "credit_card",
+            // Extra data for PIX/Boleto
+            ...(pixQrCode && { pixQrCode, pixQrCodeUrl }),
+            ...(boletoUrl && { boletoUrl, boletoBarcode }),
+          },
         },
-      },
-      200,
+        200,
+        withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+      );
+    }
+
+    // Fallback - should not reach here
+    return c.json(
+      { success: false, error: "Gateway não suportado" },
+      400,
       withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
     );
   } catch (err) {

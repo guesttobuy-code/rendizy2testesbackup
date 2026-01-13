@@ -31,7 +31,7 @@ function StabilityBadge({ stability }: { stability: 'stable' | 'planned' }) {
 
 const PAYMENT_PROVIDER_STABILITY: Record<PaymentProviderId, 'stable' | 'planned'> = {
   stripe: 'stable',
-  pagarme: 'planned',
+  pagarme: 'stable',
 };
 
 const PAYMENT_FEATURE_STABILITY: Record<PaymentProviderId, Partial<Record<PaymentFeatureId, 'stable' | 'planned'>>> = {
@@ -49,9 +49,9 @@ const PAYMENT_FEATURE_STABILITY: Record<PaymentProviderId, Partial<Record<Paymen
     customer_portal: 'planned',
   },
   pagarme: {
-    checkout_sessions: 'planned',
+    checkout_sessions: 'stable',
     refunds: 'planned',
-    webhooks: 'planned',
+    webhooks: 'stable',
   },
 };
 
