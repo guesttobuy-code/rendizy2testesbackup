@@ -42,16 +42,18 @@ function contentTypeForPath(pathname) {
 
 function buildCsp() {
   const supabaseOrigin = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
+  const googleOrigin = "https://accounts.google.com";
 
   // We allow inline scripts because the generated HTML injects window.RENDIZY_CONFIG.
   // Scope is limited to this single endpoint (/sitemedhome).
   return [
     "default-src 'self'",
-    `connect-src 'self' https: ${supabaseOrigin}`,
-    `img-src 'self' data: https: ${supabaseOrigin}`,
-    `script-src 'self' 'unsafe-inline' ${supabaseOrigin}`,
-    `style-src 'self' 'unsafe-inline' https: ${supabaseOrigin}`,
+    `connect-src 'self' https: ${supabaseOrigin} ${googleOrigin}`,
+    `img-src 'self' data: https: ${supabaseOrigin} ${googleOrigin}`,
+    `script-src 'self' 'unsafe-inline' ${supabaseOrigin} ${googleOrigin}`,
+    `style-src 'self' 'unsafe-inline' https: ${supabaseOrigin} ${googleOrigin}`,
     `font-src 'self' data: https: ${supabaseOrigin}`,
+    `frame-src 'self' ${googleOrigin}`,
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'none'",

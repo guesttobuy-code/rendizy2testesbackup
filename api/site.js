@@ -56,15 +56,16 @@ function contentTypeForPath(pathname) {
 function buildCsp() {
   const supabaseOrigin = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
   const vercelLiveOrigin = "https://vercel.live";
+  const googleOrigin = "https://accounts.google.com";
 
   return [
     "default-src 'self'",
-    `connect-src 'self' https: ${supabaseOrigin} ${vercelLiveOrigin}`,
-    `img-src 'self' data: https: ${supabaseOrigin}`,
-    `script-src 'self' 'unsafe-inline' ${supabaseOrigin} ${vercelLiveOrigin}`,
-    `style-src 'self' 'unsafe-inline' https: ${supabaseOrigin}`,
+    `connect-src 'self' https: ${supabaseOrigin} ${vercelLiveOrigin} ${googleOrigin}`,
+    `img-src 'self' data: https: ${supabaseOrigin} ${googleOrigin}`,
+    `script-src 'self' 'unsafe-inline' ${supabaseOrigin} ${vercelLiveOrigin} ${googleOrigin}`,
+    `style-src 'self' 'unsafe-inline' https: ${supabaseOrigin} ${googleOrigin}`,
     `font-src 'self' data: https: ${supabaseOrigin}`,
-    `frame-src 'self' ${vercelLiveOrigin}`,
+    `frame-src 'self' ${vercelLiveOrigin} ${googleOrigin}`,
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
