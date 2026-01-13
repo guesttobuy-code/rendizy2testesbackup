@@ -62,17 +62,18 @@ export function MyReservationsPage() {
         const config = window.GUEST_AREA_CONFIG;
         if (!config) throw new Error('Configuração não encontrada');
 
-        const res = await fetch(`${config.supabaseUrl}/functions/v1/rendizy-public/reservations/mine`, {
+        // Usar endpoint correto: /client-sites/api/:subdomain/reservations/mine
+        const apiBase = `${config.supabaseUrl}/functions/v1/rendizy-public/client-sites/api`;
+        const res = await fetch(`${apiBase}/${config.siteSlug}/reservations/mine`, {
           headers: {
             Authorization: `Bearer ${token}`,
-            'x-site-slug': config.siteSlug,
           },
         });
 
         if (!res.ok) throw new Error('Erro ao buscar reservas');
 
         const data = await res.json();
-        setReservations(data.reservations || []);
+        setReservations(data.data || data.reservations || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro desconhecido');
       } finally {
