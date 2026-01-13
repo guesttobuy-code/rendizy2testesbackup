@@ -275,6 +275,16 @@ function patchClientSiteJs(jsText, { subdomain }) {
     }
   );
 
+  // MedHome: Fix "Voltar para a Home" button on pagamento-sucesso and pagamento-cancelado pages.
+  // Problem: The minified bundle uses onClick:()=>e("/") where e should be navigate() from React Router.
+  // But some bundles have scope issues where e is undefined or not a function.
+  // Fix: Replace onClick:()=>e("/") with a direct window.location.hash assignment.
+  // This is a safe fallback that works regardless of React Router state.
+  out = out.replace(
+    /onClick:\(\)=>e\("\/"\)/g,
+    'onClick:()=>(window.location.hash="#/")'
+  );
+
   return out;
 }
 
