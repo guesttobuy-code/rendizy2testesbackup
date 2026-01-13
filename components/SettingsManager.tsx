@@ -857,15 +857,9 @@ export function SettingsManager({
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     {saving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Salvando...
-                      </>
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        Salvar
-                      </>
+                      <><Save className="h-4 w-4 mr-2" />Salvar</>
                     )}
                   </Button>
                 </div>
@@ -1096,15 +1090,9 @@ function ChatSettingsTab({ organizationId }: { organizationId: string }) {
           className="bg-blue-600 hover:bg-blue-700"
         >
           {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Salvando...
-            </>
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Salvar
-            </>
+            <><Save className="h-4 w-4 mr-2" />Salvar</>
           )}
         </Button>
       </div>
@@ -2125,15 +2113,9 @@ function PendingReservationSettingsCard({ organizationId }: { organizationId: st
           className="bg-blue-600 hover:bg-blue-700"
         >
           {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Salvando...
-            </>
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Salvar
-            </>
+            <><Save className="h-4 w-4 mr-2" />Salvar</>
           )}
         </Button>
       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Globe, Code, Settings, Eye, Trash2, Upload, ExternalLink, Copy, Check, FileText, Sparkles, Download } from 'lucide-react';
+import { Plus, Globe, Code, Settings, Eye, Trash2, Upload, ExternalLink, Copy, Check, FileText, Sparkles, Download, History } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -1539,13 +1539,106 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
 //
 // ============================================================
 
+// ============================================================
+// HISTÓRICO DE VERSÕES DO PROMPT
+// ============================================================
+type PromptVersion = {
+  version: string;
+  date: string;
+  time: string;
+  author: string;
+  changes: string[];
+  prompt: string;
+};
+
+const PROMPT_VERSIONS: PromptVersion[] = [
+  {
+    version: 'v4.0',
+    date: '2026-01-13',
+    time: '13:30',
+    author: 'Copilot + Rafael',
+    changes: [
+      '✅ Multi-gateway checkout (Stripe + Pagar.me)',
+      '✅ Endpoint /payment-methods para listar opções',
+      '✅ PIX e Boleto via Pagar.me',
+      '✅ OAuth Google One Tap para hóspedes',
+      '✅ Área interna do cliente',
+      '✅ Meta-info com versão do catálogo e sistema',
+    ],
+    prompt: 'CURRENT', // placeholder - usa o prompt atual
+  },
+  {
+    version: 'v3.0',
+    date: '2026-01-10',
+    time: '16:45',
+    author: 'Copilot + Rafael',
+    changes: [
+      '✅ Checkout Stripe integrado',
+      '✅ Endpoint /calculate-price obrigatório',
+      '✅ Sistema de pré-reservas com timeout',
+      '✅ Correção do campo status (string) no calendário',
+      '✅ Anti-patterns de mock documentados',
+    ],
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v3.0)
+
+---
+## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
+
+**O RENDIZY PROPÕE O PADRÃO. VOCÊ SEGUE.**
+
+Este prompt é PROPOSITIVO, não sugestivo. As especificações aqui são ORDENS, não recomendações.
+
+[... prompt v3.0 completo - disponível no histórico do repositório ...]`,
+  },
+  {
+    version: 'v2.0',
+    date: '2026-01-06',
+    time: '14:20',
+    author: 'Copilot + Rafael',
+    changes: [
+      '✅ Endpoint /reservations estável',
+      '✅ Calendário real via /calendar',
+      '✅ Proibição de @supabase/supabase-js',
+      '✅ HashRouter obrigatório',
+      '✅ Documentação de site-config (beta)',
+    ],
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v2.0)
+
+---
+## OBJETIVO
+Gerar site SPA de imobiliária integrado ao RENDIZY.
+
+[... prompt v2.0 resumido - disponível no histórico do repositório ...]`,
+  },
+  {
+    version: 'v1.0',
+    date: '2025-12-20',
+    time: '10:00',
+    author: 'Rafael',
+    changes: [
+      '✅ Versão inicial',
+      '✅ Endpoint /properties',
+      '✅ DTO ClientSiteProperty',
+      '✅ Regras de build (base: "./")',
+    ],
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v1.0)
+
+Prompt inicial para geração de sites via IA.
+
+[... prompt v1.0 resumido - disponível no histórico do repositório ...]`,
+  },
+];
+
 function DocsAIModal({ open, onClose }: {
   open: boolean;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<string>('v4.0');
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v3.0)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.0)
+
+> **Catálogo**: v1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-13 às 13:30
 
 ---
 ## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
@@ -2707,96 +2800,58 @@ Regras:
 
 Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
 
+  const currentVersion = PROMPT_VERSIONS.find(v => v.version === selectedVersion);
+  const displayPrompt = selectedVersion === 'v4.0' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
+
   const copyPrompt = () => {
-    navigator.clipboard.writeText(aiPrompt);
+    navigator.clipboard.writeText(displayPrompt);
     setCopied(true);
-    toast.success('Prompt copiado! Cole no Bolt.new, v0.dev ou Figma Make');
+    toast.success(`Prompt ${selectedVersion} copiado! Cole no Bolt.new, v0.dev ou Figma Make`);
     setTimeout(() => setCopied(false), 3000);
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-yellow-500" />
             Documentação prompt sites I.A
           </DialogTitle>
           <DialogDescription>
-            Use este prompt em Bolt.new, v0.dev, Claude, ChatGPT ou Figma Make para criar sites profissionais integrados ao RENDIZY
+            Gere sites profissionais integrados ao RENDIZY usando IA
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Plataformas Recomendadas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-2 border-purple-200 bg-purple-50">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Bolt.new
-                </CardTitle>
-                <CardDescription>Recomendado - Mais Completo</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  size="sm"
-                  onClick={() => window.open('https://bolt.new', '_blank')}
-                  className="w-full gap-2"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Abrir Bolt.new
-                </Button>
-              </CardContent>
-            </Card>
+        <Tabs defaultValue="prompt" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="prompt" className="gap-2">
+              <Code className="h-4 w-4" />
+              Prompt Atual
+            </TabsTrigger>
+            <TabsTrigger value="historico" className="gap-2">
+              <History className="h-4 w-4" />
+              Histórico
+            </TabsTrigger>
+            <TabsTrigger value="instrucoes" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Como Usar
+            </TabsTrigger>
+          </TabsList>
 
-            <Card className="border-2 border-blue-200 bg-blue-50">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Code className="h-4 w-4" />
-                  v0.dev
-                </CardTitle>
-                <CardDescription>Vercel - Componentes UI</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  size="sm"
-                  onClick={() => window.open('https://v0.dev', '_blank')}
-                  variant="outline"
-                  className="w-full gap-2"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Abrir v0.dev
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-green-200 bg-green-50">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  Figma Make
-                </CardTitle>
-                <CardDescription>Design First</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  size="sm"
-                  onClick={() => window.open('https://figma.com', '_blank')}
-                  variant="outline"
-                  className="w-full gap-2"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Abrir Figma
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Prompt */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-base">Prompt para IA:</Label>
+          {/* TAB: Prompt Atual */}
+          <TabsContent value="prompt" className="flex-1 overflow-y-auto space-y-4 mt-4">
+            {/* Versão atual */}
+            <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-green-500 font-mono text-sm">v4.0</Badge>
+                  <span className="text-sm text-gray-600">Versão Atual</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Atualizado em 2026-01-13 às 13:30 por Copilot + Rafael
+                </p>
+              </div>
               <Button
                 size="sm"
                 variant={copied ? 'default' : 'outline'}
@@ -2816,33 +2871,159 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
                 )}
               </Button>
             </div>
-            
+
+            {/* Plataformas */}
+            <div className="grid grid-cols-3 gap-3">
+              <Button
+                variant="outline"
+                className="h-auto py-3 flex-col gap-1 border-2 border-purple-200 bg-purple-50 hover:bg-purple-100"
+                onClick={() => window.open('https://bolt.new', '_blank')}
+              >
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                <span className="font-semibold">Bolt.new</span>
+                <span className="text-xs text-gray-500">Recomendado</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto py-3 flex-col gap-1 border-2 border-blue-200 bg-blue-50 hover:bg-blue-100"
+                onClick={() => window.open('https://v0.dev', '_blank')}
+              >
+                <Code className="h-5 w-5 text-blue-600" />
+                <span className="font-semibold">v0.dev</span>
+                <span className="text-xs text-gray-500">Vercel</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto py-3 flex-col gap-1 border-2 border-green-200 bg-green-50 hover:bg-green-100"
+                onClick={() => window.open('https://figma.com', '_blank')}
+              >
+                <Globe className="h-5 w-5 text-green-600" />
+                <span className="font-semibold">Figma</span>
+                <span className="text-xs text-gray-500">Design First</span>
+              </Button>
+            </div>
+
+            {/* Prompt */}
             <Textarea
-              value={aiPrompt}
+              value={displayPrompt}
               readOnly
-              className="min-h-[400px] font-mono text-xs bg-gray-50"
+              className="min-h-[300px] font-mono text-xs bg-gray-50 flex-1"
             />
-          </div>
+          </TabsContent>
 
-          {/* Instruções */}
-          <Alert>
-            <FileText className="h-4 w-4" />
-            <AlertTitle>Como Usar</AlertTitle>
-            <AlertDescription className="space-y-2 mt-2">
-              <ol className="list-decimal list-inside space-y-1 text-sm">
-                <li>Clique em "Copiar Prompt"</li>
-                <li>Abra Bolt.new, v0.dev ou sua IA preferida</li>
-                <li>Cole o prompt completo</li>
-                <li>Aguarde a IA gerar o código do site</li>
-                <li>Copie o código gerado</li>
-                <li>Volte aqui e clique em "Importar Site"</li>
-                <li>Cole o código e configure a organização</li>
-              </ol>
-            </AlertDescription>
-          </Alert>
-        </div>
+          {/* TAB: Histórico */}
+          <TabsContent value="historico" className="flex-1 overflow-y-auto mt-4">
+            <div className="space-y-3">
+              {PROMPT_VERSIONS.map((v) => (
+                <Card 
+                  key={v.version}
+                  className={`cursor-pointer transition-all ${
+                    selectedVersion === v.version 
+                      ? 'border-2 border-purple-500 shadow-md' 
+                      : 'hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedVersion(v.version)}
+                >
+                  <CardHeader className="py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Badge 
+                          variant={v.version === 'v4.0' ? 'default' : 'outline'}
+                          className={`font-mono ${v.version === 'v4.0' ? 'bg-green-500' : ''}`}
+                        >
+                          {v.version}
+                        </Badge>
+                        <div>
+                          <p className="text-sm font-medium">{v.date} às {v.time}</p>
+                          <p className="text-xs text-gray-500">por {v.author}</p>
+                        </div>
+                      </div>
+                      {selectedVersion === v.version && (
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); copyPrompt(); }} className="gap-2">
+                          <Copy className="h-3 w-3" />
+                          Copiar
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex flex-wrap gap-1">
+                      {v.changes.map((change, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs font-normal">
+                          {change}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
 
-        <DialogFooter>
+          {/* TAB: Instruções */}
+          <TabsContent value="instrucoes" className="flex-1 overflow-y-auto mt-4 space-y-4">
+            <Alert className="bg-blue-50 border-blue-200">
+              <FileText className="h-4 w-4 text-blue-600" />
+              <AlertTitle className="text-blue-800">Passo a Passo</AlertTitle>
+              <AlertDescription className="mt-3">
+                <ol className="list-decimal list-inside space-y-3 text-sm">
+                  <li className="text-gray-700">
+                    <strong>Copie o prompt</strong> — Vá na aba "Prompt Atual" e clique em "Copiar Prompt"
+                  </li>
+                  <li className="text-gray-700">
+                    <strong>Abra uma IA</strong> — Acesse Bolt.new, v0.dev, Claude ou ChatGPT
+                  </li>
+                  <li className="text-gray-700">
+                    <strong>Cole o prompt</strong> — Cole o conteúdo completo na IA
+                  </li>
+                  <li className="text-gray-700">
+                    <strong>Aguarde a geração</strong> — A IA vai criar o código do site
+                  </li>
+                  <li className="text-gray-700">
+                    <strong>Baixe o projeto</strong> — Exporte como ZIP ou copie os arquivos
+                  </li>
+                  <li className="text-gray-700">
+                    <strong>Importe no Rendizy</strong> — Use o botão "Importar Site" nesta tela
+                  </li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">O que o prompt inclui?</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>Integração completa com API pública do Rendizy</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>Listagem de imóveis, calendário, reservas</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>Checkout multi-gateway (Stripe + Pagar.me)</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>Login social com Google One Tap</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>Área interna do hóspede</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>HashRouter para compatibilidade com Vercel</span>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="mt-4">
           <Button onClick={onClose}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
