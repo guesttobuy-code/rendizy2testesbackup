@@ -1555,7 +1555,7 @@ const PROMPT_VERSIONS: PromptVersion[] = [
   {
     version: 'v4.0',
     date: '2026-01-13',
-    time: '13:30',
+    time: '14:30',
     author: 'Copilot + Rafael',
     changes: [
       '✅ Multi-gateway checkout (Stripe + Pagar.me)',
@@ -1564,6 +1564,7 @@ const PROMPT_VERSIONS: PromptVersion[] = [
       '✅ OAuth Google One Tap para hóspedes',
       '✅ Área interna do cliente',
       '✅ Meta-info com versão do catálogo e sistema',
+      '✅ Regra de navegação: usar window.location.hash em páginas de resultado',
     ],
     prompt: 'CURRENT', // placeholder - usa o prompt atual
   },
@@ -1638,7 +1639,7 @@ function DocsAIModal({ open, onClose }: {
 
   const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.0)
 
-> **Catálogo**: v1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-13 às 13:30
+> **Catálogo**: v1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-13 às 14:30
 
 ---
 ## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
@@ -2665,6 +2666,69 @@ function LoginAreaInterna() {
 5. **NÃO dependa de SSR/Node** — o site é 100% estático
 6. **NÃO carregue scripts de CDN** — CSP bloqueia
 7. **NÃO use dados mock para calendário** — ` + "`Date.now() + X dias`" + ` ou arrays hardcoded de bloqueios são PROIBIDOS. Use a API ` + "`/calendar`" + ` real.
+8. **NÃO use navigate() em páginas de resultado de pagamento** — pode falhar; use ` + "`window.location.hash`" + ` (veja seção abaixo)
+
+## 📍 Páginas de Resultado de Pagamento (CRÍTICO)
+
+Após o checkout, o gateway redireciona para ` + "`successUrl`" + ` ou ` + "`cancelUrl`" + `.
+Você DEVE criar as rotas:
+- ` + "`#/pagamento-sucesso`" + ` ou ` + "`#/reserva/:id/sucesso`" + `
+- ` + "`#/pagamento-cancelado`" + ` ou ` + "`#/reserva/:id/cancelado`" + `
+
+### ⚠️ REGRA CRÍTICA: Botão "Voltar para Home"
+
+O hook ` + "`useNavigate()`" + ` do React Router pode falhar nessas páginas porque:
+1. O usuário veio de redirect externo (Stripe/Pagar.me)
+2. O estado do router pode não estar inicializado corretamente
+
+**❌ ERRADO:**
+` + "```" + `typescript
+// PODE FALHAR! navigate pode ser undefined após redirect externo
+const navigate = useNavigate();
+<button onClick={() => navigate('/')}>Voltar</button>
+` + "```" + `
+
+**✅ CORRETO:**
+` + "```" + `typescript
+// SEMPRE funciona, independente do estado do router
+<button onClick={() => window.location.hash = '#/'}>Voltar para Home</button>
+
+// OU usar link direto
+<a href="#/">Voltar para Home</a>
+` + "```" + `
+
+### Exemplo de Página de Sucesso:
+` + "```" + `typescript
+function PaymentSuccessPage() {
+  const [reservationId, setReservationId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('reservationId');
+    if (id) setReservationId(id);
+  }, []);
+
+  return (
+    <div className="text-center py-16">
+      <div className="text-6xl mb-4">✅</div>
+      <h1 className="text-3xl font-bold mb-4">Pagamento Confirmado!</h1>
+      <p className="text-gray-600 mb-8">
+        Sua reserva foi confirmada. Você receberá um e-mail com os detalhes.
+      </p>
+      {reservationId && (
+        <p className="text-sm text-gray-500 mb-4">Código: {reservationId}</p>
+      )}
+      {/* ✅ CORRETO: usar href ou window.location.hash */}
+      <a 
+        href="#/" 
+        className="inline-block px-6 py-3 bg-primary text-white rounded-lg hover:opacity-90"
+      >
+        Voltar para Home
+      </a>
+    </div>
+  );
+}
+` + "```" + `
 
 ### ❌ EXEMPLO DE CÓDIGO ERRADO (NUNCA FAÇA ISSO):
 ` + "```" + `typescript
@@ -2849,7 +2913,7 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
                   <span className="text-sm text-gray-600">Versão Atual</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Atualizado em 2026-01-13 às 13:30 por Copilot + Rafael
+                  Atualizado em 2026-01-13 às 14:30 por Copilot + Rafael
                 </p>
               </div>
               <Button
