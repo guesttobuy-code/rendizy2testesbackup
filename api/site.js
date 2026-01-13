@@ -293,8 +293,9 @@ function patchClientSiteJs(jsText, { subdomain }) {
   const internalAreaPattern = /function\s+s1\(\)\{const\[e,t\]=k\.useState\(!1\),\[i,o\]=k\.useState\(null\)/g;
   out = out.replace(internalAreaPattern, () => {
     // Inject useEffect that redirects to guest-area with theme colors
+    // Use subdomain directly since it's already known from the URL path
     const guestAreaUrl = 'https://rendizy2testesbackup.vercel.app/guest-area/';
-    return `function s1(){k.useEffect(()=>{const GUEST_AREA_URL='${guestAreaUrl}';const params=new URLSearchParams({slug:cd()||'${subdomain}',primary:encodeURIComponent('#5DBEBD'),secondary:encodeURIComponent('#FF8B94'),accent:encodeURIComponent('#4a9d9c')});window.location.href=GUEST_AREA_URL+'?'+params.toString();},[]);const[e,t]=k.useState(!1),[i,o]=k.useState(null)`;
+    return `function s1(){k.useEffect(()=>{window.location.href='${guestAreaUrl}?slug=${subdomain}&primary=%235DBEBD&secondary=%23FF8B94&accent=%234a9d9c';},[]);const[e,t]=k.useState(!1),[i,o]=k.useState(null)`;
   });
 
   // Also replace the placeholder text just in case the pattern doesn't match exactly
