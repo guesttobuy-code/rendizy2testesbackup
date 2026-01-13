@@ -1258,6 +1258,58 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
   const [uploadSteps, setUploadSteps] = useState<ClientSiteUploadStep[] | null>(null);
   const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'ok' | 'failed'>('idle');
   const [verifyDetails, setVerifyDetails] = useState<string | null>(null);
+  
+  // ✨ Estado para Vercel Build
+  const [useVercelBuild, setUseVercelBuild] = useState(false);
+  const [vercelDeploymentId, setVercelDeploymentId] = useState<string | null>(null);
+  const [vercelBuildStatus, setVercelBuildStatus] = useState<'idle' | 'building' | 'ready' | 'error'>('idle');
+  const [vercelBuildUrl, setVercelBuildUrl] = useState<string | null>(null);
+
+  // Polling do status do build na Vercel
+  const pollVercelStatus = async (deploymentId: string) => {
+    const maxAttempts = 60;
+    let attempts = 0;
+    
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        setVercelBuildStatus('error');
+        toast.error('Timeout: build demorou demais');
+        setLoading(false);
+        return;
+      }
+      
+      attempts++;
+      
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/vercel/status/${deploymentId}`,
+          { headers: getEdgeHeaders() }
+        );
+        const data = await response.json();
+        
+        if (data.readyState === 'READY') {
+          setVercelBuildStatus('ready');
+          setVercelBuildUrl(data.url);
+          toast.success('🎉 Build concluído! Site pronto.');
+          setLoading(false);
+          onSuccess();
+          return;
+        } else if (data.readyState === 'ERROR' || data.readyState === 'CANCELED') {
+          setVercelBuildStatus('error');
+          toast.error(`Build falhou: ${data.errorMessage || 'Erro desconhecido'}`);
+          setLoading(false);
+          return;
+        }
+        
+        setTimeout(poll, 5000);
+      } catch (error) {
+        console.error('Erro ao verificar status:', error);
+        setTimeout(poll, 5000);
+      }
+    };
+    
+    poll();
+  };
 
   const handleSubmitCode = async () => {
     try {
@@ -1302,6 +1354,44 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
       setVerifyStatus('idle');
       setVerifyDetails(null);
 
+      // ✨ Se usar Vercel Build, enviar para endpoint diferente
+      if (useVercelBuild) {
+        setVercelBuildStatus('building');
+        toast.info('🚀 Iniciando build na Vercel...');
+
+        const formData = new FormData();
+        formData.append('file', archiveFile);
+        formData.append('subdomain', site.subdomain);
+
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/vercel/build-from-zip`,
+          {
+            method: 'POST',
+            headers: {
+              ...getEdgeHeaders()
+            },
+            body: formData
+          }
+        );
+
+        const data = await response.json();
+
+        if (!data.success) {
+          toast.error(data.error || 'Erro ao iniciar build na Vercel');
+          setVercelBuildStatus('error');
+          setLoading(false);
+          return;
+        }
+
+        setVercelDeploymentId(data.deploymentId);
+        toast.success(`🔧 Build iniciado! ID: ${data.deploymentId}`);
+        
+        // Iniciar polling do status
+        pollVercelStatus(data.deploymentId);
+        return;
+      }
+
+      // Fluxo normal: ZIP com dist/
       const formData = new FormData();
       formData.append('file', archiveFile);
       formData.append('source', 'custom');
@@ -1344,7 +1434,9 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
       console.error('Erro ao enviar arquivo:', error);
       toast.error('Erro ao enviar arquivo');
     } finally {
-      setLoading(false);
+      if (!useVercelBuild) {
+        setLoading(false);
+      }
     }
   };
 
@@ -1374,6 +1466,43 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
             </TabsList>
 
             <TabsContent value="zip" className="space-y-3">
+              {/* Toggle para Vercel Build */}
+              <div className="flex items-center justify-between p-4 rounded-lg border-2 border-dashed border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <Label className="text-purple-900 font-medium cursor-pointer" htmlFor="useVercelBuild">
+                      Usar Vercel para build automático?
+                    </Label>
+                    <p className="text-xs text-purple-700 mt-0.5">
+                      {useVercelBuild 
+                        ? 'Envie o código fonte (do Bolt) - a Vercel compila automaticamente' 
+                        : 'Envie ZIP já compilado com pasta dist/'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${!useVercelBuild ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>Não</span>
+                  <button
+                    id="useVercelBuild"
+                    type="button"
+                    role="switch"
+                    aria-checked={useVercelBuild}
+                    onClick={() => setUseVercelBuild(!useVercelBuild)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      useVercelBuild ? 'bg-purple-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        useVercelBuild ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  <span className={`text-xs ${useVercelBuild ? 'text-purple-900 font-medium' : 'text-gray-400'}`}>Sim</span>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Arquivo .zip *</Label>
                 <Input
@@ -1382,9 +1511,58 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
                   onChange={(e) => setArchiveFile(e.target.files?.[0] || null)}
                 />
                 <p className="text-sm text-gray-600">
-                  O ZIP precisa conter <strong>dist/index.html</strong> (build de produção).
+                  {useVercelBuild ? (
+                    <>ZIP do <strong>código fonte</strong> (package.json + src/). Baixe direto do Bolt.new.</>
+                  ) : (
+                    <>O ZIP precisa conter <strong>dist/index.html</strong> (build de produção).</>
+                  )}
                 </p>
               </div>
+
+              {/* Status do Build Vercel */}
+              {useVercelBuild && vercelBuildStatus !== 'idle' && (
+                <div className={`p-4 rounded-lg border ${
+                  vercelBuildStatus === 'building' ? 'bg-yellow-50 border-yellow-200' :
+                  vercelBuildStatus === 'ready' ? 'bg-green-50 border-green-200' :
+                  'bg-red-50 border-red-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {vercelBuildStatus === 'building' && (
+                        <>
+                          <div className="h-4 w-4 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-yellow-800 font-medium">Buildando na Vercel...</span>
+                        </>
+                      )}
+                      {vercelBuildStatus === 'ready' && (
+                        <>
+                          <Check className="h-4 w-4 text-green-600" />
+                          <span className="text-green-800 font-medium">Build concluído!</span>
+                        </>
+                      )}
+                      {vercelBuildStatus === 'error' && (
+                        <>
+                          <X className="h-4 w-4 text-red-600" />
+                          <span className="text-red-800 font-medium">Build falhou</span>
+                        </>
+                      )}
+                    </div>
+                    {vercelDeploymentId && (
+                      <span className="text-xs text-gray-500">ID: {vercelDeploymentId}</span>
+                    )}
+                  </div>
+                  {vercelBuildUrl && (
+                    <Button
+                      size="sm"
+                      className="mt-2 gap-2"
+                      onClick={() => window.open(vercelBuildUrl, '_blank')}
+                    >
+                      <Globe className="h-4 w-4" />
+                      Abrir Site na Vercel
+                    </Button>
+                  )}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="code" className="space-y-3">
@@ -1397,14 +1575,27 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
             </TabsContent>
           </Tabs>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-900 mb-2">💡 Dica:</h4>
-            <p className="text-sm text-blue-800">
-              Para produção, prefira o ZIP (dist/) para servir assets com Content-Type correto.
-            </p>
-          </div>
+          {activeTab === 'zip' && !useVercelBuild && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-medium text-blue-900 mb-2">💡 Dica:</h4>
+              <p className="text-sm text-blue-800">
+                Para produção, prefira o ZIP (dist/) para servir assets com Content-Type correto.
+              </p>
+            </div>
+          )}
 
-          {loading && activeTab === 'zip' && (
+          {activeTab === 'zip' && useVercelBuild && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h4 className="font-medium text-purple-900 mb-2">✨ Build Automático via Vercel:</h4>
+              <p className="text-sm text-purple-800">
+                1. Baixe o ZIP do Bolt.new (sem precisar rodar build)<br/>
+                2. Envie aqui - a Vercel compila automaticamente (~2 min)<br/>
+                3. Site fica pronto e publicado
+              </p>
+            </div>
+          )}
+
+          {loading && activeTab === 'zip' && !useVercelBuild && (
             <Alert>
               <FileText className="h-4 w-4" />
               <AlertTitle>Publicando site...</AlertTitle>
@@ -1414,7 +1605,7 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
             </Alert>
           )}
 
-          {uploadSteps && uploadSteps.length > 0 && (
+          {uploadSteps && uploadSteps.length > 0 && !useVercelBuild && (
             <div className="space-y-2">
               <Label className="text-sm">Etapas do processamento</Label>
               <div className="space-y-2">
@@ -1428,7 +1619,7 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
             </div>
           )}
 
-          {verifyStatus !== 'idle' && activeTab === 'zip' && (
+          {verifyStatus !== 'idle' && activeTab === 'zip' && !useVercelBuild && (
             <Alert>
               <FileText className="h-4 w-4" />
               <AlertTitle>
@@ -1507,14 +1698,18 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-            {loading ? 'Aguarde...' : 'Fechar'}
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading || vercelBuildStatus === 'building'}>
+            {loading || vercelBuildStatus === 'building' ? 'Aguarde...' : 'Fechar'}
           </Button>
           <Button
             onClick={activeTab === 'zip' ? handleSubmitZip : handleSubmitCode}
-            disabled={loading || (activeTab === 'zip' ? !archiveFile : !siteCode)}
+            disabled={loading || vercelBuildStatus === 'building' || (activeTab === 'zip' ? !archiveFile : !siteCode)}
           >
-            {loading ? 'Enviando...' : activeTab === 'zip' ? 'Enviar ZIP' : 'Enviar Código'}
+            {loading || vercelBuildStatus === 'building' 
+              ? (useVercelBuild ? '🔧 Buildando...' : 'Enviando...') 
+              : activeTab === 'zip' 
+                ? (useVercelBuild ? '🚀 Iniciar Build na Vercel' : 'Enviar ZIP') 
+                : 'Enviar Código'}
           </Button>
         </DialogFooter>
       </DialogContent>
