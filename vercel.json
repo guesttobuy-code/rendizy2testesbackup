@@ -1,9 +1,17 @@
 {
-  "buildCommand": "npm install && npm run build",
+  "buildCommand": "npm install && npm run build && cd guest-area && npm install && npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
   "installCommand": "npm install",
   "rewrites": [
+    {
+      "source": "/guest-area",
+      "destination": "/guest-area/index.html"
+    },
+    {
+      "source": "/guest-area/(.*)",
+      "destination": "/guest-area/$1"
+    },
     {
       "source": "/sitemedhome",
       "destination": "/api/sitemedhome"

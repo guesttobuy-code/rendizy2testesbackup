@@ -2507,240 +2507,108 @@ Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade can�
 
 4) Contato
 
-## 🏠 Área Interna do Cliente (WHITELABEL)
+## 🏠 Área Interna do Cliente (CÁPSULA SEPARADA)
 
-A área interna é uma seção protegida onde o hóspede logado pode ver suas reservas e dados.
+### ⚠️ IMPORTANTE: ARQUITETURA CÁPSULA
 
-### Estrutura de Rotas
+A Área Interna é uma **aplicação separada** servida centralmente em:
 \` + "\`\`\`" + \`
-#/area-interna              → Redirect para /area-interna/reservas se logado
-#/area-interna/reservas     → Lista de reservas do hóspede (Minhas Reservas)
-#/area-interna/perfil       → Dados pessoais (Meu Perfil)
-#/login                     → Página de login (Google One Tap + Email futuro)
+https://rendizy2testesbackup.vercel.app/guest-area/
 \` + "\`\`\`" + \`
 
-### Componentes Necessários
-\` + "\`\`\`" + \`
-src/
-├── components/
-│   └── guest-area/
-│       ├── GuestLayout.tsx        # Layout com sidebar + header
-│       ├── GuestSidebar.tsx       # Menu lateral (📋 Reservas, 👤 Perfil)
-│       ├── GuestHeader.tsx        # Header com avatar e nome
-│       ├── GuestGuard.tsx         # HOC: redireciona se não logado
-│       └── GuestMobileNav.tsx     # Navegação mobile (bottom)
-├── pages/
-│   ├── MyReservationsPage.tsx     # Lista de reservas
-│   ├── MyProfilePage.tsx          # Dados do perfil
-│   └── GuestLoginPage.tsx         # Login (Google One Tap)
-└── hooks/
-    ├── useGuestAuth.ts            # Estado de autenticação
-    └── useGuestReservations.ts    # Fetch reservas
-\` + "\`\`\`" + \`
+**NÃO** crie código da área interna dentro do site do cliente!
+O site deve apenas **redirecionar** para a cápsula.
 
-### Cores Whitelabel (OBRIGATÓRIO)
-A área interna DEVE seguir as cores do site-config:
+### Como Integrar no Site
+
+Crie um botão que redireciona para a cápsula, passando as cores do tema via URL:
+
 \` + "\`\`\`" + \`typescript
-const GuestLayout = ({ children, siteConfig }) => {
-  const style = {
-    '--primary': siteConfig?.theme?.primaryColor || '#3B82F6',
-    '--secondary': siteConfig?.theme?.secondaryColor || '#10B981',
-    '--accent': siteConfig?.theme?.accentColor || '#F59E0B',
-  } as React.CSSProperties;
+// Constante da URL da cápsula
+const GUEST_AREA_URL = 'https://rendizy2testesbackup.vercel.app/guest-area/';
 
-  return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      <GuestSidebar logo={siteConfig?.logo} siteName={siteConfig?.siteName} />
-      <main className="flex-1 p-6">{children}</main>
-    </div>
-  );
-};
-\` + "\`\`\`" + \`
-
-### Menu Lateral (Sidebar)
-\` + "\`\`\`" + \`typescript
-const MENU_ITEMS = [
-  { id: 'reservas', icon: '📋', label: 'Minhas Reservas', path: '#/area-interna/reservas' },
-  { id: 'perfil', icon: '👤', label: 'Meu Perfil', path: '#/area-interna/perfil' },
-];
-
-function GuestSidebar({ logo, siteName }) {
-  const currentPath = window.location.hash;
+// Componente do botão
+function GuestAreaButton() {
+  const siteConfig = useRendizySiteConfig();
+  
+  const handleClick = () => {
+    const params = new URLSearchParams({
+      slug: getRendizySubdomain() || '',
+      primary: encodeURIComponent(siteConfig?.theme?.primaryColor || '#3B82F6'),
+      secondary: encodeURIComponent(siteConfig?.theme?.secondaryColor || '#10B981'),
+      accent: encodeURIComponent(siteConfig?.theme?.accentColor || '#F59E0B'),
+    });
+    
+    window.location.href = GUEST_AREA_URL + '?' + params.toString();
+  };
   
   return (
-    <aside className="w-64 bg-gray-900 text-white min-h-screen p-4">
-      <div className="mb-8">
-        {logo ? <img src={logo} alt={siteName} className="h-10" /> : <span className="text-xl font-bold">{siteName}</span>}
-      </div>
-      <nav>
-        {MENU_ITEMS.map(item => (
-          <a 
-            key={item.id}
-            href={item.path}
-            className={\` + "\`" + \`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition
-              \${currentPath.includes(item.id) ? 'bg-primary text-white' : 'hover:bg-gray-800'}\` + "\`" + \`}
-          >
-            <span>{item.icon}</span>
-            <span>{item.label}</span>
-          </a>
-        ))}
-      </nav>
-    </aside>
+    <button onClick={handleClick} className="btn-secondary">
+      👤 Área do Cliente
+    </button>
   );
 }
 \` + "\`\`\`" + \`
 
-### ⚠️ REGRA CRÍTICA: Navegação na Área Interna
-NUNCA use \` + "\`useNavigate()\`" + \` na área interna. Use sempre:
-- \` + "\`<a href=\"#/area-interna/reservas\">\`" + \` para links
-- \` + "\`window.location.hash = '#/area-interna/perfil'\`" + \` para navegação programática
+### Onde Colocar o Botão
 
-### Login Social (Google One Tap + Email)
+O botão de "Área do Cliente" deve estar no **header/navbar** do site, próximo ao menu:
+
 \` + "\`\`\`" + \`typescript
-// CONSTANTES
-const GOOGLE_CLIENT_ID = '1068989503174-gd08jd74uclfjdv0goe32071uck2sg9k.apps.googleusercontent.com';
-const API_BASE = 'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/client-sites/api';
-
-// Carregar script do Google Identity Services
-function loadGoogleScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if ((window as any).google?.accounts) { resolve(); return; }
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Falha ao carregar Google'));
-    document.head.appendChild(script);
-  });
-}
-
-// Decodificar JWT do Google
-function decodeGoogleCredential(credential: string) {
-  const base64Url = credential.split('.')[1];
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
-    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-  ).join(''));
-  return JSON.parse(jsonPayload); // { email, name, picture, sub }
-}
-
-// Componente de Login Social
-function LoginAreaInterna() {
-  const [loading, setLoading] = useState(false);
-  const [guestUser, setGuestUser] = useState<any>(null);
-  const subdomain = getRendizySubdomain();
-
-  useEffect(() => {
-    // Verificar se já está logado
-    const token = localStorage.getItem('rendizy-guest-token');
-    if (token) {
-      // Verificar token e carregar dados do usuário
-      fetchGuestMe(subdomain!, token).then(setGuestUser);
-    }
-  }, [subdomain]);
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    try {
-      await loadGoogleScript();
-      const google = (window as any).google;
-      
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: async (response: { credential: string }) => {
-          const userData = decodeGoogleCredential(response.credential);
-          
-          // Enviar para backend para criar/atualizar guest_user
-          const res = await fetch(API_BASE + '/' + subdomain + '/auth/guest/google', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credential: response.credential })
-          });
-          
-          const result = await res.json();
-          if (result.success && result.token) {
-            localStorage.setItem('rendizy-guest-token', result.token);
-            setGuestUser(result.user);
-          }
-          setLoading(false);
-        },
-      });
-      
-      google.accounts.id.prompt(); // Mostra One Tap
-    } catch (error) {
-      console.error('Erro no login Google:', error);
-      setLoading(false);
-    }
-  };
-
-  if (guestUser) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-md mx-auto bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-4 mb-6">
-            <img src={guestUser.avatar_url} className="w-12 h-12 rounded-full" />
-            <div>
-              <h2 className="font-bold">{guestUser.name}</h2>
-              <p className="text-sm text-gray-500">{guestUser.email}</p>
-            </div>
-          </div>
-          <h3 className="font-semibold mb-4">Minhas Reservas</h3>
-          <p className="text-gray-500">Em breve você poderá ver suas reservas aqui.</p>
-          <button onClick={() => { localStorage.removeItem('rendizy-guest-token'); setGuestUser(null); }}
-            className="mt-4 text-red-600 text-sm">Sair</button>
-        </div>
-      </div>
-    );
-  }
-
+function Header() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow p-8">
-        <h1 className="text-2xl font-bold mb-6 text-center">Área do Cliente</h1>
-        
-        {/* Botão Google */}
-        <button onClick={handleGoogleLogin} disabled={loading}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg py-3 px-4 hover:bg-gray-50 transition mb-4">
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          {loading ? 'Entrando...' : 'Continuar com Google'}
-        </button>
-        
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t"></span>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-gray-500">ou</span>
-          </div>
+    <header className="fixed top-0 w-full bg-white shadow z-50">
+      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        <Logo />
+        <nav className="hidden md:flex gap-4">
+          <a href="#home">Início</a>
+          <a href="#imoveis">Imóveis</a>
+          <a href="#contato">Contato</a>
+        </nav>
+        <div className="flex items-center gap-3">
+          <GuestAreaButton /> {/* ← ADICIONAR AQUI */}
+          <WhatsAppButton />
         </div>
-        
-        {/* Form Email/Senha (placeholder) */}
-        <form onSubmit={(e) => { e.preventDefault(); alert('Em breve!'); }}>
-          <input type="email" placeholder="Email" className="w-full border rounded-lg p-3 mb-3" required />
-          <input type="password" placeholder="Senha" className="w-full border rounded-lg p-3 mb-4" required />
-          <button type="submit" className="w-full bg-blue-600 text-white rounded-lg py-3 hover:bg-blue-700">
-            Entrar com Email
-          </button>
-        </form>
-        
-        <a href="#/" className="block text-center mt-6 text-sm text-gray-500 hover:text-gray-700">
-          ← Voltar ao site
-        </a>
       </div>
-    </div>
+    </header>
   );
 }
 \` + "\`\`\`" + \`
 
-### Endpoints de API para Área Interna
-- POST \` + "\`/client-sites/api/:subdomain/auth/guest/google\`" + \`: Recebe credential do Google, cria/atualiza guest_user, retorna JWT
-- GET \` + "\`/client-sites/api/:subdomain/auth/guest/me\`" + \`: Retorna dados do hóspede logado (requer Authorization header)
-- GET \` + "\`/client-sites/api/:subdomain/reservations/mine\`" + \`: Lista reservas do hóspede logado
+### Por que Cápsula?
+
+1. ✅ **Um update afeta TODOS os sites** - Correções automáticas
+2. ✅ **Bundle menor** - Site não carrega código da área interna
+3. ✅ **Manutenção centralizada** - Não precisa atualizar cada site
+4. ✅ **Versionamento** - Pode testar novas versões sem afetar produção
+
+### ⛔ O que NÃO fazer
+
+- ❌ NÃO crie componentes GuestLayout, GuestSidebar dentro do site
+- ❌ NÃO crie rotas #/area-interna/* no site
+- ❌ NÃO implemente login/logout no site
+- ❌ NÃO chame endpoints /auth/guest/* do site
+
+### ✅ O que FAZER
+
+- ✅ Criar botão que redireciona para a cápsula
+- ✅ Passar cores do tema via URL params
+- ✅ Passar slug do site via URL param
+- ✅ Colocar botão no header do site
+
+### Referência: Login e Autenticação
+
+O login está **100% implementado na cápsula**. O site NÃO precisa de código de autenticação.
+
+A cápsula usa:
+- Google One Tap para login rápido
+- JWT armazenado em localStorage
+- Endpoint \` + "\`/auth/guest/google\`" + \` para autenticação
+
+### Endpoints de API da Cápsula (referência)
+- POST \` + "\`/client-sites/api/:subdomain/auth/guest/google\`" + \`: Login via Google
+- GET \` + "\`/client-sites/api/:subdomain/auth/guest/me\`" + \`: Dados do hóspede
+- GET \` + "\`/reservations/mine\`" + \`: Lista reservas do hóspede (com x-site-slug header)
 
 ### 📋 Página Minhas Reservas (MyReservationsPage)
 \` + "\`\`\`" + \`typescript

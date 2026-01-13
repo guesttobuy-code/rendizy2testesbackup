@@ -1,6 +1,6 @@
 # 🏠 Roadmap: Área Interna do Cliente (Sites Whitelabel)
 
-> **Versão**: v1.0  
+> **Versão**: v2.0 (Arquitetura Cápsula)  
 > **Data**: 2026-01-13  
 > **Autor**: Copilot + Rafael
 
@@ -13,6 +13,36 @@ A **Área Interna** é uma seção protegida nos sites dos clientes onde hósped
 - Acompanhar status de pagamentos
 - Gerenciar dados pessoais
 - (Futuro) Baixar vouchers, recibos, comunicar-se com host
+
+### 🏗️ Arquitetura: Cápsula Separada
+
+A área interna é construída como **aplicação separada** que é servida centralmente:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  rendizy2testesbackup.vercel.app/guest-area/               │
+│                                                             │
+│  Cápsula React standalone:                                  │
+│  - Build separado em /public/guest-area/                    │
+│  - CSS variables para whitelabel                            │
+│  - Recebe tema via URL params                               │
+└─────────────────────────────────────────────────────────────┘
+                           ▲
+         Iframe ou link    │
+┌──────────────────────────┼──────────────────────────────────┐
+│  Site do Cliente         │                                  │
+│  (medhome, etc)          │                                  │
+│                          │                                  │
+│  [Área do Cliente] ──────┘                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Vantagens da Cápsula:**
+- ✅ Um update afeta TODOS os sites
+- ✅ Bundle do site menor
+- ✅ Versionamento independente
+- ✅ Manutenção centralizada
+- ✅ Deploy único
 
 ### Princípios de Design
 
@@ -308,26 +338,87 @@ Authorization: Bearer <guest_token>
 
 ---
 
+## 🔗 Integração com Sites (Cápsula)
+
+### Como o Site Abre a Área Interna
+
+No site do cliente, o botão "Área do Cliente" deve **redirecionar** para a cápsula:
+
+```typescript
+// Exemplo de link no site do cliente
+const GUEST_AREA_URL = 'https://rendizy2testesbackup.vercel.app/guest-area/';
+
+function GuestAreaButton({ siteConfig }) {
+  const params = new URLSearchParams({
+    slug: siteConfig.slug,
+    primary: encodeURIComponent(siteConfig.theme.primaryColor || '#3B82F6'),
+    secondary: encodeURIComponent(siteConfig.theme.secondaryColor || '#10B981'),
+    accent: encodeURIComponent(siteConfig.theme.accentColor || '#F59E0B'),
+  });
+  
+  return (
+    <a 
+      href={`${GUEST_AREA_URL}?${params.toString()}`}
+      className="btn-primary"
+    >
+      Área do Cliente
+    </a>
+  );
+}
+```
+
+### Parâmetros da URL
+
+| Parâmetro | Descrição | Exemplo |
+|-----------|-----------|---------|
+| `slug` | Slug do site para identificar org | `medhome` |
+| `primary` | Cor primária (hex encoded) | `%233B82F6` |
+| `secondary` | Cor secundária | `%2310B981` |
+| `accent` | Cor de destaque | `%23F59E0B` |
+
+### Build da Cápsula
+
+```bash
+# Localização: /guest-area/
+cd guest-area
+npm install
+npm run build  # Output: ../public/guest-area/
+```
+
+O Vercel automaticamente executa ambos os builds via `buildCommand`:
+```json
+{
+  "buildCommand": "npm install && npm run build && cd guest-area && npm install && npm run build"
+}
+```
+
+---
+
 ## ✅ Checklist de Implementação
 
 ### Backend (Edge Functions)
-- [ ] Criar endpoint `GET /reservations/mine` em `rendizy-public`
-- [ ] Filtrar reservas por `guest_id` do token JWT
-- [ ] Incluir dados básicos do imóvel (join)
-- [ ] Adicionar ao catálogo `catalog.ts`
+- [x] Criar endpoint `GET /reservations/mine` em `rendizy-public`
+- [x] Filtrar reservas por `guest_id` do token JWT
+- [x] Incluir dados básicos do imóvel (join)
+- [x] Adicionar ao catálogo `catalog.ts`
 
-### Frontend (Prompt/Bolt)
-- [ ] Criar componentes da área interna
-- [ ] Implementar `GuestAuthContext` com localStorage
-- [ ] Criar páginas de reservas e perfil
-- [ ] Aplicar cores do site-config
-- [ ] Responsividade mobile
+### Frontend Cápsula (guest-area/)
+- [x] Estrutura Vite + React + TailwindCSS
+- [x] `GuestAuthContext` com Google One Tap
+- [x] `GuestLayout` com sidebar responsiva
+- [x] `LoginPage` com Google Sign-In
+- [x] `MyReservationsPage` com filtros e badges
+- [x] `MyProfilePage` com dados do usuário
+- [x] CSS variables para whitelabel
+
+### Vercel Config
+- [x] Adicionar rewrites para `/guest-area/*`
+- [x] Atualizar `buildCommand` para incluir cápsula
 
 ### Prompt IA (ClientSitesManager.tsx)
-- [ ] Adicionar seção "Área Interna do Hóspede"
-- [ ] Documentar estrutura de arquivos esperada
-- [ ] Incluir código de exemplo do GuestLayout
-- [ ] Adicionar ao bloco `guest-login-social`
+- [x] Adicionar seção "Área Interna do Hóspede"
+- [x] Documentar redirecionamento para cápsula
+- [x] Incluir código de exemplo do botão
 
 ---
 
