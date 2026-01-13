@@ -354,6 +354,36 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
         'O site deve chamar este endpoint ao iniciar fluxo de pagamento.',
         'Se hasPaymentEnabled=false, o site pode omitir botão de pagamento ou mostrar "Entre em contato".'
       ]
+    },
+    {
+      id: 'auth-guest-google',
+      title: 'Login Social Google (OAuth) — estável',
+      method: 'POST',
+      pathTemplate: '/client-sites/api/:subdomain/auth/guest/google',
+      stability: 'stable',
+      notes: [
+        'Autentica hóspede via Google Sign-In (One Tap ou botão).',
+        'Campos obrigatórios: credential (ID token do Google retornado pelo Sign-In).',
+        'Retorna: { success: true, token, guest: { id, email, name, avatar_url } }.',
+        'O token JWT retornado deve ser salvo em localStorage e enviado como Authorization: Bearer <token> em chamadas autenticadas.',
+        'Cria hóspede na tabela guest_users se não existir, ou atualiza last_login_at se já existir.',
+        'Usado para área interna do site (minhas reservas, histórico, dados do hóspede).',
+        '⚠️ IMPORTANTE: Google Client ID deve estar configurado no Supabase Edge Functions (.env).'
+      ]
+    },
+    {
+      id: 'auth-guest-me',
+      title: 'Dados do Hóspede Logado — estável',
+      method: 'GET',
+      pathTemplate: '/client-sites/api/:subdomain/auth/guest/me',
+      stability: 'stable',
+      notes: [
+        'Retorna dados do hóspede autenticado.',
+        'Requer header Authorization: Bearer <token> (JWT retornado pelo login).',
+        'Retorna: { success: true, guest: { id, email, name, phone, avatar_url } }.',
+        'Usado para exibir perfil do hóspede na área interna do site.',
+        'Retorna 401 se token inválido ou expirado.'
+      ]
     }
   ] satisfies ClientSitesCatalogEndpoint[],
 
@@ -717,6 +747,48 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       '  "gateways": [...],',
       '  "hasPaymentEnabled": true',
       '}'
+    ]
+  },
+  {
+    id: 'guest-login-social',
+    title: 'Login Social do Hóspede (Google One Tap)',
+    stability: 'stable',
+    description:
+      'Área de login para hóspedes usando Google Sign-In (One Tap ou botão). Permite acessar histórico de reservas e dados pessoais.',
+    usesEndpoints: ['auth-guest-google', 'auth-guest-me'],
+    requiredFields: [
+      'GOOGLE_CLIENT_ID (configurado no backend)',
+      'credential (ID token do Google)'
+    ],
+    notes: [
+      'Fluxo de login:',
+      '  1) Carregar Google Identity Services (gsi client)',
+      '  2) Inicializar google.accounts.id.initialize({ client_id, callback })',
+      '  3) google.accounts.id.prompt() para exibir One Tap ou renderButton()',
+      '  4) Callback recebe credential (ID token JWT)',
+      '  5) POST /auth/guest/google com { credential }',
+      '  6) Salvar token JWT retornado em localStorage',
+      '  7) Usar token em Authorization: Bearer <token> para chamadas autenticadas',
+      '',
+      'Dados retornados pelo login:',
+      '{',
+      '  "success": true,',
+      '  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",',
+      '  "guest": {',
+      '    "id": "uuid",',
+      '    "email": "guest@example.com",',
+      '    "name": "João Silva",',
+      '    "avatar_url": "https://lh3.googleusercontent.com/..."',
+      '  }',
+      '}',
+      '',
+      '⚠️ IMPORTANTE: Usar componente GoogleOneTap.tsx ou SocialLoginButtons.tsx do Rendizy.',
+      '⚠️ IMPORTANTE: O hóspede logado fica na tabela guest_users (separada de auth_users do painel).',
+      '',
+      'Exemplo de área interna pós-login:',
+      '  - Minhas Reservas: listar reservas do hóspede',
+      '  - Meu Perfil: exibir/editar dados pessoais',
+      '  - Logout: limpar localStorage e recarregar página'
     ]
   }
 ] satisfies ClientSitesCatalogBlock[];
