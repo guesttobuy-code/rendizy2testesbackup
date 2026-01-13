@@ -212,6 +212,113 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
 }`
         }
       ]
+    },
+    {
+      title: 'Login Social OAuth para Hóspedes (Google One Tap)',
+      notes: [
+        'O site pode ter uma área interna onde o hóspede faz login para ver suas reservas e dados.',
+        'O login é feito via Google Sign-In (One Tap ou botão), sem senha.',
+        'O hóspede fica na tabela guest_users (separada de auth_users do painel).',
+        'O site NÃO deve usar @supabase/supabase-js para auth. Use os endpoints REST.',
+        '⚠️ IMPORTANTE: O GOOGLE_CLIENT_ID deve estar configurado nas Edge Functions.',
+      ],
+      codeBlocks: [
+        {
+          title: 'Carregar Google Identity Services',
+          language: 'html',
+          code: `<!-- Adicionar no <head> do HTML -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>`
+        },
+        {
+          title: 'Inicializar Google One Tap',
+          language: 'ts',
+          code: `// Configuração do Google Sign-In
+const GOOGLE_CLIENT_ID = '1068989503174-gd08jd74uclfjdv0goe32071uck2sg9k.apps.googleusercontent.com';
+
+function initGoogleOneTap(onSuccess: (credential: string) => void) {
+  if (!window.google?.accounts?.id) {
+    console.error('Google Identity Services não carregado');
+    return;
+  }
+
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: (response) => {
+      if (response.credential) {
+        onSuccess(response.credential);
+      }
+    },
+    auto_select: true,
+    cancel_on_tap_outside: false,
+  });
+
+  // Exibir One Tap popup
+  google.accounts.id.prompt((notification) => {
+    if (notification.isNotDisplayed()) {
+      console.log('One Tap não exibido:', notification.getNotDisplayedReason());
+    }
+  });
+}`
+        },
+        {
+          title: 'Enviar credential para backend e salvar token',
+          language: 'ts',
+          code: `// Após receber credential do Google
+async function loginWithGoogle(credential: string, subdomain: string) {
+  const API_BASE = window.RENDIZY_CONFIG?.API_BASE_URL ||
+    'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public';
+
+  const response = await fetch(
+    API_BASE + '/client-sites/api/' + subdomain + '/auth/guest/google',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential }),
+    }
+  );
+
+  const result = await response.json();
+
+  if (result.success) {
+    // Salvar token para uso futuro
+    localStorage.setItem('rendizy_guest_token', result.token);
+    localStorage.setItem('rendizy_guest', JSON.stringify(result.guest));
+    console.log('Login OK:', result.guest.email);
+    return result;
+  } else {
+    console.error('Login falhou:', result.error);
+    throw new Error(result.error);
+  }
+}
+
+// Obter dados do hóspede logado
+async function getGuestMe(subdomain: string) {
+  const token = localStorage.getItem('rendizy_guest_token');
+  if (!token) return null;
+
+  const API_BASE = window.RENDIZY_CONFIG?.API_BASE_URL ||
+    'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public';
+
+  const response = await fetch(
+    API_BASE + '/client-sites/api/' + subdomain + '/auth/guest/me',
+    {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + token },
+    }
+  );
+
+  const result = await response.json();
+  return result.success ? result.guest : null;
+}
+
+// Logout
+function logout() {
+  localStorage.removeItem('rendizy_guest_token');
+  localStorage.removeItem('rendizy_guest');
+  google.accounts.id.disableAutoSelect();
+}`
+        }
+      ]
     }
   ] satisfies ClientSitesCatalogIntegrationGuide[],
   endpoints: [
@@ -296,13 +403,20 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
       pathTemplate: '/client-sites/api/:subdomain/reservations',
       stability: 'stable',
       notes: [
-        'Cria reserva real no banco com status "pending".',
+        'Cria reserva real no banco com status "pending" e payment_status="pending".',
         'Campos obrigatórios: propertyId, checkIn (YYYY-MM-DD), checkOut (YYYY-MM-DD), guestName.',
         'Campos opcionais: guests (número), guestEmail, guestPhone, message.',
-        'Retorna: id, reservationCode, totalPrice, currency, status, message.',
+        'Retorna: id, reservationCode, totalPrice, currency, status, payment_status, payment_expires_at, message.',
         'Valida disponibilidade antes de criar (retorna 409 se conflito com reserva/bloqueio existente).',
         'Valida minNights: retorna 400 se número de noites < mínimo exigido para o imóvel.',
-        'O preço total inclui: (dailyRate × nights) + cleaningFee + serviceFee (taxas reais do banco).'
+        'O preço total inclui: (dailyRate × nights) + cleaningFee + serviceFee (taxas reais do banco).',
+        '',
+        '⏱️ Sistema de Pré-Reservas (timeout):',
+        '  - Reservas criadas ficam com payment_status="pending" aguardando pagamento.',
+        '  - payment_expires_at define o prazo máximo para pagamento (configurável pela organização).',
+        '  - Se o pagamento não for feito até o prazo, a reserva é cancelada automaticamente pelo cron.',
+        '  - Após pagamento confirmado (webhook Stripe/Pagar.me), status muda para "confirmed".',
+        '  - O site deve exibir o prazo de pagamento ao hóspede.'
       ]
     },
     {
