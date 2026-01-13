@@ -3152,6 +3152,21 @@ app.post("/vercel/build-from-zip", async (c) => {
     const zipBuffer = await zipFile.arrayBuffer();
     const zip = await JSZip.loadAsync(zipBuffer);
     
+    // Detectar pasta raiz do projeto (onde está o package.json)
+    let rootPrefix = "";
+    for (const filePath of Object.keys(zip.files)) {
+      // Procurar package.json em qualquer nível
+      if (filePath.endsWith("package.json") && !filePath.includes("node_modules/")) {
+        const lastSlash = filePath.lastIndexOf("/");
+        if (lastSlash > 0) {
+          // package.json está em subpasta - usar como raiz
+          rootPrefix = filePath.substring(0, lastSlash + 1);
+          console.log(`[VERCEL] Detected project root: "${rootPrefix}"`);
+        }
+        break;
+      }
+    }
+    
     // Converter arquivos para formato Vercel
     const deployFiles: Array<{ file: string; data: string }> = [];
     
@@ -3166,12 +3181,10 @@ app.post("/vercel/build-from-zip", async (c) => {
       try {
         const content = await file.async("string");
         
-        // Normalizar path (remover pasta raiz se houver)
+        // Normalizar path (remover pasta raiz detectada)
         let normalizedPath = path;
-        const firstSlash = path.indexOf("/");
-        if (firstSlash > 0 && !path.startsWith("src/") && !path.startsWith("public/")) {
-          // Provavelmente é pasta raiz do projeto (ex: "meu-site/src/...")
-          normalizedPath = path.substring(firstSlash + 1);
+        if (rootPrefix && path.startsWith(rootPrefix)) {
+          normalizedPath = path.substring(rootPrefix.length);
         }
         
         if (normalizedPath) {
@@ -3193,15 +3206,20 @@ app.post("/vercel/build-from-zip", async (c) => {
       }, 400);
     }
 
-    console.log(`[VERCEL] Extracted ${deployFiles.length} files`);
+    console.log(`[VERCEL] Extracted ${deployFiles.length} files from root "${rootPrefix || '(root)'}"`);
 
     // Verificar se tem package.json
     const hasPackageJson = deployFiles.some(f => f.file === "package.json");
     if (!hasPackageJson) {
+      // Listar primeiros arquivos para debug
+      const sampleFiles = deployFiles.slice(0, 5).map(f => f.file);
+      console.error(`[VERCEL] package.json not found. Sample files: ${sampleFiles.join(", ")}`);
       return c.json({
         success: false,
         error: "package.json não encontrado no ZIP",
-        hint: "Certifique-se de que o ZIP contém um projeto Node.js válido"
+        hint: "Certifique-se de que o ZIP contém um projeto Node.js válido",
+        detectedRoot: rootPrefix || "(none)",
+        sampleFiles
       }, 400);
     }
 
