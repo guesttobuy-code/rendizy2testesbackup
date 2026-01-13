@@ -19,6 +19,7 @@ interface AuthContextType {
   
   // Auth actions
   login: (username: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   logout: () => Promise<void>;
   switchOrganization: (organizationId: string) => Promise<void>;
   
@@ -514,6 +515,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ✅ v1.0.104.001: Login com Google OAuth
+  const loginWithGoogle = async (credential: string) => {
+    setIsLoading(true);
+    try {
+      console.log('🔐 [AuthContext] Iniciando login com Google...');
+      
+      // Importa dinamicamente para evitar carregar se não usar
+      const { projectId, publicAnonKey } = await import('../../utils/supabase/info');
+      
+      const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/auth/social/google`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`,
+        },
+        body: JSON.stringify({ credential }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        console.error('❌ [AuthContext] Erro no login Google:', result);
+        return {
+          success: false,
+          error: result.error || 'Erro ao fazer login com Google'
+        };
+      }
+
+      // Salvar token
+      if (result.token) {
+        localStorage.setItem('rendizy-token', result.token);
+        setHasTokenState(true);
+      }
+
+      const backendUser = result.user;
+      const loggedUser: User = {
+        id: backendUser.id,
+        email: backendUser.email,
+        name: backendUser.name,
+        username: backendUser.username || backendUser.email?.split('@')[0],
+        role: backendUser.type === 'superadmin' ? 'super_admin' : (backendUser.type === 'imobiliaria' ? 'admin' : 'staff'),
+        status: backendUser.status || 'active',
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastLoginAt: new Date(),
+        organizationId: backendUser.organizationId
+      };
+
+      setUser(loggedUser);
+
+      // Cache local
+      try {
+        localStorage.setItem('rendizy-user', JSON.stringify(loggedUser));
+      } catch {}
+
+      // Notificar outras abas
+      const token = localStorage.getItem('rendizy-token');
+      if (token) {
+        authBroadcast.notifyLogin(token, loggedUser);
+      }
+
+      console.log('✅ [AuthContext] Login Google bem-sucedido:', loggedUser.email);
+      return {
+        success: true,
+        user: {
+          ...loggedUser,
+          type: backendUser.type,
+          username: backendUser.username || backendUser.email?.split('@')[0]
+        }
+      };
+    } catch (error) {
+      console.error('❌ [AuthContext] Erro no login Google:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido ao fazer login com Google'
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     console.log('🚪 [AuthContext] INICIANDO LOGOUT COMPLETO');
     
@@ -636,6 +721,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     hasToken: hasTokenState,
     login,
+    loginWithGoogle,
     logout,
     switchOrganization,
     hasPermission,

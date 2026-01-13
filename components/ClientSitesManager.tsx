@@ -2413,11 +2413,156 @@ Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade can�
 
 4) Contato
 
-## Área interna do cliente (placeholder, sem backend)
-Crie uma rota ` + "`#/area-interna`" + ` com:
-- Form de login (email/senha) SEM chamar backend (apenas UI)
-- Mensagem "Em breve"
-- Botão "Voltar ao site" que navega para ` + "`#/`" + `
+## Área Interna do Cliente (Login Social OAuth)
+
+Crie uma rota \` + "\`#/area-interna\`" + \` com sistema de login social:
+
+### Login Social (Google One Tap + Email)
+\` + "\`\`\`" + \`typescript
+// CONSTANTES
+const GOOGLE_CLIENT_ID = '1068989503174-gd08jd74uclfjdv0goe32071uck2sg9k.apps.googleusercontent.com';
+const API_BASE = 'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public/client-sites/api';
+
+// Carregar script do Google Identity Services
+function loadGoogleScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).google?.accounts) { resolve(); return; }
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Falha ao carregar Google'));
+    document.head.appendChild(script);
+  });
+}
+
+// Decodificar JWT do Google
+function decodeGoogleCredential(credential: string) {
+  const base64Url = credential.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+  ).join(''));
+  return JSON.parse(jsonPayload); // { email, name, picture, sub }
+}
+
+// Componente de Login Social
+function LoginAreaInterna() {
+  const [loading, setLoading] = useState(false);
+  const [guestUser, setGuestUser] = useState<any>(null);
+  const subdomain = getRendizySubdomain();
+
+  useEffect(() => {
+    // Verificar se já está logado
+    const token = localStorage.getItem('rendizy-guest-token');
+    if (token) {
+      // Verificar token e carregar dados do usuário
+      fetchGuestMe(subdomain!, token).then(setGuestUser);
+    }
+  }, [subdomain]);
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      await loadGoogleScript();
+      const google = (window as any).google;
+      
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (response: { credential: string }) => {
+          const userData = decodeGoogleCredential(response.credential);
+          
+          // Enviar para backend para criar/atualizar guest_user
+          const res = await fetch(API_BASE + '/' + subdomain + '/auth/guest/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential })
+          });
+          
+          const result = await res.json();
+          if (result.success && result.token) {
+            localStorage.setItem('rendizy-guest-token', result.token);
+            setGuestUser(result.user);
+          }
+          setLoading(false);
+        },
+      });
+      
+      google.accounts.id.prompt(); // Mostra One Tap
+    } catch (error) {
+      console.error('Erro no login Google:', error);
+      setLoading(false);
+    }
+  };
+
+  if (guestUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <img src={guestUser.avatar_url} className="w-12 h-12 rounded-full" />
+            <div>
+              <h2 className="font-bold">{guestUser.name}</h2>
+              <p className="text-sm text-gray-500">{guestUser.email}</p>
+            </div>
+          </div>
+          <h3 className="font-semibold mb-4">Minhas Reservas</h3>
+          <p className="text-gray-500">Em breve você poderá ver suas reservas aqui.</p>
+          <button onClick={() => { localStorage.removeItem('rendizy-guest-token'); setGuestUser(null); }}
+            className="mt-4 text-red-600 text-sm">Sair</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full bg-white rounded-lg shadow p-8">
+        <h1 className="text-2xl font-bold mb-6 text-center">Área do Cliente</h1>
+        
+        {/* Botão Google */}
+        <button onClick={handleGoogleLogin} disabled={loading}
+          className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg py-3 px-4 hover:bg-gray-50 transition mb-4">
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          {loading ? 'Entrando...' : 'Continuar com Google'}
+        </button>
+        
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t"></span>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-gray-500">ou</span>
+          </div>
+        </div>
+        
+        {/* Form Email/Senha (placeholder) */}
+        <form onSubmit={(e) => { e.preventDefault(); alert('Em breve!'); }}>
+          <input type="email" placeholder="Email" className="w-full border rounded-lg p-3 mb-3" required />
+          <input type="password" placeholder="Senha" className="w-full border rounded-lg p-3 mb-4" required />
+          <button type="submit" className="w-full bg-blue-600 text-white rounded-lg py-3 hover:bg-blue-700">
+            Entrar com Email
+          </button>
+        </form>
+        
+        <a href="#/" className="block text-center mt-6 text-sm text-gray-500 hover:text-gray-700">
+          ← Voltar ao site
+        </a>
+      </div>
+    </div>
+  );
+}
+\` + "\`\`\`" + \`
+
+### Endpoints de API para Área Interna
+- POST \` + "\`/client-sites/api/:subdomain/auth/guest/google\`" + \`: Recebe credential do Google, cria/atualiza guest_user, retorna JWT
+- GET \` + "\`/client-sites/api/:subdomain/auth/guest/me\`" + \`: Retorna dados do hóspede logado (requer Authorization header)
+- GET \` + "\`/client-sites/api/:subdomain/reservations/mine\`" + \`: Lista reservas do hóspede logado
 
 ## ⛔ Anti-patterns (NÃO FAÇA ISSO)
 1. **NÃO use @supabase/supabase-js** — causa crash ` + "`supabaseUrl is required`" + `

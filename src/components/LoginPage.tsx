@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, User, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, AlertCircle, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { Logo } from '../../components/Logo';
+import { SocialLoginButtons } from '../../components/SocialLoginButtons';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -16,8 +17,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showEmailForm, setShowEmailForm] = useState(false);
   
-  const { login, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   // Se já está autenticado, redirecionar
@@ -99,6 +101,48 @@ export default function LoginPage() {
     setPassword(pass);
   };
 
+  // Handler para login com Google
+  const handleGoogleSuccess = async (credential: string) => {
+    setError('');
+    setLoading(true);
+    
+    try {
+      console.log('🔐 [LoginPage] Iniciando login com Google...');
+      
+      // Se loginWithGoogle não existir ainda, mostrar mensagem
+      if (!loginWithGoogle) {
+        toast.info('🚧 Login com Google em desenvolvimento', {
+          description: 'Use email/senha por enquanto'
+        });
+        setShowEmailForm(true);
+        return;
+      }
+      
+      const result = await loginWithGoogle(credential);
+      
+      if (result?.success && result?.user) {
+        toast.success('✅ Login realizado com sucesso!', {
+          description: `Bem-vindo, ${result.user.name}!`
+        });
+        navigate('/dashboard');
+      } else {
+        throw new Error(result?.error || 'Erro ao fazer login com Google');
+      }
+    } catch (err) {
+      console.error('❌ Erro no login Google:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(errorMessage);
+      toast.error('❌ Erro ao fazer login', { description: errorMessage });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialError = (provider: 'google' | 'apple', error: string) => {
+    console.error(`❌ Erro no login ${provider}:`, error);
+    setError(`Erro ao fazer login com ${provider}: ${error}`);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
       <div className="w-full max-w-lg space-y-6">
@@ -121,7 +165,31 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 space-y-6">
+            {/* Login Social */}
+            <div className="space-y-4">
+              <SocialLoginButtons
+                onGoogleSuccess={handleGoogleSuccess}
+                onError={handleSocialError}
+                disabled={loading}
+                googleText="Continuar com Google"
+                size="md"
+              />
+              
+              {/* Divisor */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-200 dark:border-gray-700" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white dark:bg-gray-800 px-2 text-gray-500">
+                    ou continue com email
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Formulário de Email/Senha */}
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Campo Usuário */}
               <div className="space-y-2">
@@ -253,7 +321,7 @@ export default function LoginPage() {
 
         {/* Versão */}
         <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-          RENDIZY v1.0.103.260 - Multi-Tenant SaaS
+          RENDIZY v1.0.104.001 - Multi-Tenant SaaS + OAuth
         </div>
       </div>
     </div>

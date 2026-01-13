@@ -69,6 +69,7 @@ import * as photosRoutes from "./routes-photos.ts";
 import * as stripeRoutes from "./routes-stripe.ts";
 import * as paymentsRoutes from "./routes-payments.ts";
 import * as cronPendingReservationsRoutes from "./routes-cron-pending-reservations.ts"; // ✅ CRON: Cancelar pendentes expiradas
+import * as authSocialRoutes from "./routes-auth-social.ts"; // ✅ OAuth: Login Google/Apple
 
 const app = new Hono();
 
@@ -139,6 +140,12 @@ app.route("/rendizy-server/auth", authApp); // Compatibility
 // Alias sem prefixo: o frontend usa API_BASE=/functions/v1/rendizy-server e chama /auth/*
 app.route("/make-server-67caf26a/auth", authApp);
 app.route("/auth", authApp);
+
+// ============================================================================
+// AUTH SOCIAL (Login Google/Apple OAuth)
+// ============================================================================
+app.post("/auth/social/google", authSocialRoutes.handleStaffGoogleLogin);
+app.post("/rendizy-server/auth/social/google", authSocialRoutes.handleStaffGoogleLogin);
 
 // ============================================================================
 // ANÚNCIOS ULTIMATE (Properties Drafts/Publishing)

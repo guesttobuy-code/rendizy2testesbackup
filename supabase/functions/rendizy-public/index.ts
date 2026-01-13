@@ -26,6 +26,7 @@ type ClientSiteRow = {
   extracted_files_count: number | null;
 };
 
+// @ts-ignore: PropertyRow reservado para uso futuro
 type PropertyRow = {
   id: string;
   name: string | null;
@@ -2097,6 +2098,278 @@ clientSites.post("/api/:subdomain/leads", async (c: Context) => {
       { success: false, error: err instanceof Error ? err.message : String(err) },
       500,
       withCorsHeaders({ "Content-Type": "application/json; charset=utf-8" })
+    );
+  }
+});
+
+// ============================================================
+// GUEST AUTH: Login Social para Hóspedes dos Sites
+// POST /client-sites/api/:subdomain/auth/guest/google
+// ============================================================
+clientSites.post("/api/:subdomain/auth/guest/google", async (c: Context) => {
+  const subdomain = c.req.param("subdomain");
+  
+  try {
+    const { credential } = await c.req.json();
+    
+    if (!credential) {
+      return c.json(
+        { success: false, error: "Credential não fornecida" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // Decodificar token do Google
+    const parts = credential.split('.');
+    if (parts.length !== 3) {
+      return c.json(
+        { success: false, error: "Token inválido" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    let payload;
+    try {
+      payload = JSON.parse(atob(base64));
+    } catch {
+      return c.json(
+        { success: false, error: "Token malformado" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // Validar expiração
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp < now) {
+      return c.json(
+        { success: false, error: "Token expirado" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // Buscar site pelo subdomain
+    const { data: site, error: siteError } = await supabase
+      .from("client_sites")
+      .select("organization_id")
+      .eq("subdomain", subdomain)
+      .maybeSingle();
+
+    if (siteError || !site) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const organizationId = site.organization_id;
+
+    // Buscar ou criar guest_user
+    let guestUser = null;
+
+    // Tentar encontrar por google_id
+    const { data: existingByGoogleId } = await supabase
+      .from("guest_users")
+      .select("*")
+      .eq("google_id", payload.sub)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (existingByGoogleId) {
+      guestUser = existingByGoogleId;
+      // Atualizar último login
+      await supabase
+        .from("guest_users")
+        .update({ last_login_at: new Date().toISOString() })
+        .eq("id", guestUser.id);
+    } else {
+      // Tentar por email
+      const { data: existingByEmail } = await supabase
+        .from("guest_users")
+        .select("*")
+        .eq("email", payload.email)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (existingByEmail) {
+        // Atualizar com google_id
+        const { data: updated } = await supabase
+          .from("guest_users")
+          .update({
+            google_id: payload.sub,
+            avatar_url: payload.picture,
+            name: payload.name || existingByEmail.name,
+            last_login_at: new Date().toISOString(),
+          })
+          .eq("id", existingByEmail.id)
+          .select()
+          .single();
+        guestUser = updated;
+      } else {
+        // Criar novo
+        const { data: newUser, error: createError } = await supabase
+          .from("guest_users")
+          .insert({
+            email: payload.email,
+            name: payload.name,
+            avatar_url: payload.picture,
+            google_id: payload.sub,
+            organization_id: organizationId,
+            email_verified: payload.email_verified,
+            last_login_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error("Erro ao criar guest_user:", createError);
+          return c.json(
+            { success: false, error: "Erro ao criar conta" },
+            500,
+            withCorsHeaders({ "Content-Type": "application/json" })
+          );
+        }
+        guestUser = newUser;
+      }
+    }
+
+    if (!guestUser) {
+      return c.json(
+        { success: false, error: "Erro ao processar login" },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // Gerar token JWT simples
+    const header = { alg: "HS256", typ: "JWT" };
+    const tokenPayload = {
+      sub: guestUser.id,
+      email: guestUser.email,
+      name: guestUser.name,
+      organizationId,
+      type: "guest",
+      iat: now,
+      exp: now + (7 * 24 * 60 * 60), // 7 dias
+    };
+    const encode = (obj: object) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const unsignedToken = `${encode(header)}.${encode(tokenPayload)}`;
+    const signature = btoa(unsignedToken + "rendizy-guest-secret").replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const token = `${unsignedToken}.${signature}`;
+
+    return c.json(
+      {
+        success: true,
+        token,
+        user: {
+          id: guestUser.id,
+          email: guestUser.email,
+          name: guestUser.name,
+          avatar_url: guestUser.avatar_url,
+          phone: guestUser.phone,
+        },
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  } catch (err) {
+    console.error("Erro no login Google guest:", err);
+    return c.json(
+      { success: false, error: err instanceof Error ? err.message : "Erro interno" },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  }
+});
+
+// ============================================================
+// GUEST AUTH: Dados do hóspede logado
+// GET /client-sites/api/:subdomain/auth/guest/me
+// ============================================================
+clientSites.get("/api/:subdomain/auth/guest/me", async (c: Context) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json(
+        { success: false, error: "Token não fornecido" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return c.json(
+        { success: false, error: "Token inválido" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(atob(parts[1]));
+    } catch {
+      return c.json(
+        { success: false, error: "Token malformado" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // Verificar expiração
+    if (payload.exp < Math.floor(Date.now() / 1000)) {
+      return c.json(
+        { success: false, error: "Token expirado" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    if (payload.type !== 'guest') {
+      return c.json(
+        { success: false, error: "Token inválido para esta rota" },
+        403,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    const { data: guestUser, error } = await supabase
+      .from("guest_users")
+      .select("id, email, name, phone, avatar_url, created_at, last_login_at")
+      .eq("id", payload.sub)
+      .single();
+
+    if (error || !guestUser) {
+      return c.json(
+        { success: false, error: "Usuário não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    return c.json(
+      { success: true, user: guestUser },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  } catch (err) {
+    console.error("Erro no guest/me:", err);
+    return c.json(
+      { success: false, error: "Erro interno" },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json" })
     );
   }
 });
