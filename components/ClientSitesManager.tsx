@@ -1538,6 +1538,27 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
 // Fluxo ERRADO: Site bugado → Patch no Rendizy → NÃO FAZER!
 //
 // ============================================================
+//
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  🚨🚨🚨 ATENÇÃO I.A - REGRA OBRIGATÓRIA DE SINCRONIZAÇÃO 🚨🚨🚨  ║
+// ╠══════════════════════════════════════════════════════════════╣
+// ║                                                              ║
+// ║  SEMPRE que atualizar PROMPT_VERSIONS abaixo, você DEVE:     ║
+// ║                                                              ║
+// ║  1. Atualizar CATALOG_VERSION em:                            ║
+// ║     → components/client-sites/ClientSitesComponentsAndDataPage.tsx ║
+// ║     → Linha ~15: const CATALOG_VERSION = 'vX.Y'              ║
+// ║                                                              ║
+// ║  2. Se adicionou novo bloco/componente, atualizar catalog.ts:║
+// ║     → components/client-sites/catalog.ts                     ║
+// ║     → Adicionar novo item no array CATALOG_BLOCKS            ║
+// ║                                                              ║
+// ║  3. Verificar se aiPrompt (abaixo) reflete a versão correta  ║
+// ║                                                              ║
+// ║  NUNCA faça commit sem sincronizar essas 3 coisas!           ║
+// ║                                                              ║
+// ╚══════════════════════════════════════════════════════════════╝
+//
 
 // ============================================================
 // HISTÓRICO DE VERSÕES DO PROMPT
@@ -3190,23 +3211,33 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
 
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
-  const [importTab, setImportTab] = useState<'code' | 'zip'>('code');
+  const [importTab, setImportTab] = useState<'code' | 'zip' | 'vercel'>('zip');
   const [archiveFile, setArchiveFile] = useState<File | null>(null);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [createdSubdomain, setCreatedSubdomain] = useState<string | null>(null);
   const [uploadSteps, setUploadSteps] = useState<ClientSiteUploadStep[] | null>(null);
   const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'ok' | 'failed'>('idle');
   const [verifyDetails, setVerifyDetails] = useState<string | null>(null);
   const [formData, setFormData] = useState(initialFormData);
+  
+  // Estado para Vercel Build
+  const [vercelDeploymentId, setVercelDeploymentId] = useState<string | null>(null);
+  const [vercelBuildStatus, setVercelBuildStatus] = useState<'idle' | 'building' | 'ready' | 'error'>('idle');
+  const [vercelBuildUrl, setVercelBuildUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setLoading(false);
     setStep(1);
-    setImportTab('code');
+    setImportTab('zip');
     setArchiveFile(null);
+    setSourceFile(null);
     setCreatedSubdomain(null);
     setUploadSteps(null);
     setVerifyStatus('idle');
+    setVercelDeploymentId(null);
+    setVercelBuildStatus('idle');
+    setVercelBuildUrl(null);
     setVerifyDetails(null);
     setFormData(initialFormData);
   }, [open]);
@@ -3245,6 +3276,49 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
     }
   };
 
+  // Polling do status do build na Vercel
+  const pollVercelStatus = async (deploymentId: string) => {
+    const maxAttempts = 60; // 5 minutos máximo
+    let attempts = 0;
+    
+    const poll = async () => {
+      if (attempts >= maxAttempts) {
+        setVercelBuildStatus('error');
+        toast.error('Timeout: build demorou demais');
+        return;
+      }
+      
+      attempts++;
+      
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/vercel/status/${deploymentId}`,
+          { headers: getEdgeHeaders() }
+        );
+        const data = await response.json();
+        
+        if (data.readyState === 'READY') {
+          setVercelBuildStatus('ready');
+          setVercelBuildUrl(data.url);
+          toast.success('🎉 Build concluído! Site pronto.');
+          return;
+        } else if (data.readyState === 'ERROR' || data.readyState === 'CANCELED') {
+          setVercelBuildStatus('error');
+          toast.error(`Build falhou: ${data.errorMessage || 'Erro desconhecido'}`);
+          return;
+        }
+        
+        // Continuar polling
+        setTimeout(poll, 5000); // 5 segundos
+      } catch (error) {
+        console.error('Erro ao verificar status:', error);
+        setTimeout(poll, 5000);
+      }
+    };
+    
+    poll();
+  };
+
   const handleSubmit = async () => {
     if (step === 1) {
       if (!formData.organizationId || !formData.siteName) {
@@ -3260,7 +3334,11 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
       return;
     }
     if (importTab === 'zip' && !archiveFile) {
-      toast.error('Selecione um arquivo .zip');
+      toast.error('Selecione um arquivo .zip com dist/');
+      return;
+    }
+    if (importTab === 'vercel' && !sourceFile) {
+      toast.error('Selecione o arquivo .zip com o código fonte');
       return;
     }
 
@@ -3308,10 +3386,47 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
       const subdomain = (createData?.data?.subdomain as string | undefined) || null;
       setCreatedSubdomain(subdomain);
 
-      // 2. Fazer upload do código OU ZIP
+      // 2. Fazer upload do código, ZIP, ou Build via Vercel
       let uploadData: any = null;
 
-      if (importTab === 'code') {
+      if (importTab === 'vercel') {
+        // ✨ Build via Vercel API
+        const fd = new FormData();
+        fd.append('file', sourceFile as File);
+        fd.append('subdomain', subdomain || formData.siteName.toLowerCase().replace(/\s+/g, '-'));
+
+        toast.info('🚀 Iniciando build na Vercel...');
+        setVercelBuildStatus('building');
+
+        const buildResponse = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/vercel/build-from-zip`,
+          {
+            method: 'POST',
+            headers: {
+              ...getEdgeHeaders()
+            },
+            body: fd
+          }
+        );
+        
+        const buildData = await buildResponse.json();
+        
+        if (!buildData.success) {
+          toast.error(buildData.error || 'Erro ao iniciar build');
+          setVercelBuildStatus('error');
+          setLoading(false);
+          return;
+        }
+
+        setVercelDeploymentId(buildData.deploymentId);
+        toast.success(`🔧 Build iniciado! ID: ${buildData.deploymentId}`);
+        
+        // Iniciar polling do status
+        pollVercelStatus(buildData.deploymentId);
+        
+        setLoading(false);
+        return;
+      } else if (importTab === 'code') {
         const uploadResponse = await fetch(
           `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/${formData.organizationId}/upload-code`,
           {
@@ -3324,6 +3439,7 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
         );
         uploadData = (await uploadResponse.json()) as UploadArchiveResponse;
       } else {
+        // ZIP com dist/
         const fd = new FormData();
         fd.append('file', archiveFile as File);
         fd.append('source', formData.source);
@@ -3596,9 +3712,13 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
             )}
 
             <Tabs value={importTab} onValueChange={(v) => setImportTab(v as any)}>
-              <TabsList>
-                <TabsTrigger value="code">Código</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="zip">ZIP (dist/)</TabsTrigger>
+                <TabsTrigger value="vercel" className="gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Build Automático
+                </TabsTrigger>
+                <TabsTrigger value="code">Código</TabsTrigger>
               </TabsList>
 
               <TabsContent value="code" className="space-y-2">
@@ -3619,17 +3739,82 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
                   onChange={(e) => setArchiveFile(e.target.files?.[0] || null)}
                 />
                 <p className="text-sm text-gray-600">
-                  Envie um ZIP com <strong>dist/index.html</strong>.
+                  Envie um ZIP com <strong>dist/index.html</strong> (já buildado).
                 </p>
+              </TabsContent>
+
+              <TabsContent value="vercel" className="space-y-4">
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    <span className="font-semibold text-purple-800">Build Automático via Vercel</span>
+                  </div>
+                  <p className="text-sm text-purple-700">
+                    Envie o ZIP do <strong>código fonte</strong> (direto do Bolt.new, sem precisar rodar build).
+                    A Vercel vai compilar automaticamente e publicar o site.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Arquivo .zip (código fonte)</Label>
+                  <Input
+                    type="file"
+                    accept=".zip"
+                    onChange={(e) => setSourceFile(e.target.files?.[0] || null)}
+                  />
+                  <p className="text-sm text-gray-600">
+                    Baixe o ZIP do Bolt.new e envie aqui. Deve conter <strong>package.json</strong> e <strong>src/</strong>.
+                  </p>
+                </div>
+
+                {/* Status do Build */}
+                {vercelBuildStatus !== 'idle' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Status do Build</Label>
+                      <Badge
+                        variant={
+                          vercelBuildStatus === 'ready'
+                            ? 'default'
+                            : vercelBuildStatus === 'error'
+                              ? 'destructive'
+                              : 'secondary'
+                        }
+                        className={vercelBuildStatus === 'building' ? 'animate-pulse' : ''}
+                      >
+                        {vercelBuildStatus === 'building' && '🔧 Buildando...'}
+                        {vercelBuildStatus === 'ready' && '✅ Pronto!'}
+                        {vercelBuildStatus === 'error' && '❌ Erro'}
+                      </Badge>
+                    </div>
+                    
+                    {vercelDeploymentId && (
+                      <p className="text-xs text-muted-foreground">
+                        Deployment ID: {vercelDeploymentId}
+                      </p>
+                    )}
+                    
+                    {vercelBuildUrl && (
+                      <Button
+                        size="sm"
+                        onClick={() => window.open(vercelBuildUrl, '_blank')}
+                        className="gap-2"
+                      >
+                        <Globe className="h-4 w-4" />
+                        Abrir Site na Vercel
+                      </Button>
+                    )}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <strong>✨ O sistema irá (hoje):</strong>
-                <br />• Publicar o build estático (ZIP com dist/) e servir em /site/&lt;subdomain&gt;/
+                <strong>✨ O sistema irá:</strong>
+                <br />• <strong>ZIP (dist/):</strong> Publicar build estático em /site/&lt;subdomain&gt;/
+                <br />• <strong>Build Automático:</strong> Compilar via Vercel e publicar (leva ~2 min)
                 <br />• Integrar com a API pública de imóveis (properties)
-                <br />• Manter os dados do site (contatos, features) salvos no Rendizy (site-config público disponível)
                 <br />• Calendário (disponibilidade + preço por dia): disponível (stable)
               </p>
             </div>
@@ -3638,20 +3823,20 @@ function ImportSiteModal({ open, onClose, onSuccess, organizations }: {
 
         <DialogFooter>
           {step === 2 && (
-            <Button variant="outline" onClick={() => setStep(1)} disabled={loading}>
+            <Button variant="outline" onClick={() => setStep(1)} disabled={loading || vercelBuildStatus === 'building'}>
               Voltar
             </Button>
           )}
-          <Button variant="outline" onClick={onClose} disabled={!canClose}>
+          <Button variant="outline" onClick={onClose} disabled={!canClose || vercelBuildStatus === 'building'}>
             Cancelar
           </Button>
-          {step === 2 && (verifyStatus === 'ok' || verifyStatus === 'failed') ? (
+          {step === 2 && (verifyStatus === 'ok' || verifyStatus === 'failed' || vercelBuildStatus === 'ready') ? (
             <Button onClick={onSuccess} disabled={loading}>
               Concluir
             </Button>
           ) : (
-            <Button onClick={handleSubmit} disabled={loading}>
-              {loading ? 'Importando...' : step === 1 ? 'Próximo' : 'Importar Site'}
+            <Button onClick={handleSubmit} disabled={loading || vercelBuildStatus === 'building'}>
+              {loading ? 'Processando...' : vercelBuildStatus === 'building' ? 'Aguarde o build...' : step === 1 ? 'Próximo' : importTab === 'vercel' ? 'Iniciar Build' : 'Importar Site'}
             </Button>
           )}
         </DialogFooter>

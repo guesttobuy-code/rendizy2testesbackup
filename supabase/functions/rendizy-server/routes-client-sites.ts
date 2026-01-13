@@ -7,7 +7,15 @@ import { Hono } from "npm:hono";
 import { getOrganizationIdOrThrow } from "./utils-get-organization-id.ts";
 import { getSupabaseClient } from "./kv_store.tsx";
 import JSZip from "npm:jszip";
-import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, SUPABASE_PROJECT_REF } from './utils-env.ts';
+import { 
+  SUPABASE_ANON_KEY, 
+  SUPABASE_SERVICE_ROLE_KEY, 
+  SUPABASE_URL, 
+  SUPABASE_PROJECT_REF,
+  VERCEL_ACCESS_TOKEN,
+  VERCEL_TEAM_ID,
+  VERCEL_PROJECT_ID
+} from './utils-env.ts';
 
 const app = new Hono();
 
@@ -2866,6 +2874,426 @@ app.post("/migrate-kv-to-sql", async (c) => {
       500
     );
   }
+});
+
+// ============================================================
+// VERCEL DEPLOYMENT API
+// Build automático de sites do Bolt/v0 via Vercel
+// ============================================================
+
+/**
+ * POST /client-sites/vercel/deploy
+ * 
+ * Inicia um deployment na Vercel a partir de arquivos do Storage.
+ * 
+ * Body:
+ * - subdomain: string - Subdomain do site (ex: "medhome")
+ * - files: Array<{path: string, content: string}> - Arquivos fonte (opcional, se já não estiverem no storage)
+ * 
+ * Retorna:
+ * - deploymentId: string - ID do deployment para polling
+ * - deploymentUrl: string - URL onde o site será publicado
+ */
+app.post("/vercel/deploy", async (c) => {
+  try {
+    // Verificar se token está configurado
+    if (!VERCEL_ACCESS_TOKEN) {
+      return c.json({
+        success: false,
+        error: "VERCEL_ACCESS_TOKEN não configurado",
+        details: "Configure o secret: supabase secrets set VERCEL_ACCESS_TOKEN=<seu-token>",
+        howToGet: "https://vercel.com/account/tokens"
+      }, 500);
+    }
+
+    const { subdomain, files } = await c.req.json();
+
+    if (!subdomain) {
+      return c.json({ success: false, error: "subdomain é obrigatório" }, 400);
+    }
+
+    // Buscar configuração do site
+    const supabase = await getSupabaseClient(c, { useServiceRole: true });
+    
+    const { data: siteConfig, error: siteError } = await supabase
+      .from("client_sites")
+      .select("*")
+      .eq("subdomain", subdomain)
+      .maybeSingle();
+
+    if (siteError || !siteConfig) {
+      return c.json({ 
+        success: false, 
+        error: "Site não encontrado", 
+        subdomain 
+      }, 404);
+    }
+
+    // Se files não foi passado, buscar do Storage
+    let deployFiles = files;
+    if (!deployFiles || deployFiles.length === 0) {
+      // Listar arquivos do storage para este site
+      const { data: storageFiles, error: storageError } = await supabase
+        .storage
+        .from("client-sites")
+        .list(`${siteConfig.organization_id}/`, { limit: 500 });
+
+      if (storageError) {
+        return c.json({ 
+          success: false, 
+          error: "Erro ao buscar arquivos do storage",
+          details: storageError.message
+        }, 500);
+      }
+
+      if (!storageFiles || storageFiles.length === 0) {
+        return c.json({ 
+          success: false, 
+          error: "Nenhum arquivo encontrado no storage para este site",
+          hint: "Faça upload do ZIP do site primeiro"
+        }, 400);
+      }
+
+      // Ler conteúdo de cada arquivo
+      deployFiles = [];
+      for (const file of storageFiles) {
+        if (file.name.startsWith('.') || file.name === 'node_modules') continue;
+        
+        const { data: fileData } = await supabase
+          .storage
+          .from("client-sites")
+          .download(`${siteConfig.organization_id}/${file.name}`);
+
+        if (fileData) {
+          const content = await fileData.text();
+          deployFiles.push({
+            file: file.name,
+            data: content
+          });
+        }
+      }
+    } else {
+      // Converter formato do frontend para formato da Vercel API
+      deployFiles = files.map((f: { path: string; content: string }) => ({
+        file: f.path,
+        data: f.content
+      }));
+    }
+
+    // Preparar payload para Vercel Deployments API
+    const vercelPayload = {
+      name: `rendizy-site-${subdomain}`,
+      files: deployFiles,
+      projectSettings: {
+        framework: "vite",
+        buildCommand: "npm run build",
+        outputDirectory: "dist",
+        installCommand: "npm install"
+      },
+      target: "production"
+    };
+
+    // Headers da Vercel API
+    const vercelHeaders: Record<string, string> = {
+      "Authorization": `Bearer ${VERCEL_ACCESS_TOKEN}`,
+      "Content-Type": "application/json"
+    };
+
+    // Adicionar Team ID se configurado
+    let vercelUrl = "https://api.vercel.com/v13/deployments";
+    if (VERCEL_TEAM_ID) {
+      vercelUrl += `?teamId=${VERCEL_TEAM_ID}`;
+    }
+
+    console.log(`[VERCEL] Creating deployment for ${subdomain}...`);
+    console.log(`[VERCEL] Files count: ${deployFiles.length}`);
+
+    // Chamar API da Vercel
+    const vercelResponse = await fetch(vercelUrl, {
+      method: "POST",
+      headers: vercelHeaders,
+      body: JSON.stringify(vercelPayload)
+    });
+
+    const vercelData = await vercelResponse.json();
+
+    if (!vercelResponse.ok) {
+      console.error("[VERCEL] Deployment failed:", vercelData);
+      return c.json({
+        success: false,
+        error: "Erro ao criar deployment na Vercel",
+        vercelError: vercelData.error || vercelData,
+        status: vercelResponse.status
+      }, 500);
+    }
+
+    console.log(`[VERCEL] Deployment created: ${vercelData.id}`);
+
+    // Salvar deployment ID no banco
+    await supabase
+      .from("client_sites")
+      .update({
+        vercel_deployment_id: vercelData.id,
+        vercel_deployment_url: vercelData.url,
+        vercel_deployment_status: "BUILDING",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", siteConfig.id);
+
+    return c.json({
+      success: true,
+      deploymentId: vercelData.id,
+      deploymentUrl: `https://${vercelData.url}`,
+      readyState: vercelData.readyState,
+      message: "Deployment iniciado! O build pode levar alguns minutos."
+    });
+
+  } catch (error) {
+    console.error("[VERCEL] Error:", error);
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Erro desconhecido"
+    }, 500);
+  }
+});
+
+/**
+ * GET /client-sites/vercel/status/:deploymentId
+ * 
+ * Verifica o status de um deployment na Vercel.
+ */
+app.get("/vercel/status/:deploymentId", async (c) => {
+  try {
+    if (!VERCEL_ACCESS_TOKEN) {
+      return c.json({
+        success: false,
+        error: "VERCEL_ACCESS_TOKEN não configurado"
+      }, 500);
+    }
+
+    const deploymentId = c.req.param("deploymentId");
+
+    let vercelUrl = `https://api.vercel.com/v13/deployments/${deploymentId}`;
+    if (VERCEL_TEAM_ID) {
+      vercelUrl += `?teamId=${VERCEL_TEAM_ID}`;
+    }
+
+    const response = await fetch(vercelUrl, {
+      headers: {
+        "Authorization": `Bearer ${VERCEL_ACCESS_TOKEN}`
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return c.json({
+        success: false,
+        error: "Erro ao buscar status",
+        vercelError: data.error
+      }, response.status);
+    }
+
+    return c.json({
+      success: true,
+      deploymentId: data.id,
+      url: data.url ? `https://${data.url}` : null,
+      readyState: data.readyState, // QUEUED, BUILDING, READY, ERROR, CANCELED
+      createdAt: data.createdAt,
+      buildingAt: data.buildingAt,
+      ready: data.ready,
+      state: data.state,
+      // Erros de build
+      errorCode: data.errorCode,
+      errorMessage: data.errorMessage
+    });
+
+  } catch (error) {
+    console.error("[VERCEL] Status check error:", error);
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Erro desconhecido"
+    }, 500);
+  }
+});
+
+/**
+ * POST /client-sites/vercel/build-from-zip
+ * 
+ * Fluxo completo: recebe ZIP do Bolt, extrai, faz deploy na Vercel.
+ * Este é o endpoint principal que o modal de importação vai usar.
+ */
+app.post("/vercel/build-from-zip", async (c) => {
+  try {
+    if (!VERCEL_ACCESS_TOKEN) {
+      return c.json({
+        success: false,
+        error: "VERCEL_ACCESS_TOKEN não configurado",
+        details: "Configure: supabase secrets set VERCEL_ACCESS_TOKEN=<token>",
+        howToGet: "https://vercel.com/account/tokens"
+      }, 500);
+    }
+
+    const formData = await c.req.formData();
+    const zipFile = formData.get("file") as File | null;
+    const subdomain = formData.get("subdomain") as string;
+
+    if (!zipFile) {
+      return c.json({ success: false, error: "Arquivo ZIP é obrigatório" }, 400);
+    }
+
+    if (!subdomain) {
+      return c.json({ success: false, error: "subdomain é obrigatório" }, 400);
+    }
+
+    console.log(`[VERCEL] Processing ZIP for ${subdomain}, size: ${zipFile.size}`);
+
+    // Ler e extrair ZIP
+    const zipBuffer = await zipFile.arrayBuffer();
+    const zip = await JSZip.loadAsync(zipBuffer);
+    
+    // Converter arquivos para formato Vercel
+    const deployFiles: Array<{ file: string; data: string }> = [];
+    
+    for (const [path, file] of Object.entries(zip.files)) {
+      // Ignorar diretórios e arquivos desnecessários
+      if (file.dir) continue;
+      if (path.includes("node_modules/")) continue;
+      if (path.includes(".git/")) continue;
+      if (path.startsWith("__MACOSX/")) continue;
+      if (path.endsWith(".DS_Store")) continue;
+
+      try {
+        const content = await file.async("string");
+        
+        // Normalizar path (remover pasta raiz se houver)
+        let normalizedPath = path;
+        const firstSlash = path.indexOf("/");
+        if (firstSlash > 0 && !path.startsWith("src/") && !path.startsWith("public/")) {
+          // Provavelmente é pasta raiz do projeto (ex: "meu-site/src/...")
+          normalizedPath = path.substring(firstSlash + 1);
+        }
+        
+        if (normalizedPath) {
+          deployFiles.push({
+            file: normalizedPath,
+            data: content
+          });
+        }
+      } catch (e) {
+        // Arquivo binário - pular por enquanto
+        console.log(`[VERCEL] Skipping binary file: ${path}`);
+      }
+    }
+
+    if (deployFiles.length === 0) {
+      return c.json({ 
+        success: false, 
+        error: "Nenhum arquivo válido encontrado no ZIP" 
+      }, 400);
+    }
+
+    console.log(`[VERCEL] Extracted ${deployFiles.length} files`);
+
+    // Verificar se tem package.json
+    const hasPackageJson = deployFiles.some(f => f.file === "package.json");
+    if (!hasPackageJson) {
+      return c.json({
+        success: false,
+        error: "package.json não encontrado no ZIP",
+        hint: "Certifique-se de que o ZIP contém um projeto Node.js válido"
+      }, 400);
+    }
+
+    // Criar deployment na Vercel
+    const vercelPayload = {
+      name: `rendizy-site-${subdomain}`,
+      files: deployFiles,
+      projectSettings: {
+        framework: "vite",
+        buildCommand: "npm run build",
+        outputDirectory: "dist",
+        installCommand: "npm install"
+      },
+      target: "production"
+    };
+
+    let vercelUrl = "https://api.vercel.com/v13/deployments";
+    if (VERCEL_TEAM_ID) {
+      vercelUrl += `?teamId=${VERCEL_TEAM_ID}`;
+    }
+
+    const vercelResponse = await fetch(vercelUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${VERCEL_ACCESS_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(vercelPayload)
+    });
+
+    const vercelData = await vercelResponse.json();
+
+    if (!vercelResponse.ok) {
+      console.error("[VERCEL] Deploy failed:", vercelData);
+      return c.json({
+        success: false,
+        error: "Erro ao criar deployment",
+        vercelError: vercelData.error || vercelData
+      }, 500);
+    }
+
+    console.log(`[VERCEL] Deployment created: ${vercelData.id}`);
+
+    // Atualizar banco com info do deployment
+    const supabase = await getSupabaseClient(c, { useServiceRole: true });
+    
+    await supabase
+      .from("client_sites")
+      .update({
+        vercel_deployment_id: vercelData.id,
+        vercel_deployment_url: vercelData.url,
+        vercel_deployment_status: "BUILDING",
+        source: "bolt",
+        updated_at: new Date().toISOString()
+      })
+      .eq("subdomain", subdomain);
+
+    return c.json({
+      success: true,
+      message: "Build iniciado na Vercel!",
+      deploymentId: vercelData.id,
+      deploymentUrl: `https://${vercelData.url}`,
+      readyState: vercelData.readyState,
+      filesCount: deployFiles.length,
+      pollingEndpoint: `/client-sites/vercel/status/${vercelData.id}`
+    });
+
+  } catch (error) {
+    console.error("[VERCEL] Build from ZIP error:", error);
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Erro desconhecido"
+    }, 500);
+  }
+});
+
+/**
+ * GET /client-sites/vercel/config
+ * 
+ * Retorna configuração atual da Vercel (sem expor token).
+ * Útil para debug e verificar se está configurado.
+ */
+app.get("/vercel/config", async (c) => {
+  return c.json({
+    success: true,
+    configured: !!VERCEL_ACCESS_TOKEN,
+    hasTeamId: !!VERCEL_TEAM_ID,
+    hasProjectId: !!VERCEL_PROJECT_ID,
+    message: VERCEL_ACCESS_TOKEN 
+      ? "Vercel API configurada e pronta!" 
+      : "VERCEL_ACCESS_TOKEN não configurado. Vá em https://vercel.com/account/tokens"
+  });
 });
 
 export default app;

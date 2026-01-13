@@ -69,6 +69,25 @@ export const STAYSNET_WEBHOOK_VERIFY_SIGNATURE = firstDefined(
   "false"
 );
 
+// Vercel Deployments API (para build automático de sites)
+// Obter token em: https://vercel.com/account/tokens
+export const VERCEL_ACCESS_TOKEN = firstDefined(
+  ["VERCEL_ACCESS_TOKEN", "RENDIZY_VERCEL_ACCESS_TOKEN"],
+  ""
+);
+
+// Team ID da Vercel (opcional, para projetos de equipe)
+export const VERCEL_TEAM_ID = firstDefined(
+  ["VERCEL_TEAM_ID", "RENDIZY_VERCEL_TEAM_ID"],
+  ""
+);
+
+// Project ID do projeto de sites clientes na Vercel
+export const VERCEL_PROJECT_ID = firstDefined(
+  ["VERCEL_PROJECT_ID", "RENDIZY_VERCEL_PROJECT_ID"],
+  ""
+);
+
 export const ENV_HELPERS = {
   firstDefined,
 };
