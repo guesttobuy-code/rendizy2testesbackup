@@ -285,6 +285,24 @@ function patchClientSiteJs(jsText, { subdomain }) {
     'onClick:()=>(window.location.hash="#/")'
   );
 
+  // MedHome/Bolt: Fix InternalAreaPage (área interna) placeholder.
+  // Problem: Old bundles show "Em breve você poderá ver suas reservas aqui" instead of redirecting to guest-area capsule.
+  // The function s1() (or similar) manages login + placeholder. We inject a useEffect redirect at the start.
+  // Pattern: function s1(){const[e,t]=k.useState(!1),[i,o]=k.useState(null)
+  // Fix: Inject useEffect that redirects to guest-area capsule before the existing state hooks.
+  const internalAreaPattern = /function\s+s1\(\)\{const\[e,t\]=k\.useState\(!1\),\[i,o\]=k\.useState\(null\)/g;
+  out = out.replace(internalAreaPattern, () => {
+    // Inject useEffect that redirects to guest-area with theme colors
+    const guestAreaUrl = 'https://rendizy2testesbackup.vercel.app/guest-area/';
+    return `function s1(){k.useEffect(()=>{const GUEST_AREA_URL='${guestAreaUrl}';const params=new URLSearchParams({slug:cd()||'${subdomain}',primary:encodeURIComponent('#5DBEBD'),secondary:encodeURIComponent('#FF8B94'),accent:encodeURIComponent('#4a9d9c')});window.location.href=GUEST_AREA_URL+'?'+params.toString();},[]);const[e,t]=k.useState(!1),[i,o]=k.useState(null)`;
+  });
+
+  // Also replace the placeholder text just in case the pattern doesn't match exactly
+  out = out.replace(
+    /Em breve você poderá ver suas reservas aqui\./g,
+    'Redirecionando para área do cliente...'
+  );
+
   return out;
 }
 
