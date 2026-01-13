@@ -152,10 +152,14 @@ APPLE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----...
 | Arquivo | Descrição |
 |---------|-----------|
 | `.env.local` | Credenciais (não commitar!) |
-| `src/components/LoginPage.tsx` | Tela de login Rendizy |
-| `src/contexts/AuthContext.tsx` | Gerenciamento de auth |
-| `components/GoogleOneTap.tsx` | Componente One Tap (novo) |
-| `supabase/functions/rendizy-server/routes-auth-social.ts` | Endpoints backend (novo) |
+| `src/components/LoginPage.tsx` | Tela de login Rendizy (v1.0.104.001) |
+| `src/contexts/AuthContext.tsx` | Gerenciamento de auth + loginWithGoogle |
+| `components/GoogleOneTap.tsx` | Componente One Tap |
+| `components/SocialLoginButtons.tsx` | Botões Google + Apple |
+| `components/client-sites/catalog.ts` | Endpoints OAuth no catálogo |
+| `supabase/functions/rendizy-server/routes-auth-social.ts` | Backend OAuth |
+| `supabase/functions/rendizy-public/index.ts` | Guest auth endpoints |
+| `supabase/migrations/20260113_create_guest_users_table.sql` | Tabela guest_users |
 
 ---
 
@@ -177,6 +181,14 @@ APPLE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----...
 ---
 
 ## 📝 Changelog
+
+### v1.0.1 (2026-01-13)
+- ✅ Componentes implementados (GoogleOneTap, SocialLoginButtons)
+- ✅ Backend completo (routes-auth-social.ts)
+- ✅ Migration guest_users executada
+- ✅ Catálogo atualizado com endpoints OAuth
+- ✅ PR #11 mergeado
+- ✅ Edge Functions deployed
 
 ### v1.0.0 (2026-01-13)
 - ✅ Configuração inicial Google OAuth no GCP

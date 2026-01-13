@@ -80,12 +80,15 @@ GOOGLE_PROJECT_ID=rendizy-484205
 - [x] Salvar credenciais em `.env.local`
 - [x] Documentar em `/docs`
 - [x] Implementar componente GoogleOneTap
-- [ ] Implementar SocialLoginButtons
-- [ ] Atualizar LoginPage.tsx
-- [ ] Backend: endpoint /auth/social/google
-- [ ] Migration: tabela guest_users
-- [ ] Atualizar prompt IA dos sites
-- [ ] Testar fluxo completo
+- [x] Implementar SocialLoginButtons
+- [x] Atualizar LoginPage.tsx
+- [x] Backend: endpoint /auth/social/google
+- [x] Migration: tabela guest_users
+- [x] Atualizar prompt IA dos sites
+- [x] Deploy Edge Functions
+- [x] PR #11 mergeado
+- [ ] Testar fluxo completo em produção
+- [ ] Configurar Apple Sign In
 
 ---
 
