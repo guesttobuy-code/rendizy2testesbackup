@@ -150,6 +150,11 @@ const SettingsModule = React.lazy(() =>
   import('./components/settings/SettingsModule').then((m) => ({ default: m.SettingsModule }))
 );
 
+// 🏠 CÁPSULA GUEST AREA - v1.0.0 - Área do Hóspede servida centralmente
+const GuestAreaPage = React.lazy(() =>
+  import('./src/capsules/GuestArea/GuestAreaPage').then((m) => ({ default: m.GuestAreaPage }))
+);
+
 // Types
 export interface Property {
   id: string;
@@ -1144,6 +1149,9 @@ function App() {
 
             <Suspense fallback={<LoadingProgress isLoading={true} />}>
               <Routes>
+                {/* 🏠 CÁPSULA GUEST AREA - v1.0.0 - Área do Hóspede (pública, sem sidebar) */}
+                <Route path="/guest-area" element={<GuestAreaPage />} />
+
                 {/* ✅ ROTA LOGIN - v1.0.103.259 - Sistema Multi-Tenant */}
                 <Route path="/login" element={<LoginPage />} />
 

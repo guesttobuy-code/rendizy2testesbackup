@@ -70,6 +70,7 @@ import * as stripeRoutes from "./routes-stripe.ts";
 import * as paymentsRoutes from "./routes-payments.ts";
 import * as cronPendingReservationsRoutes from "./routes-cron-pending-reservations.ts"; // ✅ CRON: Cancelar pendentes expiradas
 import * as authSocialRoutes from "./routes-auth-social.ts"; // ✅ OAuth: Login Google/Apple
+import { guestAreaApp } from "./routes-guest-area.ts"; // 🏠 CÁPSULA: Área do Hóspede
 
 const app = new Hono();
 
@@ -146,6 +147,13 @@ app.route("/auth", authApp);
 // ============================================================================
 app.post("/auth/social/google", authSocialRoutes.handleStaffGoogleLogin);
 app.post("/rendizy-server/auth/social/google", authSocialRoutes.handleStaffGoogleLogin);
+
+// ============================================================================
+// 🏠 GUEST AREA (Cápsula - Área do Hóspede - PÚBLICA)
+// ============================================================================
+// URL: /guest/* → Usado pelos sites de clientes para área interna
+app.route("/guest", guestAreaApp);
+app.route("/rendizy-server/guest", guestAreaApp);
 
 // ============================================================================
 // ANÚNCIOS ULTIMATE (Properties Drafts/Publishing)
