@@ -1553,6 +1553,22 @@ type PromptVersion = {
 
 const PROMPT_VERSIONS: PromptVersion[] = [
   {
+    version: 'v4.3',
+    date: '2026-01-13',
+    time: '17:00',
+    author: 'Copilot + Rafael',
+    changes: [
+      '🏠 Área Interna como CÁPSULA SEPARADA',
+      '✅ Cápsula em /guest-area/ servida centralmente',
+      '✅ Sites só redirecionam (não têm código embutido)',
+      '✅ Um update na cápsula afeta TODOS os sites',
+      '✅ CSS Variables para whitelabel (primary/secondary/accent)',
+      '✅ Google One Tap integrado na cápsula',
+      '✅ Persistência via localStorage',
+    ],
+    prompt: 'CURRENT', // placeholder - usa o prompt atual
+  },
+  {
     version: 'v4.2',
     date: '2026-01-13',
     time: '15:30',
@@ -1566,7 +1582,8 @@ const PROMPT_VERSIONS: PromptVersion[] = [
       '✅ Countdown para reservas pendentes',
       '✅ Botão "Pagar Agora" para retomar pagamento',
     ],
-    prompt: 'CURRENT', // placeholder - usa o prompt atual
+    prompt: `# RENDIZY — PROMPT v4.2 (Área Interna Embutida)
+Este prompt foi substituído pela v4.3 que usa arquitetura de cápsula.`,
   },
   {
     version: 'v3.0',
@@ -3144,11 +3161,15 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
                 </div>
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-green-500 mt-0.5" />
-                  <span>Área interna do hóspede</span>
+                  <span>Área interna do hóspede (Cápsula Separada)</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-green-500 mt-0.5" />
                   <span>HashRouter para compatibilidade com Vercel</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>Cápsula Guest Area: /guest-area/?slug=SUBDOMAIN</span>
                 </div>
               </CardContent>
             </Card>
