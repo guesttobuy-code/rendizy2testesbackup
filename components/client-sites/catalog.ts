@@ -498,6 +498,31 @@ function logout() {
         'Usado para exibir perfil do hóspede na área interna do site.',
         'Retorna 401 se token inválido ou expirado.'
       ]
+    },
+    {
+      id: 'reservations-mine',
+      title: 'Reservas do Hóspede Logado — estável',
+      method: 'GET',
+      pathTemplate: '/client-sites/api/:subdomain/reservations/mine',
+      stability: 'stable',
+      notes: [
+        'Retorna lista de reservas do hóspede autenticado.',
+        'Requer header Authorization: Bearer <token> (JWT retornado pelo login).',
+        'Busca por guest_id do token OU guest_email (para reservas criadas antes do login).',
+        'Retorna: { success: true, data: [Reservation], total: number }.',
+        '',
+        'Cada reserva inclui:',
+        '  - id, reservationCode, checkIn, checkOut, guests',
+        '  - status: "pending" | "confirmed" | "cancelled" | "completed"',
+        '  - paymentStatus: "pending" | "paid" | "expired" | "refunded"',
+        '  - paymentExpiresAt: timestamp para reservas pendentes',
+        '  - totalPrice, currency',
+        '  - property: { id, name, coverPhoto, city, state }',
+        '',
+        'Usado para área interna do site (minhas reservas).',
+        'Retorna 401 se token inválido ou expirado.',
+        'Ordenado por check_in DESC (mais recentes primeiro).'
+      ]
     }
   ] satisfies ClientSitesCatalogEndpoint[],
 
@@ -903,6 +928,107 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       '  - Minhas Reservas: listar reservas do hóspede',
       '  - Meu Perfil: exibir/editar dados pessoais',
       '  - Logout: limpar localStorage e recarregar página'
+    ]
+  },
+  {
+    id: 'guest-area-layout',
+    title: 'Layout da Área Interna do Hóspede (Whitelabel)',
+    stability: 'stable',
+    description:
+      'Layout completo para área logada do hóspede: sidebar + header + conteúdo. Cores seguem site-config.',
+    usesEndpoints: ['auth-guest-me', 'reservations-mine', 'site-config'],
+    requiredFields: [
+      'site-config.theme (cores)',
+      'site-config.logo',
+      'site-config.siteName',
+      'guest token (localStorage)'
+    ],
+    notes: [
+      '## Estrutura de Rotas',
+      '  - #/area-interna → redirect para /area-interna/reservas se logado',
+      '  - #/area-interna/reservas → Minhas Reservas',
+      '  - #/area-interna/perfil → Meu Perfil',
+      '  - #/login → Página de login (Google One Tap)',
+      '',
+      '## Layout Desktop',
+      '  ┌─────────────────────────────────────────┐',
+      '  │ [Logo]  ÁREA DO CLIENTE  [Avatar][Sair] │',
+      '  ├─────────┬───────────────────────────────┤',
+      '  │ 📋 Res. │     CONTEÚDO PRINCIPAL        │',
+      '  │ 👤 Perf │                               │',
+      '  │         │                               │',
+      '  └─────────┴───────────────────────────────┘',
+      '',
+      '## Layout Mobile',
+      '  ┌─────────────────────────┐',
+      '  │ [≡] ÁREA DO CLIENTE [👤]│',
+      '  ├─────────────────────────┤',
+      '  │   CONTEÚDO PRINCIPAL    │',
+      '  ├─────────────────────────┤',
+      '  │  [📋]  [👤]  [⚙️]       │ ← Bottom nav',
+      '  └─────────────────────────┘',
+      '',
+      '## Componentes',
+      '  - GuestLayout.tsx: Layout principal com sidebar',
+      '  - GuestSidebar.tsx: Menu lateral responsivo',
+      '  - GuestHeader.tsx: Header com avatar e nome',
+      '  - GuestGuard.tsx: HOC que redireciona se não logado',
+      '  - GuestMobileNav.tsx: Navegação inferior mobile',
+      '',
+      '## Cores Whitelabel',
+      '  const theme = {',
+      '    "--primary": siteConfig.theme.primaryColor || "#3B82F6",',
+      '    "--secondary": siteConfig.theme.secondaryColor || "#10B981",',
+      '    "--accent": siteConfig.theme.accentColor || "#F59E0B",',
+      '  };',
+      '',
+      '## Menu Items',
+      '  const MENU_ITEMS = [',
+      '    { id: "reservas", icon: "📋", label: "Minhas Reservas", path: "/area-interna/reservas" },',
+      '    { id: "perfil", icon: "👤", label: "Meu Perfil", path: "/area-interna/perfil" },',
+      '  ];',
+      '',
+      '⚠️ IMPORTANTE: Usar window.location.hash para navegação, NUNCA useNavigate().',
+      '⚠️ IMPORTANTE: Checar token em localStorage antes de exibir área interna.'
+    ]
+  },
+  {
+    id: 'guest-reservations-list',
+    title: 'Lista de Reservas do Hóspede',
+    stability: 'stable',
+    description:
+      'Página que lista todas as reservas do hóspede logado, com status visual e ações.',
+    usesEndpoints: ['reservations-mine'],
+    requiredFields: [
+      'Authorization: Bearer <token>',
+      'subdomain'
+    ],
+    notes: [
+      '## Exibição de cada reserva:',
+      '  - Foto do imóvel (coverPhoto)',
+      '  - Nome do imóvel',
+      '  - Datas: check-in → check-out',
+      '  - Número de hóspedes',
+      '  - Status badge colorido',
+      '  - Valor total',
+      '',
+      '## Badges de Status:',
+      '  - pending + pending: 🟡 Aguardando Pagamento (+ countdown)',
+      '  - pending + expired: 🔴 Expirada',
+      '  - confirmed + paid: 🟢 Confirmada',
+      '  - cancelled: ⚫ Cancelada',
+      '  - completed: ✅ Concluída',
+      '',
+      '## Countdown para pendentes:',
+      '  if (reservation.paymentStatus === "pending" && reservation.paymentExpiresAt) {',
+      '    const remaining = new Date(reservation.paymentExpiresAt) - new Date();',
+      '    // Exibir: "Pague em XX:XX:XX"',
+      '  }',
+      '',
+      '## Ação de retomar pagamento:',
+      '  - Se pending + pending: botão "Pagar Agora" → /checkout com reservationId',
+      '',
+      '⚠️ IMPORTANTE: Se lista vazia, exibir mensagem amigável com CTA para reservar.'
     ]
   }
 ] satisfies ClientSitesCatalogBlock[];

@@ -2374,6 +2374,184 @@ clientSites.get("/api/:subdomain/auth/guest/me", async (c: Context) => {
   }
 });
 
+// ============================================================
+// GUEST RESERVATIONS: Lista de reservas do hóspede logado
+// GET /client-sites/api/:subdomain/reservations/mine
+// ============================================================
+clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
+  try {
+    // 1. Validar token JWT
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json(
+        { success: false, error: "Token não fornecido" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return c.json(
+        { success: false, error: "Token inválido" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(atob(parts[1]));
+    } catch {
+      return c.json(
+        { success: false, error: "Token malformado" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // Verificar expiração
+    if (payload.exp < Math.floor(Date.now() / 1000)) {
+      return c.json(
+        { success: false, error: "Token expirado" },
+        401,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    if (payload.type !== 'guest') {
+      return c.json(
+        { success: false, error: "Token inválido para esta rota" },
+        403,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const guestId = payload.sub;
+    const guestEmail = payload.email;
+    const subdomain = c.req.param("subdomain");
+
+    // 2. Buscar site e organização
+    const supabase = getSupabaseAdminClient();
+
+    const { data: site } = await supabase
+      .from("client_sites")
+      .select("organization_id")
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .single();
+
+    if (!site) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // 3. Buscar reservas do hóspede
+    // Procuramos por guest_id OU guest_email (para reservas criadas antes do login)
+    const { data: reservations, error: reservationsError } = await supabase
+      .from("reservations")
+      .select(`
+        id,
+        reservation_code,
+        check_in,
+        check_out,
+        guests,
+        status,
+        payment_status,
+        payment_expires_at,
+        total_price,
+        currency,
+        guest_name,
+        guest_email,
+        guest_phone,
+        message,
+        created_at,
+        updated_at,
+        property_id,
+        properties!inner (
+          id,
+          name,
+          code,
+          cover_photo,
+          photos,
+          address_city,
+          address_state
+        )
+      `)
+      .eq("organization_id", site.organization_id)
+      .or(`guest_id.eq.${guestId},guest_email.ilike.${guestEmail}`)
+      .order("check_in", { ascending: false });
+
+    if (reservationsError) {
+      console.error("Erro ao buscar reservas:", reservationsError);
+      return c.json(
+        { success: false, error: "Erro ao buscar reservas" },
+        500,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // 4. Formatar resposta
+    const formattedReservations = (reservations || []).map((r: any) => {
+      const property = r.properties;
+      // Resolver cover photo
+      let coverPhoto = property?.cover_photo || null;
+      if (!coverPhoto && property?.photos) {
+        const photos = Array.isArray(property.photos) ? property.photos : [];
+        coverPhoto = photos[0] || null;
+      }
+
+      return {
+        id: r.id,
+        reservationCode: r.reservation_code,
+        property: {
+          id: property?.id,
+          name: property?.name || "Imóvel",
+          code: property?.code,
+          coverPhoto,
+          city: property?.address_city,
+          state: property?.address_state,
+        },
+        checkIn: r.check_in,
+        checkOut: r.check_out,
+        guests: r.guests || 1,
+        status: r.status,
+        paymentStatus: r.payment_status,
+        paymentExpiresAt: r.payment_expires_at,
+        totalPrice: r.total_price,
+        currency: r.currency || "BRL",
+        guestName: r.guest_name,
+        guestEmail: r.guest_email,
+        guestPhone: r.guest_phone,
+        message: r.message,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      };
+    });
+
+    return c.json(
+      {
+        success: true,
+        data: formattedReservations,
+        total: formattedReservations.length,
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  } catch (err) {
+    console.error("Erro no reservations/mine:", err);
+    return c.json(
+      { success: false, error: "Erro interno" },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  }
+});
+
 const app = new Hono();
 app.get("/health", (c: Context) =>
   c.json({ ok: true, service: "rendizy-public" }));

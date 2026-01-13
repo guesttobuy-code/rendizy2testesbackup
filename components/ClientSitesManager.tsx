@@ -1553,18 +1553,18 @@ type PromptVersion = {
 
 const PROMPT_VERSIONS: PromptVersion[] = [
   {
-    version: 'v4.1',
+    version: 'v4.2',
     date: '2026-01-13',
-    time: '15:00',
+    time: '15:30',
     author: 'Copilot + Rafael',
     changes: [
-      '✅ Multi-gateway checkout (Stripe + Pagar.me)',
-      '✅ OAuth Google One Tap para hóspedes',
-      '✅ Área interna do cliente com reservas',
-      '🔧 REFORÇO: useNavigate() NUNCA funciona após redirect externo',
-      '🔧 Anti-pattern #9: onClick={() => navigate("/")} proibido',
-      '🔧 CSP: accounts.google.com permitido para Google Sign-In',
-      '🔧 Exemplos de código errado e correto mais detalhados',
+      '🏠 Área Interna do Cliente (Whitelabel)',
+      '✅ Endpoint /reservations/mine para listar reservas',
+      '✅ Estrutura de componentes: GuestLayout, GuestSidebar, etc.',
+      '✅ Menu lateral responsivo com cores do site-config',
+      '✅ Página Minhas Reservas com status badges',
+      '✅ Countdown para reservas pendentes',
+      '✅ Botão "Pagar Agora" para retomar pagamento',
     ],
     prompt: 'CURRENT', // placeholder - usa o prompt atual
   },
@@ -1635,9 +1635,9 @@ function DocsAIModal({ open, onClose }: {
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [selectedVersion, setSelectedVersion] = useState<string>('v4.1');
+  const [selectedVersion, setSelectedVersion] = useState<string>('v4.2');
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.1)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.2)
 
 > **Catálogo**: v1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-13 às 14:30
 
@@ -2507,9 +2507,93 @@ Blocos PLANNED (não dependa): seletor de modalidade, preço por modalidade can�
 
 4) Contato
 
-## Área Interna do Cliente (Login Social OAuth)
+## 🏠 Área Interna do Cliente (WHITELABEL)
 
-Crie uma rota \` + "\`#/area-interna\`" + \` com sistema de login social:
+A área interna é uma seção protegida onde o hóspede logado pode ver suas reservas e dados.
+
+### Estrutura de Rotas
+\` + "\`\`\`" + \`
+#/area-interna              → Redirect para /area-interna/reservas se logado
+#/area-interna/reservas     → Lista de reservas do hóspede (Minhas Reservas)
+#/area-interna/perfil       → Dados pessoais (Meu Perfil)
+#/login                     → Página de login (Google One Tap + Email futuro)
+\` + "\`\`\`" + \`
+
+### Componentes Necessários
+\` + "\`\`\`" + \`
+src/
+├── components/
+│   └── guest-area/
+│       ├── GuestLayout.tsx        # Layout com sidebar + header
+│       ├── GuestSidebar.tsx       # Menu lateral (📋 Reservas, 👤 Perfil)
+│       ├── GuestHeader.tsx        # Header com avatar e nome
+│       ├── GuestGuard.tsx         # HOC: redireciona se não logado
+│       └── GuestMobileNav.tsx     # Navegação mobile (bottom)
+├── pages/
+│   ├── MyReservationsPage.tsx     # Lista de reservas
+│   ├── MyProfilePage.tsx          # Dados do perfil
+│   └── GuestLoginPage.tsx         # Login (Google One Tap)
+└── hooks/
+    ├── useGuestAuth.ts            # Estado de autenticação
+    └── useGuestReservations.ts    # Fetch reservas
+\` + "\`\`\`" + \`
+
+### Cores Whitelabel (OBRIGATÓRIO)
+A área interna DEVE seguir as cores do site-config:
+\` + "\`\`\`" + \`typescript
+const GuestLayout = ({ children, siteConfig }) => {
+  const style = {
+    '--primary': siteConfig?.theme?.primaryColor || '#3B82F6',
+    '--secondary': siteConfig?.theme?.secondaryColor || '#10B981',
+    '--accent': siteConfig?.theme?.accentColor || '#F59E0B',
+  } as React.CSSProperties;
+
+  return (
+    <div style={style} className="min-h-screen bg-gray-50">
+      <GuestSidebar logo={siteConfig?.logo} siteName={siteConfig?.siteName} />
+      <main className="flex-1 p-6">{children}</main>
+    </div>
+  );
+};
+\` + "\`\`\`" + \`
+
+### Menu Lateral (Sidebar)
+\` + "\`\`\`" + \`typescript
+const MENU_ITEMS = [
+  { id: 'reservas', icon: '📋', label: 'Minhas Reservas', path: '#/area-interna/reservas' },
+  { id: 'perfil', icon: '👤', label: 'Meu Perfil', path: '#/area-interna/perfil' },
+];
+
+function GuestSidebar({ logo, siteName }) {
+  const currentPath = window.location.hash;
+  
+  return (
+    <aside className="w-64 bg-gray-900 text-white min-h-screen p-4">
+      <div className="mb-8">
+        {logo ? <img src={logo} alt={siteName} className="h-10" /> : <span className="text-xl font-bold">{siteName}</span>}
+      </div>
+      <nav>
+        {MENU_ITEMS.map(item => (
+          <a 
+            key={item.id}
+            href={item.path}
+            className={\` + "\`" + \`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition
+              \${currentPath.includes(item.id) ? 'bg-primary text-white' : 'hover:bg-gray-800'}\` + "\`" + \`}
+          >
+            <span>{item.icon}</span>
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+\` + "\`\`\`" + \`
+
+### ⚠️ REGRA CRÍTICA: Navegação na Área Interna
+NUNCA use \` + "\`useNavigate()\`" + \` na área interna. Use sempre:
+- \` + "\`<a href=\"#/area-interna/reservas\">\`" + \` para links
+- \` + "\`window.location.hash = '#/area-interna/perfil'\`" + \` para navegação programática
 
 ### Login Social (Google One Tap + Email)
 \` + "\`\`\`" + \`typescript
@@ -2657,6 +2741,112 @@ function LoginAreaInterna() {
 - POST \` + "\`/client-sites/api/:subdomain/auth/guest/google\`" + \`: Recebe credential do Google, cria/atualiza guest_user, retorna JWT
 - GET \` + "\`/client-sites/api/:subdomain/auth/guest/me\`" + \`: Retorna dados do hóspede logado (requer Authorization header)
 - GET \` + "\`/client-sites/api/:subdomain/reservations/mine\`" + \`: Lista reservas do hóspede logado
+
+### 📋 Página Minhas Reservas (MyReservationsPage)
+\` + "\`\`\`" + \`typescript
+function MyReservationsPage() {
+  const [reservations, setReservations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const subdomain = window.RENDIZY_CONFIG?.SUBDOMAIN || 'medhome';
+
+  useEffect(() => {
+    const token = localStorage.getItem('rendizy_guest_token');
+    if (!token) {
+      window.location.hash = '#/login';
+      return;
+    }
+
+    fetch(API_BASE + '/' + subdomain + '/reservations/mine', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setReservations(data.data);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div className="animate-pulse">Carregando...</div>;
+  if (!reservations.length) {
+    return (
+      <div className="text-center py-16">
+        <div className="text-6xl mb-4">🏠</div>
+        <h2 className="text-xl font-semibold mb-2">Nenhuma reserva ainda</h2>
+        <p className="text-gray-500 mb-4">Explore nossos imóveis e faça sua primeira reserva!</p>
+        <a href="#/imoveis" className="inline-block px-6 py-3 bg-primary text-white rounded-lg">
+          Ver Imóveis
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold mb-6">Minhas Reservas</h1>
+      {reservations.map(r => (
+        <div key={r.id} className="bg-white rounded-lg shadow p-4 flex gap-4">
+          <img src={r.property.coverPhoto} alt={r.property.name} className="w-24 h-24 object-cover rounded-lg" />
+          <div className="flex-1">
+            <h3 className="font-semibold">{r.property.name}</h3>
+            <p className="text-sm text-gray-500">{r.property.city}, {r.property.state}</p>
+            <p className="text-sm">📅 {r.checkIn} → {r.checkOut}</p>
+            <p className="text-sm">👥 {r.guests} hóspede(s)</p>
+          </div>
+          <div className="text-right">
+            <ReservationStatusBadge status={r.status} paymentStatus={r.paymentStatus} />
+            <p className="text-lg font-bold mt-2">R$ {r.totalPrice.toFixed(2)}</p>
+            {r.paymentStatus === 'pending' && r.paymentExpiresAt && (
+              <PaymentCountdown expiresAt={r.paymentExpiresAt} reservationId={r.id} />
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReservationStatusBadge({ status, paymentStatus }) {
+  const badges = {
+    'pending-pending': { label: 'Aguardando Pagamento', color: 'bg-yellow-100 text-yellow-800' },
+    'pending-expired': { label: 'Expirada', color: 'bg-red-100 text-red-800' },
+    'confirmed-paid': { label: 'Confirmada', color: 'bg-green-100 text-green-800' },
+    'cancelled': { label: 'Cancelada', color: 'bg-gray-100 text-gray-800' },
+    'completed-paid': { label: 'Concluída', color: 'bg-blue-100 text-blue-800' },
+  };
+  const key = status === 'cancelled' ? 'cancelled' : \` + "\`" + \`\${status}-\${paymentStatus}\` + "\`" + \`;
+  const badge = badges[key] || { label: status, color: 'bg-gray-100' };
+  
+  return <span className={\` + "\`" + \`px-2 py-1 rounded-full text-xs font-medium \${badge.color}\` + "\`" + \`}>{badge.label}</span>;
+}
+
+function PaymentCountdown({ expiresAt, reservationId }) {
+  const [remaining, setRemaining] = useState('');
+  
+  useEffect(() => {
+    const update = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      if (diff <= 0) { setRemaining('Expirado'); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRemaining(\` + "\`" + \`\${h}:\${m.toString().padStart(2,'0')}:\${s.toString().padStart(2,'0')}\` + "\`" + \`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+
+  return (
+    <div className="mt-2">
+      <p className="text-xs text-orange-600">⏱️ Pague em {remaining}</p>
+      <a href={\` + "\`" + \`#/checkout?reservationId=\${reservationId}\` + "\`" + \`} 
+         className="inline-block mt-1 px-3 py-1 bg-orange-500 text-white text-sm rounded">
+        Pagar Agora
+      </a>
+    </div>
+  );
+}
+\` + "\`\`\`" + \`
 
 ## ⛔ Anti-patterns (NÃO FAÇA ISSO)
 1. **NÃO use @supabase/supabase-js** — causa crash ` + "`supabaseUrl is required`" + `
@@ -2875,7 +3065,7 @@ Regras:
 Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
 
   const currentVersion = PROMPT_VERSIONS.find(v => v.version === selectedVersion);
-  const displayPrompt = selectedVersion === 'v4.1' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
+  const displayPrompt = selectedVersion === 'v4.2' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
 
   const copyPrompt = () => {
     navigator.clipboard.writeText(displayPrompt);
@@ -2919,7 +3109,7 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
             <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border">
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-green-500 font-mono text-sm">v4.1</Badge>
+                  <Badge className="bg-green-500 font-mono text-sm">v4.2</Badge>
                   <span className="text-sm text-gray-600">Versão Atual</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
@@ -3002,8 +3192,8 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Badge 
-                          variant={v.version === 'v4.1' ? 'default' : 'outline'}
-                          className={`font-mono ${v.version === 'v4.1' ? 'bg-green-500' : ''}`}
+                          variant={v.version === 'v4.2' ? 'default' : 'outline'}
+                          className={`font-mono ${v.version === 'v4.2' ? 'bg-green-500' : ''}`}
                         >
                           {v.version}
                         </Badge>
