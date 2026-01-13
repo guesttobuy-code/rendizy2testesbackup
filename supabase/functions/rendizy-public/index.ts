@@ -1363,6 +1363,17 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
     const serviceFee = pricing.serviceFee;
     const totalPrice = baseTotal + cleaningFee + serviceFee;
 
+    // Fetch pending reservation settings from organization
+    const { data: orgSettings } = await supabase
+      .from("organizations")
+      .select("pending_reservation_enabled, pending_reservation_timeout_hours")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    // Calculate payment expiration (default 24 hours if not configured)
+    const timeoutHours = (orgSettings as any)?.pending_reservation_timeout_hours ?? 24;
+    const paymentExpiresAt = new Date(Date.now() + timeoutHours * 60 * 60 * 1000).toISOString();
+
     // Generate reservation ID and code
     const reservationId = crypto.randomUUID();
     const reservationCode = `WEB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
@@ -1386,6 +1397,8 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
         pricing_total: totalPrice,
         pricing_currency: pricing.currency,
         status: "pending",
+        payment_status: "pending",
+        payment_expires_at: paymentExpiresAt,
         platform: "direct",
         notes: message ? `[Site: ${guestName}] ${message}` : `[Site] Reserva via site público`,
         special_requests: guestEmail ? `Email: ${guestEmail}` : null,
@@ -1420,8 +1433,11 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
           totalPrice: (newReservation as any).pricing_total,
           currency: (newReservation as any).pricing_currency,
           status: (newReservation as any).status,
+          paymentStatus: "pending",
+          paymentExpiresAt: paymentExpiresAt,
+          paymentTimeoutHours: timeoutHours,
           createdAt: (newReservation as any).created_at,
-          message: "Reserva criada com sucesso! Aguarde confirmação.",
+          message: `Pré-reserva criada! Finalize o pagamento em até ${timeoutHours} horas para confirmar.`,
         },
       },
       201,

@@ -1148,18 +1148,23 @@ export async function receiveStripeWebhook(c: Context) {
           }
         }
 
-        // marcar reserva como paga, se possível
+        // marcar reserva como paga e confirmar status
         if (reservationId && typeof reservationId === 'string' && reservationId.trim()) {
           await supabase
             .from('reservations')
             .update({
+              status: 'confirmed', // Confirma a reserva automaticamente após pagamento
               payment_status: 'paid',
               payment_method: 'stripe',
               payment_transaction_id: paymentIntentId || checkoutSessionId || null,
               payment_paid_at: new Date().toISOString(),
+              payment_expires_at: null, // Remove expiração já que foi pago
+              updated_at: new Date().toISOString(),
             })
             .eq('id', reservationId)
             .eq('organization_id', organizationId);
+          
+          logInfo(`[Stripe] Reserva ${reservationId} confirmada após pagamento`);
         }
       }
 
@@ -1179,13 +1184,18 @@ export async function receiveStripeWebhook(c: Context) {
             await supabase
               .from('reservations')
               .update({
+                status: 'confirmed', // Confirma a reserva automaticamente após pagamento
                 payment_status: 'paid',
                 payment_method: 'stripe',
                 payment_transaction_id: paymentIntentId,
                 payment_paid_at: new Date().toISOString(),
+                payment_expires_at: null, // Remove expiração já que foi pago
+                updated_at: new Date().toISOString(),
               })
               .eq('id', reservationId)
               .eq('organization_id', organizationId);
+            
+            logInfo(`[Stripe] Reserva ${reservationId} confirmada via payment_intent.succeeded`);
           }
         }
       }

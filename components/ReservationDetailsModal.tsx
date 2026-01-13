@@ -295,6 +295,7 @@ export function ReservationDetailsModal({
                 <span>Reserva #{reservation.id.slice(0, 8).toUpperCase()}</span>
                 <Badge className={statusColors[reservation.status]}>
                   {statusLabels[reservation.status]}
+                  {reservation.status === 'cancelled' && reservation.cancellationReason === 'payment_timeout' && ' (timeout)'}
                 </Badge>
                 <Badge variant="outline" className={platformColors[reservation.platform]}>
                   {reservation.platform === 'airbnb' && 'Airbnb'}
@@ -305,6 +306,13 @@ export function ReservationDetailsModal({
               </DialogTitle>
               <DialogDescription className="text-sm text-gray-600">
                 Criada em {format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                {reservation.status === 'cancelled' && reservation.cancellationReason && (
+                  <span className="ml-2 text-red-600">
+                    • {reservation.cancellationReason === 'payment_timeout' 
+                      ? 'Cancelada por timeout de pagamento' 
+                      : `Cancelada: ${reservation.cancellationReason}`}
+                  </span>
+                )}
               </DialogDescription>
             </div>
             <div className="flex gap-2">

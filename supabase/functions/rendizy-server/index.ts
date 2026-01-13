@@ -68,6 +68,7 @@ import usersApp from "./routes-users.ts";
 import * as photosRoutes from "./routes-photos.ts";
 import * as stripeRoutes from "./routes-stripe.ts";
 import * as paymentsRoutes from "./routes-payments.ts";
+import * as cronPendingReservationsRoutes from "./routes-cron-pending-reservations.ts"; // ✅ CRON: Cancelar pendentes expiradas
 
 const app = new Hono();
 
@@ -632,6 +633,17 @@ app.get("/guests/:id", tenancyMiddleware, guestsRoutes.getGuest);
 app.post("/guests", tenancyMiddleware, guestsRoutes.createGuest);
 app.put("/guests/:id", tenancyMiddleware, guestsRoutes.updateGuest);
 app.delete("/guests/:id", tenancyMiddleware, guestsRoutes.deleteGuest);
+
+// ============================================================================
+// CRON: Cancelar Reservas Pendentes Expiradas (Pré-Reservas)
+// ============================================================================
+// Chamado por cron externo (cron-job.org, GitHub Actions, ou Supabase pg_cron)
+// Requer header: x-cron-secret ou apikey com service_role
+app.post("/rendizy-server/cron/cancel-expired-pending", cronPendingReservationsRoutes.cancelExpiredPendingReservations);
+app.post("/cron/cancel-expired-pending", cronPendingReservationsRoutes.cancelExpiredPendingReservations);
+// Admin view: reservas próximas de expirar (para dashboard)
+app.get("/rendizy-server/cron/pending-near-expiry", tenancyMiddleware, cronPendingReservationsRoutes.listPendingReservationsNearExpiry);
+app.get("/cron/pending-near-expiry", tenancyMiddleware, cronPendingReservationsRoutes.listPendingReservationsNearExpiry);
 
 // ============================================================================
 // DEFAULT HANDLERS

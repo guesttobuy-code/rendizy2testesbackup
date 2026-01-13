@@ -79,14 +79,26 @@ const parseDateOnlyLocal = (value: unknown): Date | null => {
   return null;
 };
 
-const getStatusInfo = (status: string) => {
+const getStatusInfo = (status: string, cancellationReason?: string) => {
   const info: Record<string, { label: string; color: string }> = {
     confirmed: { label: 'Confirmada', color: 'bg-green-500' },
     pending: { label: 'Pendente', color: 'bg-yellow-500' },
     blocked: { label: 'Bloqueado', color: 'bg-gray-500' },
-    maintenance: { label: 'Manutenção', color: 'bg-red-500' }
+    maintenance: { label: 'Manutenção', color: 'bg-red-500' },
+    cancelled: { label: 'Cancelada', color: 'bg-red-600' },
+    checked_in: { label: 'Check-in', color: 'bg-blue-500' },
+    checked_out: { label: 'Check-out', color: 'bg-purple-500' },
+    no_show: { label: 'No Show', color: 'bg-orange-500' }
   };
-  return info[status] || info.confirmed;
+  
+  const baseInfo = info[status] || info.confirmed;
+  
+  // Adiciona detalhe do motivo para cancelamentos por timeout
+  if (status === 'cancelled' && cancellationReason === 'payment_timeout') {
+    return { ...baseInfo, label: 'Cancelada (timeout)', detail: 'Pagamento não confirmado no prazo' };
+  }
+  
+  return baseInfo;
 };
 
 function ReservationCardComponent({ 
@@ -100,7 +112,7 @@ function ReservationCardComponent({
   widthAdjustPx = 0
 }: ReservationCardProps) {
   const platformInfo = getPlatformInfo(reservation.platform);
-  const statusInfo = getStatusInfo(reservation.status);
+  const statusInfo = getStatusInfo(reservation.status, reservation.cancellationReason);
   
   // CONCEITO DE HORAS: Cada célula = 80px = 24 horas
   // Check-in: meio-dia (~14h) = 40px (metade da célula)
@@ -233,6 +245,25 @@ function ReservationCardComponent({
                   {statusInfo.label}
                 </span>
               </div>
+              {/* Motivo de cancelamento */}
+              {reservation.status === 'cancelled' && reservation.cancellationReason && (
+                <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-gray-800">
+                  <div className="flex items-center gap-1 text-xs">
+                    <strong>🚫 Motivo:</strong>{' '}
+                    {reservation.cancellationReason === 'payment_timeout' 
+                      ? 'Pagamento não confirmado no prazo' 
+                      : reservation.cancellationReason}
+                  </div>
+                  {reservation.cancelledAt && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      Cancelada em: {new Date(reservation.cancelledAt).toLocaleDateString('pt-BR', { 
+                        day: '2-digit', month: '2-digit', year: 'numeric', 
+                        hour: '2-digit', minute: '2-digit' 
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
               {reservation.hasConflict && (
                 <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-900">
                   <div className="flex items-center gap-1">

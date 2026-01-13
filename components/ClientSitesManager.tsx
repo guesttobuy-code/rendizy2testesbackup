@@ -2028,17 +2028,23 @@ Content-Type: application/json
 
 **Exemplo de uso no cliente:**
 ` + "```" + `typescript
+// IMPORTANTE: Use hash routes (/#/...) para compatibilidade com SPA estático!
 async function redirectToCheckout(subdomain: string, reservationId: string) {
   const baseUrl = 'https://odcgnzfremrqnvtitpcc.supabase.co';
   const url = ` + "`${baseUrl}/functions/v1/rendizy-public/client-sites/api/${subdomain}/checkout/session`" + `;
+  
+  // CERTO: usar window.location.origin + hash route
+  // ERRADO: usar /sucesso sem # (causa redirect para outra aplicação)
+  const successUrl = window.location.origin + window.location.pathname + '#/reserva/' + reservationId + '/sucesso';
+  const cancelUrl = window.location.origin + window.location.pathname + '#/reserva/' + reservationId + '/cancelado';
   
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       reservationId,
-      successUrl: window.location.origin + '/sucesso',
-      cancelUrl: window.location.origin + '/cancelado'
+      successUrl,
+      cancelUrl
     })
   });
   
@@ -2047,7 +2053,7 @@ async function redirectToCheckout(subdomain: string, reservationId: string) {
     throw new Error(json.error || 'Erro ao criar checkout');
   }
   
-  // Redireciona para o Stripe
+  // Redireciona para o gateway de pagamento
   window.location.href = json.data.checkoutUrl;
 }
 ` + "```" + `
@@ -2064,7 +2070,8 @@ async function createReservation(subdomain: string, data: {
   guests?: number;
   message?: string;
 }) {
-  const baseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://odcgnzfremrqnvtitpcc.supabase.co';
+  // NÃO USE import.meta.env.VITE_* - use URL fixa hardcoded
+  const baseUrl = 'https://odcgnzfremrqnvtitpcc.supabase.co';
   const url = ` + "`${baseUrl}/functions/v1/rendizy-public/client-sites/api/${subdomain}/reservations`" + `;
   
   const res = await fetch(url, {
@@ -2078,7 +2085,9 @@ async function createReservation(subdomain: string, data: {
     throw new Error(err.error || 'Erro ao criar reserva');
   }
   
-  return res.json();
+  const json = await res.json();
+  // json.data contém: { id, reservationCode, paymentExpiresAt, paymentTimeoutHours, ... }
+  return json;
 }
 ` + "```" + `
 
@@ -2254,8 +2263,9 @@ function PaymentMethodSelector({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reservationId,
-          successUrl: window.location.origin + '/#/sucesso',
-          cancelUrl: window.location.origin + '/#/cancelado',
+          // IMPORTANTE: Usar hash routes para SPA estático!
+          successUrl: window.location.origin + window.location.pathname + '#/reserva/' + reservationId + '/sucesso',
+          cancelUrl: window.location.origin + window.location.pathname + '#/reserva/' + reservationId + '/cancelado',
           paymentMethod: selected  // ex: "stripe:credit_card" ou "pagarme:pix"
         })
       });

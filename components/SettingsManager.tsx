@@ -922,7 +922,33 @@ export function SettingsManager({
 
               {/* Reservas */}
               <TabsContent value="reservas" className="mt-6">
-                {renderSettingsEditor(reservationSections)}
+                <Tabs defaultValue="reservation-general" className="w-full">
+                  <div className="border-b border-border bg-muted/50">
+                    <TabsList className="w-full max-w-full overflow-x-hidden flex-col sm:flex-row items-stretch justify-start bg-transparent rounded-none h-auto p-0">
+                      <TabsTrigger
+                        value="reservation-general"
+                        className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Configurações Gerais
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="pending-reservations"
+                        className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Reservas Temporárias
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  <TabsContent value="reservation-general" className="mt-6">
+                    {renderSettingsEditor(reservationSections)}
+                  </TabsContent>
+                  <TabsContent value="pending-reservations" className="mt-6">
+                    <PendingReservationSettingsCard organizationId={organizationId} />
+                  </TabsContent>
+                </Tabs>
               </TabsContent>
 
               {/* Precificação */}
@@ -1978,5 +2004,333 @@ function ChannelsCommunicationSettings({ organizationId }: { organizationId: str
         </CardContent>
       </Card>
     </>
+  );
+}
+
+// ============================================================================
+// PENDING RESERVATION SETTINGS CARD (Reservas Temporárias)
+// Similar to Stays.net "Pré-reservas" feature
+// ============================================================================
+
+function PendingReservationSettingsCard({ organizationId }: { organizationId: string }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState({
+    enabled: true,
+    timeoutHours: 24,
+    autoCancel: true,
+    notifyGuest: true,
+    notifyAdmin: true,
+    reminderHours: 6
+  });
+
+  useEffect(() => {
+    loadSettings();
+  }, [organizationId]);
+
+  const loadSettings = async () => {
+    setLoading(true);
+    try {
+      const authToken = localStorage.getItem('supabaseAuthToken');
+      const res = await fetch(
+        `https://${projectId}.supabase.co/rest/v1/organizations?id=eq.${organizationId}&select=pending_reservation_enabled,pending_reservation_timeout_hours,pending_reservation_auto_cancel,pending_reservation_notify_guest,pending_reservation_notify_admin,pending_reservation_reminder_hours`,
+        {
+          headers: {
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${authToken || publicAnonKey}`,
+          }
+        }
+      );
+      const data = await res.json();
+      if (data && data[0]) {
+        const org = data[0];
+        setSettings({
+          enabled: org.pending_reservation_enabled ?? true,
+          timeoutHours: org.pending_reservation_timeout_hours ?? 24,
+          autoCancel: org.pending_reservation_auto_cancel ?? true,
+          notifyGuest: org.pending_reservation_notify_guest ?? true,
+          notifyAdmin: org.pending_reservation_notify_admin ?? true,
+          reminderHours: org.pending_reservation_reminder_hours ?? 6
+        });
+      }
+    } catch (err) {
+      console.error('Error loading pending reservation settings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      const authToken = localStorage.getItem('supabaseAuthToken');
+      const res = await fetch(
+        `https://${projectId}.supabase.co/rest/v1/organizations?id=eq.${organizationId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${authToken || publicAnonKey}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            pending_reservation_enabled: settings.enabled,
+            pending_reservation_timeout_hours: settings.timeoutHours,
+            pending_reservation_auto_cancel: settings.autoCancel,
+            pending_reservation_notify_guest: settings.notifyGuest,
+            pending_reservation_notify_admin: settings.notifyAdmin,
+            pending_reservation_reminder_hours: settings.reminderHours
+          })
+        }
+      );
+      if (res.ok) {
+        toast.success('Configurações de reservas temporárias salvas!');
+      } else {
+        throw new Error('Erro ao salvar');
+      }
+    } catch (err) {
+      console.error('Error saving pending reservation settings:', err);
+      toast.error('Erro ao salvar configurações');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <Loader2 className="h-8 w-8 text-blue-400 mx-auto mb-4 animate-spin" />
+        <p className="text-muted-foreground">Carregando configurações...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xl text-foreground flex items-center gap-3">
+            <Clock className="h-5 w-5 text-orange-400" />
+            Reservas Temporárias
+          </h3>
+          <p className="text-muted-foreground text-sm mt-1">
+            Configure como funcionam as pré-reservas aguardando pagamento
+          </p>
+        </div>
+        <Button
+          onClick={saveSettings}
+          disabled={saving}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Salvando...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Salvar
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Info Card */}
+      <Card className="bg-amber-500/10 border-amber-500/30">
+        <CardContent className="pt-4">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="text-foreground mb-1 font-medium">Como funciona?</p>
+              <p className="text-muted-foreground">
+                Quando um cliente solicita uma reserva pelo site, ela fica em status <strong>"Pendente"</strong> bloqueando 
+                o calendário. O cliente tem um tempo limite para finalizar o pagamento. Se não pagar dentro do prazo, 
+                a reserva é automaticamente cancelada e as datas liberadas.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Main Settings */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-card-foreground text-base flex items-center gap-2">
+            <Settings className="h-4 w-4 text-blue-400" />
+            Configuração Principal
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Enable/Disable */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-foreground">Ativar Reservas Temporárias</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Bloquear calendário enquanto aguarda pagamento
+              </p>
+            </div>
+            <Switch
+              checked={settings.enabled}
+              onCheckedChange={(checked) => setSettings(prev => ({ ...prev, enabled: checked }))}
+            />
+          </div>
+
+          <Separator className="bg-border" />
+
+          {/* Timeout */}
+          <div className="space-y-2">
+            <Label className="text-foreground">Tempo Limite para Pagamento</Label>
+            <p className="text-xs text-muted-foreground">
+              Após esse período, a reserva pendente será cancelada automaticamente
+            </p>
+            <Select
+              value={String(settings.timeoutHours)}
+              onValueChange={(v) => setSettings(prev => ({ ...prev, timeoutHours: Number(v) }))}
+            >
+              <SelectTrigger className="w-full max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="6">6 horas</SelectItem>
+                <SelectItem value="12">12 horas</SelectItem>
+                <SelectItem value="24">24 horas</SelectItem>
+                <SelectItem value="48">48 horas (2 dias)</SelectItem>
+                <SelectItem value="72">72 horas (3 dias)</SelectItem>
+                <SelectItem value="168">168 horas (7 dias)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Separator className="bg-border" />
+
+          {/* Auto Cancel */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-foreground">Cancelamento Automático</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Cancelar reservas pendentes que excedem o tempo limite
+              </p>
+            </div>
+            <Switch
+              checked={settings.autoCancel}
+              onCheckedChange={(checked) => setSettings(prev => ({ ...prev, autoCancel: checked }))}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notification Settings */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-card-foreground text-base flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-green-400" />
+            Notificações
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Configure os alertas para reservas temporárias
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Reminder Hours */}
+          <div className="space-y-2">
+            <Label className="text-foreground">Lembrete Antes de Expirar</Label>
+            <p className="text-xs text-muted-foreground">
+              Enviar lembrete de pagamento X horas antes de expirar
+            </p>
+            <Select
+              value={String(settings.reminderHours)}
+              onValueChange={(v) => setSettings(prev => ({ ...prev, reminderHours: Number(v) }))}
+            >
+              <SelectTrigger className="w-full max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 hora antes</SelectItem>
+                <SelectItem value="2">2 horas antes</SelectItem>
+                <SelectItem value="6">6 horas antes</SelectItem>
+                <SelectItem value="12">12 horas antes</SelectItem>
+                <SelectItem value="24">24 horas antes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Separator className="bg-border" />
+
+          {/* Notify Guest */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-foreground">Notificar Hóspede</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Enviar lembrete ao hóspede antes da reserva expirar
+              </p>
+            </div>
+            <Switch
+              checked={settings.notifyGuest}
+              onCheckedChange={(checked) => setSettings(prev => ({ ...prev, notifyGuest: checked }))}
+            />
+          </div>
+
+          <Separator className="bg-border" />
+
+          {/* Notify Admin */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-foreground">Notificar Administrador</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Alertar o admin quando uma reserva temporária expirar
+              </p>
+            </div>
+            <Switch
+              checked={settings.notifyAdmin}
+              onCheckedChange={(checked) => setSettings(prev => ({ ...prev, notifyAdmin: checked }))}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Status Info */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-card-foreground text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-purple-400" />
+            Fluxo de Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="h-4 w-4 text-yellow-500" />
+                <span className="font-medium text-yellow-500">Pendente</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Reserva criada, aguardando pagamento. Calendário bloqueado.
+              </p>
+            </div>
+            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="font-medium text-green-500">Confirmada</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Pagamento recebido. Reserva confirmada automaticamente.
+              </p>
+            </div>
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="h-4 w-4 text-red-500" />
+                <span className="font-medium text-red-500">Cancelada</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Tempo limite expirou. Datas liberadas, reserva no histórico.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
