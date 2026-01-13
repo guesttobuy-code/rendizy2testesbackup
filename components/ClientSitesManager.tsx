@@ -1652,11 +1652,11 @@ function DocsAIModal({ open, onClose }: {
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [selectedVersion, setSelectedVersion] = useState<string>('v4.2');
+  const [selectedVersion, setSelectedVersion] = useState<string>('v4.3');
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.2)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.3)
 
-> **Catálogo**: v1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-13 às 14:30
+> **Catálogo**: v1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-13 às 17:00
 
 ---
 ## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
@@ -2950,7 +2950,8 @@ Regras:
 Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
 
   const currentVersion = PROMPT_VERSIONS.find(v => v.version === selectedVersion);
-  const displayPrompt = selectedVersion === 'v4.2' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
+  // v4.3 é o atual - usa aiPrompt. Outras versões usam o prompt salvo no histórico
+  const displayPrompt = selectedVersion === 'v4.3' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
 
   const copyPrompt = () => {
     navigator.clipboard.writeText(displayPrompt);
@@ -2972,15 +2973,11 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="prompt" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="prompt" className="gap-2">
-              <Code className="h-4 w-4" />
-              Prompt Atual
-            </TabsTrigger>
+        <Tabs defaultValue="historico" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="historico" className="gap-2">
               <History className="h-4 w-4" />
-              Histórico
+              Versões do Prompt
             </TabsTrigger>
             <TabsTrigger value="instrucoes" className="gap-2">
               <FileText className="h-4 w-4" />
@@ -2988,41 +2985,12 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
             </TabsTrigger>
           </TabsList>
 
-          {/* TAB: Prompt Atual */}
-          <TabsContent value="prompt" className="flex-1 overflow-y-auto space-y-4 mt-4">
-            {/* Versão atual */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-green-500 font-mono text-sm">v4.2</Badge>
-                  <span className="text-sm text-gray-600">Versão Atual</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Atualizado em 2026-01-13 às 14:30 por Copilot + Rafael
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant={copied ? 'default' : 'outline'}
-                onClick={copyPrompt}
-                className="gap-2"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Copiado!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" />
-                    Copiar Prompt
-                  </>
-                )}
-              </Button>
-            </div>
 
-            {/* Plataformas */}
-            <div className="grid grid-cols-3 gap-3">
+
+          {/* TAB: Histórico (agora é a aba principal) */}
+          <TabsContent value="historico" className="flex-1 overflow-y-auto mt-4">
+            {/* Plataformas - sempre visível no topo */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
               <Button
                 variant="outline"
                 className="h-auto py-3 flex-col gap-1 border-2 border-purple-200 bg-purple-50 hover:bg-purple-100"
@@ -3052,60 +3020,74 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
               </Button>
             </div>
 
-            {/* Prompt */}
-            <Textarea
-              value={displayPrompt}
-              readOnly
-              className="min-h-[300px] font-mono text-xs bg-gray-50 flex-1"
-            />
-          </TabsContent>
-
-          {/* TAB: Histórico */}
-          <TabsContent value="historico" className="flex-1 overflow-y-auto mt-4">
             <div className="space-y-3">
-              {PROMPT_VERSIONS.map((v) => (
-                <Card 
-                  key={v.version}
-                  className={`cursor-pointer transition-all ${
-                    selectedVersion === v.version 
-                      ? 'border-2 border-purple-500 shadow-md' 
-                      : 'hover:border-gray-300'
-                  }`}
-                  onClick={() => setSelectedVersion(v.version)}
-                >
-                  <CardHeader className="py-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge 
-                          variant={v.version === 'v4.2' ? 'default' : 'outline'}
-                          className={`font-mono ${v.version === 'v4.2' ? 'bg-green-500' : ''}`}
-                        >
-                          {v.version}
-                        </Badge>
-                        <div>
-                          <p className="text-sm font-medium">{v.date} às {v.time}</p>
-                          <p className="text-xs text-gray-500">por {v.author}</p>
+              {PROMPT_VERSIONS.map((v, index) => {
+                const isLatest = index === 0;
+                const isSelected = selectedVersion === v.version;
+                
+                return (
+                  <Card 
+                    key={v.version}
+                    className={`cursor-pointer transition-all ${
+                      isSelected 
+                        ? 'border-2 border-purple-500 shadow-md' 
+                        : isLatest
+                          ? 'border-2 border-green-300 hover:border-green-400'
+                          : 'hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedVersion(v.version)}
+                  >
+                    <CardHeader className="py-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Badge 
+                            variant={isLatest ? 'default' : 'outline'}
+                            className={`font-mono ${isLatest ? 'bg-green-500' : ''}`}
+                          >
+                            {v.version}
+                          </Badge>
+                          {isLatest && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                              ATUAL
+                            </Badge>
+                          )}
+                          <div>
+                            <p className="text-sm font-medium">{v.date} às {v.time}</p>
+                            <p className="text-xs text-gray-500">por {v.author}</p>
+                          </div>
                         </div>
-                      </div>
-                      {selectedVersion === v.version && (
-                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); copyPrompt(); }} className="gap-2">
-                          <Copy className="h-3 w-3" />
-                          Copiar
+                        <Button 
+                          size="sm" 
+                          variant={isSelected ? (copied ? 'default' : 'outline') : 'ghost'}
+                          onClick={(e) => { e.stopPropagation(); setSelectedVersion(v.version); copyPrompt(); }} 
+                          className="gap-2"
+                        >
+                          {copied && isSelected ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Copiado!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              Copiar
+                            </>
+                          )}
                         </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex flex-wrap gap-1">
-                      {v.changes.map((change, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs font-normal">
-                          {change}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex flex-wrap gap-1">
+                        {v.changes.map((change, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs font-normal">
+                            {change}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
 
@@ -3117,7 +3099,7 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
               <AlertDescription className="mt-3">
                 <ol className="list-decimal list-inside space-y-3 text-sm">
                   <li className="text-gray-700">
-                    <strong>Copie o prompt</strong> — Vá na aba "Prompt Atual" e clique em "Copiar Prompt"
+                    <strong>Copie o prompt</strong> — Na aba "Versões do Prompt", clique em "Copiar" na versão mais recente (ATUAL)
                   </li>
                   <li className="text-gray-700">
                     <strong>Abra uma IA</strong> — Acesse Bolt.new, v0.dev, Claude ou ChatGPT
