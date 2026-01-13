@@ -1553,18 +1553,18 @@ type PromptVersion = {
 
 const PROMPT_VERSIONS: PromptVersion[] = [
   {
-    version: 'v4.0',
+    version: 'v4.1',
     date: '2026-01-13',
-    time: '14:30',
+    time: '15:00',
     author: 'Copilot + Rafael',
     changes: [
       '✅ Multi-gateway checkout (Stripe + Pagar.me)',
-      '✅ Endpoint /payment-methods para listar opções',
-      '✅ PIX e Boleto via Pagar.me',
       '✅ OAuth Google One Tap para hóspedes',
-      '✅ Área interna do cliente',
-      '✅ Meta-info com versão do catálogo e sistema',
-      '✅ Regra de navegação: usar window.location.hash em páginas de resultado',
+      '✅ Área interna do cliente com reservas',
+      '🔧 REFORÇO: useNavigate() NUNCA funciona após redirect externo',
+      '🔧 Anti-pattern #9: onClick={() => navigate("/")} proibido',
+      '🔧 CSP: accounts.google.com permitido para Google Sign-In',
+      '🔧 Exemplos de código errado e correto mais detalhados',
     ],
     prompt: 'CURRENT', // placeholder - usa o prompt atual
   },
@@ -1635,9 +1635,9 @@ function DocsAIModal({ open, onClose }: {
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [selectedVersion, setSelectedVersion] = useState<string>('v4.0');
+  const [selectedVersion, setSelectedVersion] = useState<string>('v4.1');
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.0)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.1)
 
 > **Catálogo**: v1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-13 às 14:30
 
@@ -2664,37 +2664,47 @@ function LoginAreaInterna() {
 3. **NÃO use BrowserRouter** — deep-links quebram; use HashRouter
 4. **NÃO referencie assets com path absoluto** (` + "`/images/...`" + `) — use relative
 5. **NÃO dependa de SSR/Node** — o site é 100% estático
-6. **NÃO carregue scripts de CDN** — CSP bloqueia
+6. **NÃO carregue scripts de CDN externos** — CSP bloqueia (EXCEÇÃO: ` + "`https://accounts.google.com/gsi/client`" + ` é permitido)
 7. **NÃO use dados mock para calendário** — ` + "`Date.now() + X dias`" + ` ou arrays hardcoded de bloqueios são PROIBIDOS. Use a API ` + "`/calendar`" + ` real.
-8. **NÃO use navigate() em páginas de resultado de pagamento** — pode falhar; use ` + "`window.location.hash`" + ` (veja seção abaixo)
+8. **NÃO use useNavigate() em páginas de resultado de pagamento** — SEMPRE falha após redirect externo; use ` + "`window.location.hash`" + ` ou ` + "`<a href>`" + `
+9. **NÃO use onClick={() => navigate('/')}** em páginas de sucesso/cancelamento — o navigate não funciona após retorno do gateway de pagamento
 
 ## 📍 Páginas de Resultado de Pagamento (CRÍTICO)
 
-Após o checkout, o gateway redireciona para ` + "`successUrl`" + ` ou ` + "`cancelUrl`" + `.
+⚠️ **ATENÇÃO MÁXIMA**: Esta seção é OBRIGATÓRIA. Erros aqui quebram o fluxo do usuário após pagamento.
+
+Após o checkout, o gateway (Stripe/Pagar.me) redireciona para ` + "`successUrl`" + ` ou ` + "`cancelUrl`" + `.
 Você DEVE criar as rotas:
 - ` + "`#/pagamento-sucesso`" + ` ou ` + "`#/reserva/:id/sucesso`" + `
 - ` + "`#/pagamento-cancelado`" + ` ou ` + "`#/reserva/:id/cancelado`" + `
 
 ### ⚠️ REGRA CRÍTICA: Botão "Voltar para Home"
 
-O hook ` + "`useNavigate()`" + ` do React Router pode falhar nessas páginas porque:
+O hook ` + "`useNavigate()`" + ` do React Router **SEMPRE FALHA** nessas páginas porque:
 1. O usuário veio de redirect externo (Stripe/Pagar.me)
-2. O estado do router pode não estar inicializado corretamente
+2. O estado do router não está inicializado corretamente após redirect cross-origin
+3. A função ` + "`navigate`" + ` retorna ` + "`undefined`" + ` ou quebra silenciosamente
 
-**❌ ERRADO:**
+**❌ ERRADO (NUNCA FAÇA ISSO):**
 ` + "```" + `typescript
-// PODE FALHAR! navigate pode ser undefined após redirect externo
+// ❌ QUEBRA 100% DAS VEZES! navigate é undefined após redirect externo
 const navigate = useNavigate();
 <button onClick={() => navigate('/')}>Voltar</button>
+
+// ❌ TAMBÉM ERRADO - mesmo problema:
+<button onClick={() => navigate(-1)}>Voltar</button>
 ` + "```" + `
 
-**✅ CORRETO:**
+**✅ CORRETO (USE SEMPRE):**
 ` + "```" + `typescript
-// SEMPRE funciona, independente do estado do router
+// ✅ SEMPRE funciona, independente do estado do router
 <button onClick={() => window.location.hash = '#/'}>Voltar para Home</button>
 
-// OU usar link direto
+// ✅ OU usar link direto (PREFERIDO)
 <a href="#/">Voltar para Home</a>
+
+// ✅ Para navegar para outra página:
+<a href="#/imoveis">Ver Imóveis</a>
 ` + "```" + `
 
 ### Exemplo de Página de Sucesso:
@@ -2865,7 +2875,7 @@ Regras:
 Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
 
   const currentVersion = PROMPT_VERSIONS.find(v => v.version === selectedVersion);
-  const displayPrompt = selectedVersion === 'v4.0' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
+  const displayPrompt = selectedVersion === 'v4.1' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
 
   const copyPrompt = () => {
     navigator.clipboard.writeText(displayPrompt);
@@ -2909,7 +2919,7 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
             <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border">
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-green-500 font-mono text-sm">v4.0</Badge>
+                  <Badge className="bg-green-500 font-mono text-sm">v4.1</Badge>
                   <span className="text-sm text-gray-600">Versão Atual</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
@@ -2992,8 +3002,8 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Badge 
-                          variant={v.version === 'v4.0' ? 'default' : 'outline'}
-                          className={`font-mono ${v.version === 'v4.0' ? 'bg-green-500' : ''}`}
+                          variant={v.version === 'v4.1' ? 'default' : 'outline'}
+                          className={`font-mono ${v.version === 'v4.1' ? 'bg-green-500' : ''}`}
                         >
                           {v.version}
                         </Badge>
