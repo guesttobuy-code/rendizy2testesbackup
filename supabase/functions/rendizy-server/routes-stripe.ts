@@ -419,6 +419,120 @@ export async function saveStripeConfig(c: Context) {
 }
 
 /**
+ * POST /settings/stripe/create-webhook
+ * Força a criação do webhook no Stripe para configurações existentes.
+ * Útil para migrar configurações antigas que foram salvas antes do auto-create.
+ * 
+ * Aceita organization_id via:
+ * 1. Header x-organization-id (para chamadas administrativas)
+ * 2. Body { organizationId: "..." } (para chamadas via script)
+ * 3. Sessão autenticada (fallback)
+ */
+export async function forceCreateWebhook(c: Context) {
+  try {
+    logInfo('[Stripe] Force creating webhook...');
+
+    // Tentar obter organization_id de várias fontes
+    let organizationId: string | null = null;
+    
+    // 1. Header x-organization-id
+    const headerOrgId = c.req.header('x-organization-id');
+    if (headerOrgId && headerOrgId.length > 10) {
+      organizationId = headerOrgId;
+      logInfo(`[Stripe] Using organization_id from header: ${organizationId}`);
+    }
+    
+    // 2. Body organizationId
+    if (!organizationId) {
+      try {
+        const body = await c.req.json().catch(() => ({})) as Record<string, unknown>;
+        if (body.organizationId && typeof body.organizationId === 'string') {
+          organizationId = body.organizationId;
+          logInfo(`[Stripe] Using organization_id from body: ${organizationId}`);
+        }
+      } catch {}
+    }
+    
+    // 3. Sessão autenticada (fallback)
+    if (!organizationId) {
+      try {
+        organizationId = await getOrganizationIdOrThrow(c);
+      } catch (e: any) {
+        return c.json(errorResponse('organization_id is required', { details: 'Provide via header x-organization-id, body organizationId, or authenticated session' }), 400);
+      }
+    }
+    
+    const client = getSupabaseClient();
+
+    const { data: existing, error: existingError } = await client
+      .from('stripe_configs')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (existingError) {
+      return c.json(errorResponse('Failed to load Stripe config', { details: existingError.message }), 500);
+    }
+
+    if (!existing) {
+      return c.json(errorResponse('Stripe not configured for this organization'), 400);
+    }
+
+    const row = existing as StripeConfigRow;
+
+    if (!row.secret_key_encrypted) {
+      return c.json(errorResponse('Stripe secret key not configured'), 400);
+    }
+
+    // Descriptografar a secret key para chamar a API do Stripe
+    const secretKeyPlain = await decryptSensitive(row.secret_key_encrypted);
+    const defaultWebhookUrl = buildDefaultStripeWebhookUrl(organizationId);
+
+    logInfo(`[Stripe] Creating webhook for org ${organizationId}, URL: ${defaultWebhookUrl}`);
+
+    const webhookResult = await createOrUpdateStripeWebhook(
+      secretKeyPlain,
+      defaultWebhookUrl,
+      row.stripe_webhook_id // passa o ID existente se houver
+    );
+
+    if (!webhookResult) {
+      return c.json(errorResponse('Failed to create webhook on Stripe'), 500);
+    }
+
+    // Atualizar banco com o webhook ID e signing secret
+    const updatePayload: Record<string, any> = {
+      stripe_webhook_id: webhookResult.webhookId,
+    };
+
+    // Se recebemos o signing secret (criação nova), salvamos
+    if (webhookResult.signingSecret) {
+      updatePayload.webhook_signing_secret_encrypted = await encryptSensitive(webhookResult.signingSecret);
+      logInfo(`[Stripe] Webhook signing secret saved for org ${organizationId}`);
+    }
+
+    const { error: updateError } = await client
+      .from('stripe_configs')
+      .update(updatePayload)
+      .eq('organization_id', organizationId);
+
+    if (updateError) {
+      logError('[Stripe] Error updating config with webhook ID', updateError);
+      return c.json(errorResponse('Failed to save webhook config', { details: updateError.message }), 500);
+    }
+
+    return c.json(successResponse({
+      webhookId: webhookResult.webhookId,
+      webhookUrl: defaultWebhookUrl,
+      signingSecretSaved: Boolean(webhookResult.signingSecret),
+    }));
+  } catch (error: any) {
+    logError('[Stripe] Error forcing webhook creation', error);
+    return c.json(errorResponse('Failed to create webhook', { details: error.message }), 500);
+  }
+}
+
+/**
  * POST /stripe/checkout/session
  * Cria uma Checkout Session no Stripe e persiste (stripe_checkout_sessions)
  */

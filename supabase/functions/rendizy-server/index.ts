@@ -535,6 +535,7 @@ app.get("/make-server-67caf26a/staysnet/import/issues", listStaysNetImportIssues
 // Settings (multi-tenant via token): usado pelo modal de integrações no /settings
 app.get("/rendizy-server/make-server-67caf26a/settings/stripe", stripeRoutes.getStripeConfig);
 app.post("/rendizy-server/make-server-67caf26a/settings/stripe", stripeRoutes.saveStripeConfig);
+app.post("/rendizy-server/make-server-67caf26a/settings/stripe/create-webhook", stripeRoutes.forceCreateWebhook);
 
 // Checkout Session (P1)
 app.post(
@@ -550,6 +551,7 @@ app.delete("/rendizy-server/make-server-67caf26a/stripe/products/:productId", st
 // Compat extra: alguns frontends chamam sem prefixo /rendizy-server
 app.get("/make-server-67caf26a/settings/stripe", stripeRoutes.getStripeConfig);
 app.post("/make-server-67caf26a/settings/stripe", stripeRoutes.saveStripeConfig);
+app.post("/make-server-67caf26a/settings/stripe/create-webhook", stripeRoutes.forceCreateWebhook);
 app.post("/make-server-67caf26a/stripe/checkout/session", stripeRoutes.createStripeCheckoutSession);
 app.get("/make-server-67caf26a/stripe/products", stripeRoutes.listStripeProducts);
 app.post("/make-server-67caf26a/stripe/products", stripeRoutes.createStripeProduct);
