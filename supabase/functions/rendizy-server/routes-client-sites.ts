@@ -63,6 +63,35 @@ interface ClientSiteConfig {
     sale: boolean; // Venda
   };
 
+  // Provedores de hospedagem (Vercel, Netlify, Cloudflare, etc)
+  hostingProviders?: {
+    active_provider?: 'vercel' | 'netlify' | 'cloudflare_pages' | 'none';
+    vercel?: {
+      use_global_token?: boolean;
+      access_token?: string;
+      team_id?: string;
+      project_id?: string;
+      project_name?: string;
+      domain?: string;
+      last_deployment_id?: string;
+      last_deployment_url?: string;
+      last_deployment_status?: string;
+      last_deployment_at?: string;
+    };
+    netlify?: {
+      use_global_token?: boolean;
+      access_token?: string;
+      site_id?: string;
+      site_name?: string;
+      domain?: string;
+    };
+    cloudflare_pages?: {
+      access_token?: string;
+      account_id?: string;
+      project_name?: string;
+    };
+  };
+
   // Código do site (HTML/React serializado)
   siteCode?: string; // Código importado de v0.dev, Bolt, etc
 
@@ -248,6 +277,7 @@ function sqlToClientSiteConfig(row: any): ClientSiteConfig {
     archiveUrl: row.archive_url || undefined,
     extractedBaseUrl: row.extracted_base_url || undefined,
     extractedFilesCount: row.extracted_files_count || undefined,
+    hostingProviders: row.hosting_providers || undefined,
     source: row.source || "custom",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -268,6 +298,7 @@ function clientSiteConfigToSql(config: ClientSiteConfig): any {
     favicon_url: config.favicon || null,
     site_config: config.siteConfig,
     features: config.features,
+    hosting_providers: config.hostingProviders || null,
     site_code: config.siteCode || null,
     archive_path: config.archivePath || null,
     archive_url: config.archiveUrl || null,
@@ -3122,18 +3153,12 @@ app.get("/vercel/status/:deploymentId", async (c) => {
  * 
  * Fluxo completo: recebe ZIP do Bolt, extrai, faz deploy na Vercel.
  * Este é o endpoint principal que o modal de importação vai usar.
+ * 
+ * Suporta token individual do cliente (hosting_providers.vercel.access_token)
+ * ou fallback para token global do sistema.
  */
 app.post("/vercel/build-from-zip", async (c) => {
   try {
-    if (!VERCEL_ACCESS_TOKEN) {
-      return c.json({
-        success: false,
-        error: "VERCEL_ACCESS_TOKEN não configurado",
-        details: "Configure: supabase secrets set VERCEL_ACCESS_TOKEN=<token>",
-        howToGet: "https://vercel.com/account/tokens"
-      }, 500);
-    }
-
     const formData = await c.req.formData();
     const zipFile = formData.get("file") as File | null;
     const subdomain = formData.get("subdomain") as string;
@@ -3146,7 +3171,37 @@ app.post("/vercel/build-from-zip", async (c) => {
       return c.json({ success: false, error: "subdomain é obrigatório" }, 400);
     }
 
-    console.log(`[VERCEL] Processing ZIP for ${subdomain}, size: ${zipFile.size}`);
+    // Buscar configurações de hospedagem do site
+    const supabase = await getSupabaseClient(c, { useServiceRole: true });
+    const { data: siteData } = await supabase
+      .from("client_sites")
+      .select("hosting_providers")
+      .eq("subdomain", subdomain)
+      .single();
+
+    // Determinar qual token usar: do cliente ou global
+    const hostingConfig = siteData?.hosting_providers?.vercel || {};
+    const useGlobalToken = hostingConfig.use_global_token !== false;
+    const clientToken = hostingConfig.access_token;
+    const clientTeamId = hostingConfig.team_id;
+
+    // Token final a usar
+    const vercelToken = useGlobalToken || !clientToken ? VERCEL_ACCESS_TOKEN : clientToken;
+    const vercelTeamId = useGlobalToken ? VERCEL_TEAM_ID : (clientTeamId || VERCEL_TEAM_ID);
+
+    if (!vercelToken) {
+      return c.json({
+        success: false,
+        error: "Token Vercel não configurado",
+        details: useGlobalToken 
+          ? "Configure o token global: supabase secrets set VERCEL_ACCESS_TOKEN=<token>"
+          : "Configure o token do cliente na aba Hospedagem do site",
+        howToGet: "https://vercel.com/account/tokens"
+      }, 500);
+    }
+
+    console.log(`[VERCEL] Processing ZIP for ${subdomain}, size: ${zipFile.size}, using ${useGlobalToken ? 'global' : 'client'} token`);
+
 
     // Ler e extrair ZIP
     const zipBuffer = await zipFile.arrayBuffer();
@@ -3237,14 +3292,14 @@ app.post("/vercel/build-from-zip", async (c) => {
     };
 
     let vercelUrl = "https://api.vercel.com/v13/deployments";
-    if (VERCEL_TEAM_ID) {
-      vercelUrl += `?teamId=${VERCEL_TEAM_ID}`;
+    if (vercelTeamId) {
+      vercelUrl += `?teamId=${vercelTeamId}`;
     }
 
     const vercelResponse = await fetch(vercelUrl, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${VERCEL_ACCESS_TOKEN}`,
+        "Authorization": `Bearer ${vercelToken}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(vercelPayload)
@@ -3257,15 +3312,14 @@ app.post("/vercel/build-from-zip", async (c) => {
       return c.json({
         success: false,
         error: "Erro ao criar deployment",
-        vercelError: vercelData.error || vercelData
+        vercelError: vercelData.error || vercelData,
+        tokenType: useGlobalToken ? 'global' : 'client'
       }, 500);
     }
 
-    console.log(`[VERCEL] Deployment created: ${vercelData.id}`);
+    console.log(`[VERCEL] Deployment created: ${vercelData.id} (${useGlobalToken ? 'global' : 'client'} token)`);
 
-    // Atualizar banco com info do deployment
-    const supabase = await getSupabaseClient(c, { useServiceRole: true });
-    
+    // Atualizar banco com info do deployment (tanto nas colunas antigas quanto no JSONB novo)
     await supabase
       .from("client_sites")
       .update({
@@ -3273,7 +3327,19 @@ app.post("/vercel/build-from-zip", async (c) => {
         vercel_deployment_url: vercelData.url,
         vercel_deployment_status: "BUILDING",
         source: "bolt",
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        // Atualizar também no novo formato JSONB
+        hosting_providers: {
+          ...siteData?.hosting_providers,
+          active_provider: 'vercel',
+          vercel: {
+            ...hostingConfig,
+            last_deployment_id: vercelData.id,
+            last_deployment_url: `https://${vercelData.url}`,
+            last_deployment_status: "BUILDING",
+            last_deployment_at: new Date().toISOString()
+          }
+        }
       })
       .eq("subdomain", subdomain);
 
@@ -3284,6 +3350,7 @@ app.post("/vercel/build-from-zip", async (c) => {
       deploymentUrl: `https://${vercelData.url}`,
       readyState: vercelData.readyState,
       filesCount: deployFiles.length,
+      tokenType: useGlobalToken ? 'global' : 'client',
       pollingEndpoint: `/client-sites/vercel/status/${vercelData.id}`
     });
 

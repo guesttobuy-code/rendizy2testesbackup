@@ -19,6 +19,28 @@ import { useAutoSave } from '../hooks/useAutoSave';
 // TIPOS
 // ============================================================
 
+// Configuração de provedor de hospedagem individual
+interface HostingProviderConfig {
+  access_token?: string;
+  team_id?: string;
+  project_id?: string;
+  project_name?: string;
+  domain?: string;
+  last_deployment_id?: string;
+  last_deployment_url?: string;
+  last_deployment_status?: string;
+  last_deployment_at?: string;
+  use_global_token?: boolean; // se true, usa token global do sistema
+}
+
+// Estrutura de todos os provedores de hospedagem
+interface HostingProviders {
+  active_provider?: 'vercel' | 'netlify' | 'cloudflare_pages' | 'none';
+  vercel?: HostingProviderConfig;
+  netlify?: HostingProviderConfig;
+  cloudflare_pages?: HostingProviderConfig;
+}
+
 interface ClientSite {
   organizationId: string;
   siteName: string;
@@ -50,6 +72,7 @@ interface ClientSite {
     longTerm: boolean;
     sale: boolean;
   };
+  hostingProviders?: HostingProviders;
   siteCode?: string;
   createdAt: string;
   updatedAt: string;
@@ -829,6 +852,8 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
   onSuccess: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [showVercelToken, setShowVercelToken] = useState(false);
+  const [hostingTab, setHostingTab] = useState<'vercel' | 'netlify' | 'cloudflare'>('vercel');
   const [formData, setFormData] = useState({
     siteName: site.siteName,
     template: site.template,
@@ -847,7 +872,17 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
     shortTerm: site.features.shortTerm,
     longTerm: site.features.longTerm,
     sale: site.features.sale,
-    isActive: site.isActive
+    isActive: site.isActive,
+    // Hosting providers
+    hostingActiveProvider: site.hostingProviders?.active_provider || 'vercel',
+    vercelUseGlobalToken: site.hostingProviders?.vercel?.use_global_token ?? true,
+    vercelAccessToken: site.hostingProviders?.vercel?.access_token || '',
+    vercelTeamId: site.hostingProviders?.vercel?.team_id || '',
+    netlifyUseGlobalToken: site.hostingProviders?.netlify?.use_global_token ?? true,
+    netlifyAccessToken: site.hostingProviders?.netlify?.access_token || '',
+    netlifySiteId: site.hostingProviders?.netlify?.site_id || '',
+    cloudflareApiToken: site.hostingProviders?.cloudflare_pages?.access_token || '',
+    cloudflareAccountId: site.hostingProviders?.cloudflare_pages?.account_id || ''
   });
 
   // Auto-save: salva automaticamente após 2 segundos de inatividade
@@ -886,6 +921,23 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
               shortTerm: data.shortTerm,
               longTerm: data.longTerm,
               sale: data.sale
+            },
+            hostingProviders: {
+              active_provider: data.hostingActiveProvider,
+              vercel: {
+                use_global_token: data.vercelUseGlobalToken,
+                access_token: data.vercelUseGlobalToken ? undefined : data.vercelAccessToken,
+                team_id: data.vercelTeamId || undefined
+              },
+              netlify: {
+                use_global_token: data.netlifyUseGlobalToken,
+                access_token: data.netlifyUseGlobalToken ? undefined : data.netlifyAccessToken,
+                site_id: data.netlifySiteId || undefined
+              },
+              cloudflare_pages: {
+                access_token: data.cloudflareApiToken || undefined,
+                account_id: data.cloudflareAccountId || undefined
+              }
             },
             isActive: data.isActive
           })
@@ -960,11 +1012,12 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
         </DialogHeader>
 
         <Tabs defaultValue="geral" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="geral">Geral</TabsTrigger>
             <TabsTrigger value="contato">Contato</TabsTrigger>
             <TabsTrigger value="design">Design</TabsTrigger>
             <TabsTrigger value="recursos">Recursos</TabsTrigger>
+            <TabsTrigger value="hospedagem">🌐 Hospedagem</TabsTrigger>
           </TabsList>
 
           {/* ABA: GERAL */}
@@ -1216,6 +1269,319 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
                   onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
                 />
               </div>
+            </div>
+          </TabsContent>
+
+          {/* ABA: HOSPEDAGEM */}
+          <TabsContent value="hospedagem" className="space-y-4">
+            <Alert className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+              <Globe className="h-4 w-4" />
+              <AlertTitle>Provedores de Hospedagem</AlertTitle>
+              <AlertDescription>
+                Configure onde o site será publicado. Você pode usar o token global do Rendizy 
+                ou configurar credenciais específicas da conta do cliente.
+              </AlertDescription>
+            </Alert>
+
+            {/* Sub-tabs para provedores */}
+            <div className="border rounded-lg">
+              <div className="flex border-b bg-gray-50 rounded-t-lg">
+                <button
+                  type="button"
+                  onClick={() => setHostingTab('vercel')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    hostingTab === 'vercel'
+                      ? 'bg-white text-black border-b-2 border-blue-500 rounded-tl-lg'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  ▲ Vercel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHostingTab('netlify')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    hostingTab === 'netlify'
+                      ? 'bg-white text-black border-b-2 border-teal-500'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  ◆ Netlify
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHostingTab('cloudflare')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    hostingTab === 'cloudflare'
+                      ? 'bg-white text-black border-b-2 border-orange-500 rounded-tr-lg'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  ☁️ Cloudflare Pages
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4">
+                {/* VERCEL */}
+                {hostingTab === 'vercel' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <Label htmlFor="vercelUseGlobal" className="font-medium">
+                          Usar Token Global do Rendizy
+                        </Label>
+                        <p className="text-sm text-gray-500">
+                          O site será publicado na conta Vercel do Rendizy
+                        </p>
+                      </div>
+                      <Switch
+                        id="vercelUseGlobal"
+                        checked={formData.vercelUseGlobalToken}
+                        onCheckedChange={(checked) => setFormData({ 
+                          ...formData, 
+                          vercelUseGlobalToken: checked 
+                        })}
+                      />
+                    </div>
+
+                    {!formData.vercelUseGlobalToken && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="vercelToken">
+                            Token de Acesso da Vercel *
+                          </Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="vercelToken"
+                              type={showVercelToken ? 'text' : 'password'}
+                              value={formData.vercelAccessToken}
+                              onChange={(e) => setFormData({ 
+                                ...formData, 
+                                vercelAccessToken: e.target.value 
+                              })}
+                              placeholder="xxxxxxxxxxxxxxxxxx"
+                              className="font-mono"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setShowVercelToken(!showVercelToken)}
+                            >
+                              {showVercelToken ? <Eye className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Obtenha em: <a 
+                              href="https://vercel.com/account/tokens" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              vercel.com/account/tokens
+                            </a>
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="vercelTeamId">
+                            Team ID (opcional)
+                          </Label>
+                          <Input
+                            id="vercelTeamId"
+                            value={formData.vercelTeamId}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              vercelTeamId: e.target.value 
+                            })}
+                            placeholder="team_xxxxxxxxxxxx"
+                            className="font-mono"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Necessário apenas se a conta pertencer a um time
+                          </p>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Info do último deployment */}
+                    {site.hostingProviders?.vercel?.last_deployment_url && (
+                      <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-green-800">Último Deploy</p>
+                            <p className="text-sm text-green-600">
+                              {site.hostingProviders.vercel.last_deployment_status}
+                            </p>
+                          </div>
+                          <a
+                            href={site.hostingProviders.vercel.last_deployment_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Ver site
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* NETLIFY */}
+                {hostingTab === 'netlify' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <Label htmlFor="netlifyUseGlobal" className="font-medium">
+                          Usar Token Global do Rendizy
+                        </Label>
+                        <p className="text-sm text-gray-500">
+                          O site será publicado na conta Netlify do Rendizy
+                        </p>
+                      </div>
+                      <Switch
+                        id="netlifyUseGlobal"
+                        checked={formData.netlifyUseGlobalToken}
+                        onCheckedChange={(checked) => setFormData({ 
+                          ...formData, 
+                          netlifyUseGlobalToken: checked 
+                        })}
+                      />
+                    </div>
+
+                    {!formData.netlifyUseGlobalToken && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="netlifyToken">
+                            Personal Access Token *
+                          </Label>
+                          <Input
+                            id="netlifyToken"
+                            type="password"
+                            value={formData.netlifyAccessToken}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              netlifyAccessToken: e.target.value 
+                            })}
+                            placeholder="xxxxxxxxxxxxxxxxxx"
+                            className="font-mono"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Obtenha em: <a 
+                              href="https://app.netlify.com/user/applications#personal-access-tokens" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              app.netlify.com/user/applications
+                            </a>
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="netlifySiteId">
+                            Site ID (opcional)
+                          </Label>
+                          <Input
+                            id="netlifySiteId"
+                            value={formData.netlifySiteId}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              netlifySiteId: e.target.value 
+                            })}
+                            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                            className="font-mono"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <Alert className="bg-yellow-50 border-yellow-200">
+                      <AlertDescription className="text-yellow-800">
+                        ⚠️ Integração com Netlify em breve. Por enquanto, use Vercel.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+
+                {/* CLOUDFLARE PAGES */}
+                {hostingTab === 'cloudflare' && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cloudflareToken">
+                        API Token *
+                      </Label>
+                      <Input
+                        id="cloudflareToken"
+                        type="password"
+                        value={formData.cloudflareApiToken}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          cloudflareApiToken: e.target.value 
+                        })}
+                        placeholder="xxxxxxxxxxxxxxxxxx"
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Obtenha em: <a 
+                          href="https://dash.cloudflare.com/profile/api-tokens" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          dash.cloudflare.com/profile/api-tokens
+                        </a>
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cloudflareAccountId">
+                        Account ID *
+                      </Label>
+                      <Input
+                        id="cloudflareAccountId"
+                        value={formData.cloudflareAccountId}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          cloudflareAccountId: e.target.value 
+                        })}
+                        placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        className="font-mono"
+                      />
+                    </div>
+
+                    <Alert className="bg-yellow-50 border-yellow-200">
+                      <AlertDescription className="text-yellow-800">
+                        ⚠️ Integração com Cloudflare Pages em breve. Por enquanto, use Vercel.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Provedor Ativo */}
+            <div className="space-y-2">
+              <Label>Provedor de Deploy Ativo</Label>
+              <Select
+                value={formData.hostingActiveProvider}
+                onValueChange={(value: any) => setFormData({ 
+                  ...formData, 
+                  hostingActiveProvider: value 
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vercel">▲ Vercel (recomendado)</SelectItem>
+                  <SelectItem value="netlify" disabled>◆ Netlify (em breve)</SelectItem>
+                  <SelectItem value="cloudflare_pages" disabled>☁️ Cloudflare Pages (em breve)</SelectItem>
+                  <SelectItem value="none">❌ Nenhum (sem deploy automático)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </TabsContent>
         </Tabs>
