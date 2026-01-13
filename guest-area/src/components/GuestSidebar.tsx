@@ -13,11 +13,14 @@ const MENU_ITEMS = [
 export function GuestSidebar() {
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
   const currentPath = window.location.hash;
-  const { subdomain, apiBase } = window.GUEST_AREA_CONFIG || {};
+  
+  const config = window.GUEST_AREA_CONFIG;
+  const siteSlug = config?.siteSlug || '';
+  const apiBase = `${config?.supabaseUrl}/functions/v1/rendizy-public/client-sites/api`;
 
   useEffect(() => {
-    if (subdomain) {
-      fetch(`${apiBase}/${subdomain}/site-config`)
+    if (siteSlug) {
+      fetch(`${apiBase}/${siteSlug}/site-config`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.data) {
@@ -26,10 +29,10 @@ export function GuestSidebar() {
         })
         .catch(() => {
           // Fallback
-          setSiteConfig({ siteName: subdomain });
+          setSiteConfig({ siteName: siteSlug });
         });
     }
-  }, [subdomain, apiBase]);
+  }, [siteSlug, apiBase]);
 
   return (
     <aside className="w-64 bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] min-h-screen flex flex-col">
@@ -70,7 +73,7 @@ export function GuestSidebar() {
       {/* Voltar ao Site */}
       <div className="p-4 border-t border-gray-700">
         <a
-          href={`/site/${subdomain}/`}
+          href={`/site/${siteSlug}/`}
           className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
         >
           <span>←</span>

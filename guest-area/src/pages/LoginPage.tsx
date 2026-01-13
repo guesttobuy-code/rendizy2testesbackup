@@ -2,20 +2,6 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGuestAuth, useGoogleOneTap } from '../contexts/GuestAuthContext';
 
-declare global {
-  interface Window {
-    GUEST_AREA_CONFIG?: {
-      supabaseUrl: string;
-      supabaseAnonKey: string;
-      siteSlug: string;
-      googleClientId: string;
-      primaryColor: string;
-      secondaryColor: string;
-      accentColor: string;
-    };
-  }
-}
-
 export function LoginPage() {
   const { isAuthenticated, isLoading } = useGuestAuth();
   const navigate = useNavigate();

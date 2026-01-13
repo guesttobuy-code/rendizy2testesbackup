@@ -12,6 +12,7 @@ interface GuestAuthContextType {
   user: GuestUser | null;
   token: string | null;
   loading: boolean;
+  isLoading: boolean; // alias para loading
   login: (credential: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -34,13 +35,15 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const { subdomain, apiBase } = window.GUEST_AREA_CONFIG || {};
+  const config = window.GUEST_AREA_CONFIG;
+  const siteSlug = config?.siteSlug || '';
+  const apiBase = `${config?.supabaseUrl}/functions/v1/rendizy-public/client-sites/api`;
 
   // Verificar token existente ao carregar
   useEffect(() => {
     const savedToken = localStorage.getItem('rendizy_guest_token');
-    if (savedToken && subdomain) {
-      fetch(`${apiBase}/${subdomain}/auth/guest/me`, {
+    if (savedToken && siteSlug) {
+      fetch(`${apiBase}/${siteSlug}/auth/guest/me`, {
         headers: { Authorization: `Bearer ${savedToken}` },
       })
         .then((res) => res.json())
@@ -59,13 +62,13 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       setLoading(false);
     }
-  }, [subdomain, apiBase]);
+  }, [siteSlug, apiBase]);
 
   const login = useCallback(
     async (credential: string) => {
-      if (!subdomain) throw new Error('Subdomain não configurado');
+      if (!siteSlug) throw new Error('Site slug não configurado');
 
-      const response = await fetch(`${apiBase}/${subdomain}/auth/guest/google`, {
+      const response = await fetch(`${apiBase}/${siteSlug}/auth/guest/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential }),
@@ -82,7 +85,7 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('rendizy_guest_token', data.token);
       localStorage.setItem('rendizy_guest', JSON.stringify(data.guest));
     },
-    [subdomain, apiBase]
+    [siteSlug, apiBase]
   );
 
   const logout = useCallback(() => {
@@ -106,6 +109,7 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
         user,
         token,
         loading,
+        isLoading: loading,
         login,
         logout,
         isAuthenticated: !!user && !!token,
@@ -116,8 +120,10 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Hook para iniciar Google One Tap
-export function useGoogleOneTap(onSuccess: (credential: string) => void) {
+// Hook para iniciar Google One Tap (agora usa login do contexto)
+export function useGoogleOneTap() {
+  const { login } = useGuestAuth();
+  
   useEffect(() => {
     const initGoogle = () => {
       const google = (window as any).google;
@@ -129,9 +135,14 @@ export function useGoogleOneTap(onSuccess: (credential: string) => void) {
 
       google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
-        callback: (response: { credential: string }) => {
+        callback: async (response: { credential: string }) => {
           if (response.credential) {
-            onSuccess(response.credential);
+            try {
+              await login(response.credential);
+              window.location.hash = '#/reservas';
+            } catch (err) {
+              console.error('Erro no login:', err);
+            }
           }
         },
         auto_select: true,
@@ -142,5 +153,5 @@ export function useGoogleOneTap(onSuccess: (credential: string) => void) {
     };
 
     initGoogle();
-  }, [onSuccess]);
+  }, [login]);
 }
