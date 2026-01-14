@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Globe, Code, Settings, Eye, Trash2, Upload, ExternalLink, Copy, Check, FileText, Sparkles, Download, History, X } from 'lucide-react';
+import { Plus, Globe, Code, Settings, Eye, Trash2, Upload, ExternalLink, Copy, Check, FileText, Sparkles, Download, History, X, Package } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -14,6 +14,12 @@ import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useAutoSave } from '../hooks/useAutoSave';
+import { 
+  CLIENT_SITES_PUBLIC_CONTRACT_V1, 
+  CLIENT_SITES_BLOCKS_CATALOG,
+  CATALOG_VERSION,
+  CATALOG_UPDATED_AT
+} from './client-sites/catalog';
 
 // ============================================================
 // TIPOS
@@ -3761,8 +3767,9 @@ Regras:
 Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
 
   const currentVersion = PROMPT_VERSIONS.find(v => v.version === selectedVersion);
-  // v5.0 é o atual - usa aiPrompt. Outras versões usam o prompt salvo no histórico
-  const displayPrompt = selectedVersion === 'v5.0' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
+  // v5.1 é o atual - usa aiPrompt. Outras versões usam o prompt salvo no histórico
+  // NOTA: CATALOG_VERSION e selectedVersion devem estar sincronizados (ambos v5.1)
+  const displayPrompt = selectedVersion === CATALOG_VERSION ? aiPrompt : (currentVersion?.prompt || aiPrompt);
 
   const copyPrompt = () => {
     navigator.clipboard.writeText(displayPrompt);
@@ -3777,18 +3784,25 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-yellow-500" />
-            Documentação prompt sites I.A
+            Documentação para IA — Prompt + Catálogo
           </DialogTitle>
-          <DialogDescription>
-            Gere sites profissionais integrados ao RENDIZY usando IA
+          <DialogDescription className="flex items-center gap-2">
+            <span>Gere sites profissionais integrados ao RENDIZY usando IA</span>
+            <Badge variant="outline" className="ml-2 text-xs">
+              Versão {CATALOG_VERSION}
+            </Badge>
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="historico" className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="historico" className="gap-2">
               <History className="h-4 w-4" />
-              Versões do Prompt
+              Prompt
+            </TabsTrigger>
+            <TabsTrigger value="catalogo" className="gap-2">
+              <Package className="h-4 w-4" />
+              Catálogo
             </TabsTrigger>
             <TabsTrigger value="instrucoes" className="gap-2">
               <FileText className="h-4 w-4" />
@@ -3902,6 +3916,113 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
             </div>
           </TabsContent>
 
+          {/* TAB: Catálogo (NOVO - Blocos + Endpoints) */}
+          <TabsContent value="catalogo" className="flex-1 overflow-y-auto mt-4 space-y-4">
+            {/* Banner explicativo */}
+            <Alert className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+              <Package className="h-4 w-4 text-purple-600" />
+              <AlertTitle className="text-purple-800 flex items-center gap-2">
+                Catálogo de Componentes e Dados
+                <Badge variant="outline" className="text-xs">{CATALOG_VERSION}</Badge>
+              </AlertTitle>
+              <AlertDescription className="mt-2 text-purple-700">
+                <p className="mb-2">
+                  <strong>📋 PROMPT</strong> diz O QUE FAZER e as REGRAS GERAIS<br />
+                  <strong>📦 CATÁLOGO</strong> diz COMO FAZER com COMPONENTES ESPECÍFICOS
+                </p>
+                <p className="text-sm">
+                  Os dois são <strong>irmãos siameses</strong> — atualizados juntos, mesma versão.
+                  A IA deve ler ambos para implementar corretamente.
+                </p>
+              </AlertDescription>
+            </Alert>
+
+            {/* Seção: Blocos */}
+            <div>
+              <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                <span className="text-xl">🧱</span> Blocos (Componentes)
+              </h3>
+              <div className="space-y-2">
+                {CLIENT_SITES_BLOCKS_CATALOG.filter(b => b.stability !== 'deprecated').map((block) => (
+                  <Card key={block.id} className="border-l-4 border-l-blue-400">
+                    <CardHeader className="py-2 px-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          {block.title}
+                          <Badge 
+                            variant={block.stability === 'stable' ? 'default' : 'outline'}
+                            className={`text-xs ${block.stability === 'stable' ? 'bg-green-500' : ''}`}
+                          >
+                            {block.stability === 'stable' ? 'Disponível' : 'Planejado'}
+                          </Badge>
+                        </CardTitle>
+                      </div>
+                      <CardDescription className="text-xs mt-1">{block.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="py-2 px-3 pt-0">
+                      <div className="text-xs space-y-1">
+                        <div className="flex flex-wrap gap-1">
+                          <span className="text-gray-500">Endpoints:</span>
+                          {block.usesEndpoints.map(ep => (
+                            <Badge key={ep} variant="secondary" className="text-xs font-mono">{ep}</Badge>
+                          ))}
+                        </div>
+                        {block.notes && block.notes.length > 0 && block.notes[0] && !block.notes[0].startsWith('#') && (
+                          <p className="text-gray-600 italic">{block.notes[0]}</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Seção: Endpoints */}
+            <div>
+              <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                <span className="text-xl">🔌</span> Endpoints (API)
+              </h3>
+              <div className="space-y-2">
+                {CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints.map((endpoint) => (
+                  <Card key={endpoint.id} className="border-l-4 border-l-green-400">
+                    <CardHeader className="py-2 px-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs font-mono">{endpoint.method}</Badge>
+                          {endpoint.title}
+                          <Badge 
+                            variant={endpoint.stability === 'stable' ? 'default' : 'outline'}
+                            className={`text-xs ${endpoint.stability === 'stable' ? 'bg-green-500' : ''}`}
+                          >
+                            {endpoint.stability === 'stable' ? 'Estável' : 'Planejado'}
+                          </Badge>
+                        </CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="py-2 px-3 pt-0">
+                      <code className="text-xs bg-gray-100 px-2 py-1 rounded block mb-2 font-mono">
+                        {endpoint.pathTemplate}
+                      </code>
+                      {endpoint.notes && endpoint.notes.length > 0 && (
+                        <p className="text-xs text-gray-600">{endpoint.notes[0]}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Dica final */}
+            <Alert className="bg-yellow-50 border-yellow-200">
+              <AlertTitle className="text-yellow-800 text-sm">💡 Dica para IA</AlertTitle>
+              <AlertDescription className="text-yellow-700 text-xs">
+                Ao implementar um site, consulte os blocos acima e use os endpoints listados.
+                Cada bloco tem <code>requiredFields</code> que DEVEM ser usados.
+                Se tiver dúvida, siga os exemplos de código no catálogo completo.
+              </AlertDescription>
+            </Alert>
+          </TabsContent>
+
           {/* TAB: Instruções */}
           <TabsContent value="instrucoes" className="flex-1 overflow-y-auto mt-4 space-y-4">
             <Alert className="bg-blue-50 border-blue-200">
@@ -3910,7 +4031,7 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
               <AlertDescription className="mt-3">
                 <ol className="list-decimal list-inside space-y-3 text-sm">
                   <li className="text-gray-700">
-                    <strong>Copie o prompt</strong> — Na aba "Versões do Prompt", clique em "Copiar" na versão mais recente (ATUAL)
+                    <strong>Copie o prompt</strong> — Na aba "Prompt", clique em "Copiar" na versão mais recente (ATUAL)
                   </li>
                   <li className="text-gray-700">
                     <strong>Abra uma IA</strong> — Acesse Bolt.new, v0.dev, Claude ou ChatGPT

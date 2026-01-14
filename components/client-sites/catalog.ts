@@ -2,6 +2,28 @@
 // CATÁLOGO DE CONTRATO PÚBLICO — CLIENT SITES API
 // ============================================================
 //
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  🎯 OBJETIVO DESTE ARQUIVO (LEIA COM ATENÇÃO, IA!)                       ║
+// ╠══════════════════════════════════════════════════════════════════════════╣
+// ║                                                                          ║
+// ║  Este arquivo é o CATÁLOGO DE COMPONENTES E DADOS do Rendizy.            ║
+// ║  Ele é IRMÃO SIAMÊS do PROMPT de criação de sites (v5.x).                ║
+// ║                                                                          ║
+// ║  📋 PROMPT diz O QUE FAZER e as REGRAS GERAIS                            ║
+// ║  📦 CATÁLOGO diz COMO FAZER com COMPONENTES ESPECÍFICOS                  ║
+// ║                                                                          ║
+// ║  ⚠️ VOCÊ (IA) DEVE:                                                      ║
+// ║    1. Ler o PROMPT primeiro para entender o contexto                     ║
+// ║    2. Consultar este CATÁLOGO para ver os BLOCOS e ENDPOINTS             ║
+// ║    3. Implementar EXATAMENTE como especificado aqui                      ║
+// ║    4. Usar os campos EXATOS listados em requiredFields                   ║
+// ║    5. Seguir os exemplos de código em codeBlocks                         ║
+// ║                                                                          ║
+// ║  🔗 VERSÃO SINCRONIZADA: CATALOG_VERSION deve ser igual ao PROMPT        ║
+// ║     Se um atualiza, o outro DEVE atualizar junto.                        ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+//
 // ⚠️ REGRA CANÔNICA (LEIA docs/Rules.md):
 // O RENDIZY PROPÕE O PADRÃO. SITES EXTERNOS SEGUEM.
 //
@@ -13,7 +35,23 @@
 //
 // ============================================================
 
-export type ClientSitesCatalogStability = 'stable' | 'planned';
+/**
+ * VERSÃO DO CONTRATO (SINCRONIZADA COM PROMPT)
+ * 
+ * Esta versão DEVE ser igual à versão do prompt em ClientSitesManager.tsx.
+ * Quando atualizar o prompt, atualize esta versão também.
+ * Quando atualizar o catálogo, atualize o prompt também.
+ * 
+ * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
+ */
+export const CATALOG_VERSION = 'v5.1' as const;
+
+/**
+ * Data da última atualização (para referência humana)
+ */
+export const CATALOG_UPDATED_AT = '2026-01-14T14:30:00Z' as const;
+
+export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
 export type ClientSitesCatalogEndpoint = {
   id: string;
