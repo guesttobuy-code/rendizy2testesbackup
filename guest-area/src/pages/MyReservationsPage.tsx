@@ -77,7 +77,7 @@ function getDaysUntilCheckIn(checkIn: string | undefined | null): string {
 }
 
 export function MyReservationsPage() {
-  const { token } = useGuestAuth();
+  const { isAuthenticated } = useGuestAuth();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,13 +89,8 @@ export function MyReservationsPage() {
         const config = window.GUEST_AREA_CONFIG;
         if (!config) throw new Error('Configuração não encontrada');
 
-        // Usar endpoint correto: /client-sites/api/:subdomain/reservations/mine
-        const apiBase = `${config.supabaseUrl}/functions/v1/rendizy-public/client-sites/api`;
-        const res = await fetch(`${apiBase}/${config.siteSlug}/reservations/mine`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        // Sessão profissional: buscar via BFF (cookie httpOnly)
+        const res = await fetch(`/api/guest/reservations/mine?siteSlug=${encodeURIComponent(config.siteSlug)}`);
 
         if (!res.ok) throw new Error('Erro ao buscar reservas');
 
@@ -108,10 +103,10 @@ export function MyReservationsPage() {
       }
     }
 
-    if (token) {
+    if (isAuthenticated) {
       fetchReservations();
     }
-  }, [token]);
+  }, [isAuthenticated]);
 
   // Filtrar reservas
   const today = new Date();

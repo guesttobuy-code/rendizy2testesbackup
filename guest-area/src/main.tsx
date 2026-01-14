@@ -6,7 +6,7 @@ import './index.css';
 // Extrair parâmetros da URL
 const params = new URLSearchParams(window.location.search);
 const siteSlug = params.get('slug') || params.get('subdomain') || '';
-const token = params.get('t') || localStorage.getItem('rendizy_guest_token') || '';
+const legacyToken = params.get('t') || '';
 
 // Cores do tema
 const primaryColor = params.get('primary') ? decodeURIComponent(params.get('primary')!) : '#3B82F6';
@@ -45,8 +45,22 @@ window.GUEST_AREA_CONFIG = {
 };
 
 // Salvar token se veio via URL (para persistir)
-if (token && !localStorage.getItem('rendizy_guest_token')) {
-  localStorage.setItem('rendizy_guest_token', token);
+if (legacyToken && siteSlug) {
+  // Migração: converte token legacy (URL/localStorage antigo) em cookie httpOnly
+  fetch('/api/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: legacyToken, siteSlug }),
+  })
+    .then(async (r) => {
+      const j = await r.json().catch(() => null);
+      if (j?.success && j?.user) {
+        try {
+          localStorage.setItem('rendizy_guest', JSON.stringify(j.user));
+        } catch {}
+      }
+    })
+    .catch(() => {});
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
