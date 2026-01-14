@@ -2141,21 +2141,11 @@ type PromptVersion = {
   prompt: string;
 };
 
-const PROMPT_VERSIONS: PromptVersion[] = [
-  {
-    version: 'v5.3',
-    date: '2026-01-14',
-    time: '20:30',
-    author: 'Copilot + Rafael',
-    changes: [
-      '🖼️ LIMITE DE IMAGENS: máximo 100KB cada, máximo 5 imagens total',
-      '⚠️ PROIBIDO arquivos .tar.gz, .zip, .sql no projeto',
-      '✅ Regras específicas para otimização de imagens',
-      '✅ Checklist atualizado com validação de tamanho de imagens',
-      '🐛 Fix: ZIP com imagens grandes causava erro 500 na Vercel',
-    ],
-    prompt: 'CURRENT', // placeholder - usa o prompt atual
-  },
+// ⚠️ IMPORTANTE: A versão atual é SEMPRE gerada dinamicamente usando CATALOG_VERSION!
+// Isso garante que nunca fique dessincronizado.
+// As entradas abaixo são apenas o HISTÓRICO (versões antigas).
+const PROMPT_HISTORY: Omit<PromptVersion, 'prompt'>[] = [
+  // Histórico começa em v5.2 (versões anteriores à atual)
   {
     version: 'v5.2',
     date: '2026-01-14',
@@ -2305,13 +2295,27 @@ Prompt inicial para geração de sites via IA.
   },
 ];
 
-// ⚠️ VALIDAÇÃO DE SINCRONIZAÇÃO - Detecta se as versões estão dessincronizadas
-if (PROMPT_VERSIONS[0].version !== CATALOG_VERSION) {
-  console.error(
-    `🚨 VERSÃO DESSINCRONIZADA! PROMPT_VERSIONS[0].version (${PROMPT_VERSIONS[0].version}) !== CATALOG_VERSION (${CATALOG_VERSION}). ` +
-    `Atualize PROMPT_VERSIONS para adicionar a nova versão!`
-  );
-}
+// ✅ GERAÇÃO AUTOMÁTICA DA VERSÃO ATUAL
+// A versão atual é SEMPRE gerada dinamicamente usando CATALOG_VERSION!
+// Isso ELIMINA a necessidade de sincronizar manualmente.
+const CURRENT_VERSION_ENTRY: PromptVersion = {
+  version: CATALOG_VERSION,
+  date: CATALOG_UPDATED_AT.split(' ')[0] || new Date().toISOString().split('T')[0],
+  time: CATALOG_UPDATED_AT.split(' ')[1] || new Date().toTimeString().slice(0, 5),
+  author: 'Copilot + Rafael',
+  changes: [
+    '✨ Versão gerada automaticamente do catálogo',
+    '📋 Veja a aba "Catálogo" para detalhes completos',
+    '🔄 Sincronizado com CATALOG_VERSION: ' + CATALOG_VERSION,
+  ],
+  prompt: 'CURRENT', // placeholder - será substituído pelo prompt gerado
+};
+
+// Juntar versão atual + histórico
+const PROMPT_VERSIONS: PromptVersion[] = [
+  CURRENT_VERSION_ENTRY,
+  ...PROMPT_HISTORY.map(h => ({ ...h, prompt: `# RENDIZY — PROMPT (${h.version})\nVersão arquivada. Use a versão atual.` }))
+];
 
 function DocsAIModal({ open, onClose }: {
   open: boolean;
