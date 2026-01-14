@@ -374,11 +374,7 @@ export function MainSidebar({
     }
   ];
 
-  console.log('📋 [MainSidebar] Menu Sections criado:', menuSections.length, 'seções');
-  console.log('📋 [MainSidebar] Seção Principal tem', menuSections[0]?.items?.length, 'itens');
-  console.log('📋 [MainSidebar] Item "Propriedades e anúncios":', menuSections[0]?.items?.find(i => i.id === 'anuncio-ultimate'));
-  console.log('📋 [MainSidebar] Seção Módulos Avançados:', menuSections.find(s => s.title === 'Módulos Avançados'));
-  console.log('📋 [MainSidebar] Item "Automações":', menuSections.find(s => s.title === 'Módulos Avançados')?.items?.find(i => i.id === 'modulo-automacoes'));
+  // Debug logs removidos - menu está funcionando corretamente
 
   const toggleMenu = (menuId: string) => {
     setExpandedMenus(prev =>
