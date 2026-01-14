@@ -1515,7 +1515,17 @@ Se você usar \`createClient(...)\` do supabase-js, o bundle vai crashar com:
 ✅ **Forma correta**: use \`fetch()\` diretamente para a API pública.
 ❌ **Errado**: \`import { createClient } from '@supabase/supabase-js'\`
 
-### 4) O site roda em subpath
+### 4) ⚠️ PROIBIDO usar variáveis de ambiente
+**CRÍTICO**: O site é servido SEM NENHUMA variável de ambiente.
+- NÃO crie arquivo \`.env\`
+- NÃO use \`VITE_SUPABASE_URL\`, \`VITE_SUPABASE_ANON_KEY\` ou qualquer \`VITE_*\`
+- NÃO use \`import.meta.env.VITE_*\`
+- NÃO use placeholders como \`{{ORG_ID}}\`, \`{{SUBDOMAIN}}\`, etc
+
+✅ **Forma correta**: hardcode o subdomain em \`src/config/site.ts\`
+❌ **Errado**: \`subdomain: process.env.SUBDOMAIN\` ou \`subdomain: "{{SUBDOMAIN}}"\`
+
+### 5) O site roda em subpath
 Ele abre como:
 - \`https://<dominio>/site/<subdomain>/\`
 
@@ -1526,6 +1536,15 @@ Portanto: use **HashRouter**.
 - \`/site/<subdomain>/#/\`
 - \`/site/<subdomain>/#/imoveis\`
 - \`/site/<subdomain>/#/imovel/<id>\`
+
+### 6) ⚠️ NÃO gere arquivos de documentação extras
+O projeto deve conter APENAS código necessário.
+- NÃO gere \`README.md\` customizado
+- NÃO gere \`COMO_IMPORTAR.md\`, \`INSTRUCOES.md\`, etc
+- NÃO gere arquivos \`.md\` dentro de \`src/\`
+- NÃO gere pasta \`supabase/\` com migrations
+
+Gere APENAS os arquivos de código (tsx, ts, css, json, config).
 
 ---
 `;
@@ -1539,28 +1558,115 @@ Portanto: use **HashRouter**.
   // ==================== PARTE DINÂMICA: GUIAS ====================
   const guias = generateIntegrationGuidesSection();
 
+  // ==================== PARTE FIXA: ESTRUTURA DE ARQUIVOS ====================
+  const estrutura = `---
+
+## 📁 ESTRUTURA DE ARQUIVOS OBRIGATÓRIA
+
+### Arquivos Obrigatórios (Mínimo):
+\`\`\`
+/
+├── package.json              ← DEVE estar na RAIZ do ZIP
+├── vite.config.ts            ← com base: './'
+├── tsconfig.json
+├── index.html                ← com <script> do RENDIZY_CONFIG
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx               ← com HashRouter
+│   ├── index.css
+│   ├── config/
+│   │   └── site.ts           ← com siteConfig hardcoded (NÃO usar env vars)
+│   ├── services/
+│   │   ├── api.ts            ← propertyService usando fetch
+│   │   └── rendizy.ts        ← funções fetchProperties, fetchCalendar, etc
+│   ├── types/
+│   │   ├── index.ts
+│   │   └── rendizy.ts
+│   ├── components/
+│   │   ├── BookingWidget.tsx ← ou BookingForm.tsx
+│   │   ├── DateRangePicker.tsx
+│   │   └── ... outros
+│   └── pages/
+│       ├── HomePage.tsx
+│       ├── PropertiesPage.tsx
+│       ├── PropertyDetailPage.tsx
+│       └── ... outros
+├── tailwind.config.js
+└── postcss.config.js
+\`\`\`
+
+### ⚠️ NÃO CRIAR (proibido):
+- \`.env\` ou qualquer arquivo de variáveis de ambiente
+- \`supabase/\` (não precisa de migrations)
+- Arquivos \`.md\` de documentação dentro do projeto
+- \`COMO_IMPORTAR.md\`, \`README.md\` customizado, etc (lixo)
+- Qualquer referência a \`VITE_SUPABASE_URL\` ou \`VITE_SUPABASE_ANON_KEY\`
+
+### src/config/site.ts (MODELO OBRIGATÓRIO):
+\`\`\`typescript
+export const siteConfig = {
+  subdomain: "SUBDOMAIN_AQUI",    // ← Substituir pelo subdomain real
+  siteName: "Nome do Site",
+  theme: {
+    primaryColor: "#5DBEBD",
+    secondaryColor: "#FF8B94"
+  }
+};
+\`\`\`
+
+❌ NUNCA usar: \`organizationId: "{{ORG_ID}}"\` ou qualquer placeholder/template string.
+✅ SEMPRE usar valores concretos hardcoded.
+
+`;
+
   // ==================== PARTE FIXA: BUILD ====================
   const build = `---
 
 ## Build / Entrega (OBRIGATÓRIO)
-Você deve entregar um ZIP que contenha \`dist/\` na raiz do ZIP e dentro:
-- \`dist/index.html\`
-- \`dist/assets/*\`
 
-Regras:
-- Em Vite, configure \`base: './'\`.
-- Não referencie imagens como \`/images/...\` ou \`/foo.png\` (root). Coloque tudo em \`src/assets\` para ir para \`dist/assets\`.
-- Não inclua \`node_modules\` no ZIP.
-- Evite gerar mais de 2000 arquivos no build.
+### Como o Rendizy processa o ZIP:
+1. Você envia um ZIP com o **código-fonte** (NÃO o build)
+2. O Rendizy envia para a Vercel que faz \`npm install\` + \`npm run build\`
+3. A Vercel serve o \`dist/\` automaticamente
 
-## Checklist final (antes de entregar)
-- Rodar \`npm run build\`.
-- Validar que abrir \`dist/index.html\` local não quebra (mesmo sem subdomain detectado, mostrar erro amigável).
-- Validar que com URL \`/site/<subdomain>/\` o app detecta subdomain e lista imóveis.
+### Estrutura do ZIP:
+\`\`\`
+meuhsite.zip
+├── package.json      ← NA RAIZ (sem pasta intermediária!)
+├── src/
+├── index.html
+└── ... outros arquivos
+\`\`\`
+
+⚠️ **ERRADO**: ZIP com pasta intermediária:
+\`\`\`
+meuhsite.zip
+└── meuhsite-main/    ← ERRADO! Pasta extra
+    └── meuhsite/     ← ERRADO! Outra pasta extra
+        ├── package.json
+        └── ...
+\`\`\`
+
+### Regras de Build:
+- Configure \`vite.config.ts\` com \`base: './'\`
+- Não referencie imagens como \`/images/...\` ou \`/foo.png\` (root)
+- Coloque assets em \`src/assets/\` ou \`public/\` (sem subpastas profundas)
+- NÃO inclua \`node_modules/\`, \`.git/\`, \`.bolt/\` no ZIP
+- NÃO gere arquivos \`.md\` extras de documentação
+
+### Checklist final:
+- [ ] \`package.json\` está na RAIZ do ZIP (sem pasta intermediária)
+- [ ] \`vite.config.ts\` tem \`base: './'\`
+- [ ] \`index.html\` tem script com \`window.RENDIZY_CONFIG = { SUBDOMAIN: '...' }\`
+- [ ] NÃO existe nenhuma referência a variáveis de ambiente (\`VITE_\`, \`.env\`)
+- [ ] NÃO existe nenhum placeholder como \`{{ORG_ID}}\` ou \`{{SUBDOMAIN}}\`
+- [ ] O site usa HashRouter (\`/#/imoveis\`, \`/#/imovel/:id\`)
+- [ ] \`src/services/rendizy.ts\` usa \`fetch()\` direto para a API pública
+- [ ] NÃO existe import de \`@supabase/supabase-js\`
 
 Gere o projeto completo e pronto para ZIP seguindo TUDO acima.
 `;
 
   // ==================== JUNTAR TUDO ====================
-  return header + checklist + objetivoEStack + blocos + '\n---\n\n' + endpoints + '\n---\n\n' + guias + build;
+  return header + checklist + objetivoEStack + blocos + '\n---\n\n' + endpoints + '\n---\n\n' + guias + estrutura + build;
 }
