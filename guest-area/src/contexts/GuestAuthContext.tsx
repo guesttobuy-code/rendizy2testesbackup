@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 interface GuestUser {
   id: string;
@@ -124,18 +124,40 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
 // Hook para iniciar Google One Tap (agora usa login do contexto)
 export function useGoogleOneTap() {
   const { login } = useGuestAuth();
+  const initializedRef = useRef(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   
   useEffect(() => {
-    const initGoogle = () => {
+    const waitGoogle = () => {
       const google = (window as any).google;
       if (!google?.accounts?.id) {
         // Tentar novamente em 500ms
-        setTimeout(initGoogle, 500);
+        setTimeout(waitGoogle, 500);
         return;
       }
 
+      setGoogleReady(true);
+    };
+
+    waitGoogle();
+  }, [login]);
+
+  const startGoogleLogin = useCallback(() => {
+    setGoogleError(null);
+
+    const google = (window as any).google;
+    if (!google?.accounts?.id) {
+      setGoogleError('Google não carregou. Verifique bloqueadores/extensões e tente novamente.');
+      return;
+    }
+
+    const clientId = (window as any).GUEST_AREA_CONFIG?.googleClientId || GOOGLE_CLIENT_ID;
+
+    if (!initializedRef.current) {
+      initializedRef.current = true;
       google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
+        client_id: clientId,
         callback: async (response: { credential: string }) => {
           if (response.credential) {
             try {
@@ -143,16 +165,48 @@ export function useGoogleOneTap() {
               window.location.hash = '#/reservas';
             } catch (err) {
               console.error('Erro no login:', err);
+              setGoogleError('Falha ao entrar. Tente novamente.');
             }
+          } else {
+            setGoogleError('Não foi possível obter credencial do Google.');
           }
         },
-        auto_select: true,
-        cancel_on_tap_outside: false,
+        ux_mode: 'popup',
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        // Em alguns Chromes, isso evita dependência do FedCM (quando disponível)
+        use_fedcm_for_prompt: false,
       });
+    }
 
-      google.accounts.id.prompt();
-    };
-
-    initGoogle();
+    // Só abre quando o usuário clicar (evita cooldown de auto re-authn)
+    google.accounts.id.prompt((notification: any) => {
+      try {
+        if (notification?.isNotDisplayed?.()) {
+          setGoogleError(
+            'Login do Google não foi exibido. Verifique se o Chrome permite “login de terceiros/FedCM” para este site e se pop-ups não estão bloqueados.'
+          );
+          return;
+        }
+        if (notification?.isSkippedMoment?.()) {
+          setGoogleError(
+            'O login do Google foi bloqueado/ignorado pelo navegador. Verifique permissões de login de terceiros/FedCM e tente novamente.'
+          );
+          return;
+        }
+        if (notification?.isDismissedMoment?.()) {
+          // usuário fechou o popup — não é erro; só não faz nada
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    });
   }, [login]);
+
+  return {
+    googleReady,
+    googleError,
+    startGoogleLogin,
+  };
 }

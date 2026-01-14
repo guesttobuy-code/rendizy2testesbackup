@@ -6,8 +6,7 @@ export function LoginPage() {
   const { isAuthenticated, isLoading } = useGuestAuth();
   const navigate = useNavigate();
   
-  // Inicializa Google One Tap
-  useGoogleOneTap();
+  const { googleReady, googleError, startGoogleLogin } = useGoogleOneTap();
 
   // Redireciona se já logado
   useEffect(() => {
@@ -49,29 +48,40 @@ export function LoginPage() {
                 Use sua conta Google para acessar de forma rápida e segura
               </p>
 
-              {/* Container para Google One Tap / Button */}
-              <div id="g_id_onload"
-                data-client_id={window.GUEST_AREA_CONFIG?.googleClientId}
-                data-context="signin"
-                data-ux_mode="popup"
-                data-callback="handleGoogleCredential"
-                data-auto_prompt="true"
-              />
+              {/* Botão manual (sempre clicável) */}
+              <button
+                type="button"
+                onClick={() => startGoogleLogin()}
+                disabled={!googleReady}
+                className="w-full py-3 border rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {googleReady ? 'Continuar com Google' : 'Carregando Google…'}
+              </button>
 
-              {/* Botão de fallback manual */}
-              <div className="flex justify-center">
-                <div
-                  id="g_id_signin"
-                  className="g_id_signin"
-                  data-type="standard"
-                  data-shape="rectangular"
-                  data-theme="outline"
-                  data-text="signin_with"
-                  data-size="large"
-                  data-logo_alignment="left"
-                  data-width="300"
-                />
-              </div>
+              {googleError && (
+                <p className="text-sm text-red-600 mt-3 text-center">
+                  {googleError}
+                </p>
+              )}
+
+              {/* Reset/Logout de emergência */}
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                  } catch {}
+                  try {
+                    localStorage.removeItem('rendizy_guest_token');
+                    localStorage.removeItem('rendizy_guest');
+                  } catch {}
+                  window.location.hash = '#/login';
+                  window.location.reload();
+                }}
+                className="w-full py-2 mt-3 text-sm text-gray-500 hover:text-gray-700"
+              >
+                Limpar sessão
+              </button>
 
               {/* Divisor */}
               <div className="flex items-center gap-4 my-6">
