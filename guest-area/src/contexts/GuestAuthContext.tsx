@@ -82,8 +82,13 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(data.guest);
       setToken(data.token);
-      localStorage.setItem('rendizy_guest_token', data.token);
-      localStorage.setItem('rendizy_guest', JSON.stringify(data.guest));
+      // Only save to localStorage if values are defined
+      if (data.token) {
+        localStorage.setItem('rendizy_guest_token', data.token);
+      }
+      if (data.guest) {
+        localStorage.setItem('rendizy_guest', JSON.stringify(data.guest));
+      }
     },
     [siteSlug, apiBase]
   );
