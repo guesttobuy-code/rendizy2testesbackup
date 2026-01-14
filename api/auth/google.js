@@ -1,7 +1,7 @@
 import { setCookie, getDefaultCookieOptions } from "../_lib/cookies.js";
 import { callClientSitesApi } from "../_lib/rendizyPublic.js";
 
-const TOKEN_COOKIE = "rendizy_guest_token"; // PATCH_MARKER
+const TOKEN_COOKIE = "rendizy_guest_token";
 const SITE_COOKIE = "rendizy_site_slug";
 
 export default async function handler(req, res) {
@@ -58,13 +58,6 @@ export default async function handler(req, res) {
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ success: true, guest: json.guest }));
-  } catch (err) {
-    console.error("/api/auth/google error", err);
-    res.statusCode = 500;
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ success: false, error: "Internal error" }));
-  }
-}
   } catch (err) {
     console.error("/api/auth/google error", err);
     res.statusCode = 500;
