@@ -1,4 +1,4 @@
-# Análise — MedHome (Proxy/Inject) vs Catálogo (Componentes & Dados) vs Prompt (IA)
+qu# Análise — MedHome (Proxy/Inject) vs Catálogo (Componentes & Dados) vs Prompt (IA)
 
 **Data:** 2026-01-14  
 **Objetivo:** registrar, com rigor, **o que foi necessário ajustar para fazer o MedHome funcionar** com o padrão Rendizy (checkout em nova aba + reserva pendente + confirmação por webhook + área do cliente), e **o que ainda precisa ser testado** antes de atualizar:

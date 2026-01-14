@@ -86,6 +86,7 @@ CREATE INDEX IF NOT EXISTS idx_guests_is_blacklisted ON public.guests(is_blackli
 DROP POLICY IF EXISTS allow_all_guests_finance ON public.guests;
 
 -- Policy for superadmin (users.type = 'superadmin')
+DROP POLICY IF EXISTS allow_superadmin_all_guests ON public.guests;
 CREATE POLICY allow_superadmin_all_guests ON public.guests
   FOR ALL 
   TO authenticated
@@ -105,6 +106,7 @@ CREATE POLICY allow_superadmin_all_guests ON public.guests
   );
 
 -- Policy for organization users
+DROP POLICY IF EXISTS allow_org_users_guests ON public.guests;
 CREATE POLICY allow_org_users_guests ON public.guests
   FOR ALL
   TO authenticated
