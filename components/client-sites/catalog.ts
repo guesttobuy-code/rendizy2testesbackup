@@ -44,7 +44,7 @@
  * 
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v5.2' as const;
+export const CATALOG_VERSION = 'v5.3' as const;
 
 /**
  * Data da última atualização (para referência humana)
@@ -1601,6 +1601,17 @@ Gere APENAS os arquivos de código (tsx, ts, css, json, config).
 - Arquivos \`.md\` de documentação dentro do projeto
 - \`COMO_IMPORTAR.md\`, \`README.md\` customizado, etc (lixo)
 - Qualquer referência a \`VITE_SUPABASE_URL\` ou \`VITE_SUPABASE_ANON_KEY\`
+- Arquivos \`.tar.gz\` ou \`.zip\` dentro do projeto
+- Arquivos \`.sql\` (migrations)
+- Imagens maiores que **100KB** (otimize antes de incluir!)
+
+### ⚠️ IMAGENS - REGRAS CRÍTICAS:
+- Máximo **3-5 imagens** no projeto (logo + favicon)
+- Cada imagem DEVE ter menos de **100KB**
+- Use ferramentas como TinyPNG para otimizar
+- NÃO inclua múltiplas versões da mesma imagem ("image copy.png", etc)
+- Prefira SVG para logos/ícones (menor tamanho)
+- Coloque imagens em \`public/\` (não \`src/assets/\`)
 
 ### src/config/site.ts (MODELO OBRIGATÓRIO):
 \`\`\`typescript
@@ -1653,6 +1664,7 @@ meuhsite.zip
 - Coloque assets em \`src/assets/\` ou \`public/\` (sem subpastas profundas)
 - NÃO inclua \`node_modules/\`, \`.git/\`, \`.bolt/\` no ZIP
 - NÃO gere arquivos \`.md\` extras de documentação
+- NÃO inclua imagens maiores que 100KB (otimize antes!)
 
 ### Checklist final:
 - [ ] \`package.json\` está na RAIZ do ZIP (sem pasta intermediária)
@@ -1663,6 +1675,9 @@ meuhsite.zip
 - [ ] O site usa HashRouter (\`/#/imoveis\`, \`/#/imovel/:id\`)
 - [ ] \`src/services/rendizy.ts\` usa \`fetch()\` direto para a API pública
 - [ ] NÃO existe import de \`@supabase/supabase-js\`
+- [ ] NÃO existem arquivos \`.tar.gz\`, \`.zip\` ou \`.sql\` no projeto
+- [ ] Imagens em \`public/\` são menores que 100KB cada
+- [ ] Máximo 5 imagens no total (logo + favicon + hero)
 
 Gere o projeto completo e pronto para ZIP seguindo TUDO acima.
 `;

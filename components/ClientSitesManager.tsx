@@ -2143,6 +2143,20 @@ type PromptVersion = {
 
 const PROMPT_VERSIONS: PromptVersion[] = [
   {
+    version: 'v5.3',
+    date: '2026-01-14',
+    time: '20:30',
+    author: 'Copilot + Rafael',
+    changes: [
+      '🖼️ LIMITE DE IMAGENS: máximo 100KB cada, máximo 5 imagens total',
+      '⚠️ PROIBIDO arquivos .tar.gz, .zip, .sql no projeto',
+      '✅ Regras específicas para otimização de imagens',
+      '✅ Checklist atualizado com validação de tamanho de imagens',
+      '🐛 Fix: ZIP com imagens grandes causava erro 500 na Vercel',
+    ],
+    prompt: 'CURRENT', // placeholder - usa o prompt atual
+  },
+  {
     version: 'v5.2',
     date: '2026-01-14',
     time: '20:15',
@@ -2156,7 +2170,8 @@ const PROMPT_VERSIONS: PromptVersion[] = [
       '✅ Checklist final mais detalhado (package.json na raiz, etc)',
       '✅ Clarificar que ZIP deve ter código-fonte, não dist/',
     ],
-    prompt: 'CURRENT', // placeholder - usa o prompt atual
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v5.2)
+Este prompt foi atualizado para v5.3 com limite de tamanho de imagens.`,
   },
   {
     version: 'v5.1',
