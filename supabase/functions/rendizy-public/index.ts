@@ -2724,7 +2724,81 @@ guestAreaRoutes.get("/reservations", async (c: Context) => {
     }
 
     if (!guests || guests.length === 0) {
-      console.log(`ℹ️ [GuestArea] Nenhum hóspede encontrado com email ${email}`);
+      console.log(`ℹ️ [GuestArea] Nenhum hóspede encontrado com email ${email}, buscando reservas por email...`);
+      
+      // Buscar reservas legadas que têm o email no special_requests
+      const { data: legacyReservations } = await supabase
+        .from("reservations")
+        .select(`
+          id,
+          property_id,
+          check_in,
+          check_out,
+          guests_total,
+          status,
+          pricing_total,
+          actual_check_in,
+          actual_check_out,
+          created_at
+        `)
+        .eq("organization_id", orgId)
+        .ilike("special_requests", `%${email}%`)
+        .order("check_in", { ascending: false });
+
+      if (legacyReservations && legacyReservations.length > 0) {
+        // Buscar dados das propriedades
+        const propertyIds = [...new Set(legacyReservations.map((r: any) => r.property_id))];
+        const propertiesMap: Record<string, { name: string; address: string; image: string }> = {};
+        
+        if (propertyIds.length > 0) {
+          const { data: properties } = await supabase
+            .from("properties")
+            .select("id, data")
+            .in("id", propertyIds);
+
+          if (properties) {
+            for (const prop of properties) {
+              const data = prop.data || {};
+              propertiesMap[prop.id] = {
+                name: data.name || data.internalName || "Imóvel",
+                address: data.address?.street 
+                  ? `${data.address.street}, ${data.address.number || ''} - ${data.address.city || ''}/${data.address.state || ''}`
+                  : data.address || "Endereço não informado",
+                image: data.coverPhoto || data.photos?.[0]?.url || "",
+              };
+            }
+          }
+        }
+
+        const formattedReservations = legacyReservations.map((r: any) => {
+          const propInfo = propertiesMap[r.property_id] || {};
+          return {
+            id: r.id,
+            property_id: r.property_id,
+            property_name: propInfo.name || "Imóvel",
+            property_image: propInfo.image || "",
+            property_address: propInfo.address || "",
+            check_in: r.check_in,
+            check_out: r.check_out,
+            guests: r.guests_total || 1,
+            status: r.status || "confirmed",
+            total_price: r.pricing_total || 0,
+            checkin_done: !!r.actual_check_in,
+            checkout_done: !!r.actual_check_out,
+            created_at: r.created_at,
+          };
+        });
+
+        return c.json(
+          { 
+            guest: { id: null, name: email.split('@')[0], email: email },
+            reservations: formattedReservations 
+          },
+          200,
+          withCorsHeaders({ "Content-Type": "application/json" })
+        );
+      }
+
       return c.json(
         { reservations: [], guest: null },
         200,
@@ -2736,7 +2810,8 @@ guestAreaRoutes.get("/reservations", async (c: Context) => {
     const guestName = [guest.first_name, guest.last_name].filter(Boolean).join(' ') || 'Hóspede';
     console.log(`✅ [GuestArea] Guest encontrado: ${guest.id} - ${guestName}`);
 
-    // 2. Buscar reservas do guest (tabela usa organization_id)
+    // 2. Buscar reservas do guest - por guest_id OU por email no special_requests (reservas legadas)
+    // Usamos OR para pegar ambos os casos
     const { data: reservations, error: resError } = await supabase
       .from("reservations")
       .select(`
@@ -2749,10 +2824,11 @@ guestAreaRoutes.get("/reservations", async (c: Context) => {
         pricing_total,
         actual_check_in,
         actual_check_out,
-        created_at
+        created_at,
+        special_requests
       `)
       .eq("organization_id", orgId)
-      .eq("guest_id", guest.id)
+      .or(`guest_id.eq.${guest.id},special_requests.ilike.%${email}%`)
       .order("check_in", { ascending: false });
 
     if (resError) {
