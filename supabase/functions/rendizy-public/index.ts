@@ -1379,6 +1379,45 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
     const reservationId = crypto.randomUUID();
     const reservationCode = `WEB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
+    // Find or create guest by email (to link reservation to guest record)
+    let guestId: string | null = null;
+    if (guestEmail) {
+      // Try to find existing guest
+      const { data: existingGuest } = await supabase
+        .from("guests")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("email", guestEmail.toLowerCase())
+        .maybeSingle();
+
+      if (existingGuest) {
+        guestId = (existingGuest as { id: string }).id;
+      } else {
+        // Create new guest
+        const nameParts = guestName.trim().split(/\s+/);
+        const firstName = nameParts[0] || guestName;
+        const lastName = nameParts.slice(1).join(" ") || "";
+        
+        const { data: newGuest, error: guestError } = await supabase
+          .from("guests")
+          .insert({
+            organization_id: organizationId,
+            email: guestEmail.toLowerCase(),
+            first_name: firstName,
+            last_name: lastName,
+            phone: guestPhone || null,
+            source: "website",
+            language: "pt-BR",
+          })
+          .select("id")
+          .single();
+
+        if (!guestError && newGuest) {
+          guestId = (newGuest as { id: string }).id;
+        }
+      }
+    }
+
     // Create the reservation using correct schema columns
     const { data: newReservation, error: insertError } = await supabase
       .from("reservations")
@@ -1386,6 +1425,7 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
         id: reservationId,
         organization_id: organizationId,
         property_id: propertyId,
+        guest_id: guestId, // Link to guest record
         check_in: checkIn,
         check_out: checkOut,
         nights: nights,
@@ -2450,54 +2490,85 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
       );
     }
 
-    // 3. Buscar reservas do hóspede
-    // Procuramos por guest_id OU guest_email (para reservas criadas antes do login)
-    const { data: reservations, error: reservationsError } = await supabase
+    // 3. Buscar guest(s) pelo email (tabela guests é diferente de guest_users)
+    // O usuário logado (guest_users) precisa encontrar reservas pelo email
+    const { data: guestsWithEmail } = await supabase
+      .from("guests")
+      .select("id, email")
+      .ilike("email", `%${guestEmail}%`);
+
+    const guestIds = (guestsWithEmail || []).map((g: any) => g.id);
+    
+    console.log(`[reservations/mine] Email buscado: ${guestEmail}`);
+    console.log(`[reservations/mine] Guests encontrados: ${JSON.stringify(guestsWithEmail || [])}`);
+
+    // 4. Buscar reservas - tanto por guest_id quanto por email no special_requests (reservas antigas)
+    // Usamos OR para pegar ambos os casos
+    let reservationsQuery = supabase
       .from("reservations")
       .select(`
         id,
-        reservation_code,
         check_in,
         check_out,
-        guests,
+        nights,
+        guests_adults,
+        guests_children,
+        guests_infants,
+        guests_total,
         status,
         payment_status,
-        payment_expires_at,
-        total_price,
-        currency,
-        guest_name,
-        guest_email,
-        guest_phone,
-        message,
+        pricing_total,
+        pricing_currency,
+        notes,
+        special_requests,
         created_at,
         updated_at,
         property_id,
-        properties!inner (
-          id,
-          name,
-          code,
-          cover_photo,
-          photos,
-          address_city,
-          address_state
-        )
+        guest_id
       `)
       .eq("organization_id", site.organization_id)
-      .or(`guest_id.eq.${guestId},guest_email.ilike.${guestEmail}`)
       .order("check_in", { ascending: false });
+
+    // Build OR conditions for guest_id and email in special_requests
+    const orConditions: string[] = [];
+    if (guestIds.length > 0) {
+      orConditions.push(`guest_id.in.(${guestIds.join(",")})`);
+    }
+    // Also search for email in special_requests field (legacy reservations)
+    orConditions.push(`special_requests.ilike.%${guestEmail}%`);
+    
+    const { data: reservations, error: reservationsError } = await reservationsQuery.or(orConditions.join(","));
 
     if (reservationsError) {
       console.error("Erro ao buscar reservas:", reservationsError);
+      console.error("Query params:", { orgId: site.organization_id, guestId, guestEmail });
       return c.json(
-        { success: false, error: "Erro ao buscar reservas" },
+        { success: false, error: "Erro ao buscar reservas", details: reservationsError.message },
         500,
         withCorsHeaders({ "Content-Type": "application/json" })
       );
     }
 
-    // 4. Formatar resposta
+    console.log(`[guest/reservations/mine] Encontradas ${(reservations || []).length} reservas para ${guestEmail} na org ${site.organization_id}`);
+
+    // 4. Buscar properties das reservas (separadamente para evitar problemas de join)
+    const propertyIds = [...new Set((reservations || []).map((r: any) => r.property_id).filter(Boolean))];
+    let propertiesMap: Record<string, any> = {};
+    
+    if (propertyIds.length > 0) {
+      const { data: properties } = await supabase
+        .from("properties")
+        .select("id, name, code, cover_photo, photos, address_city, address_state")
+        .in("id", propertyIds);
+      
+      for (const p of (properties || [])) {
+        propertiesMap[p.id] = p;
+      }
+    }
+
+    // 5. Formatar resposta
     const formattedReservations = (reservations || []).map((r: any) => {
-      const property = r.properties;
+      const property = propertiesMap[r.property_id] || null;
       // Resolver cover photo
       let coverPhoto = property?.cover_photo || null;
       if (!coverPhoto && property?.photos) {
@@ -2507,27 +2578,30 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
 
       return {
         id: r.id,
-        reservationCode: r.reservation_code,
-        property: {
-          id: property?.id,
-          name: property?.name || "Imóvel",
-          code: property?.code,
+        reservationCode: r.id, // ID é usado como código
+        property: property ? {
+          id: property.id,
+          name: property.name || "Imóvel",
+          code: property.code,
           coverPhoto,
-          city: property?.address_city,
-          state: property?.address_state,
-        },
+          city: property.address_city,
+          state: property.address_state,
+        } : null,
         checkIn: r.check_in,
         checkOut: r.check_out,
-        guests: r.guests || 1,
+        nights: r.nights,
+        guests: {
+          adults: r.guests_adults || 1,
+          children: r.guests_children || 0,
+          infants: r.guests_infants || 0,
+          total: r.guests_total || 1,
+        },
         status: r.status,
         paymentStatus: r.payment_status,
-        paymentExpiresAt: r.payment_expires_at,
-        totalPrice: r.total_price,
-        currency: r.currency || "BRL",
-        guestName: r.guest_name,
-        guestEmail: r.guest_email,
-        guestPhone: r.guest_phone,
-        message: r.message,
+        totalPrice: r.pricing_total,
+        currency: r.pricing_currency || "BRL",
+        notes: r.notes,
+        specialRequests: r.special_requests,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       };
