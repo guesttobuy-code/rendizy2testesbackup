@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useGuestAuth } from '../contexts/GuestAuthContext';
 
+interface GuestsInfo {
+  adults?: number;
+  children?: number;
+  infants?: number;
+  total?: number;
+}
+
 interface Reservation {
   id: string;
   property_id: string;
@@ -8,10 +15,20 @@ interface Reservation {
   property_image?: string;
   check_in: string;
   check_out: string;
-  guests: number;
+  guests: number | GuestsInfo;
   total_price: number;
   status: 'confirmed' | 'pending' | 'cancelled' | 'completed';
   created_at: string;
+}
+
+// Helper to extract guest count from guests field (can be number or object)
+function getGuestCount(guests: number | GuestsInfo | undefined | null): number {
+  if (!guests) return 1;
+  if (typeof guests === 'number') return guests;
+  if (typeof guests === 'object') {
+    return guests.total || (guests.adults || 0) + (guests.children || 0) + (guests.infants || 0) || 1;
+  }
+  return 1;
 }
 
 function getStatusBadge(status: Reservation['status']) {
@@ -222,7 +239,7 @@ export function MyReservationsPage() {
                     </div>
                     <div>
                       <span className="text-gray-500 block">Hóspedes</span>
-                      <span className="font-medium">{reservation.guests || 1} pessoa{(reservation.guests || 1) !== 1 ? 's' : ''}</span>
+                      <span className="font-medium">{getGuestCount(reservation.guests)} pessoa{getGuestCount(reservation.guests) !== 1 ? 's' : ''}</span>
                     </div>
                     <div>
                       <span className="text-gray-500 block">Total</span>
