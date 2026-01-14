@@ -44,7 +44,7 @@
  * 
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v5.1' as const;
+export const CATALOG_VERSION = 'v5.2' as const;
 
 /**
  * Data da última atualização (para referência humana)
