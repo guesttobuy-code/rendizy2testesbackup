@@ -556,17 +556,113 @@ export default function handler(req, res) {
         if (!globalThis.fetch || globalThis.__rendizyCheckoutFetchHook) return;
         var origFetch = globalThis.fetch;
 
+        function pickNonEmpty() {
+          for (var i = 0; i < arguments.length; i++) {
+            var v = arguments[i];
+            if (v == null) continue;
+            var s = String(v).trim();
+            if (s) return s;
+          }
+          return "";
+        }
+
+        function tryBuildE164(dial, rawPhone) {
+          try {
+            var d = normalizeDigits(dial);
+            var n = normalizeDigits(rawPhone);
+            if (!d || !n) return "";
+            return "+" + d + n;
+          } catch (e) {
+            return "";
+          }
+        }
+
         globalThis.fetch = function (input, init) {
           try {
             var url = "";
             if (typeof input === "string") url = input;
             else if (input && input.url) url = input.url;
 
+            var lowerUrl = url ? String(url).toLowerCase() : "";
+
+            // Normalize reservation creation payload.
+            // Fixes the most common 400 from the public API:
+            //   { success:false, error:"Campos obrigatórios: propertyId, checkIn, checkOut, guestName" }
+            if (lowerUrl && lowerUrl.includes("/reservations")) {
+              var methodR = init && init.method ? String(init.method).toUpperCase() : "GET";
+              if (methodR === "POST" && init && typeof init.body === "string") {
+                var bodyObjR = safeJsonParse(init.body);
+                if (bodyObjR && typeof bodyObjR === "object") {
+                  var insR = findInputs();
+                  var gR = getGuestData();
+
+                  // Ensure guestName isn't empty.
+                  if (!bodyObjR.guestName || !String(bodyObjR.guestName).trim()) {
+                    bodyObjR.guestName = pickNonEmpty(
+                      insR && insR.nameInp ? insR.nameInp.value : "",
+                      gR && (gR.name || gR.full_name || gR.displayName),
+                      bodyObjR.guestName
+                    );
+                  }
+
+                  // Best-effort email fill (optional on API, but helps).
+                  if (!bodyObjR.guestEmail || !String(bodyObjR.guestEmail).trim()) {
+                    var em = pickNonEmpty(
+                      insR && insR.emailInp ? insR.emailInp.value : "",
+                      gR && gR.email,
+                      bodyObjR.guestEmail
+                    );
+                    if (em) bodyObjR.guestEmail = em;
+                  }
+
+                  // Best-effort phone normalization to E.164 when possible.
+                  // Only rewrite if:
+                  // - a phone exists, and
+                  // - it's not already E.164, and
+                  // - we can infer a dial code.
+                  var rawPhone = pickNonEmpty(
+                    bodyObjR.guestPhone,
+                    bodyObjR.phone,
+                    insR && insR.phoneInp ? insR.phoneInp.value : "",
+                    gR && (gR.phone || gR.telefone)
+                  );
+                  if (rawPhone && !String(rawPhone).trim().startsWith("+")) {
+                    var dialR = "";
+                    try {
+                      var profR = getLocalProfile();
+                      dialR = pickNonEmpty(
+                        profR && (profR.dial || profR.ddi),
+                        gR && (gR.dial || gR.ddi)
+                      );
+                    } catch (e) {}
+
+                    // Infer from country select if present.
+                    try {
+                      var selR = insR && insR.phoneInp && insR.phoneInp.parentNode
+                        ? insR.phoneInp.parentNode.querySelector("select.rendizy-country-select")
+                        : null;
+                      if (!dialR && selR && selR.value) {
+                        var codeR = String(selR.value || "");
+                        for (var ci = 0; ci < COUNTRIES.length; ci++) {
+                          if (COUNTRIES[ci].code === codeR) { dialR = COUNTRIES[ci].dial; break; }
+                        }
+                      }
+                    } catch (e) {}
+
+                    var e164 = dialR ? tryBuildE164(dialR, rawPhone) : "";
+                    if (e164) bodyObjR.guestPhone = e164;
+                  }
+
+                  init = Object.assign({}, init, { body: JSON.stringify(bodyObjR) });
+                }
+              }
+            }
+
             // NOTE: Avoid regex literals with escaped slashes here.
             // This script is emitted from a server-side template string,
             // so patterns like /\/checkout\/session/ can degrade into
             // //checkout/session (a line comment) and break parsing.
-            if (url && String(url).toLowerCase().includes("/checkout/session")) {
+            if (lowerUrl && lowerUrl.includes("/checkout/session")) {
               var method = (init && init.method) ? String(init.method).toUpperCase() : "GET";
               if (method === "POST" && init && typeof init.body === "string") {
                 var bodyObj = safeJsonParse(init.body);

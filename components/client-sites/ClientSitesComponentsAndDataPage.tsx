@@ -2,8 +2,8 @@ import { Database } from 'lucide-react';
 import { ComponentsAndDataTab } from './ComponentsAndDataTab';
 
 // Versão sincronizada com PROMPT_VERSIONS em ClientSitesManager.tsx
-export const CATALOG_VERSION = 'v4.3';
-export const CATALOG_VERSION_DATE = '2026-01-13';
+export const CATALOG_VERSION = 'v5.0';
+export const CATALOG_VERSION_DATE = '2026-01-14';
 
 export function ClientSitesComponentsAndDataPage() {
   return (

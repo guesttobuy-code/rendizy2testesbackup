@@ -1,10 +1,21 @@
 import { setCookie, getDefaultCookieOptions } from "../_lib/cookies.js";
 import { callClientSitesApi } from "../_lib/rendizyPublic.js";
 
+export const config = { runtime: "nodejs" };
+
 const TOKEN_COOKIE = "rendizy_guest_token";
 const SITE_COOKIE = "rendizy_site_slug";
 
 export default async function handler(req, res) {
+  // Debug header to confirm you're hitting the latest deploy.
+  // Safe: contains no PII.
+  const ver =
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.VERCEL_DEPLOYMENT_ID ||
+    process.env.VERCEL_BUILD_OUTPUT_VERSION ||
+    "";
+  res.setHeader("X-Rendizy-Auth-Google", ver ? String(ver).slice(0, 16) : "1");
+
   if (req.method !== "POST") {
     res.statusCode = 405;
     res.setHeader("Content-Type", "application/json");
@@ -25,7 +36,9 @@ export default async function handler(req, res) {
   if (!credential || !siteSlug) {
     res.statusCode = 400;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ success: false, error: "Missing credential or siteSlug" }));
+    res.end(
+      JSON.stringify({ success: false, error: "Missing credential or siteSlug" })
+    );
     return;
   }
 
@@ -55,6 +68,9 @@ export default async function handler(req, res) {
     setCookie(res, TOKEN_COOKIE, json.token, cookieOpts);
     setCookie(res, SITE_COOKIE, siteSlug, cookieOpts);
 
+    // Optional: keep backward compatibility with client code that expects localStorage.
+    // We don't set it here (httpOnly cookie), but we return guest so the UI can display immediately.
+
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ success: true, guest: json.guest }));
@@ -65,4 +81,3 @@ export default async function handler(req, res) {
     res.end(JSON.stringify({ success: false, error: "Internal error" }));
   }
 }
-

@@ -2135,6 +2135,24 @@ type PromptVersion = {
 
 const PROMPT_VERSIONS: PromptVersion[] = [
   {
+    version: 'v5.0',
+    date: '2026-01-14',
+    time: '12:00',
+    author: 'Copilot + Rafael',
+    changes: [
+      '🆕 CHECKOUT V2: Abre em NOVA ABA (window.open)',
+      '✅ URLs de retorno apontam para domínio Rendizy (/api/checkout/success)',
+      '✅ Confirmação assíncrona via webhook (reserva nasce "pending")',
+      '✅ Notificação cross-tab via BroadcastChannel/localStorage',
+      '✅ Link "Ver Reserva" direciona para Guest Area com ?focus=',
+      '🆕 FORMULÁRIO V2: Telefone E.164 obrigatório (país + número)',
+      '✅ Autofill quando hóspede está logado',
+      '✅ Lock (readonly) dos campos preenchidos automaticamente',
+      '✅ Inputs com name/id canônicos (guestName, guestEmail, guestPhone)',
+    ],
+    prompt: 'CURRENT', // placeholder - usa o prompt atual
+  },
+  {
     version: 'v4.3',
     date: '2026-01-13',
     time: '17:00',
@@ -2148,7 +2166,9 @@ const PROMPT_VERSIONS: PromptVersion[] = [
       '✅ Google One Tap integrado na cápsula',
       '✅ Persistência via localStorage',
     ],
-    prompt: 'CURRENT', // placeholder - usa o prompt atual
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v4.3)
+
+Este prompt foi substituído pela v5.0 que inclui Checkout v2 (nova aba + webhook).`,
   },
   {
     version: 'v4.2',
@@ -2234,11 +2254,12 @@ function DocsAIModal({ open, onClose }: {
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [selectedVersion, setSelectedVersion] = useState<string>('v4.3');
+  const [selectedVersion, setSelectedVersion] = useState<string>('v5.0');
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v4.3)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v5.0)
 
-> **Catálogo**: v1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-13 às 17:00
+> **Catálogo**: v1.1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-14 às 12:00
+> **Novidade v5.0**: Checkout v2 (nova aba + webhook) + Telefone E.164 + Autofill/Lock
 
 ---
 ## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
@@ -2746,10 +2767,173 @@ async function redirectToCheckout(subdomain: string, reservationId: string) {
     throw new Error(json.error || 'Erro ao criar checkout');
   }
   
-  // Redireciona para o gateway de pagamento
-  window.location.href = json.data.checkoutUrl;
+  // ⚠️ CHECKOUT V2: Abrir em NOVA ABA, não na mesma aba!
+  window.open(json.data.checkoutUrl, "_blank");
 }
 ` + "```" + `
+
+## 🆕 CHECKOUT V2 — REGRAS OBRIGATÓRIAS (v5.0)
+
+### ⚠️ MUDANÇA CRÍTICA: Checkout em Nova Aba
+
+O checkout Stripe DEVE abrir em **NOVA ABA**. A reserva nasce "pending" e só confirma via webhook.
+
+**❌ ERRADO (v4.x - OBSOLETO):**
+` + "```" + `typescript
+window.location.href = checkoutUrl;  // ❌ NÃO FAÇA ISSO!
+window.location.assign(checkoutUrl); // ❌ NÃO FAÇA ISSO!
+` + "```" + `
+
+**✅ CORRETO (v5.0):**
+` + "```" + `typescript
+window.open(checkoutUrl, "_blank");  // ✅ Abre em nova aba
+` + "```" + `
+
+### URLs de Retorno (OBRIGATÓRIO)
+
+O successUrl e cancelUrl DEVEM apontar para o domínio Rendizy, NÃO para o site:
+
+` + "```" + `typescript
+const RENDIZY_DOMAIN = 'https://rendizy2testesbackup.vercel.app';
+
+const successUrl = RENDIZY_DOMAIN + '/api/checkout/success?' + new URLSearchParams({
+  siteSlug: subdomain,
+  reservationId: reservationId
+}).toString();
+
+const cancelUrl = RENDIZY_DOMAIN + '/api/checkout/cancel?' + new URLSearchParams({
+  siteSlug: subdomain,
+  reservationId: reservationId
+}).toString();
+` + "```" + `
+
+**❌ ERRADO:** ` + "`successUrl: '#/pagamento-sucesso'`" + `
+**✅ CORRETO:** ` + "`successUrl: 'https://rendizy2testesbackup.vercel.app/api/checkout/success?...'`" + `
+
+### Notificação Cross-Tab (Confirmação)
+
+A aba original deve escutar eventos para saber quando a reserva foi confirmada:
+
+` + "```" + `typescript
+useEffect(() => {
+  // BroadcastChannel (navegadores modernos)
+  const channel = new BroadcastChannel('rendizy-checkout');
+  channel.onmessage = (e) => {
+    if (e.data?.type === 'checkout-success' && e.data?.reservationId === currentReservationId) {
+      showToast('✅ Reserva confirmada!');
+      refreshReservations();
+    }
+  };
+
+  // Fallback: localStorage (Safari, etc)
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === 'rendizy_checkout_success') {
+      const data = JSON.parse(e.newValue || '{}');
+      if (data.reservationId === currentReservationId) {
+        showToast('✅ Reserva confirmada!');
+        refreshReservations();
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  return () => {
+    channel.close();
+    window.removeEventListener('storage', handleStorage);
+  };
+}, [currentReservationId]);
+` + "```" + `
+
+### Link "Ver Reserva" (após confirmação)
+
+Após confirmação, direcionar para a Guest Area com foco na reserva:
+
+` + "```" + `typescript
+const guestAreaUrl = 'https://rendizy2testesbackup.vercel.app/guest-area/#/reservas?focus=' + reservationId;
+` + "```" + `
+
+## 🆕 FORMULÁRIO DE RESERVA v2 — REGRAS (v5.0)
+
+### 1. Telefone Obrigatório com País/Prefixo (E.164)
+
+O campo de telefone DEVE incluir código do país. Formato final: ` + "`+{dialCode}{number}`" + `
+
+` + "```" + `typescript
+// UI sugerida: dropdown de país + input de número
+<div className="flex gap-2">
+  <select name="dialCode" value={dialCode} onChange={e => setDialCode(e.target.value)}>
+    <option value="+55">🇧🇷 +55</option>
+    <option value="+1">🇺🇸 +1</option>
+    <option value="+351">🇵🇹 +351</option>
+    {/* ... */}
+  </select>
+  <input
+    type="tel"
+    name="guestPhone"
+    value={phone}
+    onChange={e => setPhone(e.target.value)}
+    placeholder="11999999999"
+    required
+  />
+</div>
+
+// Ao submeter, concatenar:
+const fullPhone = dialCode + phone.replace(/\\D/g, '');  // +5511999999999
+
+// Validação E.164
+function validateE164(phone: string): boolean {
+  return /^\\+[1-9]\\d{6,14}$/.test(phone.replace(/\\s/g, ''));
+}
+` + "```" + `
+
+### 2. Autofill Quando Logado
+
+Se o hóspede estiver logado (token em localStorage), preencher automaticamente:
+
+` + "```" + `typescript
+useEffect(() => {
+  const guest = JSON.parse(localStorage.getItem('rendizy_guest') || 'null');
+  if (guest) {
+    setGuestName(guest.name || '');
+    setGuestEmail(guest.email || '');
+    setGuestPhone(guest.phone || '');
+  }
+}, []);
+` + "```" + `
+
+### 3. Lock Quando Logado (Campos Readonly)
+
+Campos preenchidos automaticamente ficam **readonly/disabled**:
+
+` + "```" + `typescript
+const guest = JSON.parse(localStorage.getItem('rendizy_guest') || 'null');
+const isLoggedIn = !!guest;
+
+<input
+  name="guestName"
+  id="guestName"  // ⚠️ IMPORTANTE: usar id canônico
+  value={guestName}
+  onChange={e => setGuestName(e.target.value)}
+  readOnly={isLoggedIn}
+  disabled={isLoggedIn}
+  className={isLoggedIn ? 'bg-gray-100 cursor-not-allowed' : ''}
+/>
+
+{isLoggedIn && (
+  <p className="text-xs text-gray-500 mt-1">
+    Para editar, acesse seu perfil na <a href="#/area-interna/perfil">Área do Cliente</a>
+  </p>
+)}
+` + "```" + `
+
+### 4. Inputs com name/id Canônicos
+
+O Rendizy injeta script que busca inputs por name/id. Use exatamente:
+- ` + "`name=\"guestName\"`" + ` ou ` + "`id=\"guestName\"`" + `
+- ` + "`name=\"guestEmail\"`" + ` ou ` + "`id=\"guestEmail\"`" + `
+- ` + "`name=\"guestPhone\"`" + ` ou ` + "`id=\"guestPhone\"`" + `
+
+⚠️ Se usar nomes diferentes, o autofill/lock automático não funcionará.
 
 **Exemplo de cliente API:**
 ` + "```" + `typescript
@@ -3532,8 +3716,8 @@ Regras:
 Gere o projeto completo e pronto para ZIP seguindo TUDO acima.`;
 
   const currentVersion = PROMPT_VERSIONS.find(v => v.version === selectedVersion);
-  // v4.3 é o atual - usa aiPrompt. Outras versões usam o prompt salvo no histórico
-  const displayPrompt = selectedVersion === 'v4.3' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
+  // v5.0 é o atual - usa aiPrompt. Outras versões usam o prompt salvo no histórico
+  const displayPrompt = selectedVersion === 'v5.0' ? aiPrompt : (currentVersion?.prompt || aiPrompt);
 
   const copyPrompt = () => {
     navigator.clipboard.writeText(displayPrompt);
