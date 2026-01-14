@@ -25,28 +25,38 @@ function getStatusBadge(status: Reservation['status']) {
   return <span className={`px-2 py-1 text-xs rounded-full font-medium ${color}`}>{label}</span>;
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+function formatDate(dateStr: string | undefined | null) {
+  if (!dateStr) return '-';
+  try {
+    return new Date(dateStr).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '-';
+  }
 }
 
-function getDaysUntilCheckIn(checkIn: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const checkInDate = new Date(checkIn);
-  checkInDate.setHours(0, 0, 0, 0);
-  const diffTime = checkInDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+function getDaysUntilCheckIn(checkIn: string | undefined | null): string {
+  if (!checkIn) return '';
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkInDate = new Date(checkIn);
+    checkInDate.setHours(0, 0, 0, 0);
+    const diffTime = checkInDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) return 'Já passou';
-  if (diffDays === 0) return 'Hoje!';
-  if (diffDays === 1) return 'Amanhã';
-  if (diffDays <= 7) return `Em ${diffDays} dias`;
-  if (diffDays <= 30) return `Em ${Math.ceil(diffDays / 7)} semanas`;
-  return `Em ${Math.ceil(diffDays / 30)} meses`;
+    if (diffDays < 0) return 'Já passou';
+    if (diffDays === 0) return 'Hoje!';
+    if (diffDays === 1) return 'Amanhã';
+    if (diffDays <= 7) return `Em ${diffDays} dias`;
+    if (diffDays <= 30) return `Em ${Math.ceil(diffDays / 7)} semanas`;
+    return `Em ${Math.ceil(diffDays / 30)} meses`;
+  } catch {
+    return '';
+  }
 }
 
 export function MyReservationsPage() {
@@ -192,7 +202,7 @@ export function MyReservationsPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
                     <div>
                       <h3 className="font-semibold text-gray-800 text-lg">
-                        {reservation.property_name}
+                        {reservation.property_name || 'Propriedade'}
                       </h3>
                       <p className="text-sm text-primary font-medium">
                         {getDaysUntilCheckIn(reservation.check_in)}
@@ -212,12 +222,12 @@ export function MyReservationsPage() {
                     </div>
                     <div>
                       <span className="text-gray-500 block">Hóspedes</span>
-                      <span className="font-medium">{reservation.guests} pessoa{reservation.guests !== 1 ? 's' : ''}</span>
+                      <span className="font-medium">{reservation.guests || 1} pessoa{(reservation.guests || 1) !== 1 ? 's' : ''}</span>
                     </div>
                     <div>
                       <span className="text-gray-500 block">Total</span>
                       <span className="font-medium text-primary">
-                        R$ {reservation.total_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(reservation.total_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
