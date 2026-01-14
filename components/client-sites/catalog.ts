@@ -1272,3 +1272,295 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
     ]
   }
 ] satisfies ClientSitesCatalogBlock[];
+
+// ============================================================
+// GERADOR DE PROMPT (O PROMPT É GERADO A PARTIR DO CATÁLOGO!)
+// ============================================================
+//
+// O prompt e o catálogo são IRMÃOS SIAMESES:
+// - PROMPT diz O QUE FAZER (regras, objetivo, contexto)
+// - CATÁLOGO diz COMO FAZER (blocos, endpoints, campos, exemplos)
+//
+// Esta função gera o prompt completo a partir do catálogo,
+// garantindo que qualquer mudança no catálogo reflita no prompt.
+// ============================================================
+
+/**
+ * Gera a seção de blocos obrigatórios do prompt a partir do catálogo
+ */
+function generateBlocksSection(): string {
+  const stableBlocks = CLIENT_SITES_BLOCKS_CATALOG.filter(b => b.stability === 'stable');
+  const criticalBlocks = stableBlocks.filter(b => 
+    ['checkout-v2-flow', 'booking-form-v2', 'calendar-daily-pricing', 'payment-method-selector'].includes(b.id)
+  );
+  const otherBlocks = stableBlocks.filter(b => 
+    !['checkout-v2-flow', 'booking-form-v2', 'calendar-daily-pricing', 'payment-method-selector'].includes(b.id)
+  );
+
+  let section = `## 🧱 BLOCOS OBRIGATÓRIOS (Gerado do Catálogo ${CATALOG_VERSION})
+
+Os blocos abaixo são OBRIGATÓRIOS e devem ser implementados EXATAMENTE como especificado.
+Esta seção é gerada automaticamente do catálogo — mudanças no catálogo refletem aqui.
+
+### Blocos CRÍTICOS (implemente com atenção especial):
+
+`;
+
+  for (const block of criticalBlocks) {
+    section += `#### ${block.title}
+- **ID**: \`${block.id}\`
+- **Descrição**: ${block.description}
+- **Endpoints**: ${block.usesEndpoints.map(e => `\`${e}\``).join(', ') || 'nenhum'}
+- **Campos obrigatórios**: ${block.requiredFields.map(f => `\`${f}\``).join(', ')}
+`;
+    // Adicionar notas principais (primeiras 3 que não são headers)
+    const mainNotes = (block.notes || []).filter(n => !n.startsWith('#') && n.trim()).slice(0, 3);
+    if (mainNotes.length > 0) {
+      section += `- **Regras**:\n`;
+      mainNotes.forEach(note => {
+        section += `  - ${note}\n`;
+      });
+    }
+    section += '\n';
+  }
+
+  section += `### Outros Blocos Estáveis:
+
+`;
+
+  for (const block of otherBlocks) {
+    section += `- **${block.title}** (\`${block.id}\`): ${block.description}\n`;
+  }
+
+  return section;
+}
+
+/**
+ * Gera a seção de endpoints do prompt a partir do catálogo
+ */
+function generateEndpointsSection(): string {
+  const stableEndpoints = CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints.filter(e => e.stability === 'stable');
+  const plannedEndpoints = CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints.filter(e => e.stability === 'planned');
+
+  let section = `## 🔌 ENDPOINTS DA API (Gerado do Catálogo ${CATALOG_VERSION})
+
+### Endpoints Estáveis (USE):
+
+`;
+
+  for (const endpoint of stableEndpoints) {
+    section += `#### ${endpoint.title}
+\`\`\`
+${endpoint.method} ${endpoint.pathTemplate}
+\`\`\`
+`;
+    if (endpoint.notes && endpoint.notes.length > 0) {
+      section += `${endpoint.notes.slice(0, 2).join('\n')}\n`;
+    }
+    section += '\n';
+  }
+
+  if (plannedEndpoints.length > 0) {
+    section += `### Endpoints Planejados (NÃO IMPLEMENTE AINDA):
+`;
+    for (const endpoint of plannedEndpoints) {
+      section += `- \`${endpoint.method} ${endpoint.pathTemplate}\` — ${endpoint.title}\n`;
+    }
+  }
+
+  return section;
+}
+
+/**
+ * Gera a seção de checklist do prompt a partir dos blocos críticos
+ */
+function generateChecklistSection(): string {
+  const checkoutBlock = CLIENT_SITES_BLOCKS_CATALOG.find(b => b.id === 'checkout-v2-flow');
+  const formBlock = CLIENT_SITES_BLOCKS_CATALOG.find(b => b.id === 'booking-form-v2');
+  const calendarBlock = CLIENT_SITES_BLOCKS_CATALOG.find(b => b.id === 'calendar-daily-pricing');
+
+  return `## 📋 CHECKLIST DE VALIDAÇÃO (VERIFIQUE ANTES DE ENTREGAR!)
+
+Antes de gerar o código final, verifique CADA item abaixo. Se algum estiver errado, CORRIJA.
+
+### Checkout v2 (CRÍTICO — bloco \`checkout-v2-flow\`):
+- [ ] Checkout abre em NOVA ABA: \`window.open(checkoutUrl, "_blank")\` ← NÃO use \`window.location.href\`!
+- [ ] successUrl/cancelUrl apontam para domínio Rendizy (\`/api/checkout/success\`), NÃO para hash routes do site
+- [ ] Após criar reserva, implementar listener de BroadcastChannel para confirmação cross-tab
+
+### Formulário de Reserva v2 (CRÍTICO — bloco \`booking-form-v2\`):
+- [ ] Campo telefone é OBRIGATÓRIO (não opcional) com dropdown de país (+55, +1, etc)
+- [ ] Inputs usam IDs canônicos: \`name="guestName"\`, \`name="guestEmail"\`, \`name="guestPhone"\`
+- [ ] Se hóspede logado (\`localStorage.rendizy_guest\`), campos são preenchidos automaticamente
+- [ ] Campos preenchidos via autofill ficam \`readOnly={true} disabled={true}\`
+
+### Calendário (CRÍTICO — bloco \`calendar-daily-pricing\`):
+- [ ] Calendário usa API real (\`/calendar\`) — NUNCA dados mock/fake
+- [ ] Verificar status com \`day.status === "available"\` (string), NÃO \`day.available\` (não existe)
+
+### Componentes Obrigatórios:
+- [ ] \`BookingWidget.tsx\` ou \`BookingForm.tsx\` com todas as regras acima
+- [ ] \`PaymentMethodSelector.tsx\` com PIX inline (QR code) + Boleto (PDF link)
+- [ ] \`DateRangePicker.tsx\` ou \`CalendarPicker.tsx\` usando API real
+- [ ] \`GuestAreaButton.tsx\` que redireciona para cápsula (NÃO código embutido)
+
+⚠️ Se você não marcar TODOS os itens acima, o site será rejeitado.
+`;
+}
+
+/**
+ * Gera a seção de integration guides do prompt
+ */
+function generateIntegrationGuidesSection(): string {
+  let section = `## 📚 GUIAS DE INTEGRAÇÃO (Gerado do Catálogo ${CATALOG_VERSION})
+
+`;
+
+  for (const guide of CLIENT_SITES_PUBLIC_CONTRACT_V1.integrationGuides) {
+    section += `### ${guide.title}\n\n`;
+    guide.notes.forEach(note => {
+      section += `${note}\n`;
+    });
+    section += '\n';
+    
+    if (guide.codeBlocks && guide.codeBlocks.length > 0) {
+      for (const cb of guide.codeBlocks) {
+        section += `**${cb.title}:**\n`;
+        section += `\`\`\`${cb.language || 'typescript'}\n${cb.code}\n\`\`\`\n\n`;
+      }
+    }
+  }
+
+  return section;
+}
+
+/**
+ * Gera o prompt completo a partir do catálogo.
+ * O prompt é composto de:
+ * 1. Cabeçalho + Regra Fundamental (fixo)
+ * 2. Checklist (gerado dos blocos críticos)
+ * 3. Objetivo e Stack (fixo)
+ * 4. Blocos (gerado do catálogo)
+ * 5. Endpoints (gerado do catálogo)
+ * 6. Guias de Integração (gerado do catálogo)
+ * 7. Instruções de Build (fixo)
+ */
+export function generatePromptFromCatalog(): string {
+  const today = new Date().toISOString().split('T')[0];
+  const time = new Date().toTimeString().slice(0, 5);
+
+  // ==================== PARTE FIXA: CABEÇALHO ====================
+  const header = `# RENDIZY — PROMPT PLUGÁVEL (${CATALOG_VERSION})
+
+> **Catálogo**: ${CATALOG_VERSION} | **Sistema**: v1.0.104.x | **Gerado**: ${today} às ${time}
+> **⚠️ ESTE PROMPT É GERADO AUTOMATICAMENTE DO CATÁLOGO** — Qualquer mudança no catálogo reflete aqui.
+
+---
+## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
+
+**O RENDIZY PROPÕE O PADRÃO. VOCÊ SEGUE.**
+
+Este prompt é PROPOSITIVO, não sugestivo. As especificações aqui são ORDENS, não recomendações.
+- Você DEVE implementar exatamente como especificado.
+- Você NÃO pode propor formatos alternativos.
+- Você NÃO pode usar convenções próprias que desviem do contrato.
+- Se algo não está claro, use o formato EXATO dos exemplos.
+
+O Rendizy **NUNCA** adaptará seu código para "aceitar" implementações diferentes.
+Se seu site não funcionar, é porque você desviou do padrão. Corrija seu código.
+
+---
+`;
+
+  // ==================== PARTE DINÂMICA: CHECKLIST ====================
+  const checklist = generateChecklistSection();
+
+  // ==================== PARTE FIXA: OBJETIVO E STACK ====================
+  const objetivoEStack = `---
+
+## Objetivo (aceitação)
+Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
+- \`/site/<subdomain>/\` (servido via proxy da Vercel)
+
+Para ser aceito:
+- A Home carrega.
+- A listagem de imóveis carrega via API pública.
+- Assets (JS/CSS/imagens) carregam sem 404.
+- Calendário de disponibilidade busca dados da API real (NUNCA mock).
+
+## Stack
+- React 18 + TypeScript
+- Vite
+- Tailwind CSS
+- (Opcional) shadcn/ui
+
+## Contexto real do RENDIZY (não invente)
+
+### 1) O site é 100% estático
+- Nada de SSR.
+- Nada de Node server.
+- Nada de chamadas para APIs privadas.
+
+### 2) Restrições de segurança/CSP
+- NÃO carregue JS de CDN.
+- NÃO use scripts externos.
+- Se usar fontes, prefira bundlar local (ou use fontes default do sistema).
+
+### 3) ⚠️ PROIBIDO usar @supabase/supabase-js diretamente
+**CRÍTICO**: NÃO instale nem importe \`@supabase/supabase-js\`.
+O site será servido sem variáveis de ambiente (\`VITE_SUPABASE_URL\`, etc).
+Se você usar \`createClient(...)\` do supabase-js, o bundle vai crashar com:
+\`Uncaught Error: supabaseUrl is required\`
+
+✅ **Forma correta**: use \`fetch()\` diretamente para a API pública.
+❌ **Errado**: \`import { createClient } from '@supabase/supabase-js'\`
+
+### 4) O site roda em subpath
+Ele abre como:
+- \`https://<dominio>/site/<subdomain>/\`
+
+IMPORTANTE: esse ambiente NÃO garante fallback de rotas para SPA em deep-link.
+Portanto: use **HashRouter**.
+
+✅ Rotas devem ser assim:
+- \`/site/<subdomain>/#/\`
+- \`/site/<subdomain>/#/imoveis\`
+- \`/site/<subdomain>/#/imovel/<id>\`
+
+---
+`;
+
+  // ==================== PARTE DINÂMICA: BLOCOS ====================
+  const blocos = generateBlocksSection();
+
+  // ==================== PARTE DINÂMICA: ENDPOINTS ====================
+  const endpoints = generateEndpointsSection();
+
+  // ==================== PARTE DINÂMICA: GUIAS ====================
+  const guias = generateIntegrationGuidesSection();
+
+  // ==================== PARTE FIXA: BUILD ====================
+  const build = `---
+
+## Build / Entrega (OBRIGATÓRIO)
+Você deve entregar um ZIP que contenha \`dist/\` na raiz do ZIP e dentro:
+- \`dist/index.html\`
+- \`dist/assets/*\`
+
+Regras:
+- Em Vite, configure \`base: './'\`.
+- Não referencie imagens como \`/images/...\` ou \`/foo.png\` (root). Coloque tudo em \`src/assets\` para ir para \`dist/assets\`.
+- Não inclua \`node_modules\` no ZIP.
+- Evite gerar mais de 2000 arquivos no build.
+
+## Checklist final (antes de entregar)
+- Rodar \`npm run build\`.
+- Validar que abrir \`dist/index.html\` local não quebra (mesmo sem subdomain detectado, mostrar erro amigável).
+- Validar que com URL \`/site/<subdomain>/\` o app detecta subdomain e lista imóveis.
+
+Gere o projeto completo e pronto para ZIP seguindo TUDO acima.
+`;
+
+  // ==================== JUNTAR TUDO ====================
+  return header + checklist + objetivoEStack + blocos + '\n---\n\n' + endpoints + '\n---\n\n' + guias + build;
+}
