@@ -379,12 +379,13 @@ function patchClientSiteJs(jsText, { subdomain }) {
   // ============================================================================
   // Problem: Clicking "Reservar" redirects the current tab to Stripe checkout.
   // Solution: When redirecting to a checkoutUrl, open in a new tab and preserve the current tab.
-  // NOTE: We scope the patch to expressions containing "checkoutUrl" so we don't affect normal navigation.
-  const openCheckoutExpr = '(()=>{try{var u=$1;if(u)window.open(u,"_blank","noopener,noreferrer");}catch(e){}})();';
-  out = out.replace(/window\.location\.href\s*=\s*([^;]*checkoutUrl[^;]*);/g, openCheckoutExpr);
-  out = out.replace(/location\.href\s*=\s*([^;]*checkoutUrl[^;]*);/g, openCheckoutExpr);
-  out = out.replace(/window\.location\.assign\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, 'window.open($1,"_blank","noopener,noreferrer")');
-  out = out.replace(/window\.location\.replace\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, 'window.open($1,"_blank","noopener,noreferrer")');
+  // IMPORTANT: only patch standalone statements; do NOT patch inside expressions,
+  // otherwise minified code like `foo(window.location.href=checkoutUrl)` will break.
+  const openCheckoutStmt = '$1(()=>{try{var u=$2;if(u)window.open(u,"_blank","noopener,noreferrer");}catch(e){}})();';
+  out = out.replace(/(^|[;{}])\s*window\.location\.href\s*=\s*([^;]*checkoutUrl[^;]*);/g, openCheckoutStmt);
+  out = out.replace(/(^|[;{}])\s*location\.href\s*=\s*([^;]*checkoutUrl[^;]*);/g, openCheckoutStmt);
+  out = out.replace(/(^|[;{}])\s*window\.location\.assign\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, '$1window.open($2,"_blank","noopener,noreferrer")');
+  out = out.replace(/(^|[;{}])\s*window\.location\.replace\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, '$1window.open($2,"_blank","noopener,noreferrer")');
 
   return out;
 }

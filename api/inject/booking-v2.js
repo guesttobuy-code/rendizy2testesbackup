@@ -562,7 +562,11 @@ export default function handler(req, res) {
             if (typeof input === "string") url = input;
             else if (input && input.url) url = input.url;
 
-            if (url && /\/checkout\/session/i.test(String(url))) {
+            // NOTE: Avoid regex literals with escaped slashes here.
+            // This script is emitted from a server-side template string,
+            // so patterns like /\/checkout\/session/ can degrade into
+            // //checkout/session (a line comment) and break parsing.
+            if (url && String(url).toLowerCase().includes("/checkout/session")) {
               var method = (init && init.method) ? String(init.method).toUpperCase() : "GET";
               if (method === "POST" && init && typeof init.body === "string") {
                 var bodyObj = safeJsonParse(init.body);
