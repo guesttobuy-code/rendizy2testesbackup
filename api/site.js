@@ -4,7 +4,6 @@
 //   /site/<subdomain>/<assetPath>
 //
 // Why: Supabase Edge/Storage currently forces text/plain + sandbox CSP for HTML.
-// We proxy the HTML through Vercel so the browser receives text/html and a usable CSP.
 //
 // Architecture notes:
 // - docs/02-architecture/ARQUITETURA_CLIENT_SITES_PROXY_SUPABASE_MEDHOME_2026-01-04.md
@@ -93,13 +92,25 @@ function patchHtmlForSubpath(html, baseHref, assetVersion) {
   const publicApiBase = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/api/{{SUBDOMAIN}}`;
   const runtimeConfigScript = `\n  <script>\n  (function(){\n    try {\n      var cfg = globalThis.RENDIZY_CONFIG || {};\n      cfg.supabaseUrl = cfg.supabaseUrl || ${JSON.stringify(supabaseUrl)};\n      cfg.supabaseAnonKey = cfg.supabaseAnonKey || ${JSON.stringify(anonKey)};\n      cfg.publicApiBase = cfg.publicApiBase || ${JSON.stringify(publicApiBase)};\n      globalThis.RENDIZY_CONFIG = cfg;\n      globalThis.__RENDIZY_SUPABASE_URL__ = globalThis.__RENDIZY_SUPABASE_URL__ || cfg.supabaseUrl;\n      globalThis.__RENDIZY_SUPABASE_ANON_KEY__ = globalThis.__RENDIZY_SUPABASE_ANON_KEY__ || cfg.supabaseAnonKey;\n    } catch (e) {}\n  })();\n  </script>`;
 
-  // Auto-fill script: populates reservation form with guest data from localStorage
-  // Guest-area stores: rendizy_guest_token (JWT) and rendizy_guest (JSON with user data)
-  // We also check rendizy-guest-token for backward compat with old bolt sites
-  const autoFillScript = `\n  <script>\n  (function(){\n    var _fillAttempts=0;\n    var _maxFillAttempts=50;\n    var _lastFillTime=0;\n    function getSiteSlug(){\n      try{\n        var parts=(location.pathname||"/").split("/").filter(Boolean);\n        var i=parts.indexOf("site");\n        if(i>=0&&parts.length>i+1)return decodeURIComponent(parts[i+1]||"");\n      }catch(e){}\n      return "";\n    }\n    function syncFromCookie(cb){\n      try{\n        var sd=getSiteSlug();\n        if(!sd){cb&&cb(null);return;}\n        fetch("/api/auth/me?siteSlug="+encodeURIComponent(sd),{credentials:"include"})\n          .then(function(r){return r.json().catch(function(){return null;});})\n          .then(function(d){\n            if(d&&d.authenticated&&d.user){\n              try{localStorage.setItem("rendizy_guest",JSON.stringify(d.user));}catch(e){}\n              cb&&cb(d.user);\n              return;\n            }\n            cb&&cb(null);\n          })\n          .catch(function(){cb&&cb(null);});\n      }catch(e){cb&&cb(null);}\n    }\n    function getGuestData(){\n      try{\n        var g=localStorage.getItem("rendizy_guest");\n        if(g&&g!=="undefined"&&g!=="null"&&g.trim().startsWith("{")){\n          return JSON.parse(g);\n        }\n        var t=localStorage.getItem("rendizy_guest_token")||localStorage.getItem("rendizy-guest-token");\n        if(t&&t!=="undefined"&&t!=="null"&&t.includes(".")){\n          var parts=t.split(".");\n          if(parts.length>=2){\n            var payload=atob(parts[1]);\n            if(payload.startsWith("{")){return JSON.parse(payload);}\n          }\n        }\n        return null;\n      }catch(e){return null;}\n    }\n    function fillForm(){\n      var now=Date.now();\n      if(now-_lastFillTime<200)return;\n      _lastFillTime=now;\n      if(_fillAttempts>=_maxFillAttempts)return;\n      _fillAttempts++;\n      var g=getGuestData();\n      if(!g)return;\n      var name=g.name||g.full_name||g.displayName||"";\n      var email=g.email||"";\n      var phone=g.phone||g.telefone||"";\n      if(!name&&!email)return;\n      var nameInp=document.querySelector('input[placeholder*="nome" i],input[placeholder*="name" i],input[name="name"],input[name="nome"],input[name="fullName"],input[name="guestName"]');\n      if(nameInp&&!nameInp.value&&name){nameInp.value=name;nameInp.dispatchEvent(new Event("input",{bubbles:true}));nameInp.dispatchEvent(new Event("change",{bubbles:true}));}\n      var emailInp=document.querySelector('input[type="email"],input[placeholder*="email" i],input[name="email"],input[name="guestEmail"]');\n      if(emailInp&&!emailInp.value&&email){emailInp.value=email;emailInp.dispatchEvent(new Event("input",{bubbles:true}));emailInp.dispatchEvent(new Event("change",{bubbles:true}));}\n      var phoneInp=document.querySelector('input[type="tel"],input[placeholder*="telefone" i],input[placeholder*="phone" i],input[name="phone"],input[name="telefone"],input[name="guestPhone"]');\n      if(phoneInp&&!phoneInp.value&&phone){phoneInp.value=phone;phoneInp.dispatchEvent(new Event("input",{bubbles:true}));phoneInp.dispatchEvent(new Event("change",{bubbles:true}));}\n    }\n    function init(){\n      syncFromCookie(function(){\n        fillForm();\n        var obs=new MutationObserver(function(){fillForm();});\n        obs.observe(document.body||document.documentElement,{childList:true,subtree:true});\n        setTimeout(function(){obs.disconnect();},30000);\n      });\n    }\n    if(document.readyState==="complete"||document.readyState==="interactive")setTimeout(init,500);\n    else window.addEventListener("DOMContentLoaded",function(){setTimeout(init,500);});\n  })();\n  </script>`;
+  // Modular injection: load the latest booking behavior as an external script.
+  // Version query keeps it in sync with asset cache-busting.
+  const bookingScriptSrc = assetVersion
+    ? `/api/inject/booking-v2.js?v=${encodeURIComponent(String(assetVersion))}`
+    : `/api/inject/booking-v2.js`;
+  const bookingScriptTag = `\n  <script src="${bookingScriptSrc}" defer></script>`;
 
-  if (/<head[^>]*>/i.test(out) && !/RENDIZY_CONFIG\s*=/.test(out)) {
-    out = out.replace(/<head[^>]*>/i, (m) => `${m}${runtimeConfigScript}${autoFillScript}`);
+  // Booking/checkout behavior is provided by the external, versioned script:
+  //   /api/inject/booking-v2.js?v=<deploy>
+
+  if (/<head[^>]*>/i.test(out)) {
+    const hasRuntimeConfig = /RENDIZY_CONFIG\s*=/.test(out);
+    const hasBookingScript = out.includes("/api/inject/booking-v2.js") || /booking-v2\.js/i.test(out);
+    if (!hasRuntimeConfig || !hasBookingScript) {
+      out = out.replace(
+        /<head[^>]*>/i,
+        (m) => `${m}${hasRuntimeConfig ? "" : runtimeConfigScript}${hasBookingScript ? "" : bookingScriptTag}`
+      );
+    }
   }
 
   // Convert absolute-root assets to relative so baseHref applies.
@@ -363,6 +374,18 @@ function patchClientSiteJs(jsText, { subdomain }) {
     'pré-reserva foi registrada'
   );
 
+  // ============================================================================
+  // PATCH #6: Open checkout in a new tab
+  // ============================================================================
+  // Problem: Clicking "Reservar" redirects the current tab to Stripe checkout.
+  // Solution: When redirecting to a checkoutUrl, open in a new tab and preserve the current tab.
+  // NOTE: We scope the patch to expressions containing "checkoutUrl" so we don't affect normal navigation.
+  const openCheckoutExpr = '(()=>{try{var u=$1;if(u)window.open(u,"_blank","noopener,noreferrer");}catch(e){}})();';
+  out = out.replace(/window\.location\.href\s*=\s*([^;]*checkoutUrl[^;]*);/g, openCheckoutExpr);
+  out = out.replace(/location\.href\s*=\s*([^;]*checkoutUrl[^;]*);/g, openCheckoutExpr);
+  out = out.replace(/window\.location\.assign\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, 'window.open($1,"_blank","noopener,noreferrer")');
+  out = out.replace(/window\.location\.replace\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, 'window.open($1,"_blank","noopener,noreferrer")');
+
   return out;
 }
 
@@ -412,10 +435,16 @@ export default async function handler(req, res) {
   try {
     const reqUrl = new URL(req.url, "http://localhost");
     // Auto-generate cache-buster if not provided.
-    // This ensures new uploads invalidate browser cache for JS/CSS assets.
-    // We use hourly granularity to balance freshness vs CDN efficiency.
+    // IMPORTANT: must change on each deploy, otherwise browsers can keep serving old assets
+    // (especially with immutable caching on /assets/* and injected scripts).
     const explicitV = reqUrl.searchParams.get("v") || "";
-    const autoV = String(Math.floor(Date.now() / 3600000)); // changes every hour
+    const deployV =
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.VERCEL_DEPLOYMENT_ID ||
+      process.env.VERCEL_BUILD_OUTPUT_VERSION ||
+      "";
+    const timeV = String(Math.floor(Date.now() / 3600000)); // local/dev fallback
+    const autoV = deployV ? String(deployV).slice(0, 16) : timeV;
     const cacheBuster = explicitV || autoV;
     const subdomain = req.query && req.query.subdomain ? safeDecode(req.query.subdomain) : "";
     const requestedPath = req.query && req.query.path ? safeDecode(req.query.path) : "";
@@ -427,6 +456,9 @@ export default async function handler(req, res) {
       res.end("Faltou subdomain");
       return;
     }
+
+    // Debug helper to confirm which deploy/version served this response.
+    res.setHeader("X-Rendizy-Proxy-Version", cacheBuster);
 
     // This endpoint is public (verify_jwt = false) and will redirect to Storage index.html
     const serveUrl = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public/client-sites/serve/${encodeURIComponent(
@@ -485,11 +517,12 @@ export default async function handler(req, res) {
 
         res.statusCode = 200;
         res.setHeader("Content-Type", "text/html; charset=utf-8");
-        // s-maxage=0 prevents Vercel CDN from caching, ensuring uploads reflect immediately
-        res.setHeader("Cache-Control", "public, s-maxage=0, max-age=60, stale-while-revalidate=30");
+        // Never cache HTML on the browser nor on Vercel CDN.
+        res.setHeader("Cache-Control", "private, no-store, max-age=0");
         // Force Vercel edge to never cache this response
         res.setHeader("CDN-Cache-Control", "no-store");
         res.setHeader("Vercel-CDN-Cache-Control", "no-store");
+        res.setHeader("Pragma", "no-cache");
         res.setHeader("Content-Security-Policy", buildCsp());
         res.setHeader("X-Content-Type-Options", "nosniff");
 
@@ -558,10 +591,11 @@ export default async function handler(req, res) {
     // IMPORTANT: Use s-maxage=0 to prevent Vercel CDN from caching the HTML response.
     // This ensures new uploads are visible immediately without cache invalidation.
     // Browser can still cache for 60s, but Vercel edge will always fetch fresh from function.
-    res.setHeader("Cache-Control", "public, s-maxage=0, max-age=60, stale-while-revalidate=30");
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     // Force Vercel edge to NEVER cache HTML - ensures new uploads are visible immediately
     res.setHeader("CDN-Cache-Control", "no-store");
     res.setHeader("Vercel-CDN-Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
     res.setHeader("Content-Security-Policy", buildCsp());
     res.setHeader("X-Content-Type-Options", "nosniff");
 

@@ -73,6 +73,17 @@ Entregável: Detalhe consistente com o painel.
 - **Opção A (ideal)**: extrair componentes/estilos do Rendizy para uma pasta compartilhada (ex: `components/ui/*`) e importar no guest-area.
 - **Opção B (rápida)**: espelhar componentes essenciais no guest-area (copiar 1:1) e depois refatorar para compartilhado.
 
+## Referências reais do Rendizy (para não inventar)
+
+- **Padrões de tela “details” (sheet lateral / hierarquia / ações)**
+  - Ver docs: `docs/DIARIO_RENDIZY.md` (padrão de Details Sidebar / sheet lateral)
+- **Módulo Reservas (padrões de filtros, cards/listas, estados)**
+  - Código: `components/ReservationsManagement.tsx`
+- **Shell com sidebar/header (layout padrão do app)**
+  - Referência de layout em docs: `docs/CHAT_TELAS_1.0_REFERENCIA.md` (estrutura header + sidebar + conteúdo)
+
+Regra: qualquer mudança visual no guest-area deve apontar qual tela/padrão do Rendizy ela está espelhando.
+
 ## Checklist de aceite (definição de pronto)
 
 - O usuário leigo não percebe que são apps diferentes.

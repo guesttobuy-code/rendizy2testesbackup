@@ -82,6 +82,20 @@ export function MyReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('all');
+  const [focusId, setFocusId] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      // HashRouter query support: /#/reservas?focus=<id>
+      const hash = window.location.hash || '';
+      const q = hash.includes('?') ? hash.split('?').slice(1).join('?') : '';
+      const params = new URLSearchParams(q);
+      const f = params.get('focus') || '';
+      setFocusId(f);
+    } catch {
+      setFocusId('');
+    }
+  }, []);
 
   useEffect(() => {
     async function fetchReservations() {
@@ -124,6 +138,17 @@ export function MyReservationsPage() {
   const sortedReservations = [...filteredReservations].sort((a, b) => {
     return new Date(a.check_in).getTime() - new Date(b.check_in).getTime();
   });
+
+  useEffect(() => {
+    if (!focusId) return;
+    const t = window.setTimeout(() => {
+      try {
+        const el = document.getElementById(`reservation-${focusId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch {}
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [focusId, sortedReservations.length]);
 
   if (loading) {
     return (
@@ -191,7 +216,10 @@ export function MyReservationsPage() {
           {sortedReservations.map((reservation) => (
             <div
               key={reservation.id}
-              className="bg-white rounded-xl border hover:shadow-md transition-shadow overflow-hidden"
+              id={`reservation-${reservation.id}`}
+              className={`bg-white rounded-xl border hover:shadow-md transition-shadow overflow-hidden ${
+                focusId && reservation.id === focusId ? 'ring-2 ring-primary ring-offset-2' : ''
+              }`}
             >
               <div className="flex flex-col sm:flex-row">
                 {/* Imagem */}

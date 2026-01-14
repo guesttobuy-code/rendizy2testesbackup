@@ -1,7 +1,7 @@
-# 🏠 Roadmap: Área Interna do Cliente (Sites Whitelabel)
+# 🏠 Roadmap: Área do Cliente + Checkout (Sites Whitelabel)
 
-> **Versão**: v2.0 (Arquitetura Cápsula)  
-> **Data**: 2026-01-13  
+> **Versão**: v2.1 (Cápsula + Proxy + Checkout v2)  
+> **Data**: 2026-01-14  
 > **Autor**: Copilot + Rafael
 
 ---
@@ -13,6 +13,59 @@ A **Área Interna** é uma seção protegida nos sites dos clientes onde hósped
 - Acompanhar status de pagamentos
 - Gerenciar dados pessoais
 - (Futuro) Baixar vouchers, recibos, comunicar-se com host
+
+Além disso, este roadmap cobre o **Checkout v2** (Stripe em nova aba + confirmação por webhook) e as regras de **Booking Form** aplicadas via proxy/inject nos sites (ex: MedHome).
+
+---
+
+## ✅ Estado Atual (o que já está feito)
+
+### Autenticação (persistente e profissional)
+
+- ✅ Sessão via cookie `httpOnly` (BFF) + hidratação no front: `GET /api/auth/me?siteSlug=...`
+- ✅ Login Google “manual” (botão) + recuperação “Limpar sessão” na área do cliente
+- ✅ Guest-area (cápsula) em `/guest-area/` com rotas de reservas/perfil
+
+### Booking Form (site do cliente)
+
+- ✅ Script modular versionado: `/api/inject/booking-v2.js?v=<deploy>`
+- ✅ Autofill + lock de Nome/E-mail/Telefone quando logado
+- ✅ Telefone obrigatório com país/prefixo (E.164)
+
+### Checkout v2 (Stripe)
+
+- ✅ Sucesso/cancel em domínio próprio: `/api/checkout/success` e `/api/checkout/cancel`
+- ✅ Success faz polling até webhook confirmar e notifica a aba original (toast) + tenta fechar a aba do checkout
+- ✅ Deep-link para área do cliente focando reserva: `#/reservas?focus=<reservationId>`
+
+---
+
+## 🔍 Itens em Validação (não considerar “fechado” ainda)
+
+- 🔍 MedHome: confirmar que o browser realmente carrega `/api/inject/booking-v2.js` e executa autofill/lock
+- 🔍 MedHome: confirmar que o checkout abre em **nova aba** em todos os caminhos de redirect (href/assign/replace)
+- 🔍 “Reserva pendente”: garantir UX consistente (criou reserva mas ainda não pagou) tanto no site quanto na área do cliente
+
+---
+
+## 🧪 Checklist rápido de validação (MedHome)
+
+Use este checklist sempre que aparecer o sintoma “está usando o site antigo / não aplicou as regras”.
+
+1) **Network**: tem request para `/api/inject/booking-v2.js`?
+  - Se NÃO tiver: o HTML não está injetando o script (ou o deploy não está no ar).
+2) **Headers do documento** (`/site/medhome/`): verificar `X-Rendizy-Proxy-Version`
+  - Se esse header não existir: você está em um build antigo (ou não passou pelo proxy certo).
+3) **Console**: validar se não há erro JS impedindo o script de rodar.
+4) **Com login ativo** (botão “Rafael” no topo): nome/e-mail/telefone devem vir preenchidos e travados.
+5) **Telefone**: deve exigir país/prefixo; submit não deve passar sem isso.
+
+---
+
+## 🎨 Design interno (parecer Rendizy)
+
+- Roadmap específico (visual): `docs/roadmaps/guest-area-unificacao-visual.md`
+- Objetivo: o usuário não perceber que são apps diferentes (guest-area ≈ painel Rendizy)
 
 ### 🏗️ Arquitetura: Cápsula Separada
 

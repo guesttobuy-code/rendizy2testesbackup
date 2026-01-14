@@ -5,6 +5,7 @@ interface GuestUser {
   email: string;
   name: string;
   phone?: string;
+  dial?: string;
   avatar_url?: string;
 }
 
@@ -36,6 +37,21 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
   const config = window.GUEST_AREA_CONFIG;
   const siteSlug = config?.siteSlug || '';
 
+  const mergeLocalProfile = useCallback((u: GuestUser | null): GuestUser | null => {
+    if (!u) return null;
+    try {
+      const raw = localStorage.getItem('rendizy_guest_profile');
+      if (!raw || raw === 'undefined' || raw === 'null') return u;
+      const prof = JSON.parse(raw) as { phone?: string; dial?: string };
+      const merged: GuestUser = { ...u };
+      if (!merged.phone && prof?.phone) merged.phone = prof.phone;
+      if (!merged.dial && prof?.dial) merged.dial = prof.dial;
+      return merged;
+    } catch {
+      return u;
+    }
+  }, []);
+
   // Sessão profissional: o token fica em cookie httpOnly e o frontend consulta /api/auth/me
   useEffect(() => {
     if (!siteSlug) {
@@ -47,9 +63,10 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
       .then((res) => res.json())
       .then((data) => {
         if (data.authenticated && data.user) {
-          setUser(data.user);
+          const merged = mergeLocalProfile(data.user);
+          setUser(merged);
           try {
-            localStorage.setItem('rendizy_guest', JSON.stringify(data.user));
+            localStorage.setItem('rendizy_guest', JSON.stringify(merged));
           } catch {}
         } else {
           setUser(null);
@@ -80,12 +97,13 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.error || 'Erro ao fazer login');
       }
 
-      setUser(data.guest);
-      if (data.guest) {
-        localStorage.setItem('rendizy_guest', JSON.stringify(data.guest));
+      const merged = mergeLocalProfile(data.guest || null);
+      setUser(merged);
+      if (merged) {
+        localStorage.setItem('rendizy_guest', JSON.stringify(merged));
       }
     },
-    [siteSlug]
+    [siteSlug, mergeLocalProfile]
   );
 
   const logout = useCallback(() => {
@@ -153,6 +171,7 @@ export function useGoogleOneTap() {
     }
 
     const clientId = (window as any).GUEST_AREA_CONFIG?.googleClientId || GOOGLE_CLIENT_ID;
+    const siteSlug = (window as any).GUEST_AREA_CONFIG?.siteSlug || '';
 
     if (!initializedRef.current) {
       initializedRef.current = true;
@@ -162,7 +181,24 @@ export function useGoogleOneTap() {
           if (response.credential) {
             try {
               await login(response.credential);
+              // Pós-login: valida sessão via cookie; se a UI não refletir, faz refresh.
               window.location.hash = '#/reservas';
+              if (siteSlug) {
+                try {
+                  const res = await fetch(
+                    `/api/auth/me?siteSlug=${encodeURIComponent(siteSlug)}`,
+                    { credentials: 'include' }
+                  );
+                  const data = await res.json().catch(() => null);
+                  if (!data?.authenticated) {
+                    setTimeout(() => window.location.reload(), 120);
+                  }
+                } catch {
+                  setTimeout(() => window.location.reload(), 120);
+                }
+              } else {
+                setTimeout(() => window.location.reload(), 120);
+              }
             } catch (err) {
               console.error('Erro no login:', err);
               setGoogleError('Falha ao entrar. Tente novamente.');
