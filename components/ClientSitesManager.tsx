@@ -2135,6 +2135,21 @@ type PromptVersion = {
 
 const PROMPT_VERSIONS: PromptVersion[] = [
   {
+    version: 'v5.1',
+    date: '2026-01-14',
+    time: '14:15',
+    author: 'Copilot + Rafael',
+    changes: [
+      '📋 CHECKLIST DE VALIDAÇÃO obrigatório no início do prompt',
+      '✅ Lista de verificação para Checkout V2 (nova aba)',
+      '✅ Lista de verificação para Formulário V2 (E.164, autofill, lock)',
+      '✅ Lista de verificação para Calendário (API real, não mock)',
+      '✅ Lista de componentes obrigatórios explícita',
+      '⚠️ Aviso claro: site rejeitado se não seguir checklist',
+    ],
+    prompt: 'CURRENT', // placeholder - usa o prompt atual
+  },
+  {
     version: 'v5.0',
     date: '2026-01-14',
     time: '12:00',
@@ -2150,7 +2165,8 @@ const PROMPT_VERSIONS: PromptVersion[] = [
       '✅ Lock (readonly) dos campos preenchidos automaticamente',
       '✅ Inputs com name/id canônicos (guestName, guestEmail, guestPhone)',
     ],
-    prompt: 'CURRENT', // placeholder - usa o prompt atual
+    prompt: `# RENDIZY — PROMPT v5.0
+Este prompt foi atualizado para v5.1 com checklist de validação obrigatório.`,
   },
   {
     version: 'v4.3',
@@ -2254,12 +2270,12 @@ function DocsAIModal({ open, onClose }: {
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [selectedVersion, setSelectedVersion] = useState<string>('v5.0');
+  const [selectedVersion, setSelectedVersion] = useState<string>('v5.1');
 
-  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v5.0)
+  const aiPrompt = `# RENDIZY — PROMPT PLUGÁVEL (v5.1)
 
-> **Catálogo**: v1.1 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-14 às 12:00
-> **Novidade v5.0**: Checkout v2 (nova aba + webhook) + Telefone E.164 + Autofill/Lock
+> **Catálogo**: v1.2 | **Sistema**: v1.0.104.x | **Atualizado**: 2026-01-14 às 14:15
+> **Novidade v5.1**: Checklist de validação obrigatório + Componentes explícitos
 
 ---
 ## ⚠️ REGRA FUNDAMENTAL — LEIA PRIMEIRO
@@ -2274,6 +2290,35 @@ Este prompt é PROPOSITIVO, não sugestivo. As especificações aqui são ORDENS
 
 O Rendizy **NUNCA** adaptará seu código para "aceitar" implementações diferentes.
 Se seu site não funcionar, é porque você desviou do padrão. Corrija seu código.
+
+---
+
+## 📋 CHECKLIST DE VALIDAÇÃO (VERIFIQUE ANTES DE ENTREGAR!)
+
+Antes de gerar o código final, verifique CADA item abaixo. Se algum estiver errado, CORRIJA.
+
+### Checkout v2 (CRÍTICO):
+- [ ] Checkout abre em NOVA ABA: ` + "`window.open(checkoutUrl, \"_blank\")`" + ` ← NÃO use ` + "`window.location.href`" + `!
+- [ ] successUrl/cancelUrl apontam para domínio Rendizy (` + "`/api/checkout/success`" + `), NÃO para hash routes do site
+- [ ] Após criar reserva, implementar listener de BroadcastChannel para confirmação cross-tab
+
+### Formulário de Reserva v2 (CRÍTICO):
+- [ ] Campo telefone é OBRIGATÓRIO (não opcional) com dropdown de país (+55, +1, etc)
+- [ ] Inputs usam IDs canônicos: ` + "`name=\"guestName\"`" + `, ` + "`name=\"guestEmail\"`" + `, ` + "`name=\"guestPhone\"`" + `
+- [ ] Se hóspede logado (` + "`localStorage.rendizy_guest`" + `), campos são preenchidos automaticamente
+- [ ] Campos preenchidos via autofill ficam ` + "`readOnly={true} disabled={true}`" + `
+
+### Calendário (CRÍTICO):
+- [ ] Calendário usa API real (` + "`/calendar`" + `) — NUNCA dados mock/fake
+- [ ] Verificar status com ` + "`day.status === \"available\"`" + ` (string), NÃO ` + "`day.available`" + ` (não existe)
+
+### Componentes Obrigatórios:
+- [ ] ` + "`BookingWidget.tsx`" + ` ou ` + "`BookingForm.tsx`" + ` com todas as regras acima
+- [ ] ` + "`PaymentMethodSelector.tsx`" + ` com PIX inline (QR code) + Boleto (PDF link)
+- [ ] ` + "`DateRangePicker.tsx`" + ` ou ` + "`CalendarPicker.tsx`" + ` usando API real
+- [ ] ` + "`GuestAreaButton.tsx`" + ` que redireciona para cápsula (NÃO código embutido)
+
+⚠️ Se você não marcar TODOS os itens acima, o site será rejeitado.
 
 ---
 
