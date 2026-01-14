@@ -10,7 +10,6 @@ interface GuestUser {
 
 interface GuestAuthContextType {
   user: GuestUser | null;
-  token: string | null;
   loading: boolean;
   isLoading: boolean; // alias para loading
   login: (credential: string) => Promise<void>;
@@ -32,46 +31,47 @@ const GOOGLE_CLIENT_ID = '1068989503174-gd08jd74uclfjdv0goe32071uck2sg9k.apps.go
 
 export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<GuestUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const config = window.GUEST_AREA_CONFIG;
   const siteSlug = config?.siteSlug || '';
-  const apiBase = `${config?.supabaseUrl}/functions/v1/rendizy-public/client-sites/api`;
 
-  // Verificar token existente ao carregar
+  // Sessão profissional: o token fica em cookie httpOnly e o frontend consulta /api/auth/me
   useEffect(() => {
-    const savedToken = localStorage.getItem('rendizy_guest_token');
-    if (savedToken && siteSlug) {
-      fetch(`${apiBase}/${siteSlug}/auth/guest/me`, {
-        headers: { Authorization: `Bearer ${savedToken}` },
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.user) {
-            setUser(data.user);
-            setToken(savedToken);
-          } else {
-            localStorage.removeItem('rendizy_guest_token');
-          }
-        })
-        .catch(() => {
-          localStorage.removeItem('rendizy_guest_token');
-        })
-        .finally(() => setLoading(false));
-    } else {
+    if (!siteSlug) {
       setLoading(false);
+      return;
     }
-  }, [siteSlug, apiBase]);
+
+    fetch(`/api/auth/me?siteSlug=${encodeURIComponent(siteSlug)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setUser(data.user);
+          try {
+            localStorage.setItem('rendizy_guest', JSON.stringify(data.user));
+          } catch {}
+        } else {
+          setUser(null);
+          localStorage.removeItem('rendizy_guest');
+          localStorage.removeItem('rendizy_guest_token');
+        }
+      })
+      .catch(() => {
+        // mantém UX simples: não derruba a página, só considera deslogado
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
+  }, [siteSlug]);
 
   const login = useCallback(
     async (credential: string) => {
       if (!siteSlug) throw new Error('Site slug não configurado');
 
-      const response = await fetch(`${apiBase}/${siteSlug}/auth/guest/google`, {
+      const response = await fetch(`/api/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential }),
+        body: JSON.stringify({ credential, siteSlug }),
       });
 
       const data = await response.json();
@@ -81,23 +81,20 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(data.guest);
-      setToken(data.token);
-      // Only save to localStorage if values are defined
-      if (data.token) {
-        localStorage.setItem('rendizy_guest_token', data.token);
-      }
       if (data.guest) {
         localStorage.setItem('rendizy_guest', JSON.stringify(data.guest));
       }
     },
-    [siteSlug, apiBase]
+    [siteSlug]
   );
 
   const logout = useCallback(() => {
     setUser(null);
-    setToken(null);
     localStorage.removeItem('rendizy_guest_token');
     localStorage.removeItem('rendizy_guest');
+
+    // best-effort: limpar sessão no servidor
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     
     // Desabilitar auto-select do Google
     if ((window as any).google?.accounts?.id) {
@@ -112,12 +109,11 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
     <GuestAuthContext.Provider
       value={{
         user,
-        token,
         loading,
         isLoading: loading,
         login,
         logout,
-        isAuthenticated: !!user && !!token,
+        isAuthenticated: !!user,
       }}
     >
       {children}
