@@ -2111,19 +2111,20 @@ function UploadCodeModal({ site, open, onClose, onSuccess }: {
 // ║  🚨🚨🚨 ATENÇÃO I.A - REGRA OBRIGATÓRIA DE SINCRONIZAÇÃO 🚨🚨🚨  ║
 // ╠══════════════════════════════════════════════════════════════╣
 // ║                                                              ║
-// ║  SEMPRE que atualizar PROMPT_VERSIONS abaixo, você DEVE:     ║
+// ║  A VERSÃO É SINGLE SOURCE OF TRUTH em catalog.ts!            ║
 // ║                                                              ║
-// ║  1. Atualizar CATALOG_VERSION em:                            ║
-// ║     → components/client-sites/ClientSitesComponentsAndDataPage.tsx ║
-// ║     → Linha ~15: const CATALOG_VERSION = 'vX.Y'              ║
+// ║  SEMPRE que atualizar o prompt, você DEVE:                   ║
 // ║                                                              ║
-// ║  2. Se adicionou novo bloco/componente, atualizar catalog.ts:║
+// ║  1. Atualizar CATALOG_VERSION em catalog.ts                  ║
 // ║     → components/client-sites/catalog.ts                     ║
-// ║     → Adicionar novo item no array CATALOG_BLOCKS            ║
+// ║     → Linha ~47: export const CATALOG_VERSION = 'vX.Y'       ║
 // ║                                                              ║
-// ║  3. Verificar se aiPrompt (abaixo) reflete a versão correta  ║
+// ║  2. Adicionar nova entrada em PROMPT_VERSIONS (abaixo):      ║
+// ║     → A PRIMEIRA entrada deve ter version = CATALOG_VERSION  ║
+// ║     → Adicionar changes[] descrevendo o que mudou            ║
+// ║     → Mover entrada anterior para "histórico"                ║
 // ║                                                              ║
-// ║  NUNCA faça commit sem sincronizar essas 3 coisas!           ║
+// ║  ⚠️ SE ESQUECER: O badge vai mostrar versão antiga!          ║
 // ║                                                              ║
 // ╚══════════════════════════════════════════════════════════════╝
 //
@@ -2142,6 +2143,22 @@ type PromptVersion = {
 
 const PROMPT_VERSIONS: PromptVersion[] = [
   {
+    version: 'v5.2',
+    date: '2026-01-14',
+    time: '20:15',
+    author: 'Copilot + Rafael',
+    changes: [
+      '📁 ESTRUTURA DE ARQUIVOS OBRIGATÓRIA explícita',
+      '⚠️ PROIBIDO usar variáveis de ambiente (.env, VITE_*)',
+      '⚠️ PROIBIDO placeholders como {{ORG_ID}} ou {{SUBDOMAIN}}',
+      '⚠️ PROIBIDO gerar arquivos .md extras (README, INSTRUCOES, etc)',
+      '✅ Modelo de src/config/site.ts com subdomain hardcoded',
+      '✅ Checklist final mais detalhado (package.json na raiz, etc)',
+      '✅ Clarificar que ZIP deve ter código-fonte, não dist/',
+    ],
+    prompt: 'CURRENT', // placeholder - usa o prompt atual
+  },
+  {
     version: 'v5.1',
     date: '2026-01-14',
     time: '14:15',
@@ -2154,7 +2171,8 @@ const PROMPT_VERSIONS: PromptVersion[] = [
       '✅ Lista de componentes obrigatórios explícita',
       '⚠️ Aviso claro: site rejeitado se não seguir checklist',
     ],
-    prompt: 'CURRENT', // placeholder - usa o prompt atual
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v5.1)
+Este prompt foi atualizado para v5.2 com estrutura de arquivos obrigatória.`,
   },
   {
     version: 'v5.0',
@@ -2271,6 +2289,14 @@ Prompt inicial para geração de sites via IA.
 [... prompt v1.0 resumido - disponível no histórico do repositório ...]`,
   },
 ];
+
+// ⚠️ VALIDAÇÃO DE SINCRONIZAÇÃO - Detecta se as versões estão dessincronizadas
+if (PROMPT_VERSIONS[0].version !== CATALOG_VERSION) {
+  console.error(
+    `🚨 VERSÃO DESSINCRONIZADA! PROMPT_VERSIONS[0].version (${PROMPT_VERSIONS[0].version}) !== CATALOG_VERSION (${CATALOG_VERSION}). ` +
+    `Atualize PROMPT_VERSIONS para adicionar a nova versão!`
+  );
+}
 
 function DocsAIModal({ open, onClose }: {
   open: boolean;
