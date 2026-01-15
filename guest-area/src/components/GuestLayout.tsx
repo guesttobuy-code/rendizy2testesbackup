@@ -2,6 +2,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import { useGuestAuth } from '../contexts/GuestAuthContext';
 import { GuestSidebar } from './GuestSidebar';
 import { GuestHeader } from './GuestHeader';
+import { getVisibleMenuItems } from '../config/guestMenu';
 
 export function GuestLayout() {
   const { isAuthenticated, loading } = useGuestAuth();
@@ -44,11 +45,7 @@ export function GuestLayout() {
 
 function GuestMobileNav() {
   const currentPath = window.location.hash;
-
-  const items = [
-    { id: 'reservas', icon: '📋', label: 'Reservas', path: '#/reservas' },
-    { id: 'perfil', icon: '👤', label: 'Perfil', path: '#/perfil' },
-  ];
+  const items = getVisibleMenuItems();
 
   return (
     <nav className="flex justify-around py-3">

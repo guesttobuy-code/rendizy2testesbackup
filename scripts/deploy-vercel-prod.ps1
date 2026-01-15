@@ -23,14 +23,19 @@ Write-Host "Diretório: $root"
 $vercelCmd = Get-Command vercel -ErrorAction SilentlyContinue
 if (!$vercelCmd) {
     Write-Host "Vercel CLI não encontrado, usando npx..." -ForegroundColor Yellow
-    $vercelCmd = "npx vercel"
+    $vercelCmd = @("npx", "vercel")
 } else {
-    $vercelCmd = "vercel"
+    $vercelCmd = @("vercel")
+}
+
+function Invoke-Vercel {
+    param([string[]]$Args)
+    & $vercelCmd[0] @($vercelCmd[1..($vercelCmd.Length - 1)]) @Args
 }
 
 # Mostrar versão
 Write-Host "`nVercel CLI:"
-& $vercelCmd --version
+Invoke-Vercel -Args @("--version")
 
 # Deploy
 if ($Preview) {
@@ -39,15 +44,15 @@ if ($Preview) {
 } else {
     Write-Host "`n=== Deploy PRODUCTION ===" -ForegroundColor Green
     if ($Force) {
-        & $vercelCmd --prod --force
+        Invoke-Vercel -Args @("--prod", "--force")
     } else {
-        & $vercelCmd --prod
+        Invoke-Vercel -Args @("--prod")
     }
 }
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "`n✓ Deploy concluído com sucesso!" -ForegroundColor Green
+    Write-Host "`nOK: Deploy concluído com sucesso!" -ForegroundColor Green
 } else {
-    Write-Host "`n✗ Deploy falhou com código $LASTEXITCODE" -ForegroundColor Red
+    Write-Host "`nERRO: Deploy falhou com código $LASTEXITCODE" -ForegroundColor Red
     exit $LASTEXITCODE
 }

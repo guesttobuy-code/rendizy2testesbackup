@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useGuestAuth } from '../contexts/GuestAuthContext';
+import { getVisibleMenuItems } from '../config/guestMenu';
 
 export function GuestHeader() {
   const { user, logout } = useGuestAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuItems = getVisibleMenuItems();
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -62,22 +64,17 @@ export function GuestHeader() {
               <p className="text-sm font-medium text-gray-800">{user?.name}</p>
               <p className="text-xs text-gray-500 truncate">{user?.email}</p>
             </div>
-            <a
-              href="#/perfil"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setDropdownOpen(false)}
-            >
-              <span>👤</span>
-              <span>Meu Perfil</span>
-            </a>
-            <a
-              href="#/reservas"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setDropdownOpen(false)}
-            >
-              <span>📋</span>
-              <span>Minhas Reservas</span>
-            </a>
+            {menuItems.map((item) => (
+              <a
+                key={item.id}
+                href={item.path}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                onClick={() => setDropdownOpen(false)}
+              >
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+              </a>
+            ))}
             <hr className="my-1" />
             <button
               onClick={() => {
