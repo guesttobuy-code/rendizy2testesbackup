@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 function Get-EnvValue([string]$path, [string[]]$keys) {
   foreach ($k in $keys) {
     $m = Get-Content -LiteralPath $path | Select-String -Pattern ('^' + [regex]::Escape($k) + '=') | Select-Object -First 1
-    if ($m) { return $m.ToString().Split('=', 2)[1].Trim() }
+    if ($m) { return $m.ToString().Split('=', 2)[1].Trim().Trim('"') }
   }
   return $null
 }

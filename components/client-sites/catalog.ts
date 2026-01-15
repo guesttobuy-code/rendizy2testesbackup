@@ -44,12 +44,12 @@
  * 
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v5.9' as const;
+export const CATALOG_VERSION = 'v6.0' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-15T04:10:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-15T17:45:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -125,6 +125,35 @@ if (result.success) {
 // Exemplo (site-config — opcional/beta):
 // https://<project-ref>.supabase.co/functions/v1/rendizy-public/client-sites/api/<subdomain>/site-config
 
+    {
+      title: 'Calendário (seletor de datas) — seleção por noites + preço por dia',
+      notes: [
+        'Regra: check-in é INCLUSIVO e check-out é EXCLUSIVO (seleção por noites).',
+        'É permitido selecionar checkout em dia indisponível, desde que as noites ENTRE as datas estejam disponíveis.',
+        'Exemplo válido: 21 → 22 (1 noite) mesmo que o dia 22 esteja reservado para outra entrada.',
+        'Exibir preço por dia dentro da célula (ex.: R$ 480) usando availability[].price.',
+        'Nunca calcule preço no front-end; sempre use o preço retornado pela API pública.'
+      ],
+      codeBlocks: [
+        {
+          title: 'Validação correta do range (end-exclusive)',
+          language: 'ts',
+          code: `function isRangeSelectable(days, checkIn, checkOut, minNights = 1) {
+  if (!checkIn || !checkOut) return false;
+  const diffDays = Math.round((checkOut - checkIn) / 86400000);
+  if (diffDays < minNights) return false;
+
+  // checkOut é exclusivo: validar APENAS as noites entre checkIn e checkOut
+  for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+    const day = days.find(x => x.date === dateStr);
+    if (!day || day.status !== 'available') return false;
+  }
+  return true;
+}`
+        }
+      ]
+    },
 async function getProperties({ projectRef, subdomain }: { projectRef: string; subdomain: string }) {
   const url =
     'https://' +
@@ -841,7 +870,11 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
     notes: [
       'Quando este bloco estiver ativo, o site não deve calcular preço no front-end.',
       'Regra: o backend é a fonte de verdade (evita divergências entre sites).',
-      'Nota: o bloco exibe preço por dia; o total da reserva (limpeza/descontos) é outro contrato (planejado).'
+      'Nota: o bloco exibe preço por dia; o total da reserva (limpeza/descontos) é outro contrato (planejado).',
+      'UX obrigatório: exibir o preço por dia dentro do quadradinho da data (ex.: R$ 480).',
+      'Regra de seleção: check-in é INCLUSIVO e check-out é EXCLUSIVO (seleção por noites).',
+      'Permitir selecionar checkout em um dia indisponível, desde que TODAS as noites entre check-in e check-out estejam disponíveis.',
+      'Exemplo: se há reserva até o dia 21 e outra inicia no 22, o usuário pode selecionar 21 → 22 (1 noite).'
     ]
   },
   {
@@ -1491,6 +1524,9 @@ Antes de gerar o código final, verifique CADA item abaixo. Se algum estiver err
 ### Calendário (CRÍTICO — bloco \`calendar-daily-pricing\`):
 - [ ] Calendário usa API real (\`/calendar\`) — NUNCA dados mock/fake
 - [ ] Verificar status com \`day.status === "available"\` (string), NÃO \`day.available\` (não existe)
+- [ ] Exibir preço por dia dentro da célula do calendário (ex.: "R$ 480")
+- [ ] Seleção por noites: check-in INCLUSIVO, check-out EXCLUSIVO
+- [ ] Permitir checkout em dia indisponível, desde que as noites entre as datas estejam disponíveis
 
 ### Componentes Obrigatórios:
 - [ ] \`BookingWidget.tsx\` ou \`BookingForm.tsx\` com todas as regras acima
