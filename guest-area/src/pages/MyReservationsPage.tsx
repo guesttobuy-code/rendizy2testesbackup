@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useGuestAuth } from '../contexts/GuestAuthContext';
 
+// Interface alinhada com o retorno da API /reservations/mine
+interface PropertyInfo {
+  id: string;
+  name: string;
+  code?: string;
+  coverPhoto?: string;
+  city?: string;
+  state?: string;
+}
+
 interface GuestsInfo {
   adults?: number;
   children?: number;
@@ -8,38 +18,53 @@ interface GuestsInfo {
   total?: number;
 }
 
-interface Reservation {
+interface ApiReservation {
   id: string;
-  property_id: string;
-  property_name: string;
-  property_image?: string;
-  check_in: string;
-  check_out: string;
-  guests: number | GuestsInfo;
-  total_price: number;
+  reservationCode?: string;
+  property?: PropertyInfo | null;
+  checkIn: string;
+  checkOut: string;
+  nights?: number;
+  guests?: GuestsInfo;
   status: 'confirmed' | 'pending' | 'cancelled' | 'completed';
-  created_at: string;
+  paymentStatus?: string;
+  totalPrice?: number;
+  currency?: string;
+  notes?: string;
+  specialRequests?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  // Fallback para formato antigo
+  property_name?: string;
+  check_in?: string;
+  check_out?: string;
+  total_price?: number;
+  guest_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
 }
 
-// Helper to extract guest count from guests field (can be number or object)
-function getGuestCount(guests: number | GuestsInfo | undefined | null): number {
-  if (!guests) return 1;
-  if (typeof guests === 'number') return guests;
-  if (typeof guests === 'object') {
-    return guests.total || (guests.adults || 0) + (guests.children || 0) + (guests.infants || 0) || 1;
-  }
-  return 1;
-}
-
-function getStatusBadge(status: Reservation['status']) {
-  const map = {
-    confirmed: { label: '✓ Confirmada', color: 'bg-slate-900 text-white' },
-    pending: { label: 'Pendente', color: 'bg-yellow-400 text-yellow-900' },
-    cancelled: { label: 'Cancelada', color: 'bg-red-100 text-red-700' },
-    completed: { label: 'Concluída', color: 'bg-gray-100 text-gray-700' },
+// Helper para normalizar dados (API nova vs antiga)
+function normalizeReservation(r: ApiReservation) {
+  return {
+    id: r.id,
+    propertyName: r.property?.name || r.property_name || 'Propriedade',
+    propertyImage: r.property?.coverPhoto || null,
+    propertyCity: r.property?.city || '',
+    checkIn: r.checkIn || r.check_in || '',
+    checkOut: r.checkOut || r.check_out || '',
+    nights: r.nights || getNights(r.checkIn || r.check_in || '', r.checkOut || r.check_out || ''),
+    guestsTotal: r.guests?.total || r.guests?.adults || 1,
+    guestsAdults: r.guests?.adults || 1,
+    status: r.status || 'pending',
+    paymentStatus: r.paymentStatus || 'pending',
+    totalPrice: r.totalPrice ?? r.total_price ?? 0,
+    currency: r.currency || 'BRL',
+    guestName: r.guest_name || '',
+    guestEmail: r.guest_email || '',
+    guestPhone: r.guest_phone || '',
+    createdAt: r.createdAt || '',
   };
-  const { label, color } = map[status] || map.pending;
-  return <span className={`px-3 py-1 text-xs rounded-full font-medium ${color}`}>{label}</span>;
 }
 
 function getNights(checkIn: string, checkOut: string): number {
@@ -50,6 +75,17 @@ function getNights(checkIn: string, checkOut: string): number {
   } catch {
     return 1;
   }
+}
+
+function getStatusBadge(status: string) {
+  const map: Record<string, { label: string; color: string }> = {
+    confirmed: { label: '✓ Confirmada', color: 'bg-slate-900 text-white' },
+    pending: { label: 'Pendente', color: 'bg-yellow-400 text-yellow-900' },
+    cancelled: { label: 'Cancelada', color: 'bg-red-100 text-red-700' },
+    completed: { label: 'Concluída', color: 'bg-gray-100 text-gray-700' },
+  };
+  const { label, color } = map[status] || map.pending;
+  return <span className={`px-3 py-1 text-xs rounded-full font-medium ${color}`}>{label}</span>;
 }
 
 function formatDate(dateStr: string | undefined | null) {
@@ -65,18 +101,23 @@ function formatDate(dateStr: string | undefined | null) {
   }
 }
 
+function formatCurrency(value: number, currency = 'BRL') {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(value);
+}
+
 
 export function MyReservationsPage() {
-  const { isAuthenticated } = useGuestAuth();
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const { isAuthenticated, user } = useGuestAuth();
+  const [reservations, setReservations] = useState<ApiReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [focusId, setFocusId] = useState<string>('');
 
   useEffect(() => {
     try {
-      // HashRouter query support: /#/reservas?focus=<id>
       const hash = window.location.hash || '';
       const q = hash.includes('?') ? hash.split('?').slice(1).join('?') : '';
       const params = new URLSearchParams(q);
@@ -93,14 +134,12 @@ export function MyReservationsPage() {
         const config = window.GUEST_AREA_CONFIG;
         if (!config) throw new Error('Configuração não encontrada');
 
-        // Dados do hóspede (BFF): apenas reservas do usuário autenticado.
-        // Não mistura com dados do painel admin.
-        // Sessão profissional: buscar via BFF (cookie httpOnly)
         const res = await fetch(`/api/guest/reservations/mine?siteSlug=${encodeURIComponent(config.siteSlug)}`);
 
         if (!res.ok) throw new Error('Erro ao buscar reservas');
 
         const data = await res.json();
+        console.log('[MyReservationsPage] Dados recebidos:', data);
         setReservations(data.data || data.reservations || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro desconhecido');
@@ -119,24 +158,40 @@ export function MyReservationsPage() {
   today.setHours(0, 0, 0, 0);
 
   const filteredReservations = reservations.filter((r) => {
-    if (filter === 'all') return true;
-    const checkOutDate = new Date(r.check_out);
-    if (filter === 'upcoming') return checkOutDate >= today;
-    if (filter === 'past') return checkOutDate < today;
+    const norm = normalizeReservation(r);
+    
+    // Filtro de período
+    const checkOutDate = new Date(norm.checkOut);
+    if (filter === 'upcoming' && checkOutDate < today) return false;
+    if (filter === 'past' && checkOutDate >= today) return false;
+    
+    // Filtro de status
+    if (statusFilter !== 'all' && norm.status !== statusFilter) return false;
+    
+    // Filtro de busca
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const match = norm.propertyName.toLowerCase().includes(q) ||
+                    norm.id.toLowerCase().includes(q) ||
+                    norm.guestName.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    
     return true;
   });
 
   // Ordenar: próximas primeiro
   const sortedReservations = [...filteredReservations].sort((a, b) => {
-    return new Date(a.check_in).getTime() - new Date(b.check_in).getTime();
+    const aDate = new Date(a.checkIn || a.check_in || '').getTime();
+    const bDate = new Date(b.checkIn || b.check_in || '').getTime();
+    return aDate - bDate;
   });
 
-  // Estatísticas (para uso futuro)
-  const _totalCount = reservations.length;
-  const _confirmedCount = reservations.filter((r) => r.status === 'confirmed').length;
-  const _pendingCount = reservations.filter((r) => r.status === 'pending').length;
-  const _revenueTotal = reservations.reduce((acc, r) => acc + (Number(r.total_price) || 0), 0);
-  void _totalCount; void _confirmedCount; void _pendingCount; void _revenueTotal;
+  // Estatísticas
+  const totalCount = reservations.length;
+  const confirmedCount = reservations.filter((r) => r.status === 'confirmed').length;
+  const pendingCount = reservations.filter((r) => r.status === 'pending').length;
+  const revenueTotal = reservations.reduce((acc, r) => acc + (r.totalPrice ?? r.total_price ?? 0), 0);
 
   useEffect(() => {
     if (!focusId) return;
@@ -144,7 +199,7 @@ export function MyReservationsPage() {
       try {
         const el = document.getElementById(`reservation-${focusId}`);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } catch {}
+      } catch { /* ignore */ }
     }, 600);
     return () => window.clearTimeout(t);
   }, [focusId, sortedReservations.length]);
@@ -167,169 +222,229 @@ export function MyReservationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reservas</h1>
-          <p className="text-gray-500 text-sm mt-1">Gerencie todas as reservas do sistema</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button className="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white font-medium">
-            Nova Reserva
-          </button>
-          <button className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-700 bg-white">
-            Exportar Excel (.xls)
-          </button>
-          <button className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-700 bg-white">
-            Atualizar
-          </button>
-        </div>
-      </div>
-
-      {/* Filtros rápidos */}
-      <div className="flex gap-2">
-        {(['all', 'upcoming', 'past'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-              filter === f
-                ? 'bg-primary text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {f === 'all' ? 'Todas' : f === 'upcoming' ? 'Próximas' : 'Passadas'}
-          </button>
-        ))}
-      </div>
-
-      {/* Lista de Reservas */}
-      {sortedReservations.length === 0 ? (
-        <div className="bg-white rounded-2xl border p-10 text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">📋</span>
+    <div className="flex gap-6">
+      {/* Painel de filtros (esquerda) */}
+      <aside className="w-72 hidden lg:block shrink-0">
+        <div className="bg-white border rounded-xl p-4 space-y-4 sticky top-6">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Reservas</p>
+            <p className="text-xs text-gray-500">Tipo de data</p>
+            <select className="mt-2 w-full text-sm border rounded-lg px-3 py-2 bg-gray-50">
+              <option>Check-in</option>
+              <option>Check-out</option>
+            </select>
           </div>
-          <h3 className="font-medium text-gray-800">Nenhuma reserva encontrada</h3>
-          <p className="text-gray-500 text-sm mt-1">
-            {filter === 'all'
-              ? 'Você ainda não possui reservas.'
-              : filter === 'upcoming'
-              ? 'Você não possui reservas futuras.'
-              : 'Você não possui reservas passadas.'}
-          </p>
+
+          <div>
+            <p className="text-xs text-gray-500">De - até</p>
+            <input className="mt-2 w-full text-sm border rounded-lg px-3 py-2 bg-gray-50" placeholder="01 jan - 31 dez" />
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Status</p>
+            <select 
+              className="mt-2 w-full text-sm border rounded-lg px-3 py-2 bg-gray-50"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="confirmed">Confirmadas</option>
+              <option value="pending">Pendentes</option>
+              <option value="cancelled">Canceladas</option>
+            </select>
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Buscar</p>
+            <input 
+              className="mt-2 w-full text-sm border rounded-lg px-3 py-2 bg-gray-50" 
+              placeholder="ID, hóspede, propriedade"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {sortedReservations.map((reservation) => {
-            const nights = getNights(reservation.check_in, reservation.check_out);
-            const guestCount = getGuestCount(reservation.guests);
-            
-            return (
-              <div
-                key={reservation.id}
-                id={`reservation-${reservation.id}`}
-                className={`bg-white rounded-2xl border hover:shadow-sm transition-shadow ${
-                  focusId && reservation.id === focusId ? 'ring-2 ring-primary ring-offset-2' : ''
+      </aside>
+
+      {/* Conteúdo principal */}
+      <div className="flex-1 space-y-6 min-w-0">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Reservas</h1>
+            <p className="text-gray-500 text-sm mt-1">Gerencie suas reservas</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(['all', 'upcoming', 'past'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                  filter === f
+                    ? 'bg-primary text-white'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                {/* Linha superior: Hóspede + Status + Ações */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
-                        <circle cx="12" cy="8" r="4" />
-                        <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900">Hóspede</span>
-                        <span className="text-xs text-gray-400">#{reservation.id.slice(0, 8)}</span>
-                      </div>
-                      <div className="text-xs text-gray-500 flex items-center gap-2">
-                        <span>📞 Sem telefone</span>
-                        <span>•</span>
-                        <span>✉️ Sem email</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(reservation.status)}
-                    <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-medium">
-                      Direto
-                    </span>
-                    <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
-                        <circle cx="12" cy="12" r="1" />
-                        <circle cx="12" cy="6" r="1" />
-                        <circle cx="12" cy="18" r="1" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Linha do meio: Propriedade + Datas */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                      🏠
-                    </div>
-                    <span className="font-medium text-gray-900">
-                      {reservation.property_name || 'Propriedade'}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <span>📅</span>
-                      <span>{formatDate(reservation.check_in)}</span>
-                      <span className="text-gray-400">→</span>
-                      <span>{formatDate(reservation.check_out)}</span>
-                    </div>
-                    <span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">
-                      {nights} {nights === 1 ? 'noite' : 'noites'}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <span>👥</span>
-                      <span>{guestCount} {guestCount === 1 ? 'adulto' : 'adultos'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Linha inferior: Valores */}
-                <div className="flex items-center justify-between gap-4 px-4 pb-4">
-                  <div className="flex items-center gap-6 text-sm">
-                    <div>
-                      <div className="text-gray-500">Hospedagem</div>
-                      <div className="font-medium text-gray-900">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(reservation.total_price || 0)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Taxas</div>
-                      <div className="font-medium text-gray-900">R$ 0,00</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Descontos</div>
-                      <div className="font-medium text-green-600">- R$ 0,00</div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-purple-50 rounded-xl px-4 py-2 text-right">
-                    <div className="text-xs text-purple-500">Total</div>
-                    <div className="text-lg font-bold text-purple-700">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(reservation.total_price || 0)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                {f === 'all' ? 'Todas' : f === 'upcoming' ? 'Próximas' : 'Passadas'}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+
+        {/* Cards Resumo */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white border rounded-xl p-4">
+            <p className="text-xs text-gray-500">Total de Reservas</p>
+            <p className="text-2xl font-bold text-gray-900">{totalCount}</p>
+            <p className="text-xs text-gray-500 mt-1">Todas as reservas</p>
+          </div>
+          <div className="bg-white border rounded-xl p-4">
+            <p className="text-xs text-gray-500">Confirmadas</p>
+            <p className="text-2xl font-bold text-green-600">{confirmedCount}</p>
+            <p className="text-xs text-gray-500 mt-1">Reservas ativas</p>
+          </div>
+          <div className="bg-white border rounded-xl p-4">
+            <p className="text-xs text-gray-500">Pendentes</p>
+            <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
+            <p className="text-xs text-gray-500 mt-1">Aguardando confirmação</p>
+          </div>
+          <div className="bg-white border rounded-xl p-4">
+            <p className="text-xs text-gray-500">Revenue Total</p>
+            <p className="text-2xl font-bold text-purple-600">
+              {formatCurrency(revenueTotal)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Receita confirmada</p>
+          </div>
+        </div>
+
+        {/* Lista de Reservas */}
+        {sortedReservations.length === 0 ? (
+          <div className="bg-white rounded-2xl border p-10 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl">📋</span>
+            </div>
+            <h3 className="font-medium text-gray-800">Nenhuma reserva encontrada</h3>
+            <p className="text-gray-500 text-sm mt-1">
+              {filter === 'all'
+                ? 'Você ainda não possui reservas.'
+                : filter === 'upcoming'
+                ? 'Você não possui reservas futuras.'
+                : 'Você não possui reservas passadas.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {sortedReservations.map((reservation) => {
+              const norm = normalizeReservation(reservation);
+              
+              return (
+                <div
+                  key={reservation.id}
+                  id={`reservation-${reservation.id}`}
+                  className={`bg-white rounded-2xl border hover:shadow-sm transition-shadow ${
+                    focusId && reservation.id === focusId ? 'ring-2 ring-primary ring-offset-2' : ''
+                  }`}
+                >
+                  {/* Linha superior: Hóspede + Status + Ações */}
+                  <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
+                          <circle cx="12" cy="8" r="4" />
+                          <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-900">
+                            {norm.guestName || user?.name || 'Hóspede'}
+                          </span>
+                          <span className="text-xs text-gray-400">#{reservation.id.slice(0, 8)}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 flex items-center gap-2">
+                          <span>📞 {norm.guestPhone || 'Sem telefone'}</span>
+                          <span>•</span>
+                          <span>✉️ {norm.guestEmail || user?.email || 'Sem email'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(norm.status)}
+                      <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-medium">
+                        Direto
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Linha do meio: Propriedade + Datas */}
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4">
+                    <div className="flex items-center gap-3">
+                      {norm.propertyImage ? (
+                        <img src={norm.propertyImage} alt="" className="h-10 w-10 rounded-lg object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center text-xl">
+                          🏠
+                        </div>
+                      )}
+                      <div>
+                        <span className="font-medium text-gray-900">{norm.propertyName}</span>
+                        {norm.propertyCity && (
+                          <span className="text-xs text-gray-500 block">{norm.propertyCity}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <span>📅</span>
+                        <span>{formatDate(norm.checkIn)}</span>
+                        <span className="text-gray-400">→</span>
+                        <span>{formatDate(norm.checkOut)}</span>
+                      </div>
+                      <span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">
+                        {norm.nights} {norm.nights === 1 ? 'noite' : 'noites'}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span>👥</span>
+                        <span>{norm.guestsAdults} {norm.guestsAdults === 1 ? 'adulto' : 'adultos'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Linha inferior: Valores */}
+                  <div className="flex items-center justify-between gap-4 px-4 pb-4">
+                    <div className="flex items-center gap-6 text-sm">
+                      <div>
+                        <div className="text-gray-500">Hospedagem</div>
+                        <div className="font-medium text-gray-900">
+                          {formatCurrency(norm.totalPrice, norm.currency)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Taxas</div>
+                        <div className="font-medium text-gray-900">R$ 0,00</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Descontos</div>
+                        <div className="font-medium text-green-600">- R$ 0,00</div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-purple-50 rounded-xl px-4 py-2 text-right">
+                      <div className="text-xs text-purple-500">Total</div>
+                      <div className="text-lg font-bold text-purple-700">
+                        {formatCurrency(norm.totalPrice, norm.currency)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
