@@ -2558,7 +2558,7 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
     if (propertyIds.length > 0) {
       const { data: properties } = await supabase
         .from("properties")
-        .select("id, name, code, cover_photo, photos, address_city, address_state")
+        .select("id, name, title, code, cover_photo, photos, address_street, address_number, address_neighborhood, address_city, address_state, address_zip_code")
         .in("id", propertyIds);
       
       for (const p of (properties || [])) {
@@ -2582,8 +2582,18 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
         property: property ? {
           id: property.id,
           name: property.name || "Imóvel",
+          title: property.title || property.name || "Imóvel", // Título do anúncio
           code: property.code,
           coverPhoto,
+          address: {
+            street: property.address_street || null,
+            number: property.address_number || null,
+            neighborhood: property.address_neighborhood || null,
+            city: property.address_city || null,
+            state: property.address_state || null,
+            zipCode: property.address_zip_code || null,
+          },
+          // Mantém campos legados para compatibilidade
           city: property.address_city,
           state: property.address_state,
         } : null,

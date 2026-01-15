@@ -1,12 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useGuestAuth } from '../contexts/GuestAuthContext';
 
+// Interface de endereço completo
+interface AddressInfo {
+  street?: string | null;
+  number?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+}
+
 // Interface alinhada com o retorno da API /reservations/mine
 interface PropertyInfo {
   id: string;
   name: string;
+  title?: string; // Título do anúncio (o que o hóspede reconhece)
   code?: string;
   coverPhoto?: string;
+  address?: AddressInfo;
+  // Campos legados para compatibilidade
   city?: string;
   state?: string;
 }
@@ -44,13 +57,49 @@ interface ApiReservation {
   guest_phone?: string;
 }
 
+// Helper para formatar endereço completo
+function formatFullAddress(property: PropertyInfo | null | undefined): string {
+  if (!property?.address) {
+    // Fallback para campos legados
+    if (property?.city) {
+      return property.state ? `${property.city}, ${property.state}` : property.city;
+    }
+    return '';
+  }
+  
+  const addr = property.address;
+  const parts: string[] = [];
+  
+  // Rua + número
+  if (addr.street) {
+    parts.push(addr.number ? `${addr.street}, ${addr.number}` : addr.street);
+  }
+  
+  // Bairro
+  if (addr.neighborhood) {
+    parts.push(addr.neighborhood);
+  }
+  
+  // Cidade + Estado
+  if (addr.city) {
+    parts.push(addr.state ? `${addr.city}/${addr.state}` : addr.city);
+  }
+  
+  return parts.join(' - ');
+}
+
 // Helper para normalizar dados (API nova vs antiga)
 function normalizeReservation(r: ApiReservation) {
+  // Usa título do anúncio (o que o hóspede vê), com fallback para nome interno
+  const propertyDisplayName = r.property?.title || r.property?.name || r.property_name || 'Propriedade';
+  const fullAddress = formatFullAddress(r.property);
+  
   return {
     id: r.id,
-    propertyName: r.property?.name || r.property_name || 'Propriedade',
+    propertyName: propertyDisplayName, // Título do anúncio
     propertyImage: r.property?.coverPhoto || null,
-    propertyCity: r.property?.city || '',
+    propertyAddress: fullAddress, // Endereço completo formatado
+    propertyCity: r.property?.address?.city || r.property?.city || '',
     checkIn: r.checkIn || r.check_in || '',
     checkOut: r.checkOut || r.check_out || '',
     nights: r.nights || getNights(r.checkIn || r.check_in || '', r.checkOut || r.check_out || ''),
@@ -390,8 +439,14 @@ export function MyReservationsPage() {
                       )}
                       <div>
                         <span className="font-medium text-gray-900">{norm.propertyName}</span>
-                        {norm.propertyCity && (
-                          <span className="text-xs text-gray-500 block">{norm.propertyCity}</span>
+                        {norm.propertyAddress && (
+                          <span className="text-xs text-gray-500 block flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            {norm.propertyAddress}
+                          </span>
                         )}
                       </div>
                     </div>
