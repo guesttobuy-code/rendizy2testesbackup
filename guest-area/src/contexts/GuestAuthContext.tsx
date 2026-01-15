@@ -121,8 +121,20 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
       (window as any).google.accounts.id.disableAutoSelect();
     }
     
-    // Redirecionar para login
-    window.location.hash = '#/login';
+    // Redirecionar para o site principal (não para login)
+    const config = (window as any).GUEST_AREA_CONFIG;
+    if (config?.siteUrl) {
+      // Redirecionar para o site do cliente
+      window.location.href = config.siteUrl;
+    } else {
+      // Fallback: voltar para a raiz do site
+      const slug = new URLSearchParams(window.location.search).get('slug') || '';
+      if (slug) {
+        window.location.href = `/site/${slug}/`;
+      } else {
+        window.location.href = '/';
+      }
+    }
   }, []);
 
   return (

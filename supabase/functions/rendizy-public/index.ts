@@ -2558,11 +2558,29 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
     if (propertyIds.length > 0) {
       const { data: properties } = await supabase
         .from("properties")
-        .select("id, name, title, code, cover_photo, photos, address_street, address_number, address_neighborhood, address_city, address_state, address_zip_code")
+        .select("id, name, title, code, cover_photo, photos, data, address_street, address_number, address_neighborhood, address_city, address_state, address_zip_code")
         .in("id", propertyIds);
       
       for (const p of (properties || [])) {
-        propertiesMap[p.id] = p;
+        // Extrair título do JSONB data se não houver na coluna title
+        const jsonData = p.data || {};
+        const listingTitle = p.title || jsonData.title || jsonData.name || p.name;
+        const listingAddress = jsonData.address || {};
+        
+        propertiesMap[p.id] = {
+          ...p,
+          // Título do anúncio (prioridade: title > data.title > data.name > name)
+          listingTitle,
+          // Endereço do JSONB (fallback)
+          fullAddress: {
+            street: p.address_street || listingAddress.street || null,
+            number: p.address_number || listingAddress.number || null,
+            neighborhood: p.address_neighborhood || listingAddress.neighborhood || null,
+            city: p.address_city || listingAddress.city || null,
+            state: p.address_state || listingAddress.state || null,
+            zipCode: p.address_zip_code || listingAddress.zipCode || null,
+          }
+        };
       }
     }
 
@@ -2582,20 +2600,20 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
         property: property ? {
           id: property.id,
           name: property.name || "Imóvel",
-          title: property.title || property.name || "Imóvel", // Título do anúncio
+          title: property.listingTitle || property.name || "Imóvel", // Título do anúncio extraído do JSONB
           code: property.code,
           coverPhoto,
-          address: {
-            street: property.address_street || null,
-            number: property.address_number || null,
-            neighborhood: property.address_neighborhood || null,
+          address: property.fullAddress || {
+            street: null,
+            number: null,
+            neighborhood: null,
             city: property.address_city || null,
             state: property.address_state || null,
-            zipCode: property.address_zip_code || null,
+            zipCode: null,
           },
           // Mantém campos legados para compatibilidade
-          city: property.address_city,
-          state: property.address_state,
+          city: property.fullAddress?.city || property.address_city,
+          state: property.fullAddress?.state || property.address_state,
         } : null,
         checkIn: r.check_in,
         checkOut: r.check_out,
