@@ -464,50 +464,38 @@ export default function handler(req, res) {
       _submitBound = true;
     }
 
-    function ensureCheckoutToastStyles(el) {
+    function updateInlineConfirmedMessage(info) {
       try {
-        el.style.position = "fixed";
-        el.style.right = "16px";
-        el.style.bottom = "16px";
-        el.style.zIndex = "99999";
-        el.style.maxWidth = "360px";
-        el.style.background = "#ffffff";
-        el.style.border = "1px solid rgba(0,0,0,0.08)";
-        el.style.borderRadius = "12px";
-        el.style.boxShadow = "0 8px 30px rgba(0,0,0,0.12)";
-        el.style.padding = "12px 14px";
-        el.style.fontFamily = "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-        el.style.color = "#111827";
-      } catch (e) {}
-    }
-
-    function showCheckoutConfirmedToast(info) {
-      try {
-        var existing = document.getElementById("rendizy-checkout-toast");
-        if (existing) existing.remove();
-
         var reservationId = info && info.reservationId ? String(info.reservationId) : "";
         var guestAreaUrl = "/guest-area/#/reservas" + (reservationId ? ("?focus=" + encodeURIComponent(reservationId)) : "");
 
-        var d = document.createElement("div");
-        d.id = "rendizy-checkout-toast";
-        ensureCheckoutToastStyles(d);
+        var candidates = document.querySelectorAll("h1,h2,h3,p,div,span");
+        var target = null;
+        for (var i = 0; i < candidates.length; i++) {
+          var t = (candidates[i].textContent || "").trim();
+          if (!t) continue;
+          if (/pré-?reserva/i.test(t) || /aguardando pagamento/i.test(t)) {
+            target = candidates[i];
+            break;
+          }
+        }
 
-        var title = document.createElement("div");
-        title.style.fontWeight = "700";
-        title.style.marginBottom = "6px";
-        title.textContent = "Reserva confirmada";
+        if (!target) return;
+        var container = target.closest("div") || target.parentElement;
+        if (!container) return;
+        if (container.querySelector("[data-rendizy-confirmed-inline]")) return;
+
+        target.textContent = "Reserva confirmada";
+
+        var wrap = document.createElement("div");
+        wrap.setAttribute("data-rendizy-confirmed-inline", "1");
+        wrap.style.marginTop = "8px";
 
         var desc = document.createElement("div");
         desc.style.fontSize = "13px";
         desc.style.color = "#374151";
-        desc.style.marginBottom = "10px";
-        desc.textContent = "Pagamento confirmado. Clique abaixo para ver sua reserva.";
-
-        var row = document.createElement("div");
-        row.style.display = "flex";
-        row.style.gap = "8px";
-        row.style.alignItems = "center";
+        desc.style.marginBottom = "8px";
+        desc.textContent = "Pagamento confirmado. Acesse a área do cliente para ver sua reserva.";
 
         var a = document.createElement("a");
         a.href = guestAreaUrl;
@@ -515,35 +503,17 @@ export default function handler(req, res) {
         a.rel = "noopener noreferrer";
         a.textContent = "Ver na Área do Cliente";
         a.style.display = "inline-block";
-        a.style.padding = "10px 12px";
-        a.style.borderRadius = "10px";
+        a.style.padding = "8px 10px";
+        a.style.borderRadius = "8px";
         a.style.background = "#10b981";
         a.style.color = "white";
         a.style.fontWeight = "700";
         a.style.textDecoration = "none";
-        a.style.fontSize = "13px";
+        a.style.fontSize = "12px";
 
-        var close = document.createElement("button");
-        close.type = "button";
-        close.textContent = "Fechar";
-        close.style.padding = "10px 12px";
-        close.style.borderRadius = "10px";
-        close.style.background = "#f3f4f6";
-        close.style.color = "#111827";
-        close.style.fontWeight = "600";
-        close.style.border = "1px solid rgba(0,0,0,0.08)";
-        close.onclick = function () {
-          try {
-            d.remove();
-          } catch (e) {}
-        };
-
-        row.appendChild(a);
-        row.appendChild(close);
-        d.appendChild(title);
-        d.appendChild(desc);
-        d.appendChild(row);
-        document.body.appendChild(d);
+        wrap.appendChild(desc);
+        wrap.appendChild(a);
+        container.appendChild(wrap);
       } catch (e) {}
     }
 
@@ -817,7 +787,7 @@ export default function handler(req, res) {
           if (t === "confirmed") {
             var info = (msg && msg.payload) || msg;
             setConfirmedCheckout(info);
-            showCheckoutConfirmedToast(info);
+            updateInlineConfirmedMessage(info);
           }
         } catch (e) {}
       });
@@ -825,7 +795,7 @@ export default function handler(req, res) {
       try {
         var confirmed = getConfirmedCheckout();
         if (confirmed && confirmed.type === "confirmed") {
-          showCheckoutConfirmedToast(confirmed);
+          updateInlineConfirmedMessage(confirmed);
         }
       } catch (e) {}
 

@@ -5,13 +5,67 @@ import './index.css';
 
 // Extrair parâmetros da URL
 const params = new URLSearchParams(window.location.search);
-const siteSlug = params.get('slug') || params.get('subdomain') || '';
+const slugParam = params.get('slug') || params.get('subdomain') || '';
 const legacyToken = params.get('t') || '';
 
-// Cores do tema
-const primaryColor = params.get('primary') ? decodeURIComponent(params.get('primary')!) : '#3B82F6';
-const secondaryColor = params.get('secondary') ? decodeURIComponent(params.get('secondary')!) : '#10B981';
-const accentColor = params.get('accent') ? decodeURIComponent(params.get('accent')!) : '#F59E0B';
+// Persistência local para evitar erro de slug ausente (ex: /guest-area/#/login)
+const storedSlug = (() => {
+  try {
+    return localStorage.getItem('rendizy_guest_site_slug') || '';
+  } catch {
+    return '';
+  }
+})();
+
+const siteSlug = slugParam || storedSlug || '';
+if (slugParam) {
+  try {
+    localStorage.setItem('rendizy_guest_site_slug', slugParam);
+  } catch {}
+}
+
+// Cores do tema (persistidas)
+const storedPrimary = (() => {
+  try {
+    return localStorage.getItem('rendizy_guest_primary') || '';
+  } catch {
+    return '';
+  }
+})();
+const storedSecondary = (() => {
+  try {
+    return localStorage.getItem('rendizy_guest_secondary') || '';
+  } catch {
+    return '';
+  }
+})();
+const storedAccent = (() => {
+  try {
+    return localStorage.getItem('rendizy_guest_accent') || '';
+  } catch {
+    return '';
+  }
+})();
+
+const primaryColor = params.get('primary')
+  ? decodeURIComponent(params.get('primary')!)
+  : (storedPrimary || '#3B82F6');
+const secondaryColor = params.get('secondary')
+  ? decodeURIComponent(params.get('secondary')!)
+  : (storedSecondary || '#10B981');
+const accentColor = params.get('accent')
+  ? decodeURIComponent(params.get('accent')!)
+  : (storedAccent || '#F59E0B');
+
+if (params.get('primary')) {
+  try { localStorage.setItem('rendizy_guest_primary', primaryColor); } catch {}
+}
+if (params.get('secondary')) {
+  try { localStorage.setItem('rendizy_guest_secondary', secondaryColor); } catch {}
+}
+if (params.get('accent')) {
+  try { localStorage.setItem('rendizy_guest_accent', accentColor); } catch {}
+}
 
 // Aplicar tema via CSS variables
 const root = document.documentElement;
