@@ -44,12 +44,12 @@
  * 
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v5.6' as const;
+export const CATALOG_VERSION = 'v5.7' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-14T22:00:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-14T22:15:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -442,6 +442,18 @@ async function logout() {
         'Valida disponibilidade antes de criar (retorna 409 se conflito com reserva/bloqueio existente).',
         'Valida minNights: retorna 400 se número de noites < mínimo exigido para o imóvel.',
         'O preço total inclui: (dailyRate × nights) + cleaningFee + serviceFee (taxas reais do banco).',
+        '',
+        '## ⚠️ MENSAGENS OBRIGATÓRIAS (UI)',
+        '',
+        '❌ ERRADO: Mostrar "Reserva Criada!" ou "Reserva Confirmada!" antes do pagamento',
+        '✅ CORRETO: Mostrar "Pré-Reserva Criada - Aguardando Pagamento" antes do pagamento',
+        '',
+        'A reserva SÓ está confirmada APÓS o pagamento. Antes disso é uma PRÉ-RESERVA.',
+        '',
+        'Mensagens corretas por estado:',
+        '  - Após criar reserva (sem pagar): "Pré-Reserva Criada - Aguardando Pagamento"',
+        '  - Após pagamento confirmado: "Reserva Confirmada!"',
+        '  - Se pagamento expirar: "Pré-Reserva Expirada"',
         '',
         '⏱️ Sistema de Pré-Reservas (timeout):',
         '  - Reservas criadas ficam com payment_status="pending" aguardando pagamento.',
@@ -1108,16 +1120,30 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       'Escutar eventos cross-tab para confirmação'
     ],
     notes: [
-      '## ⚠️ REGRA CRÍTICA: Checkout em NOVA ABA',
+      '## 🚨🚨🚨 REGRA CRÍTICA #1: Checkout em NOVA ABA 🚨🚨🚨',
       '',
-      'O Stripe Checkout DEVE abrir em nova aba, NÃO na mesma aba.',
+      'O Stripe Checkout DEVE OBRIGATORIAMENTE abrir em NOVA ABA.',
+      'NUNCA, EM HIPÓTESE ALGUMA, navegar na mesma aba.',
       '',
-      '❌ ERRADO (NÃO FAÇA):',
-      '  window.location.href = checkoutUrl;',
-      '  window.location.assign(checkoutUrl);',
+      '❌❌❌ PROIBIDO (NÃO FAÇA DE JEITO NENHUM):',
+      '  window.location.href = checkoutUrl;        // PROIBIDO!',
+      '  window.location.assign(checkoutUrl);       // PROIBIDO!',
+      '  window.location.replace(checkoutUrl);      // PROIBIDO!',
+      '  navigate(checkoutUrl);                     // PROIBIDO!',
       '',
-      '✅ CORRETO (FAÇA ASSIM):',
-      '  window.open(checkoutUrl, "_blank");',
+      '✅✅✅ OBRIGATÓRIO (ÚNICA FORMA CORRETA):',
+      '  window.open(checkoutUrl, "_blank");        // CORRETO!',
+      '',
+      '## 🚨🚨🚨 REGRA CRÍTICA #2: Mensagem Correta 🚨🚨🚨',
+      '',
+      '❌❌❌ PROIBIDO mostrar antes do pagamento:',
+      '  "Reserva Criada!"                          // PROIBIDO!',
+      '  "Reserva Confirmada!"                      // PROIBIDO!',
+      '',
+      '✅✅✅ OBRIGATÓRIO mostrar antes do pagamento:',
+      '  "Pré-Reserva Criada - Aguardando Pagamento" // CORRETO!',
+      '',
+      'A reserva SÓ é "Confirmada" DEPOIS que o pagamento for processado.',
       '',
       '## URLs de Retorno (OBRIGATÓRIO)',
       '',

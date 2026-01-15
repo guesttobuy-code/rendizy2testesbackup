@@ -379,13 +379,34 @@ function patchClientSiteJs(jsText, { subdomain }) {
   // ============================================================================
   // Problem: Clicking "Reservar" redirects the current tab to Stripe checkout.
   // Solution: When redirecting to a checkoutUrl, open in a new tab and preserve the current tab.
-  // IMPORTANT: only patch standalone statements; do NOT patch inside expressions,
-  // otherwise minified code like `foo(window.location.href=checkoutUrl)` will break.
+  // 
+  // PADRÕES COBERTOS:
+  //   1) window.location.href = checkoutUrl;           (statement)
+  //   2) &&(window.location.href=z.checkoutUrl)        (inline em ternário/&&)
+  //   3) window.location.assign(checkoutUrl)
+  //   4) window.location.replace(checkoutUrl)
+  //
+  // Estratégia: usar função helper que faz window.open
+  
+  // Padrão 1: Statements tradicionais (prefixo ; { })
   const openCheckoutStmt = '$1(()=>{try{var u=$2;if(u)window.open(u,"_blank","noopener,noreferrer");}catch(e){}})();';
   out = out.replace(/(^|[;{}])\s*window\.location\.href\s*=\s*([^;]*checkoutUrl[^;]*);/g, openCheckoutStmt);
   out = out.replace(/(^|[;{}])\s*location\.href\s*=\s*([^;]*checkoutUrl[^;]*);/g, openCheckoutStmt);
+  
+  // Padrão 2: Inline em expressões como  &&(window.location.href=z.checkoutUrl)
+  // Troca por: &&(window.open(z.checkoutUrl,"_blank"))
+  out = out.replace(/\(window\.location\.href\s*=\s*([^)]*checkoutUrl[^)]*)\)/g, 
+    '(window.open($1,"_blank","noopener,noreferrer"))');
+  out = out.replace(/\(location\.href\s*=\s*([^)]*checkoutUrl[^)]*)\)/g, 
+    '(window.open($1,"_blank","noopener,noreferrer"))');
+  
+  // Padrão 3 e 4: assign/replace
   out = out.replace(/(^|[;{}])\s*window\.location\.assign\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, '$1window.open($2,"_blank","noopener,noreferrer")');
   out = out.replace(/(^|[;{}])\s*window\.location\.replace\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, '$1window.open($2,"_blank","noopener,noreferrer")');
+  
+  // Padrão 5: assign/replace inline em expressões
+  out = out.replace(/window\.location\.assign\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, 'window.open($1,"_blank","noopener,noreferrer")');
+  out = out.replace(/window\.location\.replace\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, 'window.open($1,"_blank","noopener,noreferrer")');
 
   return out;
 }
