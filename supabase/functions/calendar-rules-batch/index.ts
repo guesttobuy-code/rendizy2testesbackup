@@ -87,7 +87,7 @@ interface BatchResult {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-auth-token',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 // ============================================================================
@@ -140,14 +140,6 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // Only accept POST
-  if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
   try {
     // Initialize Supabase client first (needed for session validation)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -192,6 +184,61 @@ Deno.serve(async (req: Request) => {
 
     const organizationId = sessionData.organization_id;
     console.log('[calendar-rules-batch] Authenticated user:', sessionData.user_id, 'org:', organizationId);
+
+    // ========================================================================
+    // READ MODE (GET): list rules for org with optional filters
+    // ========================================================================
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      const from = url.searchParams.get('from');
+      const to = url.searchParams.get('to');
+      const propertyId = url.searchParams.get('property_id');
+      const idsParam = url.searchParams.get('ids');
+
+      let query = supabase
+        .from('calendar_pricing_rules')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (propertyId) {
+        query = query.eq('property_id', propertyId);
+      }
+
+      if (idsParam) {
+        const ids = idsParam.split(',').map((id) => id.trim()).filter((id) => id.length > 0);
+        if (ids.length > 0) {
+          query = query.in('id', ids);
+        }
+      }
+
+      if (from && to) {
+        query = query.lte('start_date', to).gte('end_date', from);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: data || [] }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Only accept POST for writes
+    if (req.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }),
+        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Parse request body
     const body: BatchRequest = await req.json();
@@ -268,6 +315,7 @@ Deno.serve(async (req: Request) => {
             organization_id: organizationId,
             start_date: startDate,
             end_date: endDate,
+            base_price: op.base_price,
             min_nights: op.min_nights,
             condition_percent: op.condition_percent,
             restriction: op.restriction,
@@ -301,63 +349,73 @@ Deno.serve(async (req: Request) => {
     }
 
     // Process upserts in batches of 100
-    // Strategy: delete existing rules for same org/property/dates, then insert new ones
+    // 🔒 RENDIZY_STABLE_TAG v1.0.103.600 (2026-01-15): merge parcial por coluna (não apagar outras regras)
     const UPSERT_BATCH_SIZE = 100;
-    for (let i = 0; i < upsertOps.length; i += UPSERT_BATCH_SIZE) {
-      const batch = upsertOps.slice(i, i + UPSERT_BATCH_SIZE);
-      
-      // First, delete existing rules that match the same org/property/date combination
-      for (const b of batch) {
-        const { error: delError } = await supabase
-          .from('calendar_pricing_rules')
-          .delete()
-          .eq('organization_id', b.data.organization_id)
-          .eq('property_id', b.data.property_id)
-          .eq('start_date', b.data.start_date)
-          .eq('end_date', b.data.end_date);
-        
-        if (delError) {
-          console.warn(`[calendar-rules-batch] Delete before insert failed: ${delError.message}`);
-          // Continue anyway - insert might still work
-        }
-      }
-      
-      const dataToInsert = batch.map(b => b.data);
+     for (let i = 0; i < upsertOps.length; i += UPSERT_BATCH_SIZE) {
+       const batch = upsertOps.slice(i, i + UPSERT_BATCH_SIZE);
 
-      const { data: insertedData, error: insertError } = await supabase
-        .from('calendar_pricing_rules')
-        .insert(dataToInsert)
-        .select('id, property_id, start_date, end_date');
+       for (const b of batch) {
+         const updateData: Record<string, unknown> = {
+           updated_at: new Date().toISOString(),
+         };
 
-      if (insertError) {
-        // Mark batch as failed
-        for (const b of batch) {
-          result.errors.push({ index: b.index, error: insertError.message });
-          result.failed++;
-        }
-      } else {
-        // Match results back to original indexes
-        for (let j = 0; j < batch.length; j++) {
-          const original = batch[j];
-          const matchedResult = insertedData?.find(
-            r => r.property_id === original.data.property_id && 
-                 r.start_date === original.data.start_date &&
-                 r.end_date === original.data.end_date
-          );
+         if (typeof b.data.base_price !== 'undefined') updateData.base_price = b.data.base_price;
+         if (typeof b.data.min_nights !== 'undefined') updateData.min_nights = b.data.min_nights;
+         if (typeof b.data.condition_percent !== 'undefined') updateData.condition_percent = b.data.condition_percent;
+         if (typeof b.data.restriction !== 'undefined') updateData.restriction = b.data.restriction;
+         if (typeof b.data.notes !== 'undefined') updateData.notes = b.data.notes;
 
-          if (matchedResult) {
-            result.results.push({
-              index: original.index,
-              id: matchedResult.id,
-              action: 'inserted',
-            });
-            result.processed++;
-          } else {
-            result.errors.push({ index: original.index, error: 'No result returned' });
-            result.failed++;
-          }
-        }
-      }
+         const { data: updatedRows, error: updateError } = await supabase
+           .from('calendar_pricing_rules')
+           .update(updateData)
+           .eq('organization_id', b.data.organization_id)
+           .eq('property_id', b.data.property_id)
+           .eq('start_date', b.data.start_date)
+           .eq('end_date', b.data.end_date)
+           .select('id')
+           .limit(1);
+
+         if (updateError) {
+           result.errors.push({ index: b.index, error: updateError.message });
+           result.failed++;
+           continue;
+         }
+
+         if (updatedRows && updatedRows.length > 0) {
+           result.results.push({ index: b.index, id: updatedRows[0].id, action: 'updated' });
+           result.processed++;
+           continue;
+         }
+
+         const insertData: Record<string, unknown> = {
+           property_id: b.data.property_id,
+           organization_id: b.data.organization_id,
+           start_date: b.data.start_date,
+           end_date: b.data.end_date,
+           updated_at: new Date().toISOString(),
+         };
+
+         if (typeof b.data.base_price !== 'undefined') insertData.base_price = b.data.base_price;
+         if (typeof b.data.min_nights !== 'undefined') insertData.min_nights = b.data.min_nights;
+         if (typeof b.data.condition_percent !== 'undefined') insertData.condition_percent = b.data.condition_percent;
+         if (typeof b.data.restriction !== 'undefined') insertData.restriction = b.data.restriction;
+         if (typeof b.data.notes !== 'undefined') insertData.notes = b.data.notes;
+
+         const { data: insertedData, error: insertError } = await supabase
+           .from('calendar_pricing_rules')
+           .insert(insertData)
+           .select('id')
+           .limit(1);
+
+         if (insertError) {
+           result.errors.push({ index: b.index, error: insertError.message });
+           result.failed++;
+           continue;
+         }
+
+         result.results.push({ index: b.index, id: insertedData?.[0]?.id || '', action: 'inserted' });
+         result.processed++;
+       }
     }
 
     // Set overall success flag

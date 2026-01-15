@@ -63,7 +63,10 @@ export function PriceEditModal({
   useEffect(() => {
     if (startDate) setDateFrom(startDate);
     if (endDate) setDateTo(endDate);
-  }, [startDate, endDate]);
+    if (typeof property?.basePrice === 'number' && Number.isFinite(property.basePrice)) {
+      setBasePrice(property.basePrice);
+    }
+  }, [startDate, endDate, property?.basePrice]);
 
   const toggleDay = (day: number) => {
     setSelectedDays(prev =>

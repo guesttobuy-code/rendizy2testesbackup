@@ -204,6 +204,7 @@ function App() {
   const [guests, setGuests] = useState<any[]>([]);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [calendarRulesRefreshToken, setCalendarRulesRefreshToken] = useState(0);
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [showErrorBanner, setShowErrorBanner] = useState(false);
   const [errorBannerDismissed, setErrorBannerDismissed] = useState(false); // Novo: rastreia se foi dispensado
@@ -468,6 +469,93 @@ function App() {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   };
 
+  const getCalendarRulesHeaders = () => {
+    const token = localStorage.getItem('rendizy-token');
+    return {
+      apikey: publicAnonKey,
+      Authorization: `Bearer ${publicAnonKey}`,
+      'Content-Type': 'application/json',
+      ...(token ? { 'X-Auth-Token': token } : {})
+    };
+  };
+
+  const formatDateYmd = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const buildDateRangeDates = (startDate: Date, endDate: Date) => {
+    const dates: string[] = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push(formatDateYmd(d));
+    }
+
+    return dates;
+  };
+
+  const runCalendarRulesBatch = async (operations: any[]) => {
+    if (!operations.length) return;
+    const edgeUrl = `https://${projectId}.supabase.co/functions/v1/calendar-rules-batch`;
+    const headers = getCalendarRulesHeaders();
+    const MAX_BATCH = 500;
+
+    for (let i = 0; i < operations.length; i += MAX_BATCH) {
+      const batch = operations.slice(i, i + MAX_BATCH);
+      console.log('[CalendarRules] Enviando batch:', {
+        totalOperations: operations.length,
+        batchSize: batch.length,
+        sample: batch[0]
+      });
+      const resp = await fetch(edgeUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ operations: batch })
+      });
+
+      if (!resp.ok) {
+        const body = await resp.text();
+        throw new Error(`HTTP ${resp.status}: ${body}`);
+      }
+
+      const result = await resp.json();
+      console.log('[CalendarRules] Resposta batch:', result);
+      if (!result?.success || (result?.failed ?? 0) > 0) {
+        throw new Error(`Falha ao salvar regras: ${JSON.stringify(result)}`);
+      }
+
+      const savedIds = Array.isArray(result?.results)
+        ? result.results.map((r: any) => r?.id).filter((id: string) => !!id)
+        : [];
+
+      if (savedIds.length > 0) {
+        const idsParam = savedIds.join(',');
+        const verifyUrl = `https://${projectId}.supabase.co/functions/v1/calendar-rules-batch?ids=${encodeURIComponent(idsParam)}`;
+        const verifyResp = await fetch(verifyUrl, { method: 'GET', headers });
+        const verifyBody = await verifyResp.text();
+        let verifyData: any = null;
+        try {
+          verifyData = verifyBody ? JSON.parse(verifyBody) : null;
+        } catch {
+          verifyData = null;
+        }
+
+        const verifyArray = Array.isArray(verifyData?.data) ? verifyData.data : [];
+        console.log('[CalendarRules] Verificação pós-save:', {
+          status: verifyResp.status,
+          count: verifyArray.length,
+          sample: verifyArray[0]
+        });
+      }
+    }
+  };
+
   const handlePriceEdit = (propertyId: string, startDate: Date, endDate: Date) => {
     setPriceEditModal({
       open: true,
@@ -477,11 +565,39 @@ function App() {
     });
   };
 
-  const handlePriceSave = (rule: Omit<PriceRule, 'id'>) => {
-    console.log('💰 Salvando regra de preço:', rule);
-    console.log('📦 Build Info:', BUILD_INFO);
-    toast.success('Preços atualizados com sucesso!');
-    setPriceEditModal({ open: false });
+  const handlePriceSave = async (rule: Omit<PriceRule, 'id'>) => {
+    try {
+      const dates = buildDateRangeDates(rule.startDate, rule.endDate);
+      const operations = dates
+        .filter((dateStr) => {
+          const d = new Date(`${dateStr}T00:00:00`);
+          return rule.daysOfWeek.includes(d.getDay());
+        })
+        .map((dateStr) => ({
+          type: 'upsert',
+          property_id: rule.propertyId,
+          start_date: dateStr,
+          end_date: dateStr,
+          base_price: rule.basePrice
+        }));
+
+      console.log('[CalendarRules] Base price save payload:', {
+        propertyId: rule.propertyId,
+        startDate: rule.startDate,
+        endDate: rule.endDate,
+        basePrice: rule.basePrice,
+        totalDays: operations.length
+      });
+
+      await runCalendarRulesBatch(operations);
+      toast.success('Preços atualizados com sucesso!');
+      setCalendarRulesRefreshToken((prev) => prev + 1);
+    } catch (error: any) {
+      console.error('Erro ao salvar preços base:', error);
+      toast.error(`Erro ao salvar preços base: ${error?.message || 'falha desconhecida'}`);
+    } finally {
+      setPriceEditModal({ open: false });
+    }
   };
 
   const handleMinNightsEdit = (propertyId: string, startDate: Date, endDate: Date) => {
@@ -493,10 +609,33 @@ function App() {
     });
   };
 
-  const handleMinNightsSave = (data: any) => {
-    console.log('Salvando mínimo de noites:', data);
-    toast.success('Mínimo de noites atualizado!');
-    setMinNightsModal({ open: false });
+  const handleMinNightsSave = async (data: any) => {
+    try {
+      const dates = buildDateRangeDates(data.startDate, data.endDate);
+      const operations = dates.map((dateStr) => ({
+        type: 'upsert',
+        property_id: data.propertyId,
+        start_date: dateStr,
+        end_date: dateStr,
+        min_nights: data.minNights
+      }));
+
+      console.log('[CalendarRules] Min nights save payload:', {
+        propertyId: data.propertyId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        minNights: data.minNights,
+        totalDays: operations.length
+      });
+      await runCalendarRulesBatch(operations);
+      toast.success('Mínimo de noites atualizado!');
+      setCalendarRulesRefreshToken((prev) => prev + 1);
+    } catch (error: any) {
+      console.error('Erro ao salvar mínimo de noites:', error);
+      toast.error(`Erro ao salvar mínimo de noites: ${error?.message || 'falha desconhecida'}`);
+    } finally {
+      setMinNightsModal({ open: false });
+    }
   };
 
   const handleConditionEdit = (propertyId: string, startDate: Date, endDate: Date) => {
@@ -508,10 +647,34 @@ function App() {
     });
   };
 
-  const handleConditionSave = (data: any) => {
-    console.log('Salvando condição de preço:', data);
-    toast.success('Condição de preço atualizada!');
-    setConditionModal({ open: false });
+  const handleConditionSave = async (data: any) => {
+    try {
+      const dates = buildDateRangeDates(data.startDate, data.endDate);
+      const conditionPercent = data.type === 'increase' ? data.percentage : -data.percentage;
+      const operations = dates.map((dateStr) => ({
+        type: 'upsert',
+        property_id: data.propertyId,
+        start_date: dateStr,
+        end_date: dateStr,
+        condition_percent: conditionPercent
+      }));
+
+      console.log('[CalendarRules] Condition save payload:', {
+        propertyId: data.propertyId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        conditionPercent,
+        totalDays: operations.length
+      });
+      await runCalendarRulesBatch(operations);
+      toast.success('Condição de preço atualizada!');
+      setCalendarRulesRefreshToken((prev) => prev + 1);
+    } catch (error: any) {
+      console.error('Erro ao salvar condição de preço:', error);
+      toast.error(`Erro ao salvar condição de preço: ${error?.message || 'falha desconhecida'}`);
+    } finally {
+      setConditionModal({ open: false });
+    }
   };
 
   const handleRestrictionsEdit = (propertyId: string, startDate: Date, endDate: Date) => {
@@ -523,10 +686,33 @@ function App() {
     });
   };
 
-  const handleRestrictionsSave = (data: any) => {
-    console.log('Salvando restrições:', data);
-    toast.success('Restrições atualizadas!');
-    setRestrictionsModal({ open: false });
+  const handleRestrictionsSave = async (data: any) => {
+    try {
+      const dates = buildDateRangeDates(data.startDate, data.endDate);
+      const operations = dates.map((dateStr) => ({
+        type: 'upsert',
+        property_id: data.propertyId,
+        start_date: dateStr,
+        end_date: dateStr,
+        restriction: data.restrictionType ?? null
+      }));
+
+      console.log('[CalendarRules] Restrictions save payload:', {
+        propertyId: data.propertyId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        restriction: data.restrictionType ?? null,
+        totalDays: operations.length
+      });
+      await runCalendarRulesBatch(operations);
+      toast.success('Restrições atualizadas!');
+      setCalendarRulesRefreshToken((prev) => prev + 1);
+    } catch (error: any) {
+      console.error('Erro ao salvar restrições:', error);
+      toast.error(`Erro ao salvar restrições: ${error?.message || 'falha desconhecida'}`);
+    } finally {
+      setRestrictionsModal({ open: false });
+    }
   };
 
   const handleEmptyClick = (propertyId: string, startDate: Date, endDate: Date) => {
@@ -718,7 +904,17 @@ function App() {
             const title = a.data?.title || a.title || 'Sem título';
             const propertyId = a.id || '';
             const internalId = a.data?.internalId || a.data?.internal_id || a.data?.identificacao_interna;
-            const basePriceRaw = a.data?.preco_base_noite ?? a.data?.basePrice ?? a.data?.base_price;
+            const basePriceRaw =
+              a.data?.preco_base_noite ??
+              a.data?.pricing_base_price ??
+              a.data?.pricing?.basePrice ??
+              a.data?.pricing?.base_price ??
+              a.data?.basePrice ??
+              a.data?.base_price ??
+              a.pricing_base_price ??
+              a.pricing?.basePrice ??
+              a.pricing?.base_price ??
+              a.base_price;
             const basePrice = basePriceRaw === null || basePriceRaw === undefined ? undefined : Number(basePriceRaw);
             return {
               id: propertyId,
@@ -1213,6 +1409,7 @@ function App() {
                       handleMinNightsEdit={handleMinNightsEdit}
                       handleConditionEdit={handleConditionEdit}
                       handleRestrictionsEdit={handleRestrictionsEdit}
+                      calendarRulesRefreshToken={calendarRulesRefreshToken}
                     />
                   </ProtectedRoute>
                 } />
@@ -1781,6 +1978,28 @@ function App() {
                 setBlockDetailsModal({ open: false, block: null });
                 window.location.reload();
               }}
+            />
+
+            {/* PriceEditModal - Editar preços por anúncio */}
+            <PriceEditModal
+              open={priceEditModal.open}
+              onClose={() => setPriceEditModal({ open: false })}
+              propertyId={priceEditModal.propertyId}
+              property={properties.find(p => p.id === priceEditModal.propertyId)}
+              startDate={priceEditModal.startDate}
+              endDate={priceEditModal.endDate}
+              onSave={handlePriceSave}
+            />
+
+            {/* MinNightsEditModal - Editar mínimo de noites por anúncio */}
+            <MinNightsEditModal
+              open={minNightsModal.open}
+              onClose={() => setMinNightsModal({ open: false })}
+              propertyId={minNightsModal.propertyId}
+              property={properties.find(p => p.id === minNightsModal.propertyId)}
+              startDate={minNightsModal.startDate}
+              endDate={minNightsModal.endDate}
+              onSave={handleMinNightsSave}
             />
 
             {/* PropertyConditionModal - Editar Condição % por anúncio */}

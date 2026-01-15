@@ -76,3 +76,9 @@ Se o frontend estiver usando `VITE_SUPABASE_ANON_KEY` placeholder ou inválido, 
 - [ ] Upload ZIP funciona (multipart)
 - [ ] Rotas privadas negam acesso sem token (401)
 - [ ] Organização errada retorna 403 (exceto superadmin)
+
+## Precificação e descontos por pacote (site do cliente)
+
+- O site público consome weeklyRate/monthlyRate do endpoint público (rendizy-public).
+- Descontos por pacote global/override são aplicados no calendário admin, mas ainda não recalculam automaticamente weeklyRate/monthlyRate no endpoint público.
+- Para refletir o default global no site do cliente, é necessário evoluir o cálculo no rendizy-public para usar discount_packages + base_price por dia.

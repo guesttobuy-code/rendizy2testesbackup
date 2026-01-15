@@ -25,18 +25,56 @@ export function useProperties() {
     queryKey: ['properties'],
     queryFn: async () => {
       console.log('🔄 [useProperties] Carregando imóveis de Anúncios Ultimate...');
+      // 🔒 RENDIZY_STABLE_TAG v1.0.103.600 (2026-01-15): cache local + timeout para evitar lista vazia
+      const cacheKey = 'rendizy:propertiesCache';
+      const loadCache = (): Property[] | null => {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? (parsed as Property[]) : null;
+        } catch {
+          return null;
+        }
+      };
+      const saveCache = (data: Property[]) => {
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+        } catch {
+          // ignore cache errors
+        }
+      };
       
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
       const ANON_KEY = publicAnonKey;
       
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
-        headers: {
-          'apikey': ANON_KEY,
-          'Authorization': `Bearer ${ANON_KEY}`,
-          'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
-          'Content-Type': 'application/json'
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      let response: Response;
+
+      try {
+        response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        });
+      } catch (error: any) {
+        const cached = loadCache();
+        if (cached && cached.length > 0) {
+          console.warn('⚠️ [useProperties] Falha ao carregar imóveis; usando cache local');
+          return cached;
         }
-      });
+        if (error?.name === 'AbortError') {
+          throw new Error('Timeout ao carregar imóveis');
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       let anuncios: any[] = [];
 
@@ -122,9 +160,14 @@ export function useProperties() {
         });
 
         console.log(`✅ [useProperties] ${properties.length} imóveis carregados`);
+        saveCache(properties);
         return properties;
       }
-      
+      const cached = loadCache();
+      if (cached && cached.length > 0) {
+        console.warn('⚠️ [useProperties] API vazia; usando cache local');
+        return cached;
+      }
       return [];
     },
     staleTime: 5 * 60 * 1000, // Cache válido por 5 minutos

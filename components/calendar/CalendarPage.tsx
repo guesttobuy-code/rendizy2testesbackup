@@ -29,6 +29,7 @@ interface CalendarPageProps {
   handleMinNightsEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
   handleConditionEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
   handleRestrictionsEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
+  calendarRulesRefreshToken?: number;
 }
 
 /**
@@ -166,6 +167,7 @@ function CalendarPageContent(props: CalendarPageProps) {
       currentMonth={state.currentMonth}
       setCurrentMonth={setCurrentMonth}
       refreshKey={state.refreshKey}
+      calendarRulesRefreshToken={props.calendarRulesRefreshToken}
       
       // Handlers
       setExportModal={props.setExportModal}

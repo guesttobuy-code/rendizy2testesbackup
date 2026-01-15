@@ -125,35 +125,7 @@ if (result.success) {
 // Exemplo (site-config — opcional/beta):
 // https://<project-ref>.supabase.co/functions/v1/rendizy-public/client-sites/api/<subdomain>/site-config
 
-    {
-      title: 'Calendário (seletor de datas) — seleção por noites + preço por dia',
-      notes: [
-        'Regra: check-in é INCLUSIVO e check-out é EXCLUSIVO (seleção por noites).',
-        'É permitido selecionar checkout em dia indisponível, desde que as noites ENTRE as datas estejam disponíveis.',
-        'Exemplo válido: 21 → 22 (1 noite) mesmo que o dia 22 esteja reservado para outra entrada.',
-        'Exibir preço por dia dentro da célula (ex.: R$ 480) usando availability[].price.',
-        'Nunca calcule preço no front-end; sempre use o preço retornado pela API pública.'
-      ],
-      codeBlocks: [
-        {
-          title: 'Validação correta do range (end-exclusive)',
-          language: 'ts',
-          code: `function isRangeSelectable(days, checkIn, checkOut, minNights = 1) {
-  if (!checkIn || !checkOut) return false;
-  const diffDays = Math.round((checkOut - checkIn) / 86400000);
-  if (diffDays < minNights) return false;
-
-  // checkOut é exclusivo: validar APENAS as noites entre checkIn e checkOut
-  for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
-    const dateStr = d.toISOString().split('T')[0];
-    const day = days.find(x => x.date === dateStr);
-    if (!day || day.status !== 'available') return false;
-  }
-  return true;
-}`
-        }
-      ]
-    },
+// Helpers de fetch
 async function getProperties({ projectRef, subdomain }: { projectRef: string; subdomain: string }) {
   const url =
     'https://' +
@@ -177,6 +149,35 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
   const json = await res.json();
   return json as { success: boolean; data?: unknown; error?: string; details?: string };
 }`
+        },
+        {
+          title: 'Calendário (seletor de datas) — seleção por noites + preço por dia',
+          notes: [
+            'Regra: check-in é INCLUSIVO e check-out é EXCLUSIVO (seleção por noites).',
+            'É permitido selecionar checkout em dia indisponível, desde que as noites ENTRE as datas estejam disponíveis.',
+            'Exemplo válido: 21 → 22 (1 noite) mesmo que o dia 22 esteja reservado para outra entrada.',
+            'Exibir preço por dia dentro da célula (ex.: R$ 480) usando availability[].price.',
+            'Nunca calcule preço no front-end; sempre use o preço retornado pela API pública.'
+          ],
+          codeBlocks: [
+            {
+              title: 'Validação correta do range (end-exclusive)',
+              language: 'ts',
+              code: `function isRangeSelectable(days, checkIn, checkOut, minNights = 1) {
+  if (!checkIn || !checkOut) return false;
+  const diffDays = Math.round((checkOut - checkIn) / 86400000);
+  if (diffDays < minNights) return false;
+
+  // checkOut é exclusivo: validar APENAS as noites entre checkIn e checkOut
+  for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+    const day = days.find(x => x.date === dateStr);
+    if (!day || day.status !== 'available') return false;
+  }
+  return true;
+}`
+            }
+          ]
         },
         {
           title: 'Wrapper (success/error) — exemplo real',

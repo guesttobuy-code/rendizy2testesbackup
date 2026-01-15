@@ -56,6 +56,7 @@ export interface CalendarPricingRule {
   property_id: string | null; // null = batch/global rule
   start_date: string; // YYYY-MM-DD
   end_date: string;   // YYYY-MM-DD
+  base_price?: number | null;
   condition_percent: number;
   min_nights: number;
   restriction: string | null;
@@ -204,34 +205,63 @@ export function useCalendarPricingRules({
     setError(null);
     
     try {
-      let url = `https://${projectId}.supabase.co/rest/v1/calendar_pricing_rules`;
-      url += `?organization_id=eq.${organizationId}`;
-      url += `&select=*`;
-      url += `&order=priority.desc,created_at.desc`;
-      
-      // Filtrar por range de datas se fornecido
-      if (dateRange) {
-        const fromStr = formatDateYMD(dateRange.from);
-        const toStr = formatDateYMD(dateRange.to);
-        // Regras que intersectam o range
-        url += `&start_date=lte.${toStr}&end_date=gte.${fromStr}`;
-        console.log(`[useCalendarPricingRules] refreshRules with dateRange: ${fromStr} -> ${toStr}`);
+      const token = localStorage.getItem('rendizy-token');
+      let rulesArray: CalendarPricingRule[] = [];
+
+      if (token) {
+        const edgeUrl = new URL(`https://${projectId}.supabase.co/functions/v1/calendar-rules-batch`);
+        if (dateRange) {
+          const fromStr = formatDateYMD(dateRange.from);
+          const toStr = formatDateYMD(dateRange.to);
+          edgeUrl.searchParams.set('from', fromStr);
+          edgeUrl.searchParams.set('to', toStr);
+          console.log(`[useCalendarPricingRules] refreshRules via edge with dateRange: ${fromStr} -> ${toStr}`);
+        } else {
+          console.log(`[useCalendarPricingRules] refreshRules via edge WITHOUT dateRange (loading ALL rules)`);
+        }
+
+        const edgeResp = await fetch(edgeUrl.toString(), {
+          method: 'GET',
+          headers: getAuthHeaders()
+        });
+
+        if (!edgeResp.ok) {
+          const body = await edgeResp.text();
+          throw new Error(`HTTP ${edgeResp.status}: ${body}`);
+        }
+
+        const edgeData = await edgeResp.json();
+        rulesArray = Array.isArray(edgeData?.data) ? edgeData.data : [];
       } else {
-        console.log(`[useCalendarPricingRules] refreshRules WITHOUT dateRange (loading ALL rules)`);
+        let url = `https://${projectId}.supabase.co/rest/v1/calendar_pricing_rules`;
+        url += `?organization_id=eq.${organizationId}`;
+        url += `&select=*`;
+        url += `&order=priority.desc,created_at.desc`;
+        
+        // Filtrar por range de datas se fornecido
+        if (dateRange) {
+          const fromStr = formatDateYMD(dateRange.from);
+          const toStr = formatDateYMD(dateRange.to);
+          // Regras que intersectam o range
+          url += `&start_date=lte.${toStr}&end_date=gte.${fromStr}`;
+          console.log(`[useCalendarPricingRules] refreshRules (anon) with dateRange: ${fromStr} -> ${toStr}`);
+        } else {
+          console.log(`[useCalendarPricingRules] refreshRules (anon) WITHOUT dateRange (loading ALL rules)`);
+        }
+        
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers: getAuthHeaders()
+        });
+        
+        if (!resp.ok) {
+          const body = await resp.text();
+          throw new Error(`HTTP ${resp.status}: ${body}`);
+        }
+        
+        const data = await resp.json();
+        rulesArray = Array.isArray(data) ? data : [];
       }
-      
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-      
-      if (!resp.ok) {
-        const body = await resp.text();
-        throw new Error(`HTTP ${resp.status}: ${body}`);
-      }
-      
-      const data = await resp.json();
-      const rulesArray = Array.isArray(data) ? data : [];
       
       console.log(`[useCalendarPricingRules] refreshRules loaded ${rulesArray.length} rules from DB`);
       if (rulesArray.length > 0) {

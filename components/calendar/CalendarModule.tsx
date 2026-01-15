@@ -30,6 +30,7 @@ interface CalendarModuleProps {
   currentMonth: Date;
   setCurrentMonth: (date: Date) => void;
   refreshKey: number;
+  calendarRulesRefreshToken?: number;
   setExportModal: (open: boolean) => void;
   handleEmptyClick: (propertyId: string, startDate: Date, endDate: Date) => void;
   handleReservationClick: (reservation: Reservation) => void;
@@ -61,6 +62,7 @@ export function CalendarModule({
   currentMonth,
   setCurrentMonth,
   refreshKey,
+  calendarRulesRefreshToken,
   setExportModal,
   handleEmptyClick,
   handleReservationClick,
@@ -191,10 +193,12 @@ export function CalendarModule({
               {currentView === 'calendar' && (
                 <Calendar
                   properties={paginatedProperties}
+                  bulkTargetProperties={filteredProperties}
                   reservations={reservations}
                   blocks={blocks}
                   currentMonth={currentMonth}
                   dateRange={dateRange}
+                  rulesRefreshToken={calendarRulesRefreshToken}
                   onPriceEdit={handlePriceEdit ?? ((propertyId, startDate, endDate) => console.log('Price edit (no handler)', propertyId, startDate, endDate))}
                   onMinNightsEdit={handleMinNightsEdit ?? ((propertyId, startDate, endDate) => console.log('Min nights edit (no handler)', propertyId, startDate, endDate))}
                   onConditionEdit={handleConditionEdit ?? ((propertyId, startDate, endDate) => console.log('Condition edit (no handler)', propertyId, startDate, endDate))}

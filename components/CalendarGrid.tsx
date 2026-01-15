@@ -63,9 +63,11 @@ function discountColorClasses(preset: DiscountPackagePreset): { rowBg: string; s
 interface CalendarProps {
   currentMonth: Date;
   properties: Property[];
+  bulkTargetProperties?: Property[];
   reservations: Reservation[];
   blocks?: any[];
   dateRange?: { from: Date; to: Date };
+  rulesRefreshToken?: number;
   onPriceEdit: (propertyId: string, startDate: Date, endDate: Date) => void;
   onMinNightsEdit: (propertyId: string, startDate: Date, endDate: Date) => void;
   onConditionEdit?: (propertyId: string, startDate: Date, endDate: Date) => void;
@@ -200,17 +202,7 @@ const getBlockForPropertyAndDate = (
     return `${year}-${month}-${day}`;
   };
   
-  const debugInfo = {
-    blocksReceived: blocks?.length || 0,
-    propertyIdSearching: propertyId,
-    dateSearching: formatLocalDate(date)  // ✅ Usar data local
-  };
-  
   if (!blocks || blocks.length === 0) {
-    // Logar apenas na primeira chamada para evitar spam
-    if (debugInfo.dateSearching.endsWith('-19')) {
-      console.log('🔍 [getBlockForPropertyAndDate] Sem bloqueios ou array vazio', debugInfo);
-    }
     return null;
   }
   
@@ -235,17 +227,6 @@ const getBlockForPropertyAndDate = (
 
     // Block ocupa de startDate (inclusive) até endDate (exclusive)
     const matches = !!startYmd && !!endYmd && currentDateStr >= startYmd && currentDateStr < endYmd;
-
-    if (matches) {
-      console.log('✅ [getBlockForPropertyAndDate] Bloqueio encontrado:', {
-        blockId: b?.id,
-        propertyId: blockPropertyId,
-        startDate: startYmd,
-        endDate: endYmd,
-        currentDateStr,
-        nights: b?.nights,
-      });
-    }
 
     return matches;
   }) || null;
@@ -312,11 +293,15 @@ const getStatusColor = (status: string) => {
 export function Calendar({ 
   currentMonth, 
   properties, 
+  bulkTargetProperties,
   reservations,
   blocks = [],
   dateRange,
+  rulesRefreshToken,
   onPriceEdit,
   onMinNightsEdit,
+  onConditionEdit,
+  onRestrictionsEdit,
   onEmptyClick,
   onReservationClick,
   onBlockClick
@@ -326,21 +311,32 @@ export function Calendar({
     []
   );
 
-  const sortedProperties = useMemo(() => {
+  const sortPropertiesList = useCallback((list: Property[]) => {
     const keyFor = (p: Property): string => {
       const raw = String((p as any)?.internalId || (p as any)?.name || '').trim();
       if (!raw) return `\uffff\uffff\uffff-${String((p as any)?.id ?? '')}`;
       return raw;
     };
 
-    return [...(properties || [])].sort((a, b) => {
+    return [...(list || [])].sort((a, b) => {
       const ka = keyFor(a);
       const kb = keyFor(b);
       const byName = propertyCollator.compare(ka, kb);
       if (byName !== 0) return byName;
       return String((a as any)?.id ?? '').localeCompare(String((b as any)?.id ?? ''));
     });
-  }, [properties, propertyCollator]);
+  }, [propertyCollator]);
+
+  const sortedProperties = useMemo(() => {
+    return sortPropertiesList(properties || []);
+  }, [properties, sortPropertiesList]);
+
+  const bulkTargetList = useMemo(() => {
+    const source = (bulkTargetProperties && bulkTargetProperties.length > 0)
+      ? bulkTargetProperties
+      : properties;
+    return sortPropertiesList(source || []);
+  }, [bulkTargetProperties, properties, sortPropertiesList]);
 
   const formatPriceCell = (value: number | undefined | null): string => {
     if (value === null || value === undefined) return '—';
@@ -442,6 +438,7 @@ export function Calendar({
   const [selectedBulkDates, setSelectedBulkDates] = useState<{ start: Date; end: Date } | null>(null);
 
   // Discount packages (Semanal 07 / Personalizado NN / Mensal 28)
+  // 🔒 RENDIZY_STABLE_TAG v1.0.103.600 (2026-01-15): default org packages + per-day base_price
   const [discountPackages, setDiscountPackages] = useState<DiscountPackagesSettings>(DEFAULT_DISCOUNT_PACKAGES_SETTINGS);
 
   // Organization ID para regras de calendário
@@ -464,6 +461,11 @@ export function Calendar({
     dateRange
   });
 
+  useEffect(() => {
+    if (rulesRefreshToken === undefined) return;
+    refreshRules();
+  }, [rulesRefreshToken, refreshRules]);
+
   // Base price row selection states
   const [basePriceSelectionStart, setBasePriceSelectionStart] = useState<{ propertyId: string; date: Date } | null>(null);
   const [basePriceSelectionEnd, setBasePriceSelectionEnd] = useState<{ propertyId: string; date: Date } | null>(null);
@@ -483,6 +485,48 @@ export function Calendar({
   const [packagePriceSelectionStart, setPackagePriceSelectionStart] = useState<{ key: string; propertyId: string; date: Date } | null>(null);
   const [packagePriceSelectionEnd, setPackagePriceSelectionEnd] = useState<{ key: string; propertyId: string; date: Date } | null>(null);
   const [isSelectingPackagePrice, setIsSelectingPackagePrice] = useState(false);
+
+  const resetAllSelections = () => {
+    setPriceSelectionStart(null);
+    setPriceSelectionEnd(null);
+    setIsSelecting(false);
+
+    setMinNightsSelectionStart(null);
+    setMinNightsSelectionEnd(null);
+    setIsSelectingMinNights(false);
+
+    setEmptySelectionStart(null);
+    setEmptySelectionEnd(null);
+    setIsSelectingEmpty(false);
+
+    setGlobalPriceSelectionStart(null);
+    setGlobalPriceSelectionEnd(null);
+    setIsSelectingGlobalPrice(false);
+
+    setGlobalRestrictionsSelectionStart(null);
+    setGlobalRestrictionsSelectionEnd(null);
+    setIsSelectingGlobalRestrictions(false);
+
+    setGlobalMinNightsSelectionStart(null);
+    setGlobalMinNightsSelectionEnd(null);
+    setIsSelectingGlobalMinNights(false);
+
+    setBasePriceSelectionStart(null);
+    setBasePriceSelectionEnd(null);
+    setIsSelectingBasePrice(false);
+
+    setConditionSelectionStart(null);
+    setConditionSelectionEnd(null);
+    setIsSelectingCondition(false);
+
+    setRestrictionsSelectionStart(null);
+    setRestrictionsSelectionEnd(null);
+    setIsSelectingRestrictions(false);
+
+    setPackagePriceSelectionStart(null);
+    setPackagePriceSelectionEnd(null);
+    setIsSelectingPackagePrice(false);
+  };
 
   const normalizePackageRows = (settings: unknown): DiscountPackageRule[] => {
     const rules = Array.isArray((settings as any)?.rules) ? ((settings as any).rules as DiscountPackageRule[]) : [];
@@ -512,7 +556,7 @@ export function Calendar({
         }
       }
 
-      const effective = override && Array.isArray(override?.rules) ? override : discountPackages;
+      const effective = override && Array.isArray(override?.rules) && override.rules.length > 0 ? override : discountPackages;
       map.set(String((p as any)?.id ?? ''), normalizePackageRows(effective));
     }
 
@@ -563,6 +607,7 @@ export function Calendar({
   };
 
   const handlePriceMouseDown = (propertyId: string, date: Date) => {
+    resetAllSelections();
     setPriceSelectionStart({ propertyId, date });
     setIsSelecting(true);
   };
@@ -592,7 +637,14 @@ export function Calendar({
     if (!priceSelectionEnd) return date.getTime() === priceSelectionStart.date.getTime();
     
     const start = priceSelectionStart.date < priceSelectionEnd.date ? priceSelectionStart.date : priceSelectionEnd.date;
-            // Evitar logs a cada célula para reduzir overhead
+    const end = priceSelectionStart.date > priceSelectionEnd.date ? priceSelectionStart.date : priceSelectionEnd.date;
+
+    return date >= start && date <= end;
+  };
+
+  const handleMinNightsMouseDown = (propertyId: string, date: Date) => {
+    resetAllSelections();
+    setMinNightsSelectionStart({ propertyId, date });
     setIsSelectingMinNights(true);
   };
 
@@ -627,6 +679,7 @@ export function Calendar({
 
   // Empty space handlers
   const handleEmptyMouseDown = (propertyId: string, date: Date) => {
+    resetAllSelections();
     setEmptySelectionStart({ propertyId, date });
     setIsSelectingEmpty(true);
   };
@@ -692,6 +745,7 @@ export function Calendar({
 
   // Global Price handlers
   const handleGlobalPriceMouseDown = (date: Date, e: React.MouseEvent) => {
+    resetAllSelections();
     setGlobalPriceSelectionStart(date);
     setIsSelectingGlobalPrice(true);
     updateTooltip(e, date, date);
@@ -731,6 +785,7 @@ export function Calendar({
 
   // Global Restrictions handlers
   const handleGlobalRestrictionsMouseDown = (date: Date, e: React.MouseEvent) => {
+    resetAllSelections();
     setGlobalRestrictionsSelectionStart(date);
     setIsSelectingGlobalRestrictions(true);
     updateTooltip(e, date, date);
@@ -770,6 +825,7 @@ export function Calendar({
 
   // Global Min Nights handlers
   const handleGlobalMinNightsMouseDown = (date: Date, e: React.MouseEvent) => {
+    resetAllSelections();
     setGlobalMinNightsSelectionStart(date);
     setIsSelectingGlobalMinNights(true);
     updateTooltip(e, date, date);
@@ -809,6 +865,7 @@ export function Calendar({
 
   // Base Price handlers
   const handleBasePriceMouseDown = (propertyId: string, date: Date) => {
+    resetAllSelections();
     setBasePriceSelectionStart({ propertyId, date });
     setIsSelectingBasePrice(true);
   };
@@ -844,6 +901,7 @@ export function Calendar({
 
   // Condition handlers (Condição %)
   const handleConditionMouseDown = (propertyId: string, date: Date) => {
+    resetAllSelections();
     setConditionSelectionStart({ propertyId, date });
     setIsSelectingCondition(true);
   };
@@ -879,6 +937,7 @@ export function Calendar({
 
   // Restrictions handlers (Restrições)
   const handleRestrictionsMouseDown = (propertyId: string, date: Date) => {
+    resetAllSelections();
     setRestrictionsSelectionStart({ propertyId, date });
     setIsSelectingRestrictions(true);
   };
@@ -914,6 +973,7 @@ export function Calendar({
 
   // Discount package price handlers (generic)
   const handlePackagePriceMouseDown = (key: string, propertyId: string, date: Date) => {
+    resetAllSelections();
     setPackagePriceSelectionStart({ key, propertyId, date });
     setIsSelectingPackagePrice(true);
   };
@@ -1441,6 +1501,7 @@ export function Calendar({
                         </tr>
 
                         {/* Base (R$) row */}
+                        {/* 🔒 RENDIZY_STABLE_TAG v1.0.103.600 (2026-01-15): usa base_price por dia com fallback */}
                         <tr className="border-b border-gray-100 bg-gray-50">
                           <td
                             className="sticky left-0 z-30 bg-gray-50 border-r border-gray-200 p-1 pl-12"
@@ -1453,12 +1514,14 @@ export function Calendar({
                           </td>
                           {days.map((day, idx) => {
                             const isSelected = isDateInBasePriceSelection(property.id, day);
-                            const basePrice = property.basePrice;
+                            const rule = getRuleForDate(property.id, day, false);
+                            const basePrice = rule?.base_price ?? property.basePrice;
+                            const hasCustomBase = typeof rule?.base_price === 'number';
                             return (
                               <td
                                 key={idx}
                                 className={`border-r border-gray-200 p-1 h-8 text-center text-xs cursor-pointer transition-colors select-none min-w-[80px] w-20 ${
-                                  isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : 'bg-gray-50 hover:bg-gray-100'
+                                  isSelected ? 'bg-blue-200 ring-2 ring-blue-400 ring-inset' : hasCustomBase ? 'bg-gray-100' : 'bg-gray-50 hover:bg-gray-100'
                                 }`}
                                 onMouseDown={() => handleBasePriceMouseDown(property.id, day)}
                                 onMouseEnter={() => handleBasePriceMouseEnter(property.id, day)}
@@ -1471,6 +1534,7 @@ export function Calendar({
                         </tr>
 
                         {/* Discount packages rows (Semanal 07 / Personalizado NN / Mensal 28) */}
+                        {/* 🔒 RENDIZY_STABLE_TAG v1.0.103.600 (2026-01-15): usa base_price diário + default global */}
                         {packageRowsForProperty.map((rule) => {
                           const classes = discountColorClasses(rule.preset);
                           const icon = rule.preset === 'weekly' ? '📅' : rule.preset === 'monthly' ? '📆' : '⭐';
@@ -1488,7 +1552,8 @@ export function Calendar({
                               </td>
                               {days.map((day, idx) => {
                                 const isSelected = isDateInPackagePriceSelection(rule.id, property.id, day);
-                                const basePrice = property.basePrice;
+                                const dayRule = getRuleForDate(property.id, day, false);
+                                const basePrice = dayRule?.base_price ?? property.basePrice;
                                 const discounted =
                                   typeof basePrice === 'number'
                                     ? basePrice * (1 - (Number(rule.discount_percent || 0) / 100))
@@ -1574,14 +1639,14 @@ export function Calendar({
             onClose={() => setBulkPriceModalOpen(false)}
             startDate={selectedBulkDates.start}
             endDate={selectedBulkDates.end}
-            properties={sortedProperties}
+            properties={bulkTargetList}
             onSave={(data) => {
               // V2.1: Usar optimistic updates para performance
               const rules: Partial<CalendarPricingRule>[] = [];
               const start = new Date(data.startDate);
               const end = new Date(data.endDate);
               
-              for (const property of sortedProperties) {
+              for (const property of bulkTargetList) {
                 for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                   const dateStr = d.toISOString().split('T')[0];
                   const conditionPercent = data.type === 'increase' ? data.percentage : -data.percentage;
@@ -1608,14 +1673,14 @@ export function Calendar({
             onClose={() => setBulkRestrictionsModalOpen(false)}
             startDate={selectedBulkDates.start}
             endDate={selectedBulkDates.end}
-            properties={sortedProperties}
+            properties={bulkTargetList}
             onSave={(data) => {
               // V2.1: Usar optimistic updates para performance
               const rules: Partial<CalendarPricingRule>[] = [];
               const start = new Date(data.startDate);
               const end = new Date(data.endDate);
               
-              for (const property of sortedProperties) {
+              for (const property of bulkTargetList) {
                 for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                   const dateStr = d.toISOString().split('T')[0];
                   
@@ -1641,14 +1706,14 @@ export function Calendar({
             onClose={() => setBulkMinNightsModalOpen(false)}
             startDate={selectedBulkDates.start}
             endDate={selectedBulkDates.end}
-            properties={sortedProperties}
+            properties={bulkTargetList}
             onSave={(data) => {
               // V2.1: Usar optimistic updates para performance
               const rules: Partial<CalendarPricingRule>[] = [];
               const start = new Date(data.startDate);
               const end = new Date(data.endDate);
               
-              for (const property of sortedProperties) {
+              for (const property of bulkTargetList) {
                 for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                   const dateStr = d.toISOString().split('T')[0];
                   

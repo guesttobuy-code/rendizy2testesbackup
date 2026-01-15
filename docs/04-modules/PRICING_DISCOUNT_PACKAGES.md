@@ -35,6 +35,8 @@ Regra de precedência (sempre):
 1. Se existir override no anúncio (`properties.data.discount_packages_override`), usar ele.
 2. Senão, usar o global da organização (`organizations.metadata.discount_packages`).
 
+Nota (2026-01-15): override vazio/nulo não deve bloquear o default global. Se `rules` vier vazio, o sistema aplica o global.
+
 ## UI (frontend)
 
 ### Editor canônico
@@ -60,3 +62,12 @@ Observação: esse step pertence ao wizard de propriedades e mantém compatibili
 O cálculo deve aplicar a precedência override > global e normalizar regras.
 
 Referência: implementação em `routes-reservations` (compatibilidade com semanal/mensal/biweekly via regras).
+
+## Impacto no site do cliente (rendizy-public)
+
+Estado atual:
+- O endpoint público ainda calcula weeklyRate/monthlyRate a partir de campos diretos do anúncio.
+- Os descontos por pacote global/override não são consumidos automaticamente pelo site público.
+
+Recomendação futura:
+- Calcular weeklyRate/monthlyRate usando discount_packages (global ou override) + base_price por dia quando existir.

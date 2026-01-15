@@ -9,6 +9,7 @@ import { Calendar } from 'lucide-react';
 interface MinNightsEditModalProps {
   open: boolean;
   onClose: () => void;
+  propertyId?: string;
   property?: Property;
   startDate?: Date;
   endDate?: Date;
@@ -18,6 +19,7 @@ interface MinNightsEditModalProps {
 export function MinNightsEditModal({
   open,
   onClose,
+  propertyId,
   property,
   startDate,
   endDate,
@@ -35,10 +37,12 @@ export function MinNightsEditModal({
     return Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   };
 
+  // 🔒 RENDIZY_STABLE_TAG v1.0.103.600 (2026-01-15): salvar mesmo sem objeto property
   const handleSave = () => {
-    if (!property || !startDate || !endDate) return;
+    const resolvedPropertyId = property?.id || propertyId;
+    if (!resolvedPropertyId || !startDate || !endDate) return;
     onSave({
-      propertyId: property.id,
+      propertyId: resolvedPropertyId,
       startDate,
       endDate,
       minNights
@@ -66,8 +70,8 @@ export function MinNightsEditModal({
                 className="w-16 h-16 rounded-lg object-cover"
               />
               <div>
-                <div className="text-gray-900">{property?.name}</div>
-                <div className="text-sm text-gray-600">{property?.location}</div>
+                <div className="text-gray-900">{property?.name || 'Propriedade'}</div>
+                <div className="text-sm text-gray-600">{property?.location || '—'}</div>
               </div>
             </div>
           </div>

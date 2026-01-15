@@ -94,12 +94,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        const cachedUserRaw = localStorage.getItem('rendizy-user');
+        const cachedUser = cachedUserRaw ? (() => { try { return JSON.parse(cachedUserRaw); } catch { return null; } })() : null;
+
+        if (!isPeriodicCheck && cachedUser && cachedUser.id && !user) {
+          console.log('⚡ [AuthContext] Usando cache local de usuário para acelerar carregamento');
+          setUser(cachedUser);
+          setHasTokenState(true);
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        }
+
         if (!skipDelay) {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
 
         const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/auth/me`;
         
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
         const response = await fetch(url, {
           method: 'GET',
           headers: {
@@ -108,8 +123,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             'Authorization': `Bearer ${publicAnonKey}`,
             'X-Auth-Token': token
           },
-          credentials: 'omit'
-        });
+          credentials: 'omit',
+          signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId));
 
         const responseText = await response.text();
         let data;
@@ -157,10 +173,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const backendUser = data.user || data.data?.user;
-
-        // Fallback: backend mínimo pode responder success sem user; usamos cache local
-        const cachedUserRaw = localStorage.getItem('rendizy-user');
-        const cachedUser = cachedUserRaw ? (() => { try { return JSON.parse(cachedUserRaw); } catch { return null; } })() : null;
 
         if (!backendUser || !backendUser.id) {
           if (cachedUser && cachedUser.id) {
