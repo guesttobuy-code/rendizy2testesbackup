@@ -1150,12 +1150,14 @@ export async function receiveStripeWebhook(c: Context) {
 
         // marcar reserva como paga e confirmar status
         if (reservationId && typeof reservationId === 'string' && reservationId.trim()) {
+          // NOTA: payment_method NÃO pode ser 'stripe' - constraint só aceita: card, pix, boleto, cash, etc
+          // Usamos 'card' como default para Stripe Checkout
           const { error: updateError, count } = await supabase
             .from('reservations')
             .update({
               status: 'confirmed', // Confirma a reserva automaticamente após pagamento
               payment_status: 'paid',
-              payment_method: 'stripe',
+              payment_method: 'card', // Stripe Checkout geralmente é cartão
               payment_transaction_id: paymentIntentId || checkoutSessionId || null,
               payment_paid_at: new Date().toISOString(),
               payment_expires_at: null, // Remove expiração já que foi pago
