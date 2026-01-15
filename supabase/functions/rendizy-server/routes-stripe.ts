@@ -1150,7 +1150,7 @@ export async function receiveStripeWebhook(c: Context) {
 
         // marcar reserva como paga e confirmar status
         if (reservationId && typeof reservationId === 'string' && reservationId.trim()) {
-          await supabase
+          const { error: updateError, count } = await supabase
             .from('reservations')
             .update({
               status: 'confirmed', // Confirma a reserva automaticamente após pagamento
@@ -1164,7 +1164,11 @@ export async function receiveStripeWebhook(c: Context) {
             .eq('id', reservationId)
             .eq('organization_id', organizationId);
           
-          logInfo(`[Stripe] Reserva ${reservationId} confirmada após pagamento`);
+          if (updateError) {
+            logError(`[Stripe] Erro ao atualizar reserva ${reservationId}:`, updateError);
+          } else {
+            logInfo(`[Stripe] Reserva ${reservationId} confirmada após pagamento (count: ${count})`);
+          }
         }
       }
 
