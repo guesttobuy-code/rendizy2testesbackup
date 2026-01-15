@@ -210,8 +210,8 @@ export function useGoogleOneTap() {
         ux_mode: 'popup',
         auto_select: false,
         cancel_on_tap_outside: true,
-        // Em alguns Chromes, isso evita dependência do FedCM (quando disponível)
-        use_fedcm_for_prompt: false,
+        // FedCM será obrigatório — já habilitado para evitar bloqueio do login
+        use_fedcm_for_prompt: true,
       });
     }
 

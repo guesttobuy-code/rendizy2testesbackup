@@ -44,12 +44,12 @@
  * 
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v5.8' as const;
+export const CATALOG_VERSION = 'v5.9' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-15T02:00:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-15T04:10:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -1145,6 +1145,12 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       '',
       'A reserva SÓ é "Confirmada" DEPOIS que o pagamento for processado.',
       '',
+      '## 🚨🚨🚨 REGRA CRÍTICA #3: NUNCA DEIXE A TELA EM BRANCO 🚨🚨🚨',
+      '',
+      'Após abrir o checkout em NOVA ABA, a aba original DEVE permanecer intacta.',
+      'É PROIBIDO limpar o DOM, usar document.write, navegar para URL vazia, ou forçar reload.',
+      'Se quiser indicar progresso, mostre loader/toast, mas NÃO apague o conteúdo.',
+      '',
       '## URLs de Retorno (OBRIGATÓRIO)',
       '',
       'O successUrl e cancelUrl DEVEM apontar para o domínio Rendizy:',
@@ -1168,13 +1174,13 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       '',
       '## Notificação Cross-Tab',
       '',
-      'A aba original deve escutar eventos:',
+      'A aba original deve escutar eventos (PADRÃO OFICIAL):',
       '',
       '```typescript',
       'useEffect(() => {',
-      '  const channel = new BroadcastChannel("rendizy-checkout");',
+      '  const channel = new BroadcastChannel("rendizy_checkout_v1");',
       '  channel.onmessage = (e) => {',
-      '    if (e.data?.type === "checkout-success") {',
+      '    if (e.data?.type === "confirmed") {',
       '      showToast("Reserva confirmada!");',
       '      refreshReservations();',
       '    }',
@@ -1182,6 +1188,10 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       '  return () => channel.close();',
       '}, []);',
       '```',
+      '',
+      'E também deve ouvir o localStorage:',
+      '  key: "rendizy_checkout_event"',
+      '  type: "confirmed" | "canceled"',
       '',
       '## Link "Ver Reserva"',
       '',
@@ -1487,6 +1497,11 @@ Antes de gerar o código final, verifique CADA item abaixo. Se algum estiver err
 - [ ] \`PaymentMethodSelector.tsx\` com PIX inline (QR code) + Boleto (PDF link)
 - [ ] \`DateRangePicker.tsx\` ou \`CalendarPicker.tsx\` usando API real
 - [ ] \`GuestAreaButton.tsx\` que redireciona para cápsula (NÃO código embutido)
+
+### Dados Reais (PROIBIDO MOCKS):
+- [ ] Remover páginas de demo (\`/demo\`) e arquivos \`mocks/*\`
+- [ ] NÃO usar fallback com \`MOCK_PROPERTIES\` quando API falhar
+- [ ] Calendário/Preço/Reserva sempre via API pública real
 
 ⚠️ Se você não marcar TODOS os itens acima, o site será rejeitado.
 `;
