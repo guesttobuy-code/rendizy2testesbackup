@@ -119,15 +119,12 @@ export default function handler(req, res) {
 
       function tick(){
         tries++;
-        fetch("/api/guest/reservations/mine?siteSlug=" + encodeURIComponent(siteSlug), { credentials: "include" })
+        // Usa endpoint público de status (não requer autenticação)
+        fetch("/api/guest/reservations/status?siteSlug=" + encodeURIComponent(siteSlug) + "&reservationId=" + encodeURIComponent(reservationId))
           .then(function(r){ return r.json().catch(function(){ return null; }); })
           .then(function(j){
-            var arr = (j && (j.data || j.reservations)) || [];
-            var hit = null;
-            for(var i=0;i<arr.length;i++){
-              var it = arr[i];
-              if(it && String(it.id||"") === String(reservationId)) { hit = it; break; }
-            }
+            // Resposta esperada: { success: true, data: { id, status, paymentStatus } }
+            var hit = (j && j.success && j.data) ? j.data : null;
 
             if(hit && isConfirmedReservation(hit)){
               var info = { type: "confirmed", siteSlug: siteSlug, reservationId: String(reservationId), at: Date.now() };

@@ -2626,6 +2626,85 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
   }
 });
 
+// ============================================================
+// PUBLIC RESERVATION STATUS: Verifica status de uma reserva por ID
+// GET /client-sites/api/:subdomain/reservations/:reservationId/status
+// NÃO requer autenticação - usado pela página de success do checkout
+// ============================================================
+clientSites.get("/api/:subdomain/reservations/:reservationId/status", async (c: Context) => {
+  try {
+    const subdomain = c.req.param("subdomain");
+    const reservationId = c.req.param("reservationId");
+
+    if (!reservationId) {
+      return c.json(
+        { success: false, error: "ID da reserva não fornecido" },
+        400,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    const supabase = getSupabaseAdminClient();
+
+    // 1. Buscar site e validar subdomain
+    const { data: site } = await supabase
+      .from("client_sites")
+      .select("organization_id")
+      .eq("subdomain", subdomain)
+      .eq("is_active", true)
+      .single();
+
+    if (!site) {
+      return c.json(
+        { success: false, error: "Site não encontrado" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    // 2. Buscar reserva pelo ID (limitando campos retornados por segurança)
+    const { data: reservation, error: reservationError } = await supabase
+      .from("reservations")
+      .select("id, status, payment_status, created_at, updated_at")
+      .eq("id", reservationId)
+      .eq("organization_id", site.organization_id)
+      .single();
+
+    if (reservationError || !reservation) {
+      console.log(`[reservation/status] Reserva ${reservationId} não encontrada na org ${site.organization_id}`);
+      return c.json(
+        { success: false, error: "Reserva não encontrada" },
+        404,
+        withCorsHeaders({ "Content-Type": "application/json" })
+      );
+    }
+
+    console.log(`[reservation/status] Reserva ${reservationId}: status=${reservation.status}, payment_status=${reservation.payment_status}`);
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          id: reservation.id,
+          status: reservation.status,
+          paymentStatus: reservation.payment_status,
+          createdAt: reservation.created_at,
+          updatedAt: reservation.updated_at,
+        },
+      },
+      200,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  } catch (err) {
+    console.error("Erro no reservation/status:", err);
+    return c.json(
+      { success: false, error: "Erro interno" },
+      500,
+      withCorsHeaders({ "Content-Type": "application/json" })
+    );
+  }
+});
+
 const app = new Hono();
 app.get("/health", (c: Context) =>
   c.json({ ok: true, service: "rendizy-public" }));
