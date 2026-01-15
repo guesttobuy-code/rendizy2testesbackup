@@ -44,12 +44,12 @@
  * 
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v5.7' as const;
+export const CATALOG_VERSION = 'v5.8' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-14T22:15:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-15T02:00:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -1387,15 +1387,25 @@ Esta seção é gerada automaticamente do catálogo — mudanças no catálogo r
 - **Endpoints**: ${block.usesEndpoints.map(e => `\`${e}\``).join(', ') || 'nenhum'}
 - **Campos obrigatórios**: ${block.requiredFields.map(f => `\`${f}\``).join(', ')}
 `;
-    // Adicionar notas principais (primeiras 3 que não são headers)
-    const mainNotes = (block.notes || []).filter(n => !n.startsWith('#') && n.trim()).slice(0, 3);
-    if (mainNotes.length > 0) {
-      section += `- **Regras**:\n`;
-      mainNotes.forEach(note => {
-        section += `  - ${note}\n`;
-      });
+    // Incluir TODAS as notas do bloco crítico (são regras importantes!)
+    if (block.notes && block.notes.length > 0) {
+      section += `\n**📋 REGRAS DETALHADAS:**\n\n`;
+      for (const note of block.notes) {
+        // Formatar notas: se começa com #, é um header
+        if (note.startsWith('##')) {
+          section += `\n${note}\n\n`;
+        } else if (note.startsWith('#')) {
+          section += `\n${note}\n\n`;
+        } else if (note.startsWith('```')) {
+          section += `${note}\n`;
+        } else if (note.trim() === '') {
+          section += '\n';
+        } else {
+          section += `${note}\n`;
+        }
+      }
     }
-    section += '\n';
+    section += '\n---\n\n';
   }
 
   section += `### Outros Blocos Estáveis:
