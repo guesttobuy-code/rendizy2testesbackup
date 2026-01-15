@@ -2582,15 +2582,18 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
         const coverPhoto = d.coverPhoto || d.fotoPrincipal || (photos.length > 0 ? photos[0] : null);
         
         // Endereço - pode estar em formato estruturado ou campos separados
+        // NOTA: Os campos podem estar em português ou inglês
         const address = d.address || {};
         const fullAddress = {
           street: address.street || d.rua || null,
           number: address.number || d.numero || null,
           neighborhood: address.neighborhood || d.bairro || null,
           city: address.city || d.cidade || null,
-          state: address.state || d.sigla_estado || d.estado || null,
+          state: address.state || d.sigla_estado || d.siglaEstado || d.estado || null,
           zipCode: address.zipCode || d.cep || null,
         };
+        
+        console.log(`[reservations/mine] Property ${p.id}: title="${listingTitle}", city="${fullAddress.city}", street="${fullAddress.street}"`);
         
         propertiesMap[p.id] = {
           id: p.id,
@@ -2599,8 +2602,6 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
           coverPhoto,
           photos,
           fullAddress,
-          // Dados brutos para debug
-          _raw: d,
         };
       }
     }
