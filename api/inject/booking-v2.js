@@ -278,27 +278,8 @@ export default function handler(req, res) {
 
         var wrap = phoneInput.parentNode;
         
-        // ⚠️ VERIFICAR SE O SITE JÁ TEM UM SELETOR DE PAÍS
-        // Não injetar outro select se o site já implementou corretamente
+        // Verificar se JÁ injetamos o select de país
         var existingCountrySelect = wrap.querySelector("select.rendizy-country-select");
-        var siteHasOwnCountrySelect = wrap.querySelector('select:not(.rendizy-country-select)');
-        
-        // Se o site já tem um select de país (não nosso), não interferir
-        if (siteHasOwnCountrySelect) {
-          // Apenas vincular o dial code do select existente
-          try {
-            siteHasOwnCountrySelect.onchange = function() {
-              var selectedText = siteHasOwnCountrySelect.options[siteHasOwnCountrySelect.selectedIndex].textContent || "";
-              var dialMatch = selectedText.match(/\+(\d+)/);
-              if (dialMatch) {
-                var prof = getLocalProfile() || {};
-                prof.dial = dialMatch[1];
-                try { localStorage.setItem("rendizy_guest_profile", JSON.stringify(prof)); } catch (e) {}
-              }
-            };
-          } catch (e) {}
-          return siteHasOwnCountrySelect;
-        }
 
         var sel = existingCountrySelect || document.createElement("select");
         sel.className = "rendizy-country-select";
@@ -309,7 +290,7 @@ export default function handler(req, res) {
         sel.style.fontSize = "14px";
         sel.style.background = "#fff";
 
-        if (!existing) {
+        if (!existingCountrySelect) {
           var opt0 = document.createElement("option");
           opt0.value = "";
           opt0.textContent = "País *";

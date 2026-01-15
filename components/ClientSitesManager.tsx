@@ -2145,7 +2145,20 @@ type PromptVersion = {
 // Isso garante que nunca fique dessincronizado.
 // As entradas abaixo são apenas o HISTÓRICO (versões antigas).
 const PROMPT_HISTORY: Omit<PromptVersion, 'prompt'>[] = [
-  // Histórico começa em v5.2 (versões anteriores à atual)
+  // Histórico começa em v5.3 (versões anteriores à atual)
+  {
+    version: 'v5.3',
+    date: '2026-01-14',
+    time: '20:45',
+    author: 'Copilot + Rafael',
+    changes: [
+      '🖼️ Limite de tamanho de imagens: máximo 100KB',
+      '⚠️ PROIBIDO arquivos .tar.gz, .zip, .sql no ZIP',
+      '✅ Instruções para otimizar imagens antes de exportar',
+    ],
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v5.3)
+Este prompt foi atualizado para v5.4.`,
+  },
   {
     version: 'v5.2',
     date: '2026-01-14',

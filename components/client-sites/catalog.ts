@@ -44,12 +44,12 @@
  * 
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v5.3' as const;
+export const CATALOG_VERSION = 'v5.4' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-14T14:30:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-14T21:20:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -1187,44 +1187,40 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
     notes: [
       '## Regras do Formulário',
       '',
-      '### 1. Telefone Obrigatório com País/Prefixo (E.164)',
+      '### 1. Telefone (o Rendizy injeta o seletor de país automaticamente)',
       '',
-      '- O campo de telefone DEVE incluir código do país (ex: +55)',
-      '- Formato final: +{dialCode}{number} (ex: +5511999999999)',
-      '- UI sugerida: dropdown de país + input de número',
-      '- Validar que não está vazio e começa com "+"',
+      '⚠️ IMPORTANTE: NÃO CRIE SELECT/DROPDOWN DE PAÍS!',
+      'O Rendizy injeta automaticamente um seletor de país com todos os códigos DDI.',
       '',
-      '```typescript',
-      '// Exemplo de validação E.164',
-      'function validateE164(phone: string): boolean {',
-      '  return /^\\+[1-9]\\d{6,14}$/.test(phone.replace(/\\s/g, ""));',
-      '}',
+      '- Crie APENAS o input de telefone, sem select de país',
+      '- Use name="guestPhone" ou id="guestPhone"',
+      '- O script do Rendizy adiciona o dropdown de país automaticamente',
+      '- Formato final gerado: +{dialCode}{number} (ex: +5511999999999)',
+      '',
+      '```html',
+      '<!-- ✅ CORRETO: apenas input de telefone -->',
+      '<div>',
+      '  <label>Telefone *</label>',
+      '  <input name="guestPhone" placeholder="(11) 99999-9999" />',
+      '</div>',
+      '',
+      '<!-- ❌ ERRADO: NÃO criar select de país -->',
+      '<!-- <select>país</select> <-- O RENDIZY INJETA ISSO -->',
       '```',
       '',
       '### 2. Autofill Quando Logado',
       '',
-      '- Se o hóspede estiver logado (token em localStorage), preencher:',
-      '  - Nome: guest.name',
-      '  - Email: guest.email',
-      '  - Telefone: guest.phone (se existir no perfil)',
+      '- O script do Rendizy faz autofill automático quando hóspede está logado',
+      '- Você NÃO precisa implementar isso, apenas use os name/id corretos',
       '',
       '### 3. Lock Quando Logado',
       '',
-      '- Campos preenchidos automaticamente ficam readonly/disabled',
-      '- Exibir mensagem: "Para editar, acesse seu perfil na Área do Cliente"',
+      '- O script do Rendizy também faz o lock automático dos campos',
+      '- Campos preenchidos ficam readonly e exibem mensagem',
       '',
-      '```typescript',
-      '<input',
-      '  name="guestName"',
-      '  value={guest?.name || ""}',
-      '  readOnly={!!guest}',
-      '  className={guest ? "bg-gray-100 cursor-not-allowed" : ""}',
-      '/>',
-      '```',
+      '### 4. Inputs com name/id Canônicos (OBRIGATÓRIO)',
       '',
-      '### 4. Inputs com name/id Canônicos',
-      '',
-      'O Rendizy injeta script que busca inputs por name/id. Use exatamente:',
+      'O Rendizy busca inputs por name/id. Use EXATAMENTE:',
       '  - name="guestName" ou id="guestName"',
       '  - name="guestEmail" ou id="guestEmail"',
       '  - name="guestPhone" ou id="guestPhone"',
