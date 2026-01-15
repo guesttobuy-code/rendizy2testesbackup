@@ -2145,7 +2145,20 @@ type PromptVersion = {
 // Isso garante que nunca fique dessincronizado.
 // As entradas abaixo são apenas o HISTÓRICO (versões antigas).
 const PROMPT_HISTORY: Omit<PromptVersion, 'prompt'>[] = [
-  // Histórico começa em v5.3 (versões anteriores à atual)
+  // Histórico começa em v5.4 (versões anteriores à atual)
+  {
+    version: 'v5.4',
+    date: '2026-01-14',
+    time: '21:30',
+    author: 'Copilot + Rafael',
+    changes: [
+      '📱 Corrigido typo que quebrava script de telefone',
+      '⚠️ Instrução para Bolt NÃO criar select de país',
+      '✅ Rendizy injeta seletor de país automaticamente',
+    ],
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v5.4)
+Este prompt foi atualizado para v5.5.`,
+  },
   {
     version: 'v5.3',
     date: '2026-01-14',
