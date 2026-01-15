@@ -366,6 +366,14 @@ function patchClientSiteJs(jsText, { subdomain }) {
     'Pré-Reserva Registrada'
   );
   out = out.replace(
+    /Reserva Criada!*/g,
+    'Pré-Reserva Criada - Aguardando Pagamento'
+  );
+  out = out.replace(
+    /Reserva Criada/gi,
+    'Pré-Reserva Criada'
+  );
+  out = out.replace(
     /Sua reserva foi confirmada com sucesso/g,
     'Sua pré-reserva foi registrada! Aguardando confirmação do pagamento'
   );

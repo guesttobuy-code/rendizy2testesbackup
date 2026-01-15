@@ -57,13 +57,17 @@ Este roadmap unifica todos os itens relacionados a:
 - **Sintoma**: Tela mostra "✅ Reserva Criada!" com código `WEB-MKEQXFF9-2RBA` ANTES de pagar
 - **Problema**: Confunde usuário — parece que já reservou
 - **Deveria ser**: "Pré-Reserva Criada — Aguardando Pagamento"
-- **Status**: 🔴 Pendente correção no site/prompt
+- **Causa**: Bolt não seguiu o prompt (prompt estava certo)
+- **Correção aplicada**: Prompt v5.7 agora diz "❌❌❌ PROIBIDO" e "✅✅✅ OBRIGATÓRIO"
+- **Status**: ✅ Prompt corrigido | 🔴 Site MedHome precisa rebuild
 
 ### BUG #2: Checkout abrindo na mesma aba (não nova)
 - **Sintoma**: Ao clicar "selecionar forma de pagamento", abriu Stripe na MESMA aba
 - **Problema**: Usuário perde contexto do site
 - **Deveria ser**: Checkout em NOVA aba, site continua aberto
-- **Status**: 🔴 Patch não está aplicando em todos os caminhos
+- **Causa**: Bolt usou `&&(window.location.href=checkoutUrl)` — patch antigo não cobria
+- **Correção aplicada**: Patch agora cobre `(window.location.href=...)` inline
+- **Status**: ✅ CORRIGIDO — patch funcionando (testado às 22:25)
 
 ---
 
@@ -90,6 +94,8 @@ Este roadmap unifica todos os itens relacionados a:
 - [ ] Timer de expiração na pré-reserva (30 min)
 - [ ] Toast/notificação quando pagamento confirmado
 - [ ] Auto-fechar aba do checkout após confirmação
+- [ ] Após confirmação, levar o usuário direto para a Guest Area
+  - Link com focus da reserva: `#/reservas?focus=<reservationId>`
 
 ---
 
