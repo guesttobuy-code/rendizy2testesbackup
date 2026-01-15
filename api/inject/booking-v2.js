@@ -281,49 +281,66 @@ export default function handler(req, res) {
         // Verificar se JÁ injetamos o select de país
         var existingCountrySelect = wrap.querySelector("select.rendizy-country-select");
 
-        var sel = existingCountrySelect || document.createElement("select");
+        // Se já existe, apenas atualizar estado
+        if (existingCountrySelect) {
+          var sel = existingCountrySelect;
+          // Atualizar estado do select existente
+          var dial = (guest && (guest.dial || guest.ddi)) || "";
+          var phone = (guest && (guest.phone || guest.telefone)) || "";
+          if (!dial && phone && String(phone).trim().startsWith("+")) {
+            var p = parseE164(phone);
+            if (p && p.dial) dial = p.dial;
+          }
+          if (dial) {
+            for (var j = 0; j < COUNTRIES.length; j++) {
+              if (COUNTRIES[j].dial === String(dial)) {
+                sel.value = COUNTRIES[j].code;
+                break;
+              }
+            }
+          }
+          if (authenticated) {
+            sel.disabled = true;
+            sel.style.background = "#f3f4f6";
+            sel.style.cursor = "not-allowed";
+          }
+          return sel;
+        }
+
+        // Criar novo select - IMPORTANTE: NÃO mover o input do React!
+        // Usar CSS para layout sem alterar hierarquia DOM
+        var sel = document.createElement("select");
         sel.className = "rendizy-country-select";
-        sel.style.marginRight = "8px";
         sel.style.padding = "10px 10px";
         sel.style.border = "1px solid rgba(0,0,0,0.15)";
         sel.style.borderRadius = "10px";
         sel.style.fontSize = "14px";
         sel.style.background = "#fff";
+        sel.style.flexShrink = "0";
 
-        if (!existingCountrySelect) {
-          // Opção default BR
-          for (var i = 0; i < COUNTRIES.length; i++) {
-            var c = COUNTRIES[i];
-            var opt = document.createElement("option");
-            opt.value = c.code;
-            opt.textContent = c.flag + " +" + c.dial;
-            sel.appendChild(opt);
-          }
-          // Default BR selecionado
-          sel.value = "BR";
-
-          // Layout: criar uma row flex para select + input, SEM mover o label
-          // O wrap é o container do input. Criar uma div interna para flex.
-          try {
-            var flexRow = document.createElement("div");
-            flexRow.className = "rendizy-phone-row";
-            flexRow.style.display = "flex";
-            flexRow.style.gap = "8px";
-            flexRow.style.alignItems = "center";
-            flexRow.style.width = "100%";
-            
-            // Mover o input para dentro da flexRow
-            wrap.insertBefore(flexRow, phoneInput);
-            flexRow.appendChild(sel);
-            flexRow.appendChild(phoneInput);
-            
-            // Input ocupa espaço restante
-            phoneInput.style.flex = "1";
-          } catch (e) {
-            // Fallback simples
-            wrap.insertBefore(sel, phoneInput);
-          }
+        // Opções de países
+        for (var i = 0; i < COUNTRIES.length; i++) {
+          var c = COUNTRIES[i];
+          var opt = document.createElement("option");
+          opt.value = c.code;
+          opt.textContent = c.flag + " +" + c.dial;
+          sel.appendChild(opt);
         }
+        sel.value = "BR";
+
+        // ABORDAGEM SEGURA: Transformar o wrap em flex container
+        // Isso NÃO move o input do React, apenas altera o estilo do container
+        wrap.style.display = "flex";
+        wrap.style.gap = "8px";
+        wrap.style.alignItems = "center";
+        wrap.style.flexWrap = "wrap";
+        
+        // Inserir select ANTES do input (sem mover o input)
+        wrap.insertBefore(sel, phoneInput);
+        
+        // Input ocupa espaço restante
+        phoneInput.style.flex = "1";
+        phoneInput.style.minWidth = "120px";
 
         // Infer selection from saved dial/phone if available.
         var dial = (guest && (guest.dial || guest.ddi)) || "";
