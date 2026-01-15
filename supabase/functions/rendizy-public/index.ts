@@ -2552,34 +2552,55 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
     console.log(`[guest/reservations/mine] Encontradas ${(reservations || []).length} reservas para ${guestEmail} na org ${site.organization_id}`);
 
     // 4. Buscar properties das reservas (separadamente para evitar problemas de join)
+    // NOTA: A tabela properties tem apenas: id, organization_id, user_id, data (JSONB), status, title, created_at, updated_at
+    // Todos os outros campos (name, code, photos, address, etc.) estão dentro do JSONB data
     const propertyIds = [...new Set((reservations || []).map((r: any) => r.property_id).filter(Boolean))];
     let propertiesMap: Record<string, any> = {};
     
     if (propertyIds.length > 0) {
-      const { data: properties } = await supabase
+      const { data: properties, error: propError } = await supabase
         .from("properties")
-        .select("id, name, title, code, cover_photo, photos, data, address_street, address_number, address_neighborhood, address_city, address_state, address_zip_code")
+        .select("id, title, data, status")
         .in("id", propertyIds);
       
+      if (propError) {
+        console.error("[reservations/mine] Erro ao buscar properties:", propError.message);
+      }
+      
       for (const p of (properties || [])) {
-        // Extrair título do JSONB data se não houver na coluna title
-        const jsonData = p.data || {};
-        const listingTitle = p.title || jsonData.title || jsonData.name || p.name;
-        const listingAddress = jsonData.address || {};
+        // Extrair todos os dados do JSONB data
+        const d = p.data || {};
+        
+        // Título: prioridade para title da coluna, depois data.title, depois data.internalId
+        const listingTitle = p.title || d.title || d.internalId || d.name || "Imóvel";
+        
+        // Código do imóvel
+        const propertyCode = d.codigo || d.propertyCode || d.code || null;
+        
+        // Fotos - podem estar em diferentes campos
+        const photos = Array.isArray(d.fotos) ? d.fotos : (Array.isArray(d.photos) ? d.photos : []);
+        const coverPhoto = d.coverPhoto || d.fotoPrincipal || (photos.length > 0 ? photos[0] : null);
+        
+        // Endereço - pode estar em formato estruturado ou campos separados
+        const address = d.address || {};
+        const fullAddress = {
+          street: address.street || d.rua || null,
+          number: address.number || d.numero || null,
+          neighborhood: address.neighborhood || d.bairro || null,
+          city: address.city || d.cidade || null,
+          state: address.state || d.sigla_estado || d.estado || null,
+          zipCode: address.zipCode || d.cep || null,
+        };
         
         propertiesMap[p.id] = {
-          ...p,
-          // Título do anúncio (prioridade: title > data.title > data.name > name)
-          listingTitle,
-          // Endereço do JSONB (fallback)
-          fullAddress: {
-            street: p.address_street || listingAddress.street || null,
-            number: p.address_number || listingAddress.number || null,
-            neighborhood: p.address_neighborhood || listingAddress.neighborhood || null,
-            city: p.address_city || listingAddress.city || null,
-            state: p.address_state || listingAddress.state || null,
-            zipCode: p.address_zip_code || listingAddress.zipCode || null,
-          }
+          id: p.id,
+          title: listingTitle,
+          code: propertyCode,
+          coverPhoto,
+          photos,
+          fullAddress,
+          // Dados brutos para debug
+          _raw: d,
         };
       }
     }
@@ -2587,33 +2608,20 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
     // 5. Formatar resposta
     const formattedReservations = (reservations || []).map((r: any) => {
       const property = propertiesMap[r.property_id] || null;
-      // Resolver cover photo
-      let coverPhoto = property?.cover_photo || null;
-      if (!coverPhoto && property?.photos) {
-        const photos = Array.isArray(property.photos) ? property.photos : [];
-        coverPhoto = photos[0] || null;
-      }
 
       return {
         id: r.id,
         reservationCode: r.id, // ID é usado como código
         property: property ? {
           id: property.id,
-          name: property.name || "Imóvel",
-          title: property.listingTitle || property.name || "Imóvel", // Título do anúncio extraído do JSONB
+          name: property.title, // Nome interno (legado)
+          title: property.title, // Título do anúncio
           code: property.code,
-          coverPhoto,
-          address: property.fullAddress || {
-            street: null,
-            number: null,
-            neighborhood: null,
-            city: property.address_city || null,
-            state: property.address_state || null,
-            zipCode: null,
-          },
-          // Mantém campos legados para compatibilidade
-          city: property.fullAddress?.city || property.address_city,
-          state: property.fullAddress?.state || property.address_state,
+          coverPhoto: property.coverPhoto,
+          address: property.fullAddress,
+          // Campos legados para compatibilidade
+          city: property.fullAddress?.city,
+          state: property.fullAddress?.state,
         } : null,
         checkIn: r.check_in,
         checkOut: r.check_out,
