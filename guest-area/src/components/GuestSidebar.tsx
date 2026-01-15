@@ -33,9 +33,9 @@ export function GuestSidebar() {
   const menuItems = getVisibleMenuItems();
 
   return (
-    <aside className="w-72 bg-white border-r border-gray-200 min-h-screen flex flex-col">
+    <aside className="w-72 bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] min-h-screen flex flex-col border-r border-gray-800">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-gray-200">
+      <div className="px-4 py-4 border-b border-gray-800">
         <div className="flex items-center gap-3">
           {siteConfig?.logo ? (
             <img
@@ -45,10 +45,10 @@ export function GuestSidebar() {
             />
           ) : (
             <div>
-              <h1 className="text-lg font-bold text-gray-900">
+              <div className="text-lg font-bold text-white">
                 {siteConfig?.siteName || 'Área do Cliente'}
-              </h1>
-              <p className="text-xs text-gray-500">RENDIZY</p>
+              </div>
+              <div className="text-xs text-gray-400">RENDIZY</div>
             </div>
           )}
         </div>
@@ -56,16 +56,17 @@ export function GuestSidebar() {
 
       {/* Menu */}
       <nav className="flex-1 px-3 py-4 space-y-1">
+        <div className="px-3 mb-2 text-xs uppercase tracking-wider text-gray-400">Principal</div>
         {menuItems.map((item) => {
           const isActive = currentPath.includes(item.id);
           return (
             <a
               key={item.id}
               href={item.path}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors text-sm font-medium
                 ${isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-300 hover:bg-white/5'
                 }`}
             >
               <span className="text-base">{item.icon}</span>
@@ -76,10 +77,10 @@ export function GuestSidebar() {
       </nav>
 
       {/* Voltar ao Site */}
-      <div className="px-4 py-3 border-t border-gray-200">
+      <div className="px-4 py-3 border-t border-gray-800">
         <a
           href={`/site/${siteSlug}/`}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
         >
           <span>←</span>
           <span>Voltar ao site</span>

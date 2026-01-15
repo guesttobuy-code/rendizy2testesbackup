@@ -147,10 +147,8 @@ export function CalendarPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Calendário</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Visual simples por data com suas reservas
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">Calendário</h1>
+        <p className="text-gray-500 text-sm mt-1">Visual simples por data com suas reservas</p>
       </div>
 
       {grouped.length === 0 ? (
@@ -169,12 +167,12 @@ export function CalendarPage() {
                 <span className="text-base">📅</span>
                 <span>{group.label}</span>
               </div>
-              <div className="grid gap-3">
+              <div className="space-y-3">
                 {group.items.map((reservation) => (
                   <div key={reservation.id} className="bg-white rounded-xl border p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold text-gray-800">
+                        <h3 className="font-semibold text-gray-900">
                           {reservation.property_name || 'Propriedade'}
                         </h3>
                         <p className="text-sm text-gray-500">

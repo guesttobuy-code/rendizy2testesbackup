@@ -55,26 +55,6 @@ function formatDate(dateStr: string | undefined | null) {
   }
 }
 
-function getDaysUntilCheckIn(checkIn: string | undefined | null): string {
-  if (!checkIn) return '';
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const checkInDate = new Date(checkIn);
-    checkInDate.setHours(0, 0, 0, 0);
-    const diffTime = checkInDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return 'Já passou';
-    if (diffDays === 0) return 'Hoje!';
-    if (diffDays === 1) return 'Amanhã';
-    if (diffDays <= 7) return `Em ${diffDays} dias`;
-    if (diffDays <= 30) return `Em ${Math.ceil(diffDays / 7)} semanas`;
-    return `Em ${Math.ceil(diffDays / 30)} meses`;
-  } catch {
-    return '';
-  }
-}
 
 export function MyReservationsPage() {
   const { isAuthenticated } = useGuestAuth();
@@ -139,6 +119,10 @@ export function MyReservationsPage() {
     return new Date(a.check_in).getTime() - new Date(b.check_in).getTime();
   });
 
+  const totalCount = reservations.length;
+  const confirmedCount = reservations.filter((r) => r.status === 'confirmed').length;
+  const pendingCount = reservations.filter((r) => r.status === 'pending').length;
+
   useEffect(() => {
     if (!focusId) return;
     const t = window.setTimeout(() => {
@@ -172,9 +156,9 @@ export function MyReservationsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Minhas Reservas</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Minhas Reservas</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {reservations.length} reserva{reservations.length !== 1 ? 's' : ''} encontrada{reservations.length !== 1 ? 's' : ''}
+            {totalCount} reserva{totalCount !== 1 ? 's' : ''} encontrada{totalCount !== 1 ? 's' : ''}
           </p>
         </div>
 
@@ -196,7 +180,27 @@ export function MyReservationsPage() {
         </div>
       </div>
 
+      {/* Cards Resumo */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white border rounded-xl p-4">
+          <p className="text-xs text-gray-500">Total</p>
+          <p className="text-2xl font-bold text-gray-900">{totalCount}</p>
+          <p className="text-xs text-gray-500 mt-1">Todas as reservas</p>
+        </div>
+        <div className="bg-white border rounded-xl p-4">
+          <p className="text-xs text-gray-500">Confirmadas</p>
+          <p className="text-2xl font-bold text-green-600">{confirmedCount}</p>
+          <p className="text-xs text-gray-500 mt-1">Reservas ativas</p>
+        </div>
+        <div className="bg-white border rounded-xl p-4">
+          <p className="text-xs text-gray-500">Pendentes</p>
+          <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
+          <p className="text-xs text-gray-500 mt-1">Aguardando confirmação</p>
+        </div>
+      </div>
+
       {/* Lista de Reservas */}
+
       {sortedReservations.length === 0 ? (
         <div className="bg-white rounded-xl border p-8 text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -212,46 +216,34 @@ export function MyReservationsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {sortedReservations.map((reservation) => (
             <div
               key={reservation.id}
               id={`reservation-${reservation.id}`}
-              className={`bg-white rounded-xl border hover:shadow-md transition-shadow overflow-hidden ${
+              className={`bg-white rounded-xl border hover:shadow-sm transition-shadow ${
                 focusId && reservation.id === focusId ? 'ring-2 ring-primary ring-offset-2' : ''
               }`}
             >
-              <div className="flex flex-col sm:flex-row">
-                {/* Imagem */}
-                <div className="sm:w-48 h-40 sm:h-auto bg-gray-100 flex-shrink-0">
-                  {reservation.property_image ? (
-                    <img
-                      src={reservation.property_image}
-                      alt={reservation.property_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">
-                      🏠
-                    </div>
-                  )}
+              <div className="flex flex-col md:flex-row md:items-center gap-4 p-4">
+                <div className="w-14 h-14 rounded-lg bg-gray-50 flex items-center justify-center text-2xl">
+                  🏠
                 </div>
 
-                {/* Conteúdo */}
-                <div className="flex-1 p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
+                <div className="flex-1">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div>
-                      <h3 className="font-semibold text-gray-800 text-lg">
+                      <div className="font-semibold text-gray-900">
                         {reservation.property_name || 'Propriedade'}
-                      </h3>
-                      <p className="text-sm text-primary font-medium">
-                        {getDaysUntilCheckIn(reservation.check_in)}
-                      </p>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {formatDate(reservation.check_in)} → {formatDate(reservation.check_out)}
+                      </div>
                     </div>
                     {getStatusBadge(reservation.status)}
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
                     <div>
                       <span className="text-gray-500 block">Check-in</span>
                       <span className="font-medium">{formatDate(reservation.check_in)}</span>
@@ -262,12 +254,15 @@ export function MyReservationsPage() {
                     </div>
                     <div>
                       <span className="text-gray-500 block">Hóspedes</span>
-                      <span className="font-medium">{getGuestCount(reservation.guests)} pessoa{getGuestCount(reservation.guests) !== 1 ? 's' : ''}</span>
+                      <span className="font-medium">{getGuestCount(reservation.guests)}</span>
                     </div>
                     <div>
                       <span className="text-gray-500 block">Total</span>
-                      <span className="font-medium text-primary">
-                        R$ {(reservation.total_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      <span className="font-medium">
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                        }).format(reservation.total_price)}
                       </span>
                     </div>
                   </div>

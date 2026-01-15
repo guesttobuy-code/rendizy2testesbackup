@@ -18,21 +18,19 @@ export function LoginPage() {
   const siteSlug = window.GUEST_AREA_CONFIG?.siteSlug || 'Site';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-white to-secondary/5 px-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Logo/Branding */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-3xl text-white font-bold">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-3">
+            <span className="text-2xl text-white font-bold">
               {siteSlug.charAt(0).toUpperCase()}
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Área do Cliente</h1>
-          <p className="text-gray-500 mt-1">Acesse suas reservas e informações</p>
+          <h1 className="text-2xl font-bold text-gray-900">Área do Cliente</h1>
+          <p className="text-gray-500 text-sm">Acesse suas reservas e informações</p>
         </div>
 
-        {/* Card de Login */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border">
+        <div className="bg-white border rounded-xl p-6 shadow-sm">
           {isLoading ? (
             <div className="flex flex-col items-center py-8">
               <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -40,15 +38,13 @@ export function LoginPage() {
             </div>
           ) : (
             <>
-              <h2 className="text-xl font-semibold text-gray-800 text-center mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 text-center mb-4">
                 Entrar com Google
               </h2>
-
-              <p className="text-gray-500 text-sm text-center mb-6">
+              <p className="text-gray-500 text-sm text-center mb-4">
                 Use sua conta Google para acessar de forma rápida e segura
               </p>
 
-              {/* Botão manual (sempre clicável) */}
               <button
                 type="button"
                 onClick={() => startGoogleLogin()}
@@ -64,7 +60,6 @@ export function LoginPage() {
                 </p>
               )}
 
-              {/* Reset/Logout de emergência */}
               <button
                 type="button"
                 onClick={async () => {
@@ -83,14 +78,12 @@ export function LoginPage() {
                 Limpar sessão
               </button>
 
-              {/* Divisor */}
               <div className="flex items-center gap-4 my-6">
                 <div className="flex-1 h-px bg-gray-200"></div>
                 <span className="text-sm text-gray-400">ou</span>
                 <div className="flex-1 h-px bg-gray-200"></div>
               </div>
 
-              {/* Link para voltar ao site */}
               <a
                 href="/"
                 className="flex items-center justify-center gap-2 w-full py-3 border rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
@@ -104,11 +97,8 @@ export function LoginPage() {
           )}
         </div>
 
-        {/* Footer */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          Área exclusiva para hóspedes.
-          <br />
-          Suas informações estão seguras.
+          Área exclusiva para hóspedes. Suas informações estão seguras.
         </p>
       </div>
     </div>

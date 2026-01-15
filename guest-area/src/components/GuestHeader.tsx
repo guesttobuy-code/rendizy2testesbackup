@@ -7,6 +7,7 @@ export function GuestHeader() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuItems = getVisibleMenuItems();
+  const siteSlug = window.GUEST_AREA_CONFIG?.siteSlug || '';
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -20,7 +21,7 @@ export function GuestHeader() {
   }, []);
 
   return (
-    <header className="bg-white shadow-sm border-b px-6 py-4 flex items-center justify-between">
+    <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
       {/* Título */}
       <div className="flex items-center gap-4">
         <button className="md:hidden text-gray-500 hover:text-gray-700">
@@ -28,7 +29,10 @@ export function GuestHeader() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <h1 className="text-lg font-semibold text-gray-800">Área do Cliente</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-gray-800">Área do Cliente</h1>
+          {siteSlug && <p className="text-xs text-gray-500">{siteSlug}</p>}
+        </div>
       </div>
 
       {/* Avatar e Dropdown */}

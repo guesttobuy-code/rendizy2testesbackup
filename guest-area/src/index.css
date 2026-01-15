@@ -14,17 +14,18 @@
   --primary-light: color-mix(in srgb, var(--primary), white 90%);
   
   /* Sidebar */
-  --sidebar-bg: #1F2937;
-  --sidebar-text: #F9FAFB;
-  --sidebar-hover: #374151;
-  --sidebar-active: var(--primary);
+  --sidebar-bg: #111827;
+  --sidebar-text: #E5E7EB;
+  --sidebar-hover: rgba(255,255,255,0.06);
+  --sidebar-active: rgba(255,255,255,0.08);
 }
 
 body {
   font-family: var(--font-family);
   margin: 0;
   padding: 0;
-  background-color: #F9FAFB;
+  background-color: #F8FAFC;
+  color: #0F172A;
 }
 
 /* Scrollbar personalizada */
