@@ -136,15 +136,34 @@ export default function handler(req, res) {
     function addHintAfter(el, html) {
       try {
         if (!el || !el.parentNode) return;
-        var existing = el.parentNode.querySelector(".rendizy-guest-hint");
-        if (existing) return;
+        
+        // Procurar hint existente em qualquer ancestral próximo
+        var existingInParent = el.parentNode.querySelector(".rendizy-guest-hint");
+        var existingInGrandparent = el.parentNode.parentNode && el.parentNode.parentNode.querySelector(".rendizy-guest-hint");
+        if (existingInParent || existingInGrandparent) return;
+        
         var d = document.createElement("div");
         d.className = "rendizy-guest-hint";
         d.style.fontSize = "12px";
         d.style.color = "#6b7280";
         d.style.marginTop = "6px";
+        d.style.width = "100%"; // Garantir que ocupa largura total
+        d.style.flexBasis = "100%"; // Forçar quebra de linha em flex
         d.innerHTML = html;
-        el.parentNode.appendChild(d);
+        
+        // Inserir no container mais apropriado (evitar quebrar layouts flex)
+        var target = el.parentNode;
+        // Se o pai é um flex container com outros elementos, inserir no avô
+        var parentStyle = window.getComputedStyle(target);
+        if (parentStyle.display === "flex" && target.childElementCount > 1) {
+          // Inserir após o container flex, não dentro dele
+          if (target.parentNode) {
+            target.parentNode.insertBefore(d, target.nextSibling);
+            return;
+          }
+        }
+        
+        target.appendChild(d);
       } catch (e) {}
     }
 
@@ -258,9 +277,30 @@ export default function handler(req, res) {
         if (!phoneInput || !phoneInput.parentNode) return;
 
         var wrap = phoneInput.parentNode;
-        var existing = wrap.querySelector("select.rendizy-country-select");
+        
+        // ⚠️ VERIFICAR SE O SITE JÁ TEM UM SELETOR DE PAÍS
+        // Não injetar outro select se o site já implementou corretamente
+        var existingCountrySelect = wrap.querySelector("select.rendizy-country-select");
+        var siteHasOwnCountrySelect = wrap.querySelector('select:not(.rendizy-country-select)');
+        
+        // Se o site já tem um select de país (não nosso), não interferir
+        if (siteHasOwnCountrySelect) {
+          // Apenas vincular o dial code do select existente
+          try {
+            siteHasOwnCountrySelect.onchange = function() {
+              var selectedText = siteHasOwnCountrySelect.options[siteHasOwnCountrySelect.selectedIndex].textContent || "";
+              var dialMatch = selectedText.match(/\+(\d+)/);
+              if (dialMatch) {
+                var prof = getLocalProfile() || {};
+                prof.dial = dialMatch[1];
+                try { localStorage.setItem("rendizy_guest_profile", JSON.stringify(prof)); } catch (e) {}
+              }
+            };
+          } catch (e) {}
+          return siteHasOwnCountrySelect;
+        }
 
-        var sel = existing || document.createElement("select");
+        var sel = existingCountrySelect || document.createElement("select");
         sel.className = "rendizy-country-select";
         sel.style.marginRight = "8px";
         sel.style.padding = "10px 10px";
