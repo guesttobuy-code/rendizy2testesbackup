@@ -44,12 +44,12 @@
  * 
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v5.5' as const;
+export const CATALOG_VERSION = 'v5.6' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-14T21:45:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-14T22:00:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -259,7 +259,9 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
         'O login é feito via Google Sign-In (One Tap ou botão), sem senha.',
         'O hóspede fica na tabela guest_users (separada de auth_users do painel).',
         'O site NÃO deve usar @supabase/supabase-js para auth. Use os endpoints REST.',
-        '⚠️ IMPORTANTE: O GOOGLE_CLIENT_ID deve estar configurado nas Edge Functions.',
+        '⚠️ IMPORTANTE: Use os endpoints /api/auth/* do Vercel, NÃO os do Supabase diretamente.',
+        '⚠️ CRÍTICO: O login DEVE usar /api/auth/google para setar cookies HttpOnly.',
+        'O script booking-v2.js depende desses cookies para autofill automático.',
       ],
       codeBlocks: [
         {
@@ -300,27 +302,25 @@ function initGoogleOneTap(onSuccess: (credential: string) => void) {
 }`
         },
         {
-          title: 'Enviar credential para backend e salvar token',
+          title: '⚠️ CRÍTICO: Enviar credential via endpoint do VERCEL (seta cookie)',
           language: 'ts',
-          code: `// Após receber credential do Google
-async function loginWithGoogle(credential: string, subdomain: string) {
-  const API_BASE = window.RENDIZY_CONFIG?.API_BASE_URL ||
-    'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public';
+          code: `// ⚠️ IMPORTANTE: Use /api/auth/google do VERCEL, não o endpoint do Supabase!
+// Este endpoint seta cookies HttpOnly que o booking-v2.js usa para autofill.
 
-  const response = await fetch(
-    API_BASE + '/client-sites/api/' + subdomain + '/auth/guest/google',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credential }),
-    }
-  );
+async function loginWithGoogle(credential: string, siteSlug: string) {
+  // ✅ CORRETO: Endpoint do Vercel (seta cookie)
+  const response = await fetch('/api/auth/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',  // ⚠️ OBRIGATÓRIO para cookies
+    body: JSON.stringify({ credential, siteSlug }),
+  });
 
   const result = await response.json();
 
   if (result.success) {
-    // Salvar token para uso futuro
-    localStorage.setItem('rendizy_guest_token', result.token);
+    // O cookie foi setado automaticamente pelo servidor
+    // Salvar guest em localStorage para exibição imediata na UI
     localStorage.setItem('rendizy_guest', JSON.stringify(result.guest));
     console.log('Login OK:', result.guest.email);
     return result;
@@ -330,31 +330,24 @@ async function loginWithGoogle(credential: string, subdomain: string) {
   }
 }
 
-// Obter dados do hóspede logado
-async function getGuestMe(subdomain: string) {
-  const token = localStorage.getItem('rendizy_guest_token');
-  if (!token) return null;
-
-  const API_BASE = window.RENDIZY_CONFIG?.API_BASE_URL ||
-    'https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-public';
-
-  const response = await fetch(
-    API_BASE + '/client-sites/api/' + subdomain + '/auth/guest/me',
-    {
-      method: 'GET',
-      headers: { 'Authorization': 'Bearer ' + token },
-    }
-  );
-
+// Verificar se está logado (lê cookie via servidor)
+async function checkAuth(siteSlug: string) {
+  const response = await fetch('/api/auth/me?siteSlug=' + encodeURIComponent(siteSlug), {
+    credentials: 'include',  // ⚠️ OBRIGATÓRIO
+  });
   const result = await response.json();
-  return result.success ? result.guest : null;
+  return result.authenticated ? result.user : null;
 }
 
-// Logout
-function logout() {
-  localStorage.removeItem('rendizy_guest_token');
+// Logout (limpa cookies)
+async function logout() {
+  await fetch('/api/auth/logout', {
+    method: 'POST',
+    credentials: 'include',
+  });
   localStorage.removeItem('rendizy_guest');
   google.accounts.id.disableAutoSelect();
+  window.location.reload();
 }`
         }
       ]
