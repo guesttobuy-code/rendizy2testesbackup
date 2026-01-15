@@ -33,13 +33,23 @@ function getGuestCount(guests: number | GuestsInfo | undefined | null): number {
 
 function getStatusBadge(status: Reservation['status']) {
   const map = {
-    confirmed: { label: 'Confirmada', color: 'bg-green-100 text-green-700' },
-    pending: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-700' },
+    confirmed: { label: '✓ Confirmada', color: 'bg-slate-900 text-white' },
+    pending: { label: 'Pendente', color: 'bg-yellow-400 text-yellow-900' },
     cancelled: { label: 'Cancelada', color: 'bg-red-100 text-red-700' },
     completed: { label: 'Concluída', color: 'bg-gray-100 text-gray-700' },
   };
   const { label, color } = map[status] || map.pending;
-  return <span className={`px-2 py-1 text-xs rounded-full font-medium ${color}`}>{label}</span>;
+  return <span className={`px-3 py-1 text-xs rounded-full font-medium ${color}`}>{label}</span>;
+}
+
+function getNights(checkIn: string, checkOut: string): number {
+  try {
+    const d1 = new Date(checkIn);
+    const d2 = new Date(checkOut);
+    return Math.max(1, Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+  } catch {
+    return 1;
+  }
 }
 
 function formatDate(dateStr: string | undefined | null) {
@@ -121,10 +131,12 @@ export function MyReservationsPage() {
     return new Date(a.check_in).getTime() - new Date(b.check_in).getTime();
   });
 
-  const totalCount = reservations.length;
-  const confirmedCount = reservations.filter((r) => r.status === 'confirmed').length;
-  const pendingCount = reservations.filter((r) => r.status === 'pending').length;
-  const revenueTotal = reservations.reduce((acc, r) => acc + (Number(r.total_price) || 0), 0);
+  // Estatísticas (para uso futuro)
+  const _totalCount = reservations.length;
+  const _confirmedCount = reservations.filter((r) => r.status === 'confirmed').length;
+  const _pendingCount = reservations.filter((r) => r.status === 'pending').length;
+  const _revenueTotal = reservations.reduce((acc, r) => acc + (Number(r.total_price) || 0), 0);
+  void _totalCount; void _confirmedCount; void _pendingCount; void _revenueTotal;
 
   useEffect(() => {
     if (!focusId) return;
@@ -155,165 +167,169 @@ export function MyReservationsPage() {
   }
 
   return (
-    <div className="flex gap-6">
-      {/* Painel de filtros (esquerda) */}
-      <aside className="w-72 hidden lg:block">
-        <div className="bg-white border rounded-xl p-4 space-y-4">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Reservas</p>
-            <p className="text-xs text-gray-500">Tipo de data</p>
-            <select className="mt-2 w-full text-sm border rounded-lg px-3 py-2 bg-gray-50">
-              <option>Check-in</option>
-              <option>Check-out</option>
-            </select>
-          </div>
-
-          <div>
-            <p className="text-xs text-gray-500">De - até</p>
-            <input className="mt-2 w-full text-sm border rounded-lg px-3 py-2 bg-gray-50" placeholder="01 jan - 31 dez" />
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Status</p>
-            <select className="mt-2 w-full text-sm border rounded-lg px-3 py-2 bg-gray-50">
-              <option>Todos</option>
-              <option>Confirmadas</option>
-              <option>Pendentes</option>
-            </select>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Buscar</p>
-            <input className="mt-2 w-full text-sm border rounded-lg px-3 py-2 bg-gray-50" placeholder="ID, hóspede, propriedade" />
-          </div>
-        </div>
-      </aside>
-
-      {/* Conteúdo principal */}
-      <div className="flex-1 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reservas</h1>
-            <p className="text-gray-500 text-sm mt-1">Gerencie suas reservas</p>
-          </div>
-
-          <div className="flex gap-2">
-            {(['all', 'upcoming', 'past'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                  filter === f
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {f === 'all' ? 'Todas' : f === 'upcoming' ? 'Próximas' : 'Passadas'}
-              </button>
-            ))}
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Reservas</h1>
+          <p className="text-gray-500 text-sm mt-1">Gerencie todas as reservas do sistema</p>
         </div>
 
-        {/* Cards Resumo */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div className="bg-white border rounded-xl p-4">
-            <p className="text-xs text-gray-500">Total de Reservas</p>
-            <p className="text-2xl font-bold text-gray-900">{totalCount}</p>
-            <p className="text-xs text-gray-500 mt-1">Todas as reservas</p>
-          </div>
-          <div className="bg-white border rounded-xl p-4">
-            <p className="text-xs text-gray-500">Confirmadas</p>
-            <p className="text-2xl font-bold text-green-600">{confirmedCount}</p>
-            <p className="text-xs text-gray-500 mt-1">Reservas ativas</p>
-          </div>
-          <div className="bg-white border rounded-xl p-4">
-            <p className="text-xs text-gray-500">Pendentes</p>
-            <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
-            <p className="text-xs text-gray-500 mt-1">Aguardando confirmação</p>
-          </div>
-          <div className="bg-white border rounded-xl p-4">
-            <p className="text-xs text-gray-500">Revenue Total</p>
-            <p className="text-2xl font-bold text-indigo-600">
-              {revenueTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Receita confirmada</p>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white font-medium">
+            Nova Reserva
+          </button>
+          <button className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-700 bg-white">
+            Exportar Excel (.xls)
+          </button>
+          <button className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-700 bg-white">
+            Atualizar
+          </button>
         </div>
+      </div>
 
-        {/* Lista de Reservas */}
-        {sortedReservations.length === 0 ? (
-          <div className="bg-white rounded-xl border p-8 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">📋</span>
-            </div>
-            <h3 className="font-medium text-gray-800">Nenhuma reserva encontrada</h3>
-            <p className="text-gray-500 text-sm mt-1">
-              {filter === 'all'
-                ? 'Você ainda não possui reservas.'
-                : filter === 'upcoming'
-                ? 'Você não possui reservas futuras.'
-                : 'Você não possui reservas passadas.'}
-            </p>
+      {/* Filtros rápidos */}
+      <div className="flex gap-2">
+        {(['all', 'upcoming', 'past'] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+              filter === f
+                ? 'bg-primary text-white'
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {f === 'all' ? 'Todas' : f === 'upcoming' ? 'Próximas' : 'Passadas'}
+          </button>
+        ))}
+      </div>
+
+      {/* Lista de Reservas */}
+      {sortedReservations.length === 0 ? (
+        <div className="bg-white rounded-2xl border p-10 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">📋</span>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {sortedReservations.map((reservation) => (
+          <h3 className="font-medium text-gray-800">Nenhuma reserva encontrada</h3>
+          <p className="text-gray-500 text-sm mt-1">
+            {filter === 'all'
+              ? 'Você ainda não possui reservas.'
+              : filter === 'upcoming'
+              ? 'Você não possui reservas futuras.'
+              : 'Você não possui reservas passadas.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {sortedReservations.map((reservation) => {
+            const nights = getNights(reservation.check_in, reservation.check_out);
+            const guestCount = getGuestCount(reservation.guests);
+            
+            return (
               <div
                 key={reservation.id}
                 id={`reservation-${reservation.id}`}
-                className={`bg-white rounded-xl border hover:shadow-sm transition-shadow ${
+                className={`bg-white rounded-2xl border hover:shadow-sm transition-shadow ${
                   focusId && reservation.id === focusId ? 'ring-2 ring-primary ring-offset-2' : ''
                 }`}
               >
-                <div className="flex flex-col md:flex-row md:items-center gap-4 p-4">
-                  <div className="w-14 h-14 rounded-lg bg-gray-50 flex items-center justify-center text-2xl">
-                    🏠
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                      <div>
-                        <div className="font-semibold text-gray-900">
-                          {reservation.property_name || 'Propriedade'}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {formatDate(reservation.check_in)} → {formatDate(reservation.check_out)}
-                        </div>
-                      </div>
-                      {getStatusBadge(reservation.status)}
+                {/* Linha superior: Hóspede + Status + Ações */}
+                <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
+                        <circle cx="12" cy="8" r="4" />
+                        <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+                      </svg>
                     </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900">Hóspede</span>
+                        <span className="text-xs text-gray-400">#{reservation.id.slice(0, 8)}</span>
+                      </div>
+                      <div className="text-xs text-gray-500 flex items-center gap-2">
+                        <span>📞 Sem telefone</span>
+                        <span>•</span>
+                        <span>✉️ Sem email</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(reservation.status)}
+                    <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-medium">
+                      Direto
+                    </span>
+                    <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-400">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
+                        <circle cx="12" cy="12" r="1" />
+                        <circle cx="12" cy="6" r="1" />
+                        <circle cx="12" cy="18" r="1" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
-                      <div>
-                        <span className="text-gray-500 block">Check-in</span>
-                        <span className="font-medium">{formatDate(reservation.check_in)}</span>
+                {/* Linha do meio: Propriedade + Datas */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                      🏠
+                    </div>
+                    <span className="font-medium text-gray-900">
+                      {reservation.property_name || 'Propriedade'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <span>📅</span>
+                      <span>{formatDate(reservation.check_in)}</span>
+                      <span className="text-gray-400">→</span>
+                      <span>{formatDate(reservation.check_out)}</span>
+                    </div>
+                    <span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">
+                      {nights} {nights === 1 ? 'noite' : 'noites'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span>👥</span>
+                      <span>{guestCount} {guestCount === 1 ? 'adulto' : 'adultos'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Linha inferior: Valores */}
+                <div className="flex items-center justify-between gap-4 px-4 pb-4">
+                  <div className="flex items-center gap-6 text-sm">
+                    <div>
+                      <div className="text-gray-500">Hospedagem</div>
+                      <div className="font-medium text-gray-900">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(reservation.total_price || 0)}
                       </div>
-                      <div>
-                        <span className="text-gray-500 block">Check-out</span>
-                        <span className="font-medium">{formatDate(reservation.check_out)}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block">Hóspedes</span>
-                        <span className="font-medium">{getGuestCount(reservation.guests)}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block">Total</span>
-                        <span className="font-medium">
-                          {new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL',
-                          }).format(reservation.total_price || 0)}
-                        </span>
-                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Taxas</div>
+                      <div className="font-medium text-gray-900">R$ 0,00</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Descontos</div>
+                      <div className="font-medium text-green-600">- R$ 0,00</div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-purple-50 rounded-xl px-4 py-2 text-right">
+                    <div className="text-xs text-purple-500">Total</div>
+                    <div className="text-lg font-bold text-purple-700">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(reservation.total_price || 0)}
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
