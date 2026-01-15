@@ -14,10 +14,10 @@
   --primary-light: color-mix(in srgb, var(--primary), white 90%);
   
   /* Sidebar */
-  --sidebar-bg: #111827;
-  --sidebar-text: #E5E7EB;
-  --sidebar-hover: rgba(255,255,255,0.06);
-  --sidebar-active: rgba(255,255,255,0.08);
+  --sidebar-bg: #FFFFFF;
+  --sidebar-text: #0F172A;
+  --sidebar-hover: #F3F4F6;
+  --sidebar-active: #EEF2FF;
 }
 
 body {

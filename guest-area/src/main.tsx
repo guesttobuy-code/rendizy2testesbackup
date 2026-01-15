@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './index.css';
 
+// Guest Area (cápsula): config e tema vêm via URL e são persistidos localmente
+// para evitar quebra quando o usuário acessa /guest-area/#/login sem query params.
+// Nunca usar token/admin aqui. Sessão do hóspede é via BFF/cookie httpOnly.
 // Extrair parâmetros da URL
 const params = new URLSearchParams(window.location.search);
 const slugParam = params.get('slug') || params.get('subdomain') || '';

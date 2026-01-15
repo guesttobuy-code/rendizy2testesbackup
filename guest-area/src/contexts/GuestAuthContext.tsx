@@ -52,7 +52,9 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Sessão profissional: o token fica em cookie httpOnly e o frontend consulta /api/auth/me
+  // Sessão profissional do hóspede: cookie httpOnly (BFF).
+  // Nunca usar token do painel admin aqui. Dados são sempre filtrados por siteSlug.
+  // Front consulta /api/auth/me para validar sessão.
   useEffect(() => {
     if (!siteSlug) {
       setLoading(false);
