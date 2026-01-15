@@ -291,27 +291,38 @@ export default function handler(req, res) {
         sel.style.background = "#fff";
 
         if (!existingCountrySelect) {
-          var opt0 = document.createElement("option");
-          opt0.value = "";
-          opt0.textContent = "País *";
-          sel.appendChild(opt0);
-
+          // Opção default BR
           for (var i = 0; i < COUNTRIES.length; i++) {
             var c = COUNTRIES[i];
             var opt = document.createElement("option");
             opt.value = c.code;
-            opt.textContent = c.flag + " " + c.name + " ( +" + c.dial + " )";
+            opt.textContent = c.flag + " +" + c.dial;
             sel.appendChild(opt);
           }
+          // Default BR selecionado
+          sel.value = "BR";
 
-          // Layout: wrap select + phone in a flex row when possible.
+          // Layout: criar uma row flex para select + input, SEM mover o label
+          // O wrap é o container do input. Criar uma div interna para flex.
           try {
-            wrap.style.display = wrap.style.display || "flex";
-            wrap.style.gap = wrap.style.gap || "8px";
-            wrap.style.alignItems = wrap.style.alignItems || "center";
-          } catch (e) {}
-
-          wrap.insertBefore(sel, phoneInput);
+            var flexRow = document.createElement("div");
+            flexRow.className = "rendizy-phone-row";
+            flexRow.style.display = "flex";
+            flexRow.style.gap = "8px";
+            flexRow.style.alignItems = "center";
+            flexRow.style.width = "100%";
+            
+            // Mover o input para dentro da flexRow
+            wrap.insertBefore(flexRow, phoneInput);
+            flexRow.appendChild(sel);
+            flexRow.appendChild(phoneInput);
+            
+            // Input ocupa espaço restante
+            phoneInput.style.flex = "1";
+          } catch (e) {
+            // Fallback simples
+            wrap.insertBefore(sel, phoneInput);
+          }
         }
 
         // Infer selection from saved dial/phone if available.
@@ -760,7 +771,9 @@ export default function handler(req, res) {
           phoneInp.required = true;
         } catch (e) {}
 
-        ensureCountrySelect(phoneInp, g, authenticated);
+        // Passar se tem phone salvo para decidir se trava
+        var hasPhoneSaved = !!(phone && phone.trim());
+        ensureCountrySelect(phoneInp, g, authenticated && hasPhoneSaved);
 
         if (phone && !phoneInp.value) {
           phoneInp.value = phone;
@@ -768,7 +781,8 @@ export default function handler(req, res) {
           phoneInp.dispatchEvent(new Event("change", { bubbles: true }));
         }
 
-        if (authenticated) {
+        // SÓ travar se autenticado E tiver telefone salvo
+        if (authenticated && hasPhoneSaved) {
           lockInput(phoneInp);
           addHintAfter(phoneInp, 'Para alterar seu telefone, use o <a href="/guest-area/#/perfil" target="_blank" rel="noopener noreferrer">Meu Perfil</a>.');
         }
