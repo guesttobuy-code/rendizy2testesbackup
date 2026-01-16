@@ -2376,11 +2376,43 @@ clientSites.post("/api/:subdomain/auth/guest/google", async (c: Context) => {
     const supabase = getSupabaseAdminClient();
 
     // Buscar site pelo subdomain
-    const { data: site, error: siteError } = await supabase
+    let { data: site, error: siteError } = await supabase
       .from("client_sites")
       .select("organization_id")
       .eq("subdomain", subdomain)
       .maybeSingle();
+
+    // Fallback: resolver por slug de organização (normalizado)
+    if (siteError || !site) {
+      const normalizeSlug = (value: string) =>
+        value
+          .toLowerCase()
+          .replace(/^rendizy[_-]?/, "")
+          .replace(/[^a-z0-9]/g, "");
+
+      const normalized = normalizeSlug(subdomain);
+
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id, slug")
+        .not("slug", "is", null);
+
+      const orgMatch = (orgs || []).find((org) =>
+        normalizeSlug(org.slug || "").includes(normalized)
+      );
+
+      if (orgMatch?.id) {
+        const { data: siteByOrg } = await supabase
+          .from("client_sites")
+          .select("organization_id")
+          .eq("organization_id", orgMatch.id)
+          .maybeSingle();
+        if (siteByOrg) {
+          site = siteByOrg;
+          siteError = null;
+        }
+      }
+    }
 
     if (siteError || !site) {
       return c.json(
