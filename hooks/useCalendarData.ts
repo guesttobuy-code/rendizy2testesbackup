@@ -103,7 +103,14 @@ export function useProperties() {
           const title = a.data?.title || a.title || 'Sem título';
           const internalId = a.data?.internalId || a.data?.internal_id || a.internalId || a.internal_id || '';
           const propertyId = a.id || '';
-          const pricing = a.data?.pricing || a.pricing || {};
+          let pricing: any = a.data?.pricing || a.pricing || {};
+          if (typeof pricing === 'string') {
+            try {
+              pricing = JSON.parse(pricing);
+            } catch {
+              pricing = {};
+            }
+          }
 
           const toNumberOrUndefined = (v: unknown): number | undefined => {
             if (v === null || v === undefined) return undefined;
@@ -115,8 +122,14 @@ export function useProperties() {
           const basePriceRaw =
             pricing?.basePrice ??
             pricing?.base_price ??
+            pricing?.dailyRate ??
+            pricing?.daily_rate ??
+            pricing?.preco_base_noite ??
+            pricing?.precoBaseNoite ??
             a.data?.basePrice ??
             a.data?.base_price ??
+            a.data?.dailyRate ??
+            a.data?.daily_rate ??
             a.data?.preco_base_noite ??
             a.data?.precoBaseNoite ??
             a.pricing_base_price ??
