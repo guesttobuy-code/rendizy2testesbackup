@@ -11,7 +11,7 @@ const params = new URLSearchParams(window.location.search);
 const slugParam = params.get('slug') || params.get('subdomain') || '';
 const legacyToken = params.get('t') || '';
 
-// Persistência local para evitar erro de slug ausente (ex: /guest-area/#/login)
+// Persistência local (usada apenas para detectar troca de tenant)
 const storedSlug = (() => {
   try {
     return localStorage.getItem('rendizy_guest_site_slug') || '';
@@ -20,9 +20,14 @@ const storedSlug = (() => {
   }
 })();
 
-const siteSlug = slugParam || storedSlug || '';
+const siteSlug = slugParam || '';
 if (slugParam) {
   try {
+    if (storedSlug && storedSlug !== slugParam) {
+      localStorage.removeItem('rendizy_guest');
+      localStorage.removeItem('rendizy_guest_token');
+      localStorage.removeItem('rendizy_guest_profile');
+    }
     localStorage.setItem('rendizy_guest_site_slug', slugParam);
   } catch {}
 }

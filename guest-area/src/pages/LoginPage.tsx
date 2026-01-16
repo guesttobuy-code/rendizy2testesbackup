@@ -15,7 +15,20 @@ export function LoginPage() {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  const siteSlug = window.GUEST_AREA_CONFIG?.siteSlug || 'Site';
+  const siteSlug = window.GUEST_AREA_CONFIG?.siteSlug || '';
+
+  if (!siteSlug) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Área do Cliente</h1>
+          <p className="text-gray-600">
+            Acesse esta área pelo site da imobiliária para identificar o cliente correto.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">

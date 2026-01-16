@@ -1023,9 +1023,9 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
 
             <div className="space-y-2">
               <Label htmlFor="title">Título (SEO) *</Label>
-              <Input
-                id="title"
-                value={formData.title}
+            <p className="text-xs text-gray-500">
+              Primeiro envio deve ser um ZIP com dist/ (sem Vercel) para gerar o archive_path. Depois disso, o build via Vercel pode ser usado.
+            </p>
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="Título que aparece no Google"
               />
