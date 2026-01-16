@@ -5,6 +5,10 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/client-sites/api/:subdomain/:path*",
+      "destination": "/api/client-sites-proxy"
+    },
+    {
       "source": "/guest-area",
       "destination": "/guest-area/index.html"
     },
