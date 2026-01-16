@@ -201,7 +201,8 @@ export function SettingsManager({
       }
 
       // Evita enviar um objeto parcial (ex.: quando ainda não carregou do backend e estamos em modo "rascunho" local)
-      if (!hasLoadedGlobalSettings || !globalSettings.id || !globalSettings.organization_id) {
+      // ⚠️ `id` pode ser nulo no primeiro save (a linha ainda não existe no banco)
+      if (!hasLoadedGlobalSettings || !globalSettings.organization_id) {
         toast.error('Configurações globais ainda não carregaram; não é possível salvar agora');
         return;
       }

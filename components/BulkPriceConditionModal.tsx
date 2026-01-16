@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Calendar, Percent, TrendingUp, TrendingDown, Home } from 'lucide-react';
+import { Calendar, Percent, TrendingUp, TrendingDown, Home, Edit2 } from 'lucide-react';
 import { Property } from '../App';
+import { DateRangePicker } from './DateRangePicker';
 
 interface BulkPriceConditionModalProps {
   isOpen: boolean;
@@ -19,20 +20,34 @@ interface BulkPriceConditionModalProps {
 export function BulkPriceConditionModal({ isOpen, onClose, startDate, endDate, properties, onSave }: BulkPriceConditionModalProps) {
   const [type, setType] = useState<'increase' | 'decrease'>('decrease');
   const [percentage, setPercentage] = useState('10');
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startDate,
+    to: endDate
+  });
+
+  // Atualizar range quando props mudam
+  useEffect(() => {
+    setDateRange({ from: startDate, to: endDate });
+  }, [startDate, endDate]);
+
+  // Usar datas editadas ou originais
+  const effectiveStartDate = dateRange.from;
+  const effectiveEndDate = dateRange.to;
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
   const getDaysDiff = () => {
-    const diff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const diff = Math.ceil((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     return diff;
   };
 
   const handleSave = () => {
     onSave({
-      startDate,
-      endDate,
+      startDate: effectiveStartDate,
+      endDate: effectiveEndDate,
       type,
       percentage: parseFloat(percentage)
     });
@@ -55,22 +70,45 @@ export function BulkPriceConditionModal({ isOpen, onClose, startDate, endDate, p
         <div className="space-y-6 py-4">
           {/* Período selecionado */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Calendar className="h-4 w-4 text-blue-600" />
-              <span className="text-sm text-blue-900">Período Selecionado</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-blue-900">Período Selecionado</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingDates(!isEditingDates)}
+                className="h-7 px-2 text-blue-700 hover:text-blue-900 hover:bg-blue-100"
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1" />
+                {isEditingDates ? 'Fechar' : 'Editar'}
+              </Button>
             </div>
-            <div className="text-blue-900">
-              <span>{formatDate(startDate)}</span>
-              {getDaysDiff() > 1 && (
-                <>
-                  <span className="mx-2">→</span>
-                  <span>{formatDate(endDate)}</span>
-                </>
-              )}
-            </div>
-            <div className="text-sm text-blue-700 mt-1">
-              {getDaysDiff()} {getDaysDiff() === 1 ? 'dia' : 'dias'}
-            </div>
+            
+            {isEditingDates ? (
+              <div className="mt-3">
+                <DateRangePicker
+                  dateRange={dateRange}
+                  onDateRangeChange={(newRange) => setDateRange(newRange)}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="text-blue-900">
+                  <span>{formatDate(effectiveStartDate)}</span>
+                  {getDaysDiff() > 1 && (
+                    <>
+                      <span className="mx-2">→</span>
+                      <span>{formatDate(effectiveEndDate)}</span>
+                    </>
+                  )}
+                </div>
+                <div className="text-sm text-blue-700 mt-1">
+                  {getDaysDiff()} {getDaysDiff() === 1 ? 'dia' : 'dias'}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Tipo de condição */}

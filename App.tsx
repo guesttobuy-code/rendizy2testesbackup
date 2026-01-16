@@ -2023,6 +2023,25 @@ function App() {
               endDate={restrictionsModal.endDate || new Date()}
               onSave={handleRestrictionsSave}
             />
+
+            {/* QuotationModal - Fazer Cotação */}
+            {quotationModal.open && quotationModal.propertyId && (
+              <QuotationModal
+                isOpen={quotationModal.open}
+                onClose={() => setQuotationModal({ open: false })}
+                property={properties.find(p => p.id === quotationModal.propertyId) || {
+                  id: quotationModal.propertyId,
+                  name: 'Propriedade',
+                  image: '',
+                  type: 'Imóvel',
+                  location: '',
+                  tarifGroup: '',
+                  tags: []
+                }}
+                startDate={quotationModal.startDate || new Date()}
+                endDate={quotationModal.endDate || new Date()}
+              />
+            )}
           </LanguageProvider>
         </ThemeProvider>
       </ErrorBoundary>

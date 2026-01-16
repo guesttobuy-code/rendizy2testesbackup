@@ -3,12 +3,13 @@
  * Modal para editar restrições (sem check-in, sem check-out, fechado) para uma propriedade específica
  * v1.0.1 - Interface atualizada para compatibilidade com App.tsx
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Calendar, Ban, Lock, XCircle, Trash2 } from 'lucide-react';
+import { Calendar, Ban, Lock, XCircle, Trash2, Edit2 } from 'lucide-react';
+import { DateRangePicker } from './DateRangePicker';
 
 interface PropertyRestrictionsModalProps {
   isOpen: boolean;
@@ -34,6 +35,20 @@ export function PropertyRestrictionsModal({
   const [restrictionType, setRestrictionType] = useState<'no-checkin' | 'no-checkout' | 'closed' | null>(
     (currentRestriction as any) || 'no-checkin'
   );
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startDate,
+    to: endDate
+  });
+
+  // Atualizar range quando props mudam
+  useEffect(() => {
+    setDateRange({ from: startDate, to: endDate });
+  }, [startDate, endDate]);
+
+  // Usar datas editadas ou originais
+  const effectiveStartDate = dateRange.from;
+  const effectiveEndDate = dateRange.to;
 
   const formatDate = (date?: Date) => {
     if (!date) return '';
@@ -41,29 +56,28 @@ export function PropertyRestrictionsModal({
   };
 
   const getDaysDiff = () => {
-    if (!startDate || !endDate) return 0;
-    return Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return Math.ceil((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   };
 
   const handleSave = () => {
-    if (!propertyId || !startDate || !endDate) return;
+    if (!propertyId) return;
     
     onSave({
       propertyId,
-      startDate,
-      endDate,
+      startDate: effectiveStartDate,
+      endDate: effectiveEndDate,
       restrictionType
     });
     onClose();
   };
 
   const handleRemove = () => {
-    if (!propertyId || !startDate || !endDate) return;
+    if (!propertyId) return;
     
     onSave({
       propertyId,
-      startDate,
-      endDate,
+      startDate: effectiveStartDate,
+      endDate: effectiveEndDate,
       restrictionType: null
     });
     onClose();
@@ -71,7 +85,7 @@ export function PropertyRestrictionsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Ban className="h-5 w-5 text-red-600" />
@@ -98,22 +112,45 @@ export function PropertyRestrictionsModal({
 
           {/* Período selecionado */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Calendar className="h-4 w-4 text-blue-600" />
-              <span className="text-sm text-blue-900">Período Selecionado</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-blue-900">Período Selecionado</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingDates(!isEditingDates)}
+                className="h-7 px-2 text-blue-700 hover:text-blue-900 hover:bg-blue-100"
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1" />
+                {isEditingDates ? 'Fechar' : 'Editar'}
+              </Button>
             </div>
-            <div className="text-blue-900">
-              <span>{formatDate(startDate)}</span>
-              {getDaysDiff() > 1 && (
-                <>
-                  <span className="mx-2">→</span>
-                  <span>{formatDate(endDate)}</span>
-                </>
-              )}
-            </div>
-            <div className="text-sm text-blue-700 mt-1">
-              📊 Total: {getDaysDiff()} {getDaysDiff() === 1 ? 'dia' : 'dias'} serão afetados
-            </div>
+            
+            {isEditingDates ? (
+              <div className="mt-3">
+                <DateRangePicker
+                  dateRange={dateRange}
+                  onDateRangeChange={(newRange) => setDateRange(newRange)}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="text-blue-900">
+                  <span>{formatDate(effectiveStartDate)}</span>
+                  {getDaysDiff() > 1 && (
+                    <>
+                      <span className="mx-2">→</span>
+                      <span>{formatDate(effectiveEndDate)}</span>
+                    </>
+                  )}
+                </div>
+                <div className="text-sm text-blue-700 mt-1">
+                  📊 Total: {getDaysDiff()} {getDaysDiff() === 1 ? 'dia' : 'dias'} serão afetados
+                </div>
+              </>
+            )}
           </div>
 
           {/* Tipo de restrição */}

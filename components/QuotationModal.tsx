@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Calendar, DollarSign, User, Mail, Copy, Check } from 'lucide-react';
+import { Calendar, DollarSign, User, Mail, Copy, Check, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Property } from '../App';
+import { DateRangePicker } from './DateRangePicker';
 
 interface QuotationModalProps {
   isOpen: boolean;
@@ -31,8 +32,22 @@ export function QuotationModal({
   const [notes, setNotes] = useState('');
   const [paymentOption, setPaymentOption] = useState('full');
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startDate,
+    to: endDate
+  });
 
-  const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  // Atualizar range quando props mudam
+  useEffect(() => {
+    setDateRange({ from: startDate, to: endDate });
+  }, [startDate, endDate]);
+
+  // Usar datas editadas ou originais
+  const effectiveStartDate = dateRange.from;
+  const effectiveEndDate = dateRange.to;
+
+  const nights = Math.ceil((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24));
   
   // Mock price calculation
   const pricePerNight = 415.37;
@@ -75,8 +90,8 @@ export function QuotationModal({
   const handleSendQuotation = () => {
     const quotationData = {
       property,
-      startDate,
-      endDate,
+      startDate: effectiveStartDate,
+      endDate: effectiveEndDate,
       nights,
       totalPrice,
       guest: {
@@ -124,13 +139,33 @@ export function QuotationModal({
                 <div className="text-sm text-gray-600 ml-6">{property.location}</div>
               </div>
               
-              <div className="flex items-center gap-2 text-gray-700">
-                <Calendar className="w-4 h-4" />
-                <span>
-                  {startDate.toLocaleDateString('pt-BR')} → {endDate.toLocaleDateString('pt-BR')}
-                </span>
-                <span className="text-gray-500">({nights} {nights === 1 ? 'noite' : 'noites'})</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {effectiveStartDate.toLocaleDateString('pt-BR')} → {effectiveEndDate.toLocaleDateString('pt-BR')}
+                  </span>
+                  <span className="text-gray-500">({nights} {nights === 1 ? 'noite' : 'noites'})</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingDates(!isEditingDates)}
+                  className="h-7 px-2 text-yellow-700 hover:text-yellow-900 hover:bg-yellow-100"
+                >
+                  <Edit2 className="h-3.5 w-3.5 mr-1" />
+                  {isEditingDates ? 'Fechar' : 'Editar'}
+                </Button>
               </div>
+
+              {isEditingDates && (
+                <div className="mt-3 pt-3 border-t border-yellow-200">
+                  <DateRangePicker
+                    dateRange={dateRange}
+                    onDateRangeChange={(newRange) => setDateRange(newRange)}
+                  />
+                </div>
+              )}
 
               <div className="pt-2 border-t border-yellow-200">
                 <div className="flex items-baseline gap-2">

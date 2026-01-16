@@ -451,6 +451,34 @@ function normalizePricing(d: any, discountPackages?: DiscountPackagesSettings | 
   };
 }
 
+type ListingSettingsRow = {
+  listing_id: string;
+  overrides?: Record<string, unknown> | null;
+  settings?: any;
+};
+
+function extractDefaultMinNights(settings: any): number | null {
+  if (!settings || typeof settings !== "object") return null;
+  const enabled = settings?.minimum_nights?.enabled;
+  if (enabled === false) return null;
+  const raw = settings?.minimum_nights?.default_min_nights;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 1 ? Math.round(n) : null;
+}
+
+function resolveMinNightsFromSettings(
+  globalSettings: any | null,
+  listingSettings?: ListingSettingsRow | null
+): number | null {
+  const globalMin = extractDefaultMinNights(globalSettings);
+  const hasOverride = !!listingSettings?.overrides && !!(listingSettings.overrides as any)?.minimum_nights;
+  if (hasOverride) {
+    const listingMin = extractDefaultMinNights(listingSettings?.settings);
+    return listingMin ?? globalMin ?? null;
+  }
+  return globalMin ?? null;
+}
+
 function normalizeAnuncioPhotos(d: any): { photos: string[]; coverPhoto: string | null } {
   const roomPhotos: any[] = Array.isArray(d?.rooms)
     ? (d.rooms as any[]).flatMap((r) => (Array.isArray(r?.photos) ? r.photos : []))
@@ -744,6 +772,22 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
 
     const orgDiscountPackages = await getOrgDiscountPackages(supabase, organizationId);
 
+    const [{ data: orgSettingsRow }, { data: listingSettingsRows }] = await Promise.all([
+      supabase
+        .from("organization_settings")
+        .select("settings")
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      supabase
+        .from("listing_settings")
+        .select("listing_id, overrides, settings")
+        .eq("organization_id", organizationId),
+    ]);
+
+    const listingSettingsById = new Map<string, ListingSettingsRow>(
+      (listingSettingsRows as ListingSettingsRow[] | null | undefined || []).map((row) => [row.listing_id, row])
+    );
+
     // NOTA: Tabela `properties` foi depreciada. Usar apenas `properties` como fonte de dados.
     const { data: anuncios, error: anunciosError } = await supabase
       .from("properties")
@@ -769,6 +813,11 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
       );
       const effectivePackages = resolveDiscountPackagesSettings(orgDiscountPackages, override);
       const pricing = normalizePricing(d, effectivePackages);
+      const listingSettings = listingSettingsById.get(row.id as string) || null;
+      const settingsMinNights = resolveMinNightsFromSettings(orgSettingsRow?.settings ?? null, listingSettings);
+      if (settingsMinNights !== null) {
+        pricing.minNights = settingsMinNights;
+      }
       const derivedMaxGuests = computeMaxGuestsFromAnuncioData(d);
       const explicitMaxGuests = numberOrZero(d.guests ?? d.maxGuests ?? d.max_guests ?? d.hospedes ?? 0);
       const maxGuests = Math.max(explicitMaxGuests, derivedMaxGuests);
@@ -1195,6 +1244,28 @@ clientSites.get("/api/:subdomain/calendar", async (c: Context) => {
     const propData = propRow.data || {};
     // Use normalizePricing to get real values from anuncio
     const pricing = normalizePricing(propData);
+
+    const [{ data: orgSettingsRow }, { data: listingSettingsRow }] = await Promise.all([
+      supabase
+        .from("organization_settings")
+        .select("settings")
+        .eq("organization_id", orgId)
+        .maybeSingle(),
+      supabase
+        .from("listing_settings")
+        .select("listing_id, overrides, settings")
+        .eq("organization_id", orgId)
+        .eq("listing_id", propertyId)
+        .maybeSingle(),
+    ]);
+
+    const settingsMinNights = resolveMinNightsFromSettings(
+      orgSettingsRow?.settings ?? null,
+      (listingSettingsRow as ListingSettingsRow | null) ?? null
+    );
+    if (settingsMinNights !== null) {
+      pricing.minNights = settingsMinNights;
+    }
     const baseDailyRate = pricing.dailyRate;
     const defaultMinNights = pricing.minNights;
 
@@ -1356,6 +1427,28 @@ clientSites.post("/api/:subdomain/calculate-price", async (c: Context) => {
 
     const d = (anuncio as any)?.data || {};
     const pricing = normalizePricing(d);
+
+    const [{ data: orgSettingsRow }, { data: listingSettingsRow }] = await Promise.all([
+      supabase
+        .from("organization_settings")
+        .select("settings")
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      supabase
+        .from("listing_settings")
+        .select("listing_id, overrides, settings")
+        .eq("organization_id", organizationId)
+        .eq("listing_id", propertyId)
+        .maybeSingle(),
+    ]);
+
+    const settingsMinNights = resolveMinNightsFromSettings(
+      orgSettingsRow?.settings ?? null,
+      (listingSettingsRow as ListingSettingsRow | null) ?? null
+    );
+    if (settingsMinNights !== null) {
+      pricing.minNights = settingsMinNights;
+    }
 
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -1522,6 +1615,28 @@ clientSites.post("/api/:subdomain/reservations", async (c: Context) => {
         serviceFee: p.serviceFee,
         minNights: p.minNights,
       };
+
+      const [{ data: orgSettingsRow }, { data: listingSettingsRow }] = await Promise.all([
+        supabase
+          .from("organization_settings")
+          .select("settings")
+          .eq("organization_id", organizationId)
+          .maybeSingle(),
+        supabase
+          .from("listing_settings")
+          .select("listing_id, overrides, settings")
+          .eq("organization_id", organizationId)
+          .eq("listing_id", propertyId)
+          .maybeSingle(),
+      ]);
+
+      const settingsMinNights = resolveMinNightsFromSettings(
+        orgSettingsRow?.settings ?? null,
+        (listingSettingsRow as ListingSettingsRow | null) ?? null
+      );
+      if (settingsMinNights !== null) {
+        pricing.minNights = settingsMinNights;
+      }
     }
 
     if (!propertyExists) {

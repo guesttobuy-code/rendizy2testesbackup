@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Checkbox } from './ui/checkbox';
-import { Calendar, Clock, AlertCircle, Info, Target, Lock } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, Info, Target, Lock, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { calendarApi } from '../utils/api';
+import { DateRangePicker } from './DateRangePicker';
 
 interface BlockModalProps {
   isOpen: boolean;
@@ -37,16 +38,30 @@ export function BlockModal({
   const [espera, setEspera] = useState(false);
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startDate,
+    to: endDate
+  });
 
-  const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  // Atualizar range quando props mudam
+  useEffect(() => {
+    setDateRange({ from: startDate, to: endDate });
+  }, [startDate, endDate]);
+
+  // Usar datas editadas ou originais
+  const effectiveStartDate = dateRange.from;
+  const effectiveEndDate = dateRange.to;
+
+  const nights = Math.ceil((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24));
 
   const handleSave = async () => {
     setSaving(true);
     
     try {
       // Formatar datas para ISO string
-      const checkInISO = startDate.toISOString().split('T')[0];
-      const checkOutISO = endDate.toISOString().split('T')[0];
+      const checkInISO = effectiveStartDate.toISOString().split('T')[0];
+      const checkOutISO = effectiveEndDate.toISOString().split('T')[0];
       
       // Determinar razão baseada no subtipo
       let reason = 'Bloqueio';
@@ -153,13 +168,33 @@ export function BlockModal({
                 <span className="font-medium">Propriedade:</span>
                 <span>{propertyName}</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-700">
-                <Calendar className="w-4 h-4" />
-                <span>
-                  {startDate.toLocaleDateString('pt-BR')} → {endDate.toLocaleDateString('pt-BR')}
-                </span>
-                <span className="text-gray-500">({nights} {nights === 1 ? 'noite' : 'noites'})</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {effectiveStartDate.toLocaleDateString('pt-BR')} → {effectiveEndDate.toLocaleDateString('pt-BR')}
+                  </span>
+                  <span className="text-gray-500">({nights} {nights === 1 ? 'noite' : 'noites'})</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingDates(!isEditingDates)}
+                  className="h-7 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                >
+                  <Edit2 className="h-3.5 w-3.5 mr-1" />
+                  {isEditingDates ? 'Fechar' : 'Editar'}
+                </Button>
               </div>
+              
+              {isEditingDates && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <DateRangePicker
+                    dateRange={dateRange}
+                    onDateRangeChange={(newRange) => setDateRange(newRange)}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
