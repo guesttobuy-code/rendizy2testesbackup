@@ -2363,6 +2363,17 @@ export default function FormularioAnuncio() {
         // Description
         next.description = input.description;
 
+        // Pricing (base nightly price)
+        if (typeof precoBaseNoite === 'number' && Number.isFinite(precoBaseNoite) && precoBaseNoite > 0) {
+          next.preco_base_noite = precoBaseNoite;
+          const pricing = (typeof next.pricing === 'object' && next.pricing) ? { ...next.pricing } : {};
+          pricing.basePrice = precoBaseNoite;
+          pricing.base_price = precoBaseNoite;
+          pricing.dailyRate = precoBaseNoite;
+          pricing.daily_rate = precoBaseNoite;
+          next.pricing = pricing;
+        }
+
         // Cleanup: remove camelCase duplicates if present
         delete next.locationAmenities;
         delete next.listingAmenities;
