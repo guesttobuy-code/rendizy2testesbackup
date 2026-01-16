@@ -9,6 +9,19 @@
 const SUPABASE_PROJECT_REF = "odcgnzfremrqnvtitpcc";
 
 export default async function handler(request) {
+  // Handle CORS preflight
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+
   // Get the path from the URL
   const url = new URL(request.url);
   const path = url.pathname;
