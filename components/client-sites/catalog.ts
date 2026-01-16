@@ -49,7 +49,7 @@ export const CATALOG_VERSION = 'v6.0' as const;
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-15T17:45:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-15T21:00:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -220,6 +220,7 @@ async function getSiteConfig({ projectRef, subdomain }: { projectRef: string; su
   pricing: {
     // Preço canônico para diária (temporada). O front não deve recalcular nem buscar em campos internos.
     // ⚠️ IMPORTANTE: dailyRate pode ser 0 em alguns casos. SEMPRE use fallback: dailyRate || basePrice
+    // weeklyRate/monthlyRate podem ser derivados de discount_packages (global/override) quando não há valores explícitos no anúncio.
     dailyRate: number;
     basePrice: number;
     weeklyRate: number;

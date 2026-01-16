@@ -44,18 +44,15 @@ Arquivos com tag:
 
 Estado atual:
 - Os descontos por pacote global/override foram aplicados ao calendário admin.
-- O endpoint público (rendizy-public) ainda calcula weeklyRate/monthlyRate a partir de campos diretos do anúncio (preco_semanal/preco_mensal ou base diária x multiplicador).
-- Não há alteração automática na API pública nem no catálogo público, apenas UI interna do calendário admin.
+- O endpoint público (rendizy-public) calcula weeklyRate/monthlyRate usando discount_packages (global/override) quando o anúncio não define valores explícitos.
+- Catálogo público documenta o cálculo atualizado.
 
 Impacto no site do cliente:
 - A exibição de “Semanal/Mensal” do site depende de weeklyRate/monthlyRate do endpoint público.
 - Como esses valores ainda não são derivados dos pacotes de desconto globais, o site não reflete automaticamente o default global.
 
 Recomendação futura (não aplicada aqui):
-- Atualizar rendizy-public para calcular weeklyRate/monthlyRate a partir de:
-  1) base_price por dia (calendar_pricing_rules) quando houver;
-  2) fallback em preco_base_noite/pricing.basePrice;
-  3) aplicar discount_packages (global ou override) por regra de noites.
+- Considerar base_price por dia (calendar_pricing_rules) para compor weekly/monthly por período.
 
 ## Arquivos principais alterados
 

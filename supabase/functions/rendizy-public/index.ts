@@ -58,6 +58,29 @@ type PropertyRow = {
   updated_at: string;
 };
 
+type DiscountPackagePreset = "weekly" | "monthly" | "custom";
+
+type DiscountPackageRule = {
+  id: string;
+  preset: DiscountPackagePreset;
+  min_nights: number;
+  discount_percent: number;
+};
+
+type DiscountPackagesSettings = {
+  rules: DiscountPackageRule[];
+};
+
+const DEFAULT_DISCOUNT_PACKAGES_SETTINGS: DiscountPackagesSettings = {
+  rules: [
+    { id: "weekly", preset: "weekly", min_nights: 7, discount_percent: 2 },
+    { id: "custom_15", preset: "custom", min_nights: 15, discount_percent: 4 },
+    { id: "monthly", preset: "monthly", min_nights: 28, discount_percent: 12 },
+  ],
+};
+
+const orgDiscountPackagesCache = new Map<string, DiscountPackagesSettings>();
+
 const PUBLIC_CORS_HEADERS: Record<string, string> = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, OPTIONS",
@@ -124,6 +147,141 @@ function contentTypeForPath(path: string): string {
   if (base === "text/html") return "text/html; charset=utf-8";
   if (base === "application/json") return "application/json; charset=utf-8";
   return base;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function coercePreset(v: unknown): DiscountPackagePreset | null {
+  if (v === "weekly" || v === "monthly" || v === "custom") return v;
+  return null;
+}
+
+function clampDiscountPercent(v: number): number {
+  if (!Number.isFinite(v) || v < 0) return 0;
+  if (v > 100) return 100;
+  return v;
+}
+
+function normalizeDiscountPackagesSettings(input: unknown): DiscountPackagesSettings {
+  const obj = isRecord(input) ? input : {};
+  const rulesRaw = Array.isArray(obj.rules) ? obj.rules : [];
+
+  const byPreset: Partial<Record<"weekly" | "monthly", DiscountPackageRule>> = {};
+  const customs: DiscountPackageRule[] = [];
+
+  for (const r of rulesRaw) {
+    if (!isRecord(r)) continue;
+    const preset = coercePreset(r.preset);
+    if (!preset) continue;
+
+    const id = typeof r.id === "string" && r.id.trim() ? r.id.trim() : crypto.randomUUID();
+    const rawMin = Number(r.min_nights);
+    const min_nights = preset === "weekly"
+      ? 7
+      : preset === "monthly"
+        ? 28
+        : Number.isFinite(rawMin) && rawMin > 0
+          ? Math.max(1, Math.round(rawMin))
+          : 1;
+
+    const discount_percent = clampDiscountPercent(Number(r.discount_percent));
+
+    const rule: DiscountPackageRule = { id, preset, min_nights, discount_percent };
+
+    if (preset === "weekly" || preset === "monthly") {
+      if (!byPreset[preset]) byPreset[preset] = rule;
+      continue;
+    }
+
+    customs.push(rule);
+  }
+
+  const weekly = byPreset.weekly ?? DEFAULT_DISCOUNT_PACKAGES_SETTINGS.rules.find((x) => x.preset === "weekly")!;
+  const monthly = byPreset.monthly ?? DEFAULT_DISCOUNT_PACKAGES_SETTINGS.rules.find((x) => x.preset === "monthly")!;
+
+  customs.sort((a, b) => a.min_nights - b.min_nights);
+
+  return {
+    rules: [weekly, ...customs, monthly],
+  };
+}
+
+function parseDiscountPackagesOverride(raw: unknown): DiscountPackagesSettings | null {
+  if (!raw) return null;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== "object") return null;
+    const settings = normalizeDiscountPackagesSettings(parsed);
+    return settings.rules.length > 0 ? settings : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveDiscountPackagesSettings(
+  orgSettings: DiscountPackagesSettings,
+  override: DiscountPackagesSettings | null
+): DiscountPackagesSettings {
+  if (override && Array.isArray(override.rules) && override.rules.length > 0) {
+    return normalizeDiscountPackagesSettings(override);
+  }
+  return normalizeDiscountPackagesSettings(orgSettings);
+}
+
+function getDiscountRule(settings: DiscountPackagesSettings | null, preset: DiscountPackagePreset, minNightsFallback: number) {
+  if (!settings) return null;
+  const byPreset = settings.rules.find((r) => r.preset === preset);
+  if (byPreset) return byPreset;
+  const byMinNights = settings.rules.find((r) => r.min_nights === minNightsFallback);
+  return byMinNights || null;
+}
+
+function applyDiscount(baseDaily: number, nights: number, discountPercent: number): number {
+  const pct = clampDiscountPercent(discountPercent);
+  const total = baseDaily * nights * (1 - pct / 100);
+  return Number.isFinite(total) ? Math.max(0, total) : 0;
+}
+
+function computePackageRate(
+  baseDaily: number,
+  settings: DiscountPackagesSettings | null,
+  preset: DiscountPackagePreset,
+  nights: number
+): number {
+  const rule = getDiscountRule(settings, preset, nights);
+  if (!rule) return baseDaily * nights;
+  return applyDiscount(baseDaily, nights, rule.discount_percent);
+}
+
+async function getOrgDiscountPackages(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  organizationId: string
+): Promise<DiscountPackagesSettings> {
+  if (orgDiscountPackagesCache.has(organizationId)) {
+    return orgDiscountPackagesCache.get(organizationId)!;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("organizations")
+      .select("metadata")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+
+    const metadata = isRecord(data) && isRecord(data.metadata) ? data.metadata : null;
+    const settingsRaw = metadata && isRecord(metadata.discount_packages) ? metadata.discount_packages : DEFAULT_DISCOUNT_PACKAGES_SETTINGS;
+    const settings = normalizeDiscountPackagesSettings(settingsRaw);
+    orgDiscountPackagesCache.set(organizationId, settings);
+    return settings;
+  } catch {
+    const fallback = normalizeDiscountPackagesSettings(DEFAULT_DISCOUNT_PACKAGES_SETTINGS);
+    orgDiscountPackagesCache.set(organizationId, fallback);
+    return fallback;
+  }
 }
 
 function numberOrZero(v: unknown): number {
@@ -215,7 +373,8 @@ function normalizePublicTitle(d: any): string | null {
   return null;
 }
 
-function normalizePricing(d: any): {
+// 🔒 RENDIZY_STABLE_TAG v1.0.103.601 (2026-01-15): weekly/monthly via discount_packages
+function normalizePricing(d: any, discountPackages?: DiscountPackagesSettings | null): {
   basePrice: number;
   dailyRate: number;
   weeklyRate: number;
@@ -255,20 +414,35 @@ function normalizePricing(d: any): {
   ));
 
   // Preços semanais/mensais reais se definidos, senão calcula
-  const weeklyRate = numberOrZero(
+  const weeklyRateRaw = numberOrZero(
     d?.preco_semanal ?? d?.precoSemanal ?? d?.weeklyRate ?? d?.weekly_rate ?? 0
-  ) || daily * 7;
-  const monthlyRate = numberOrZero(
+  );
+  const monthlyRateRaw = numberOrZero(
     d?.preco_mensal ?? d?.precoMensal ?? d?.monthlyRate ?? d?.monthly_rate ?? 0
-  ) || daily * 30;
+  );
+
+  const normalizedPackages = discountPackages
+    ? normalizeDiscountPackagesSettings(discountPackages)
+    : null;
+
+  const computedWeekly = normalizedPackages
+    ? computePackageRate(daily, normalizedPackages, "weekly", 7)
+    : daily * 7;
+
+  const computedMonthly = normalizedPackages
+    ? computePackageRate(daily, normalizedPackages, "monthly", 28)
+    : daily * 30;
+
+  const weeklyRate = weeklyRateRaw > 0 ? weeklyRateRaw : computedWeekly;
+  const monthlyRate = monthlyRateRaw > 0 ? monthlyRateRaw : computedMonthly;
 
   // Contract strategy (scalable): always return daily/weekly/monthly even if 0.
   // This avoids UI NaN issues across client sites while we evolve upstream pricing.
   return {
     basePrice: daily,
     dailyRate: daily,
-    weeklyRate,
-    monthlyRate,
+    weeklyRate: Number.isFinite(weeklyRate) ? weeklyRate : 0,
+    monthlyRate: Number.isFinite(monthlyRate) ? monthlyRate : 0,
     currency: d?.pricing?.currency || d?.currency || d?.moeda || "BRL",
     cleaningFee,
     serviceFee,
@@ -535,6 +709,8 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
 
     const organizationId = (sqlSite as { organization_id: string }).organization_id;
 
+    const orgDiscountPackages = await getOrgDiscountPackages(supabase, organizationId);
+
     // NOTA: Tabela `properties` foi depreciada. Usar apenas `properties` como fonte de dados.
     const { data: anuncios, error: anunciosError } = await supabase
       .from("properties")
@@ -555,7 +731,11 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
     const formatted = (anuncios as any[] | null | undefined || []).map((row) => {
       const d = (row as any)?.data || {};
       const { photos, coverPhoto } = normalizeAnuncioPhotos(d);
-      const pricing = normalizePricing(d);
+      const override = parseDiscountPackagesOverride(
+        d?.discount_packages_override ?? d?.discountPackagesOverride ?? null
+      );
+      const effectivePackages = resolveDiscountPackagesSettings(orgDiscountPackages, override);
+      const pricing = normalizePricing(d, effectivePackages);
       const derivedMaxGuests = computeMaxGuestsFromAnuncioData(d);
       const explicitMaxGuests = numberOrZero(d.guests ?? d.maxGuests ?? d.max_guests ?? d.hospedes ?? 0);
       const maxGuests = Math.max(explicitMaxGuests, derivedMaxGuests);

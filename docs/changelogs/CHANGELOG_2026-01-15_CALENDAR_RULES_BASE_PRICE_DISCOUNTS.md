@@ -18,6 +18,10 @@
 - calendar-rules-batch: GET habilitado para leitura e base_price persistido.
 - calendar-rules-batch: upsert com update parcial + insert fallback.
 
+## Site público (rendizy-public)
+
+- weeklyRate/monthlyRate agora usam discount_packages (global/override) quando o anúncio não define valores explícitos.
+
 ## Tags de estabilidade
 
 - RENDIZY_STABLE_TAG v1.0.103.600 em pontos críticos do calendário.

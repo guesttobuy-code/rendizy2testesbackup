@@ -80,5 +80,5 @@ Se o frontend estiver usando `VITE_SUPABASE_ANON_KEY` placeholder ou inválido, 
 ## Precificação e descontos por pacote (site do cliente)
 
 - O site público consome weeklyRate/monthlyRate do endpoint público (rendizy-public).
-- Descontos por pacote global/override são aplicados no calendário admin, mas ainda não recalculam automaticamente weeklyRate/monthlyRate no endpoint público.
-- Para refletir o default global no site do cliente, é necessário evoluir o cálculo no rendizy-public para usar discount_packages + base_price por dia.
+- weeklyRate/monthlyRate são calculados usando discount_packages (global ou override) quando o anúncio não define valores explícitos.
+- Próxima etapa: considerar base_price por dia (calendar_pricing_rules) para compor weekly/monthly por período.

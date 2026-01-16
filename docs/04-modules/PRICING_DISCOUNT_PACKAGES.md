@@ -66,8 +66,8 @@ Referência: implementação em `routes-reservations` (compatibilidade com seman
 ## Impacto no site do cliente (rendizy-public)
 
 Estado atual:
-- O endpoint público ainda calcula weeklyRate/monthlyRate a partir de campos diretos do anúncio.
-- Os descontos por pacote global/override não são consumidos automaticamente pelo site público.
+- O endpoint público calcula weeklyRate/monthlyRate aplicando discount_packages (global ou override) quando o anúncio não define valores explícitos.
+- Se o anúncio definir preco_semanal/preco_mensal, esses valores têm precedência.
 
-Recomendação futura:
-- Calcular weeklyRate/monthlyRate usando discount_packages (global ou override) + base_price por dia quando existir.
+Próximo passo (evolução futura):
+- Considerar base_price por dia (calendar_pricing_rules) para compor weekly/monthly em períodos específicos.
