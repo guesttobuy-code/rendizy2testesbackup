@@ -6,6 +6,11 @@ import { getSupabaseClient } from './kv_store.tsx';
 // ✅ REFATORADO v1.0.103.500 - Helper híbrido para organization_id (UUID)
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL, SUPABASE_PROJECT_REF } from './utils-env.ts';
+import {
+  DEFAULT_SETTINGS,
+  mergeSettings,
+  normalizeSettingsPayload,
+} from './utils-settings.ts';
 
 const app = new Hono();
 
@@ -708,25 +713,51 @@ export async function getOrganizationStats(c: Context) {
   }
 }
 
+const buildOrganizationSettingsResponse = (
+  orgId: string,
+  settingsRow: any | null,
+  whatsappRow: any | null,
+) => {
+  const normalizedSettings = mergeSettings(
+    DEFAULT_SETTINGS,
+    settingsRow?.settings ?? null
+  );
+
+  return {
+    id: settingsRow?.id ?? null,
+    organization_id: orgId,
+    ...normalizedSettings,
+    whatsapp: {
+      enabled: whatsappRow?.whatsapp_enabled ?? false,
+      api_url: whatsappRow?.whatsapp_api_url ?? "",
+      instance_name: whatsappRow?.whatsapp_instance_name ?? "",
+    },
+    created_at: settingsRow?.created_at ?? null,
+    updated_at: settingsRow?.updated_at ?? null,
+  };
+};
+
 // GET /organizations/:id/settings/global - Obter configurações globais
 export async function getOrganizationSettings(c: Context) {
   // ✅ REFATORADO v1.0.103.500 - Usar helper híbrido ao invés de ensureOrganizationId
   const orgId = await getOrganizationIdOrThrow(c);
   const client = getSupabaseClient();
 
-  const { data } = await client
-    .from("organization_channel_config")
-    .select("*")
-    .eq("organization_id", orgId)
-    .maybeSingle();
+  const [{ data: settingsRow }, { data: whatsappRow }] = await Promise.all([
+    client
+      .from("organization_settings")
+      .select("id, settings, created_at, updated_at")
+      .eq("organization_id", orgId)
+      .maybeSingle(),
+    client
+      .from("organization_channel_config")
+      .select("whatsapp_enabled, whatsapp_api_url, whatsapp_instance_name")
+      .eq("organization_id", orgId)
+      .maybeSingle(),
+  ]);
 
   return c.json(
-    successResponse(
-      data ?? {
-        organization_id: orgId,
-        whatsapp_enabled: false
-      }
-    )
+    successResponse(buildOrganizationSettingsResponse(orgId, settingsRow ?? null, whatsappRow ?? null))
   );
 }
 
@@ -737,22 +768,38 @@ export async function updateOrganizationSettings(c: Context) {
   const orgId = await getOrganizationIdOrThrow(c);
   const body = await c.req.json();
 
-  const dbData = {
+  const normalizedSettings = normalizeSettingsPayload(body);
+  const { data: settingsRow, error: settingsError } = await safeUpsert(
+    client,
+    "organization_settings",
+    {
+      organization_id: orgId,
+      settings: normalizedSettings,
+    },
+    { onConflict: "organization_id" },
+    "id, organization_id, settings, created_at, updated_at"
+  );
+
+  if (settingsError) return c.json(errorResponse(settingsError.message), 500);
+
+  const whatsappData = {
     organization_id: orgId,
-    whatsapp_enabled: body.whatsapp?.enabled ?? false,
-    whatsapp_api_url: body.whatsapp?.api_url ?? "",
-    whatsapp_instance_name: body.whatsapp?.instance_name ?? "",
+    whatsapp_enabled: body?.whatsapp?.enabled ?? false,
+    whatsapp_api_url: body?.whatsapp?.api_url ?? "",
+    whatsapp_instance_name: body?.whatsapp?.instance_name ?? "",
   };
 
-  const { data, error } = await safeUpsert(
+  const { data: whatsappRow, error: whatsappError } = await safeUpsert(
     client,
     "organization_channel_config",
-    dbData,
+    whatsappData,
     { onConflict: "organization_id" },
     "organization_id, whatsapp_enabled, whatsapp_api_url, whatsapp_instance_name"
   );
 
-  if (error) return c.json(errorResponse(error.message), 500);
+  if (whatsappError) return c.json(errorResponse(whatsappError.message), 500);
 
-  return c.json(successResponse(data));
+  return c.json(
+    successResponse(buildOrganizationSettingsResponse(orgId, settingsRow ?? null, whatsappRow ?? null))
+  );
 }

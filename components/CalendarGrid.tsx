@@ -445,6 +445,10 @@ export function Calendar({
   // 🔒 RENDIZY_STABLE_TAG v1.0.103.600 (2026-01-15): default org packages + per-day base_price
   const [discountPackages, setDiscountPackages] = useState<DiscountPackagesSettings>(DEFAULT_DISCOUNT_PACKAGES_SETTINGS);
 
+  // Global min nights default + per-listing override
+  const [globalMinNightsDefault, setGlobalMinNightsDefault] = useState<number>(1);
+  const [listingMinNightsOverrides, setListingMinNightsOverrides] = useState<Map<string, number>>(new Map());
+
   // Organization ID para regras de calendário
   const [organizationId, setOrganizationId] = useState<string | null>(null);
 
@@ -587,9 +591,37 @@ export function Calendar({
         const url = `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${orgId}/discount-packages`;
         const resp = await fetch(url, { headers: getFunctionHeaders() });
         const data = await resp.json();
-        if (!resp.ok || !data?.success) return;
+        if (resp.ok && data?.success) {
+          setDiscountPackages((data.settings ?? DEFAULT_DISCOUNT_PACKAGES_SETTINGS) as DiscountPackagesSettings);
+        }
 
-        setDiscountPackages((data.settings ?? DEFAULT_DISCOUNT_PACKAGES_SETTINGS) as DiscountPackagesSettings);
+        // Global min nights default
+        const settingsUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${orgId}/settings/global`;
+        const settingsResp = await fetch(settingsUrl, { headers: getFunctionHeaders() });
+        const settingsData = await settingsResp.json().catch(() => null);
+        const minSettings = settingsData?.data?.minimum_nights;
+        const minEnabled = typeof minSettings?.enabled === 'boolean' ? minSettings.enabled : true;
+        const defaultMin = Number(minSettings?.default_min_nights ?? 1);
+        setGlobalMinNightsDefault(minEnabled ? Math.max(1, Math.round(defaultMin)) : 1);
+
+        // Listing overrides (per anúncio)
+        const listingUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/organizations/${orgId}/settings/listings`;
+        const listingResp = await fetch(listingUrl, { headers: getFunctionHeaders() });
+        const listingData = await listingResp.json().catch(() => null);
+        if (listingResp.ok && listingData?.success && Array.isArray(listingData?.data?.items)) {
+          const map = new Map<string, number>();
+          for (const item of listingData.data.items) {
+            const overrides = item?.overrides || {};
+            if (!overrides?.minimum_nights) continue;
+            const listingMin = Number(item?.settings?.minimum_nights?.default_min_nights ?? item?.minimum_nights?.default_min_nights ?? 0);
+            if (Number.isFinite(listingMin) && listingMin >= 1 && item?.listing_id) {
+              map.set(String(item.listing_id), Math.round(listingMin));
+            }
+          }
+          setListingMinNightsOverrides(map);
+        } else {
+          setListingMinNightsOverrides(new Map());
+        }
       } catch {
         // silent: calendar should remain usable
       }
@@ -597,6 +629,15 @@ export function Calendar({
 
     loadDiscountPackages();
   }, []);
+
+  const getDefaultMinNightsForProperty = useCallback(
+    (propertyId: string) => {
+      const override = listingMinNightsOverrides.get(String(propertyId));
+      if (Number.isFinite(override)) return Math.max(1, Number(override));
+      return Math.max(1, Number(globalMinNightsDefault || 1));
+    },
+    [listingMinNightsOverrides, globalMinNightsDefault]
+  );
 
   const togglePropertyExpansion = (propertyId: string) => {
     setExpandedProperties(prev => {
@@ -1074,6 +1115,7 @@ export function Calendar({
                 handleGlobalMinNightsMouseEnter={handleGlobalMinNightsMouseEnter}
                 handleGlobalMinNightsMouseUp={handleGlobalMinNightsMouseUp}
                 getGlobalRuleForDate={(date) => getRuleForDate(null, date, false)}
+                globalMinNightsDefault={globalMinNightsDefault}
               />
 
               {/* Anúncios - Imóveis Section Header */}
@@ -1486,8 +1528,9 @@ export function Calendar({
                             const isSelected = isDateInMinNightsSelection(property.id, day);
                             // Buscar regra do banco para esta data
                             const rule = getRuleForDate(property.id, day, false);
-                            const minNights = rule?.min_nights ?? 1;
-                            const hasCustomMinNights = minNights > 1;
+                            const fallbackMinNights = getDefaultMinNightsForProperty(property.id);
+                            const minNights = rule?.min_nights ?? fallbackMinNights;
+                            const hasCustomMinNights = typeof rule?.min_nights === 'number';
                             return (
                               <td
                                 key={idx}

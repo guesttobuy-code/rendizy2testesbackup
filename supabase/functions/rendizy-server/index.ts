@@ -50,6 +50,7 @@ import * as staysnetRoutes from "./routes-staysnet.ts";
 import * as staysnetWebhooksRoutes from "./routes-staysnet-webhooks.ts";
 import * as staysnetImportModalRoutes from "./routes-staysnet-import-modal.ts";
 import * as dataReconciliationRoutes from "./routes-data-reconciliation.ts";
+import * as listingSettingsRoutes from "./routes-listing-settings.ts";
 import { tenancyMiddleware, isSuperAdmin } from "./utils-tenancy.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
 import { importStaysNetRPC } from "./import-staysnet-RPC.ts"; // ✅ Adicionado 23/12/2025
@@ -274,6 +275,33 @@ app.get("/rendizy-server/make-server-67caf26a/organizations/:id/stats", tenancyM
 app.get("/rendizy-server/organizations/:id/settings/global", tenancyMiddleware, organizationsRoutes.getOrganizationSettings);
 app.put("/rendizy-server/organizations/:id/settings/global", tenancyMiddleware, organizationsRoutes.updateOrganizationSettings);
 
+// Settings por anúncio/listing (override individual)
+app.get(
+  "/rendizy-server/organizations/:id/settings/listings",
+  tenancyMiddleware,
+  listingSettingsRoutes.listOrganizationListingSettings
+);
+app.get(
+  "/rendizy-server/listings/:id/settings",
+  tenancyMiddleware,
+  listingSettingsRoutes.getListingSettings
+);
+app.put(
+  "/rendizy-server/listings/:id/settings",
+  tenancyMiddleware,
+  listingSettingsRoutes.updateListingSettings
+);
+app.post(
+  "/rendizy-server/listings/:id/settings/toggle-override",
+  tenancyMiddleware,
+  listingSettingsRoutes.toggleListingOverride
+);
+app.post(
+  "/rendizy-server/listings/:id/settings/reset",
+  tenancyMiddleware,
+  listingSettingsRoutes.resetListingSettings
+);
+
 // Alias sem prefixo /rendizy-server (compat)
 app.get("/organizations", tenancyMiddleware, async (c) => {
   const forbidden = ensureSuperAdmin(c);
@@ -312,6 +340,33 @@ app.get("/organizations/:id/stats", tenancyMiddleware, async (c) => {
 });
 app.get("/organizations/:id/settings/global", tenancyMiddleware, organizationsRoutes.getOrganizationSettings);
 app.put("/organizations/:id/settings/global", tenancyMiddleware, organizationsRoutes.updateOrganizationSettings);
+
+// Alias sem prefixo para settings de listings
+app.get(
+  "/organizations/:id/settings/listings",
+  tenancyMiddleware,
+  listingSettingsRoutes.listOrganizationListingSettings
+);
+app.get(
+  "/listings/:id/settings",
+  tenancyMiddleware,
+  listingSettingsRoutes.getListingSettings
+);
+app.put(
+  "/listings/:id/settings",
+  tenancyMiddleware,
+  listingSettingsRoutes.updateListingSettings
+);
+app.post(
+  "/listings/:id/settings/toggle-override",
+  tenancyMiddleware,
+  listingSettingsRoutes.toggleListingOverride
+);
+app.post(
+  "/listings/:id/settings/reset",
+  tenancyMiddleware,
+  listingSettingsRoutes.resetListingSettings
+);
 
 // Compat extra make-server (settings globais)
 app.get(

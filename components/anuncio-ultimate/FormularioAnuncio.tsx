@@ -27,7 +27,7 @@
  * ============================================================================
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Check, MapPin, Car, Wifi, Building, ImageIcon, Plus, Trash2, X, Eye, Star, Search, ChevronDown, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -479,6 +479,12 @@ export default function FormularioAnuncio() {
   // @MODALIDADE: [TEMPORADA] - Override de descontos por pacote de dias (por anúncio)
   const [useDiscountPackagesOverride, setUseDiscountPackagesOverride] = useState(false);
   const [discountPackagesOverride, setDiscountPackagesOverride] = useState<DiscountPackagesSettings>(DEFAULT_DISCOUNT_PACKAGES_SETTINGS);
+
+  // @MODALIDADE: [TEMPORADA] - Mínimo de noites (override por anúncio)
+  const [useMinNightsOverride, setUseMinNightsOverride] = useState(false);
+  const [minNightsOverride, setMinNightsOverride] = useState(1);
+  const [globalMinNightsDefault, setGlobalMinNightsDefault] = useState<number | null>(null);
+  const [minNightsLoading, setMinNightsLoading] = useState(false);
   
   // @MODALIDADE: [TEMPORADA] - Array de períodos sazonais (alta/baixa)
   const [periodosSazonais, setPeriodosSazonais] = useState<any[]>([]);
@@ -889,6 +895,57 @@ export default function FormularioAnuncio() {
       cancelled = true;
     };
   }, [organizationId, anuncioId]);
+
+  const loadMinNightsSettings = useCallback(async () => {
+    if (!organizationId || !anuncioId) return;
+
+    setMinNightsLoading(true);
+    try {
+      const token = localStorage.getItem('rendizy-token');
+      const headers = {
+        apikey: ANON_KEY,
+        Authorization: `Bearer ${ANON_KEY}`,
+        'X-Auth-Token': token || '',
+        'Content-Type': 'application/json',
+      };
+
+      const globalResp = await fetch(
+        `${SUPABASE_URL}/functions/v1/rendizy-server/organizations/${organizationId}/settings/global`,
+        { headers }
+      );
+      const globalData = await globalResp.json().catch(() => null);
+      const globalMin = Number(globalData?.data?.minimum_nights?.default_min_nights ?? 1);
+      const globalEnabled = typeof globalData?.data?.minimum_nights?.enabled === 'boolean'
+        ? globalData.data.minimum_nights.enabled
+        : true;
+      const globalDefault = globalEnabled ? Math.max(1, Math.round(globalMin)) : 1;
+      setGlobalMinNightsDefault(globalDefault);
+
+      const listingResp = await fetch(
+        `${SUPABASE_URL}/functions/v1/rendizy-server/listings/${anuncioId}/settings`,
+        { headers }
+      );
+      const listingData = await listingResp.json().catch(() => null);
+      if (listingResp.ok && listingData?.success) {
+        const overrides = listingData?.data?.overrides || {};
+        const enabled = !!overrides?.minimum_nights;
+        const listingMin = Number(listingData?.data?.minimum_nights?.default_min_nights ?? globalDefault);
+        setUseMinNightsOverride(enabled);
+        setMinNightsOverride(Math.max(1, Math.round(listingMin || globalDefault)));
+      } else {
+        setUseMinNightsOverride(false);
+        setMinNightsOverride(globalDefault);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar mínimo de noites:', error);
+    } finally {
+      setMinNightsLoading(false);
+    }
+  }, [organizationId, anuncioId]);
+
+  useEffect(() => {
+    loadMinNightsSettings();
+  }, [loadMinNightsSettings]);
   
   // Funções auxiliares para extrair dados do wizard antigo
   const calculateBedroomsFromRooms = (roomsData: any): number => {
@@ -2136,6 +2193,60 @@ export default function FormularioAnuncio() {
     } catch (error) {
       console.error('❌ Erro ao salvar precificação:', error);
       toast.error('❌ Erro ao salvar precificação');
+      return false;
+    }
+  };
+
+  // ============================================================================
+  // CONFIGURAÇÕES DE RESERVA - MÍNIMO DE NOITES (GLOBAL x INDIVIDUAL)
+  // ============================================================================
+  const saveConfigReservas = async () => {
+    console.log('🛏️ [SAVE] SALVANDO CONFIGURAÇÕES DE RESERVA');
+
+    if (!anuncioId || !organizationId) {
+      toast.error('❌ ID do anúncio ou organização não encontrado');
+      return false;
+    }
+
+    try {
+      const token = localStorage.getItem('rendizy-token');
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/rendizy-server/listings/${anuncioId}/settings`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: ANON_KEY,
+            Authorization: `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
+          },
+          body: JSON.stringify({
+            overrides: {
+              minimum_nights: useMinNightsOverride,
+            },
+            ...(useMinNightsOverride
+              ? {
+                  minimum_nights: {
+                    enabled: true,
+                    default_min_nights: Math.max(1, Math.round(Number(minNightsOverride || 1))),
+                  },
+                }
+              : {}),
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || response.status);
+      }
+
+      toast.success('✅ Configurações de reserva salvas!');
+      loadMinNightsSettings();
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao salvar configurações de reserva:', error);
+      toast.error('❌ Erro ao salvar configurações de reserva');
       return false;
     }
   };
@@ -5193,9 +5304,64 @@ export default function FormularioAnuncio() {
                     Configure regras de reserva, mínima/máxima de noites, etc
                   </p>
                 </div>
-                <div className="text-center py-12 text-slate-400">
-                  <p>🚧 Em desenvolvimento - Campos do wizard serão migrados aqui</p>
-                </div>
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">🛏️ Estadia mínima (mínimo de noites)</h4>
+
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="min-nights-override"
+                        checked={useMinNightsOverride}
+                        onCheckedChange={(checked) => setUseMinNightsOverride(checked as boolean)}
+                      />
+                      <Label htmlFor="min-nights-override" className="cursor-pointer">
+                        Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+
+                    {!useMinNightsOverride ? (
+                      <p className="text-xs text-slate-500">
+                        Usando a configuração global da organização (mínimo padrão: {globalMinNightsDefault ?? 1} noite(s)).
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label className="text-xs">Qual a estadia mínima para uma reserva?</Label>
+                        <div className="mt-1 flex items-stretch max-w-md">
+                          <div className="px-3 flex items-center rounded-l-md border border-border bg-muted text-xs text-muted-foreground">
+                            Min
+                          </div>
+                          <Input
+                            type="number"
+                            value={minNightsOverride}
+                            onChange={(e) => setMinNightsOverride(Math.max(1, parseInt(e.target.value || '1', 10)))}
+                            className="rounded-none border-l-0 border-r-0 bg-input border-border"
+                            min={1}
+                            disabled={minNightsLoading}
+                          />
+                          <div className="px-3 flex items-center rounded-r-md border border-border bg-muted text-xs text-muted-foreground">
+                            noites
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Essa regra afeta reservas futuras e pode impactar disponibilidade.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end gap-3 pt-4">
+                      <Button
+                        type="button"
+                        onClick={saveConfigReservas}
+                        disabled={isSaving}
+                        className="bg-slate-900"
+                      >
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Save className="mr-2 h-4 w-4" />
+                        Salvar Configurações de Reserva
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
 

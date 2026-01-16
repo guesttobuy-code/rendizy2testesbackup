@@ -21,6 +21,7 @@ interface CalendarBulkRulesProps {
   handleGlobalMinNightsMouseUp: () => void;
   // Nova prop para buscar regras globais (batch) do banco
   getGlobalRuleForDate?: (date: Date) => CalendarPricingRule | null;
+  globalMinNightsDefault?: number;
 }
 
 export function CalendarBulkRules({
@@ -40,6 +41,7 @@ export function CalendarBulkRules({
   handleGlobalMinNightsMouseEnter,
   handleGlobalMinNightsMouseUp,
   getGlobalRuleForDate,
+  globalMinNightsDefault = 1,
 }: CalendarBulkRulesProps) {
   return (
     <>
@@ -177,9 +179,9 @@ export function CalendarBulkRules({
               const isSelected = isDateInGlobalMinNightsSelection(day);
               // Buscar regra global do banco
               const rule = getGlobalRuleForDate?.(day);
-              const minNights = rule?.min_nights ?? 1;
-              const hasCustomMinNights = minNights > 1;
-              const displayValue = hasCustomMinNights ? String(minNights) : '—';
+              const minNights = rule?.min_nights ?? globalMinNightsDefault;
+              const hasCustomMinNights = typeof rule?.min_nights === 'number';
+              const displayValue = hasCustomMinNights ? String(minNights) : String(globalMinNightsDefault ?? 1);
               return (
                 <th
                   key={idx}
@@ -190,7 +192,7 @@ export function CalendarBulkRules({
                   onMouseEnter={(e) => handleGlobalMinNightsMouseEnter(day, e)}
                   onMouseUp={handleGlobalMinNightsMouseUp}
                 >
-                  <span className={hasCustomMinNights ? 'text-blue-800 font-medium' : 'text-gray-400'}>{displayValue}</span>
+                  <span className={hasCustomMinNights ? 'text-blue-800 font-medium' : 'text-blue-700'}>{displayValue}</span>
                 </th>
               );
             })}
