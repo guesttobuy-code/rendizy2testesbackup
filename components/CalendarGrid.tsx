@@ -45,9 +45,13 @@ function getFunctionHeaders(): Record<string, string> {
 
 function buildDiscountLabel(rule: DiscountPackageRule): string {
   const nn = String(rule.min_nights ?? 0).padStart(2, '0');
-  if (rule.preset === 'weekly') return `Semanal 07 (R$)`;
-  if (rule.preset === 'monthly') return `Mensal 28 (R$)`;
-  return `Personalizado ${nn} (R$)`;
+  const percentValue = Number(rule.discount_percent ?? 0);
+  const percentLabel = Number.isFinite(percentValue)
+    ? `${percentValue % 1 === 0 ? percentValue.toFixed(0) : percentValue.toFixed(2)}%`
+    : '0%';
+  if (rule.preset === 'weekly') return `Semanal 07d (${percentLabel}) (R$)`;
+  if (rule.preset === 'monthly') return `Mensal 28d (${percentLabel}) (R$)`;
+  return `Personalizado ${nn}d (${percentLabel}) (R$)`;
 }
 
 function discountColorClasses(preset: DiscountPackagePreset): { rowBg: string; stickyBg: string; text: string; iconText: string; hoverBg: string } {

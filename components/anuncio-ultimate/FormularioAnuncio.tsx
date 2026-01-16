@@ -29,7 +29,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Check, MapPin, Car, Wifi, Building, ImageIcon, Plus, Trash2, X, Eye, Star, Search, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Check, MapPin, Car, Wifi, Building, ImageIcon, Plus, Trash2, X, Eye, Star, Search, ChevronDown, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Card, CardContent, CardHeader } from '../ui/card';
@@ -60,6 +60,7 @@ const ANON_KEY = publicAnonKey;
 const SETTINGS_LOCATIONS_LISTINGS_URL = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/settings/locations-listings`;
 const CUSTOM_DESCRIPTION_VALUES_FIELD = 'custom_description_fields_values';
 const DISCOUNT_PACKAGES_OVERRIDE_FIELD = 'discount_packages_override';
+const CLIENT_SITES_BASE_URL = 'https://rendizy2testesbackup.vercel.app/site';
 
 type CustomDescriptionField = {
   id: string;
@@ -225,6 +226,9 @@ export default function FormularioAnuncio() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [anuncioId] = useState<string | null>(id || null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [publicSiteUrl, setPublicSiteUrl] = useState<string | null>(null);
+  const [publicSiteLoading, setPublicSiteLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basico');
   const roomCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   
@@ -623,6 +627,9 @@ export default function FormularioAnuncio() {
       
       const payload = await response.json();
       const row = payload?.anuncio;
+      if (row?.organization_id) {
+        setOrganizationId(String(row.organization_id));
+      }
       if (row?.data) {
         const wizardData = row.data;
         
@@ -803,6 +810,85 @@ export default function FormularioAnuncio() {
       setIsLoading(false);
     }
   };
+
+  const buildPublicSiteUrl = (subdomain: string, anuncioIdValue: string) => {
+    return `${CLIENT_SITES_BASE_URL}/${encodeURIComponent(subdomain)}/#/imovel/${encodeURIComponent(anuncioIdValue)}`;
+  };
+
+  const fetchClientSiteSubdomain = async (orgId: string): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem('rendizy-token');
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/rendizy-server/client-sites?organization_id=${encodeURIComponent(orgId)}`,
+        {
+          headers: {
+            apikey: ANON_KEY,
+            Authorization: `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) return null;
+      const data = await response.json().catch(() => null);
+      const subdomain = data?.data?.subdomain;
+      return typeof subdomain === 'string' && subdomain.trim() ? subdomain.trim() : null;
+    } catch (error) {
+      console.error('❌ Falha ao buscar subdomain do site:', error);
+      return null;
+    }
+  };
+
+  const handleOpenPublicSite = async () => {
+    if (!anuncioId) return;
+
+    if (publicSiteUrl) {
+      window.open(publicSiteUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (!organizationId) {
+      toast.error('Organização do anúncio não encontrada');
+      return;
+    }
+
+    setPublicSiteLoading(true);
+    try {
+      const subdomain = await fetchClientSiteSubdomain(organizationId);
+      if (!subdomain) {
+        toast.error('Site do cliente não encontrado para esta organização');
+        return;
+      }
+      const url = buildPublicSiteUrl(subdomain, anuncioId);
+      setPublicSiteUrl(url);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } finally {
+      setPublicSiteLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!organizationId || !anuncioId) {
+      setPublicSiteUrl(null);
+      return;
+    }
+
+    (async () => {
+      setPublicSiteLoading(true);
+      const subdomain = await fetchClientSiteSubdomain(organizationId);
+      if (!cancelled) {
+        setPublicSiteUrl(subdomain ? buildPublicSiteUrl(subdomain, anuncioId) : null);
+        setPublicSiteLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, anuncioId]);
   
   // Funções auxiliares para extrair dados do wizard antigo
   const calculateBedroomsFromRooms = (roomsData: any): number => {
@@ -2385,6 +2471,23 @@ export default function FormularioAnuncio() {
                   >
                     {formData.internalId?.trim() || formData.title?.trim()}
                   </Badge>
+                ) : null}
+                {id ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenPublicSite}
+                    disabled={publicSiteLoading}
+                    className="h-7 px-2 text-xs gap-1"
+                  >
+                    {publicSiteLoading ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <ExternalLink className="w-3 h-3" />
+                    )}
+                    Veja no site
+                  </Button>
                 ) : null}
               </h1>
               <p className="text-sm text-slate-500">

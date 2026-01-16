@@ -21,6 +21,7 @@ import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
 const ANON_KEY = publicAnonKey;
+const CLIENT_SITES_BASE_URL = 'https://rendizy2testesbackup.vercel.app/site';
 
 interface AnuncioUltimate {
   id: string;
@@ -113,6 +114,7 @@ export const ListaAnuncios = () => {
   const [anuncios, setAnuncios] = useState<AnuncioUltimate[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [siteSubdomains, setSiteSubdomains] = useState<Record<string, string | null>>({});
   const navigate = useNavigate();
 
   const collator = useMemo(
@@ -169,6 +171,80 @@ export const ListaAnuncios = () => {
     }
   };
 
+  const buildPublicSiteUrl = (subdomain: string, anuncioId: string) => {
+    return `${CLIENT_SITES_BASE_URL}/${encodeURIComponent(subdomain)}/#/imovel/${encodeURIComponent(anuncioId)}`;
+  };
+
+  const fetchClientSiteSubdomain = async (orgId: string): Promise<string | null> => {
+    if (siteSubdomains[orgId] !== undefined) {
+      return siteSubdomains[orgId] || null;
+    }
+
+    try {
+      const token = localStorage.getItem('rendizy-token');
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/rendizy-server/client-sites?organization_id=${encodeURIComponent(orgId)}`,
+        {
+          headers: {
+            apikey: ANON_KEY,
+            Authorization: `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': token || '',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        setSiteSubdomains(prev => ({ ...prev, [orgId]: null }));
+        return null;
+      }
+
+      const data = await response.json().catch(() => null);
+      const subdomain = typeof data?.data?.subdomain === 'string' ? data.data.subdomain.trim() : '';
+      const resolved = subdomain ? subdomain : null;
+      setSiteSubdomains(prev => ({ ...prev, [orgId]: resolved }));
+      return resolved;
+    } catch (error) {
+      console.error('❌ Erro ao buscar site do cliente:', error);
+      setSiteSubdomains(prev => ({ ...prev, [orgId]: null }));
+      return null;
+    }
+  };
+
+  const handleViewOnSite = async (anuncio: AnuncioUltimate) => {
+    const orgId = anuncio.organization_id;
+    if (!orgId) {
+      toast.error('Organização do anúncio não encontrada');
+      return;
+    }
+
+    const subdomain = await fetchClientSiteSubdomain(orgId);
+    if (!subdomain) {
+      toast.error('Site do cliente não encontrado para esta organização');
+      return;
+    }
+
+    const url = buildPublicSiteUrl(subdomain, anuncio.id);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  useEffect(() => {
+    const orgIds = Array.from(
+      new Set(
+        (anuncios || [])
+          .map((anuncio) => anuncio.organization_id)
+          .filter((orgId): orgId is string => Boolean(orgId))
+      )
+    );
+
+    const missing = orgIds.filter((orgId) => siteSubdomains[orgId] === undefined);
+    if (missing.length === 0) return;
+
+    missing.forEach((orgId) => {
+      void fetchClientSiteSubdomain(orgId);
+    });
+  }, [anuncios, siteSubdomains]);
+
   const sortedAnuncios = useMemo(() => {
     const keyFor = (a: AnuncioUltimate): string => {
       const raw = getStringValue((a as any)?.data?.title || '').trim();
@@ -195,7 +271,7 @@ export const ListaAnuncios = () => {
   };
 
   const handleView = (anuncio: AnuncioUltimate) => {
-    navigate(`/anuncios-ultimate/${anuncio.id}`);
+    void handleViewOnSite(anuncio);
   };
 
   const handleStatusChange = async (anuncio: AnuncioUltimate, newStatus: 'inactive' | 'draft' | 'active') => {
