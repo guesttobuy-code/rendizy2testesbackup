@@ -2687,12 +2687,44 @@ clientSites.get("/api/:subdomain/reservations/mine", async (c: Context) => {
     // 2. Buscar site e organização
     const supabase = getSupabaseAdminClient();
 
-    const { data: site } = await supabase
+    let { data: site } = await supabase
       .from("client_sites")
       .select("organization_id")
       .eq("subdomain", subdomain)
       .eq("is_active", true)
-      .single();
+      .maybeSingle();
+
+    // Fallback: resolver por slug de organização (normalizado)
+    if (!site) {
+      const normalizeSlug = (value: string) =>
+        value
+          .toLowerCase()
+          .replace(/^rendizy[_-]?/, "")
+          .replace(/[^a-z0-9]/g, "");
+
+      const normalized = normalizeSlug(subdomain);
+
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id, slug")
+        .not("slug", "is", null);
+
+      const orgMatch = (orgs || []).find((org: any) =>
+        normalizeSlug(org.slug || "").includes(normalized)
+      );
+
+      if (orgMatch?.id) {
+        const { data: siteByOrg } = await supabase
+          .from("client_sites")
+          .select("organization_id")
+          .eq("organization_id", orgMatch.id)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (siteByOrg) {
+          site = siteByOrg;
+        }
+      }
+    }
 
     if (!site) {
       return c.json(
