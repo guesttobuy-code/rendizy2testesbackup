@@ -43,12 +43,12 @@
           code: `// Base (Supabase Edge Function):
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v6.4' as const;
+export const CATALOG_VERSION = 'v6.5' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-16T00:20:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-16T06:05:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -290,6 +290,8 @@ function isRangeAvailable(days: CalendarDay[], startDate: Date, endDate: Date): 
       notes: [
         'O site pode ter uma área interna onde o hóspede faz login para ver suas reservas e dados.',
         'O login é feito via Google Sign-In (One Tap ou botão), sem senha.',
+        'NÃO crie páginas locais de login/cadastro. O botão "Entrar" deve redirecionar para a cápsula /guest-area/?slug=SUBDOMAIN.',
+        'Email/senha NÃO são suportados hoje. O fluxo é Google One Tap + cookies HttpOnly via /api/auth/*.',
         'O hóspede fica na tabela guest_users (separada de auth_users do painel).',
         'O site NÃO deve usar @supabase/supabase-js para auth. Use os endpoints REST.',
         '⚠️ IMPORTANTE: Use os endpoints /api/auth/* do Vercel, NÃO os do Supabase diretamente.',
@@ -1067,6 +1069,8 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       '## ⚠️ IMPORTANTE: ARQUITETURA CÁPSULA',
       '',
       'A Área Interna NÃO é código embutido no site!',
+      'NÃO crie rota /login ou /cadastro no site. Sempre redirecione para a cápsula.',
+      'Sempre passe o parâmetro slug na URL da cápsula (multi-tenant).',
       'É uma aplicação separada em:',
       '',
       '  https://rendizy2testesbackup.vercel.app/guest-area/',
