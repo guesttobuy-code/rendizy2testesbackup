@@ -298,7 +298,7 @@ function clientSiteConfigToSql(config: ClientSiteConfig): any {
     favicon_url: config.favicon || null,
     site_config: config.siteConfig,
     features: config.features,
-    hosting_providers: config.hostingProviders || null,
+    hosting_providers: config.hostingProviders || {},
     site_code: config.siteCode || null,
     archive_path: config.archivePath || null,
     archive_url: config.archiveUrl || null,
@@ -1294,7 +1294,7 @@ app.post("/", async (c) => {
     const siteData: ClientSiteConfig = {
       organizationId,
       siteName,
-      template: template || "moderno",
+      template: template || "custom",
       subdomain,
       domain: domain || undefined,
       theme: theme || {

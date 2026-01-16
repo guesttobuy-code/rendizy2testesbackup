@@ -43,12 +43,12 @@
           code: `// Base (Supabase Edge Function):
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v6.3' as const;
+export const CATALOG_VERSION = 'v6.4' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-15T23:55:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-16T00:20:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -1756,15 +1756,36 @@ Implementar:
 Implementar:
 - ✅ Todos os blocos universais
 - ✅ \`calendar-daily-pricing\` (temporada)
+- ✅ \`booking-form-v2\` (temporada)
+- ✅ \`checkout-v2-flow\` (temporada)
 - ✅ \`sale-pricing-panel\` (venda)
+- ✅ \`modality-switcher\` (para alternar Aluguel/Venda)
+- ⛔ \`rent-pricing-panel\`
+
+**UX crítico:**
+- PropertyCard deve mostrar **ambos os preços** (diária + venda)
+- Use tabs/toggle para alternar visualização
+- Calendário aparece **somente** quando “Aluguel” está selecionado
+
+#### Cenário 3: Site PURO de Venda
+\`\`\`json
+{ "shortTerm": false, "longTerm": false, "sale": true }
+\`\`\`
+Implementar:
+- ✅ Todos os blocos universais
+- ✅ \`sale-pricing-panel\`
+- ⛔ \`calendar-daily-pricing\`
+- ⛔ \`booking-form-v2\`
+- ⛔ \`checkout-v2-flow\`
 - ⛔ \`rent-pricing-panel\`
 \n`;
 }
 
 function generateEndpointsTableSection(): string {
   const endpointModality = (id: string) => {
-    if (['properties', 'site-config', 'serve-site'].includes(id)) return '🌐 Universal';
-    if (['availability-pricing', 'calendar', 'reservation-create', 'calculate-price', 'checkout-session', 'payment-methods'].includes(id)) return '🏖️ Temporada';
+    if (['properties', 'site-config', 'serve-site', 'auth-guest-google', 'auth-guest-me'].includes(id)) return '🌐 Universal';
+    if (['availability-pricing', 'calendar', 'reservation-create', 'calculate-price', 'checkout-session', 'payment-methods', 'reservations-mine'].includes(id)) return '🏖️ Temporada';
+    if (['lead-create'].includes(id)) return '🌐 Universal';
     return '⚠️ Planejado';
   };
 

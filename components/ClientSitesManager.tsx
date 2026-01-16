@@ -635,7 +635,7 @@ function CreateSiteModal({ open, onClose, onSuccess, prefilledOrgId }: {
   const [formData, setFormData] = useState({
     organizationId: prefilledOrgId || '',
     siteName: '',
-    template: 'moderno',
+    template: 'custom',
     contactEmail: '',
     contactPhone: '',
     shortTerm: true,
@@ -755,24 +755,6 @@ function CreateSiteModal({ open, onClose, onSuccess, prefilledOrgId }: {
                 required
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="template">Template</Label>
-            <Select
-              value={formData.template}
-              onValueChange={(value) => setFormData({ ...formData, template: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="moderno">Moderno</SelectItem>
-                <SelectItem value="classico">Clássico</SelectItem>
-                <SelectItem value="luxo">Luxo</SelectItem>
-                <SelectItem value="custom">Customizado (você vai enviar o código)</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
