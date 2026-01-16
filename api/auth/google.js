@@ -70,10 +70,12 @@ export default async function handler(req, res) {
 
     // Optional: keep backward compatibility with client code that expects localStorage.
     // We don't set it here (httpOnly cookie), but we return guest so the UI can display immediately.
+    // rendizy-public returns "user", but frontend expects "guest"
+    const guest = json.guest || json.user;
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ success: true, guest: json.guest }));
+    res.end(JSON.stringify({ success: true, guest }));
   } catch (err) {
     console.error("/api/auth/google error", err);
     res.statusCode = 500;
