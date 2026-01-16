@@ -2402,6 +2402,27 @@ function DocsAIModal({ open, onClose }: {
   const vendaEndpoints = getEndpointsForBlocks(vendaBlocks);
   const locacaoEndpoints = getEndpointsForBlocks(locacaoBlocks);
 
+  const renderModalityBadges = (modalities?: Array<'universal' | 'venda' | 'locacao'>) => {
+    if (!modalities || modalities.includes('universal')) {
+      return (
+        <Badge variant="secondary" className="text-xs">
+          🌐 Universal
+        </Badge>
+      );
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {modalities.includes('locacao') && (
+          <Badge variant="secondary" className="text-xs">🏠 Residencial</Badge>
+        )}
+        {modalities.includes('venda') && (
+          <Badge variant="secondary" className="text-xs">🏘️ Venda</Badge>
+        )}
+      </div>
+    );
+  };
+
   const renderBlocks = (blocks: typeof catalogBlocks) => (
     <div className="space-y-2">
       {blocks.length === 0 ? (
@@ -2415,7 +2436,7 @@ function DocsAIModal({ open, onClose }: {
           <Card key={block.id} className="border-l-4 border-l-blue-400">
             <CardHeader className="py-2 px-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
                   {block.title}
                   <Badge
                     variant={block.stability === 'stable' ? 'default' : 'outline'}
@@ -2423,6 +2444,7 @@ function DocsAIModal({ open, onClose }: {
                   >
                     {block.stability === 'stable' ? 'Disponível' : 'Planejado'}
                   </Badge>
+                          {renderModalityBadges(block.modalities)}
                 </CardTitle>
               </div>
               <CardDescription className="text-xs mt-1">{block.description}</CardDescription>

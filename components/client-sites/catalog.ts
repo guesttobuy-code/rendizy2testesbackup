@@ -43,12 +43,12 @@
           code: `// Base (Supabase Edge Function):
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v6.1' as const;
+export const CATALOG_VERSION = 'v6.2' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-15T22:45:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-15T23:20:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -1459,6 +1459,18 @@ function generateBlocksSection(): string {
   const criticalBlocks = universalBlocks.filter((b) => criticalIds.includes(b.id));
   const otherUniversalBlocks = universalBlocks.filter((b) => !criticalIds.includes(b.id));
 
+  const modalityLabel = (block: ClientSitesCatalogBlock) => {
+    if (!block.modalities || block.modalities.includes('universal')) {
+      return '🌐 Universal (todas as modalidades)';
+    }
+    const labels = block.modalities.map((m) => {
+      if (m === 'venda') return '🏘️ Venda';
+      if (m === 'locacao') return '🏠 Locação Residencial';
+      return '🌐 Universal';
+    });
+    return labels.join(' + ');
+  };
+
   let section = `## 🧱 COMPONENTES POR MODALIDADE (Gerado do Catálogo ${CATALOG_VERSION})
 
 Os blocos abaixo são OBRIGATÓRIOS e devem ser implementados EXATAMENTE como especificado.
@@ -1473,6 +1485,7 @@ Esta seção é gerada automaticamente do catálogo — mudanças no catálogo r
     for (const block of criticalBlocks) {
       section += `#### ${block.title}
 - **ID**: \`${block.id}\`
+    - **Modalidade**: ${modalityLabel(block)}
 - **Descrição**: ${block.description}
 - **Endpoints**: ${block.usesEndpoints.map(e => `\`${e}\``).join(', ') || 'nenhum'}
 - **Campos obrigatórios**: ${block.requiredFields.map(f => `\`${f}\``).join(', ')}
@@ -1499,7 +1512,7 @@ Esta seção é gerada automaticamente do catálogo — mudanças no catálogo r
 
   section += `#### Outros Blocos Universais:\n\n`;
   for (const block of otherUniversalBlocks) {
-    section += `- **${block.title}** (\`${block.id}\`): ${block.description}\n`;
+    section += `- **${block.title}** (\`${block.id}\`) — ${modalityLabel(block)}: ${block.description}\n`;
   }
 
   section += `\n---\n\n### 🏠 Venda de Imóveis (componentes específicos)\n\n`;
@@ -1509,6 +1522,7 @@ Esta seção é gerada automaticamente do catálogo — mudanças no catálogo r
     for (const block of vendaBlocks) {
       section += `#### ${block.title}
 - **ID**: \`${block.id}\`
+    - **Modalidade**: ${modalityLabel(block)}
 - **Descrição**: ${block.description}
 - **Endpoints**: ${block.usesEndpoints.map(e => `\`${e}\``).join(', ') || 'nenhum'}
 - **Campos obrigatórios**: ${block.requiredFields.map(f => `\`${f}\``).join(', ')}
@@ -1530,6 +1544,7 @@ Esta seção é gerada automaticamente do catálogo — mudanças no catálogo r
     for (const block of locacaoBlocks) {
       section += `#### ${block.title}
 - **ID**: \`${block.id}\`
+    - **Modalidade**: ${modalityLabel(block)}
 - **Descrição**: ${block.description}
 - **Endpoints**: ${block.usesEndpoints.map(e => `\`${e}\``).join(', ') || 'nenhum'}
 - **Campos obrigatórios**: ${block.requiredFields.map(f => `\`${f}\``).join(', ')}
@@ -1660,6 +1675,40 @@ Antes de gerar o código final, verifique CADA item abaixo. Se algum estiver err
 }
 
 /**
+ * Gera a tabela de mapeamento Bloco ↔ Modalidade
+ */
+function generateModalitiesMapTable(): string {
+  const rows = CLIENT_SITES_BLOCKS_CATALOG
+    .filter((b) => b.stability !== 'deprecated')
+    .map((b) => {
+      const isUniversal = !b.modalities || b.modalities.includes('universal');
+      const hasVenda = isUniversal || b.modalities?.includes('venda');
+      const hasLocacao = isUniversal || b.modalities?.includes('locacao');
+      const hasTemporada = true; // temporada é o padrão do catálogo atual
+
+      const yes = '✅';
+      const no = '⛔';
+
+      return {
+        id: b.id,
+        temporada: hasTemporada ? yes : no,
+        residencial: hasLocacao ? yes : no,
+        venda: hasVenda ? yes : no,
+        description: b.description,
+      };
+    });
+
+  let table = `### 📋 MAPA DE BLOCOS POR MODALIDADE\n\n`;
+  table += `| Bloco ID | 🏖️ Temporada | 🏠 Residencial | 🏘️ Venda | Descrição |\n`;
+  table += `|----------|-------------|---------------|---------|-----------|\n`;
+  for (const r of rows) {
+    table += `| \`${r.id}\` | ${r.temporada} | ${r.residencial} | ${r.venda} | ${r.description} |\n`;
+  }
+  table += `\n`;
+  return table;
+}
+
+/**
  * Gera a seção de integration guides do prompt
  */
 function generateIntegrationGuidesSection(): string {
@@ -1728,6 +1777,40 @@ Se seu site não funcionar, é porque você desviou do padrão. Corrija seu cód
 
   // ==================== PARTE FIXA: OBJETIVO E STACK ====================
   const objetivoEStack = `---
+
+## 🎛️ SISTEMA COMPOSITOR (OBRIGATÓRIO)
+
+Este prompt é MODULAR. Você deve implementar **APENAS** os blocos compatíveis com as modalidades ativas do site.
+
+**Modalidades suportadas**: 🏖️ Temporada | 🏠 Residencial | 🏘️ Venda
+
+### Como detectar a modalidade (fonte de verdade)
+- Use o **siteConfig** recebido do backend (quando disponível) e/ou configuração do site.
+- Campo esperado: \`features.shortTerm\`, \`features.longTerm\`, \`features.sale\`.
+
+\`\`\`ts
+// Exemplo (site-config público ou config local)
+const features = siteConfig?.features || {
+  shortTerm: true,
+  longTerm: false,
+  sale: false,
+};
+
+const isVacation = !!features.shortTerm;
+const isResidential = !!features.longTerm;
+const isSale = !!features.sale;
+\`\`\`
+
+### Regra de composição
+1. Blocos **universais** sempre entram.
+2. Blocos marcados com 🏖️ entram **somente** se \`features.shortTerm\` = true.
+3. Blocos marcados com 🏠 entram **somente** se \`features.longTerm\` = true.
+4. Blocos marcados com 🏘️ entram **somente** se \`features.sale\` = true.
+
+Exemplo: site misto (Temporada + Venda)
+- ✅ Implementar: calendar, booking, checkout (🏖️)
+- ✅ Implementar: sale-pricing-panel (🏘️)
+- ⛔ Ignorar: rent-pricing-panel (🏠)
 
 ## Objetivo (aceitação)
 Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
@@ -1839,6 +1922,9 @@ Gere APENAS os arquivos de código (tsx, ts, css, json, config).
 
   // ==================== PARTE DINÂMICA: BLOCOS ====================
   const blocos = generateBlocksSection();
+
+  // ==================== PARTE DINÂMICA: MAPA BLOCOS x MODALIDADES ====================
+  const mapaModalidades = generateModalitiesMapTable();
 
   // ==================== PARTE DINÂMICA: ENDPOINTS ====================
   const endpoints = generateEndpointsSection();
@@ -1971,5 +2057,5 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.
 `;
 
   // ==================== JUNTAR TUDO ====================
-  return header + checklist + objetivoEStack + blocos + '\n---\n\n' + endpoints + '\n---\n\n' + guias + estrutura + build;
+  return header + checklist + objetivoEStack + blocos + '\n' + mapaModalidades + '\n---\n\n' + endpoints + '\n---\n\n' + guias + estrutura + build;
 }
