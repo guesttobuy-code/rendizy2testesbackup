@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Properties API</title>
+</head>
+<body>
+  <h1>Test Properties API</h1>
+  <pre id="output">Loading...</pre>
+  <script>
+    (async function() {
+      const output = document.getElementById('output');
+      try {
+        // Exact URL that the Bolt bundle uses
+        const url = 'https://rendizy2testesbackup.vercel.app/client-sites/api/suacasamobiliada/properties';
+        output.textContent = 'Fetching: ' + url + '\n\n';
+        
+        const response = await fetch(url, { method: 'GET' });
+        output.textContent += 'Status: ' + response.status + '\n';
+        output.textContent += 'Content-Type: ' + response.headers.get('content-type') + '\n\n';
+        
+        const json = await response.json();
+        output.textContent += 'Success: ' + json.success + '\n';
+        output.textContent += 'Count: ' + (json.data ? json.data.length : 0) + '\n\n';
+        
+        if (json.data && json.data.length > 0) {
+          output.textContent += 'First property:\n';
+          output.textContent += JSON.stringify(json.data[0], null, 2);
+        }
+      } catch (error) {
+        output.textContent = 'ERROR: ' + error.message;
+      }
+    })();
+  </script>
+</body>
+</html>
