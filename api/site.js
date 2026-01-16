@@ -416,6 +416,24 @@ function patchClientSiteJs(jsText, { subdomain }) {
   out = out.replace(/window\.location\.assign\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, 'window.open($1,"_blank","noopener,noreferrer")');
   out = out.replace(/window\.location\.replace\(\s*([^)]*checkoutUrl[^)]*)\s*\)/g, 'window.open($1,"_blank","noopener,noreferrer")');
 
+  // ============================================================================
+  // PATCH #7: Fix API_BASE_URL pointing to Vercel instead of Supabase
+  // ============================================================================
+  // Problem: Some Bolt sites use "https://rendizy2testesbackup.vercel.app" as API base
+  // but the correct endpoint is the Supabase Edge Function.
+  // The Vercel app doesn't have /client-sites/api/* routes.
+  // Solution: Replace the wrong URL with the correct Supabase function URL.
+  const wrongApiBase = 'https://rendizy2testesbackup.vercel.app';
+  const correctApiBase = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/rendizy-public`;
+  out = out.replaceAll(wrongApiBase + '/client-sites/api/', correctApiBase + '/client-sites/api/');
+  // Also fix any direct reference to wrongApiBase followed by /client-sites (without /api)
+  out = out.replaceAll(wrongApiBase + '"/client-sites', correctApiBase + '"/client-sites');
+  // And the getApiBaseUrl function fallback
+  out = out.replace(
+    new RegExp(wrongApiBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?="\\}|"\\)|\\}function)', 'g'),
+    correctApiBase
+  );
+
   return out;
 }
 
