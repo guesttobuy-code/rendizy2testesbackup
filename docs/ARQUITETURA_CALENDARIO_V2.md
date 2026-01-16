@@ -1,8 +1,9 @@
 # Arquitetura do Calendário - Sistema de Performance V2.1
 
 > 📅 Criado: 2026-01-06  
-> 📝 Versão: 1.0.103.408  
-> 🔗 Changelog: [CHANGELOG_V1.0.103.408.md](changelogs/CHANGELOG_V1.0.103.408.md)
+> 📝 Versão: 1.0.103.601  
+> 🔄 Atualizado: 2026-01-16  
+> 🔗 Changelog: [CHANGELOG_2026-01-16_CALENDAR_UX_IMPROVEMENTS.md](changelogs/CHANGELOG_2026-01-16_CALENDAR_UX_IMPROVEMENTS.md)
 
 ---
 
@@ -285,6 +286,71 @@ const USE_EDGE_FUNCTION = true;    // true = Edge Function, false = REST direto
 
 ---
 
+## Modais do Calendário
+
+> 📅 Atualizado: 2026-01-16 (v1.0.103.601)
+
+### Lista de Modais
+
+| Modal | Arquivo | Ação |
+|-------|---------|------|
+| BulkPriceConditionModal | `components/BulkPriceConditionModal.tsx` | Desconto/acréscimo % em lote |
+| BulkRestrictionsModal | `components/BulkRestrictionsModal.tsx` | Restrições em lote |
+| BulkMinNightsModal | `components/BulkMinNightsModal.tsx` | Mínimo de noites em lote |
+| PropertyConditionModal | `components/PropertyConditionModal.tsx` | Condição por propriedade |
+| PropertyRestrictionsModal | `components/PropertyRestrictionsModal.tsx` | Restrição por propriedade |
+| MinNightsEditModal | `components/MinNightsEditModal.tsx` | Mín. noites por propriedade |
+| QuotationModal | `components/QuotationModal.tsx` | Criar cotação |
+| PriceEditModal | `components/PriceEditModal.tsx` | Editar preços base |
+
+### Recursos Implementados (v1.0.103.601)
+
+1. **Edição de Datas Inline**
+   - Todos os modais possuem botão "Editar" ao lado do período
+   - Usa `DateRangePicker` para ajustar datas antes de salvar
+   - Não altera seleção original do calendário
+
+2. **Loading States**
+   - Spinner animado (`Loader2`) no botão durante processamento
+   - Toast de loading (`sonner`) com descrição contextual
+   - Toast de sucesso/erro ao finalizar
+   - Botões desabilitados durante operação
+
+### Padrão de Implementação
+
+```tsx
+// Interface permite Promise
+onSave: (data: {...}) => void | Promise<void>;
+
+// Estado de loading
+const [saving, setSaving] = useState(false);
+
+// Handler assíncrono
+const handleSave = async () => {
+  setSaving(true);
+  const toastId = toast.loading('Aplicando...', {
+    description: `${days} dias serão atualizados. Aguarde...`
+  });
+
+  try {
+    await onSave({ ... });
+    toast.success('Sucesso!', { id: toastId });
+    onClose();
+  } catch (error) {
+    toast.error('Erro', { id: toastId, description: error.message });
+  } finally {
+    setSaving(false);
+  }
+};
+
+// Botão com feedback visual
+<Button disabled={saving}>
+  {saving ? <><Loader2 className="animate-spin" /> Salvando...</> : 'Salvar'}
+</Button>
+```
+
+---
+
 ## Roadmap
 
 ### ✅ Concluído (V1.0.103.408)
@@ -293,6 +359,12 @@ const USE_EDGE_FUNCTION = true;    // true = Edge Function, false = REST direto
 - [x] Sprint 2: Componente PropertyCalendarRow
 - [x] Sprint 3: Edge Function calendar-rules-batch
 - [x] Sprint 5: CalendarQueueIndicator
+
+### ✅ Concluído (V1.0.103.601)
+
+- [x] Edição de datas inline em todos os modais
+- [x] Loading states com spinner e toast
+- [x] Persistência de base_price no Save All
 
 ### 🔄 Pendente
 
@@ -316,6 +388,9 @@ const USE_EDGE_FUNCTION = true;    // true = Edge Function, false = REST direto
 ## Referências
 
 - **Commits:**
+  - `0b3abf7` - Loading states em todos os modais (2026-01-16)
+  - `34f8d0b` - Edição de datas nos modais (2026-01-16)
+  - `dfcb863` - Persistência de base_price (2026-01-15)
   - `4a0a440` - Modais Condição/Restrições
   - `ea2f48e` - Optimistic updates + queue
   - `178ce7d` - Edge Function + componentes
@@ -325,3 +400,10 @@ const USE_EDGE_FUNCTION = true;    // true = Edge Function, false = REST direto
   - [useCalendarPricingRules.ts](../hooks/useCalendarPricingRules.ts)
   - [CalendarQueueIndicator.tsx](../components/CalendarQueueIndicator.tsx)
   - [PropertyCalendarRow.tsx](../components/PropertyCalendarRow.tsx)
+  - [BulkPriceConditionModal.tsx](../components/BulkPriceConditionModal.tsx)
+  - [BulkRestrictionsModal.tsx](../components/BulkRestrictionsModal.tsx)
+  - [BulkMinNightsModal.tsx](../components/BulkMinNightsModal.tsx)
+  - [PropertyConditionModal.tsx](../components/PropertyConditionModal.tsx)
+  - [PropertyRestrictionsModal.tsx](../components/PropertyRestrictionsModal.tsx)
+  - [MinNightsEditModal.tsx](../components/MinNightsEditModal.tsx)
+  - [DateRangePicker.tsx](../components/DateRangePicker.tsx)
