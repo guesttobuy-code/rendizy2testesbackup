@@ -4,9 +4,10 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Calendar, Percent, TrendingUp, TrendingDown, Home, Edit2 } from 'lucide-react';
+import { Calendar, Percent, TrendingUp, TrendingDown, Home, Edit2, Loader2 } from 'lucide-react';
 import { Property } from '../App';
 import { DateRangePicker } from './DateRangePicker';
+import { toast } from 'sonner';
 
 interface BulkPriceConditionModalProps {
   isOpen: boolean;
@@ -14,13 +15,14 @@ interface BulkPriceConditionModalProps {
   startDate: Date;
   endDate: Date;
   properties: Property[];
-  onSave: (data: { startDate: Date; endDate: Date; type: 'increase' | 'decrease'; percentage: number }) => void;
+  onSave: (data: { startDate: Date; endDate: Date; type: 'increase' | 'decrease'; percentage: number }) => void | Promise<void>;
 }
 
 export function BulkPriceConditionModal({ isOpen, onClose, startDate, endDate, properties, onSave }: BulkPriceConditionModalProps) {
   const [type, setType] = useState<'increase' | 'decrease'>('decrease');
   const [percentage, setPercentage] = useState('10');
   const [isEditingDates, setIsEditingDates] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startDate,
     to: endDate
@@ -44,14 +46,38 @@ export function BulkPriceConditionModal({ isOpen, onClose, startDate, endDate, p
     return diff;
   };
 
-  const handleSave = () => {
-    onSave({
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      type,
-      percentage: parseFloat(percentage)
-    });
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    const daysCount = getDaysDiff();
+    
+    // Mostrar toast de processamento para operações longas
+    const toastId = toast.loading(
+      `Aplicando ${type === 'decrease' ? 'desconto' : 'acréscimo'} de ${percentage}% em ${properties.length} propriedades...`,
+      { description: `${daysCount} dias serão atualizados. Aguarde...` }
+    );
+    
+    try {
+      await onSave({
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        type,
+        percentage: parseFloat(percentage)
+      });
+      
+      toast.success('Condição aplicada com sucesso!', {
+        id: toastId,
+        description: `${type === 'decrease' ? 'Desconto' : 'Acréscimo'} de ${percentage}% aplicado em ${properties.length} propriedades`
+      });
+      onClose();
+    } catch (error) {
+      console.error('Erro ao aplicar condição:', error);
+      toast.error('Erro ao aplicar condição', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -215,11 +241,18 @@ export function BulkPriceConditionModal({ isOpen, onClose, startDate, endDate, p
 
         {/* Actions */}
         <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} className="bg-orange-600 hover:bg-orange-700">
-            Aplicar em {properties.length} {properties.length === 1 ? 'Propriedade' : 'Propriedades'}
+          <Button onClick={handleSave} className="bg-orange-600 hover:bg-orange-700" disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Aplicando...
+              </>
+            ) : (
+              `Aplicar em ${properties.length} ${properties.length === 1 ? 'Propriedade' : 'Propriedades'}`
+            )}
           </Button>
         </div>
       </DialogContent>

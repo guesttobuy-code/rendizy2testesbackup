@@ -9,8 +9,9 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Calendar, Percent, TrendingUp, TrendingDown, Edit2 } from 'lucide-react';
+import { Calendar, Percent, TrendingUp, TrendingDown, Edit2, Loader2 } from 'lucide-react';
 import { DateRangePicker } from './DateRangePicker';
+import { toast } from 'sonner';
 
 interface PropertyConditionModalProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ interface PropertyConditionModalProps {
   propertyName: string;
   startDate: Date;
   endDate: Date;
-  onSave: (data: { propertyId: string; startDate: Date; endDate: Date; type: 'increase' | 'decrease'; percentage: number }) => void;
+  onSave: (data: { propertyId: string; startDate: Date; endDate: Date; type: 'increase' | 'decrease'; percentage: number }) => void | Promise<void>;
 }
 
 export function PropertyConditionModal({
@@ -34,6 +35,7 @@ export function PropertyConditionModal({
   const [type, setType] = useState<'increase' | 'decrease'>('decrease');
   const [percentage, setPercentage] = useState('10');
   const [isEditingDates, setIsEditingDates] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startDate,
     to: endDate
@@ -57,17 +59,40 @@ export function PropertyConditionModal({
     return Math.ceil((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!propertyId) return;
     
-    onSave({
-      propertyId,
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      type,
-      percentage: parseFloat(percentage) || 0
-    });
-    onClose();
+    setSaving(true);
+    const daysCount = getDaysDiff();
+    
+    const toastId = toast.loading(
+      `Aplicando ${type === 'decrease' ? 'desconto' : 'acréscimo'} de ${percentage}%...`,
+      { description: `${daysCount} dias serão atualizados em ${propertyName}. Aguarde...` }
+    );
+    
+    try {
+      await onSave({
+        propertyId,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        type,
+        percentage: parseFloat(percentage) || 0
+      });
+      
+      toast.success('Condição aplicada com sucesso!', {
+        id: toastId,
+        description: `${type === 'decrease' ? 'Desconto' : 'Acréscimo'} de ${percentage}% aplicado`
+      });
+      onClose();
+    } catch (error) {
+      console.error('Erro ao aplicar condição:', error);
+      toast.error('Erro ao aplicar condição', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -191,11 +216,18 @@ export function PropertyConditionModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} className="bg-orange-600 hover:bg-orange-700">
-            Aplicar Condição
+          <Button onClick={handleSave} className="bg-orange-600 hover:bg-orange-700" disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Aplicando...
+              </>
+            ) : (
+              'Aplicar Condição'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

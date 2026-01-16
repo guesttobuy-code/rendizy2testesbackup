@@ -4,7 +4,8 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Property } from '../App';
-import { Calendar, Edit2 } from 'lucide-react';
+import { Calendar, Edit2, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { DateRangePicker } from './DateRangePicker';
 
 interface MinNightsEditModalProps {
@@ -14,7 +15,7 @@ interface MinNightsEditModalProps {
   property?: Property;
   startDate?: Date;
   endDate?: Date;
-  onSave: (data: { propertyId: string; startDate: Date; endDate: Date; minNights: number }) => void;
+  onSave: (data: { propertyId: string; startDate: Date; endDate: Date; minNights: number }) => void | Promise<void>;
 }
 
 export function MinNightsEditModal({
@@ -27,6 +28,7 @@ export function MinNightsEditModal({
   onSave
 }: MinNightsEditModalProps) {
   const [minNights, setMinNights] = useState(1);
+  const [saving, setSaving] = useState(false);
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startDate || new Date(),
@@ -54,16 +56,35 @@ export function MinNightsEditModal({
   };
 
   // 🔒 RENDIZY_STABLE_TAG v1.0.103.600 (2026-01-15): salvar mesmo sem objeto property
-  const handleSave = () => {
+  const handleSave = async () => {
     const resolvedPropertyId = property?.id || propertyId;
     if (!resolvedPropertyId) return;
-    onSave({
-      propertyId: resolvedPropertyId,
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      minNights
+
+    setSaving(true);
+    const toastId = toast.loading('Salvando mínimo de noites...', {
+      description: `${calculateDays()} dias serão atualizados. Aguarde...`
     });
-    onClose();
+
+    try {
+      await onSave({
+        propertyId: resolvedPropertyId,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        minNights
+      });
+      toast.success('Mínimo de noites salvo!', {
+        id: toastId,
+        description: `${minNights} noite(s) mínimas configuradas para ${calculateDays()} dias`
+      });
+      onClose();
+    } catch (error) {
+      toast.error('Erro ao salvar', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -165,11 +186,18 @@ export function MinNightsEditModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave}>
-            Salvar
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              'Salvar'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

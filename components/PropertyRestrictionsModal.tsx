@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Calendar, Ban, Lock, XCircle, Trash2, Edit2 } from 'lucide-react';
+import { Calendar, Ban, Lock, XCircle, Trash2, Edit2, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { DateRangePicker } from './DateRangePicker';
 
 interface PropertyRestrictionsModalProps {
@@ -19,7 +20,7 @@ interface PropertyRestrictionsModalProps {
   startDate: Date;
   endDate: Date;
   currentRestriction?: string | null;
-  onSave: (data: { propertyId: string; startDate: Date; endDate: Date; restrictionType: 'no-checkin' | 'no-checkout' | 'closed' | null }) => void;
+  onSave: (data: { propertyId: string; startDate: Date; endDate: Date; restrictionType: 'no-checkin' | 'no-checkout' | 'closed' | null }) => void | Promise<void>;
 }
 
 export function PropertyRestrictionsModal({
@@ -35,6 +36,7 @@ export function PropertyRestrictionsModal({
   const [restrictionType, setRestrictionType] = useState<'no-checkin' | 'no-checkout' | 'closed' | null>(
     (currentRestriction as any) || 'no-checkin'
   );
+  const [saving, setSaving] = useState(false);
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startDate,
@@ -59,28 +61,73 @@ export function PropertyRestrictionsModal({
     return Math.ceil((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   };
 
-  const handleSave = () => {
-    if (!propertyId) return;
-    
-    onSave({
-      propertyId,
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      restrictionType
-    });
-    onClose();
+  const getRestrictionLabel = (type: string | null) => {
+    switch (type) {
+      case 'no-checkin': return 'Sem Check-in';
+      case 'no-checkout': return 'Sem Check-out';
+      case 'closed': return 'Fechado';
+      default: return 'Restrição';
+    }
   };
 
-  const handleRemove = () => {
+  const handleSave = async () => {
     if (!propertyId) return;
     
-    onSave({
-      propertyId,
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      restrictionType: null
+    setSaving(true);
+    const toastId = toast.loading('Aplicando restrição...', {
+      description: `${getDaysDiff()} dias serão atualizados em ${propertyName}. Aguarde...`
     });
-    onClose();
+
+    try {
+      await onSave({
+        propertyId,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        restrictionType
+      });
+      toast.success('Restrição aplicada!', {
+        id: toastId,
+        description: `${getRestrictionLabel(restrictionType)} configurado para ${getDaysDiff()} dias`
+      });
+      onClose();
+    } catch (error) {
+      toast.error('Erro ao aplicar restrição', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!propertyId) return;
+    
+    setSaving(true);
+    const toastId = toast.loading('Removendo restrição...', {
+      description: `Atualizando ${getDaysDiff()} dias em ${propertyName}. Aguarde...`
+    });
+
+    try {
+      await onSave({
+        propertyId,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        restrictionType: null
+      });
+      toast.success('Restrição removida!', {
+        id: toastId,
+        description: `${getDaysDiff()} dias foram liberados`
+      });
+      onClose();
+    } catch (error) {
+      toast.error('Erro ao remover restrição', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -213,17 +260,24 @@ export function PropertyRestrictionsModal({
 
         <DialogFooter className="flex gap-2">
           {currentRestriction && (
-            <Button variant="outline" onClick={handleRemove} className="text-red-600 hover:bg-red-50">
-              <Trash2 className="h-4 w-4 mr-1" />
-              Remover Restrição
+            <Button variant="outline" onClick={handleRemove} disabled={saving} className="text-red-600 hover:bg-red-50">
+              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              {saving ? 'Removendo...' : 'Remover Restrição'}
             </Button>
           )}
           <div className="flex-1" />
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">
-            Aplicar Restrição
+          <Button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-700">
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Aplicando...
+              </>
+            ) : (
+              'Aplicar Restrição'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

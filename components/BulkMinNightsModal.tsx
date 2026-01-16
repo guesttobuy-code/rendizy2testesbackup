@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Calendar, Moon, Home, Edit2 } from 'lucide-react';
+import { Calendar, Moon, Home, Edit2, Loader2 } from 'lucide-react';
 import { Property } from '../App';
 import { DateRangePicker } from './DateRangePicker';
+import { toast } from 'sonner';
 
 interface BulkMinNightsModalProps {
   isOpen: boolean;
@@ -13,12 +14,13 @@ interface BulkMinNightsModalProps {
   startDate: Date;
   endDate: Date;
   properties: Property[];
-  onSave: (data: { startDate: Date; endDate: Date; minNights: number }) => void;
+  onSave: (data: { startDate: Date; endDate: Date; minNights: number }) => void | Promise<void>;
 }
 
 export function BulkMinNightsModal({ isOpen, onClose, startDate, endDate, properties, onSave }: BulkMinNightsModalProps) {
   const [minNights, setMinNights] = useState('1');
   const [isEditingDates, setIsEditingDates] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startDate,
     to: endDate
@@ -42,13 +44,37 @@ export function BulkMinNightsModal({ isOpen, onClose, startDate, endDate, proper
     return diff;
   };
 
-  const handleSave = () => {
-    onSave({
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      minNights: parseInt(minNights)
-    });
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    const daysCount = getDaysDiff();
+    const minNightsValue = parseInt(minNights);
+    
+    const toastId = toast.loading(
+      `Aplicando mínimo de ${minNightsValue} ${minNightsValue === 1 ? 'noite' : 'noites'} em ${properties.length} propriedades...`,
+      { description: `${daysCount} dias serão atualizados. Aguarde...` }
+    );
+    
+    try {
+      await onSave({
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        minNights: minNightsValue
+      });
+      
+      toast.success('Mínimo de noites aplicado com sucesso!', {
+        id: toastId,
+        description: `Mínimo de ${minNightsValue} ${minNightsValue === 1 ? 'noite' : 'noites'} aplicado em ${properties.length} propriedades`
+      });
+      onClose();
+    } catch (error) {
+      console.error('Erro ao aplicar mínimo de noites:', error);
+      toast.error('Erro ao aplicar mínimo de noites', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const presetValues = [
@@ -197,11 +223,18 @@ export function BulkMinNightsModal({ isOpen, onClose, startDate, endDate, proper
 
         {/* Actions */}
         <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-            Aplicar em {properties.length} {properties.length === 1 ? 'Propriedade' : 'Propriedades'}
+          <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700" disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Aplicando...
+              </>
+            ) : (
+              `Aplicar em ${properties.length} ${properties.length === 1 ? 'Propriedade' : 'Propriedades'}`
+            )}
           </Button>
         </div>
       </DialogContent>

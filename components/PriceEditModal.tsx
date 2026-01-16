@@ -7,7 +7,8 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { CalendarIcon, Info } from 'lucide-react';
+import { CalendarIcon, Info, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -18,7 +19,7 @@ interface PriceEditModalProps {
   startDate?: Date;
   endDate?: Date;
   onClose: () => void;
-  onSave: (rule: Omit<PriceRule, 'id'>) => void;
+  onSave: (rule: Omit<PriceRule, 'id'>) => void | Promise<void>;
 }
 
 interface Platform {
@@ -56,6 +57,7 @@ export function PriceEditModal({
 }: PriceEditModalProps) {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(startDate);
   const [dateTo, setDateTo] = useState<Date | undefined>(endDate);
+  const [saving, setSaving] = useState(false);
   const [basePrice, setBasePrice] = useState<number>(300);
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4]); // Mon-Thu by default
   const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | null>(null);
@@ -86,16 +88,35 @@ export function PriceEditModal({
     return base * (1 + commission / 100);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!propertyId || !dateFrom || !dateTo) return;
 
-    onSave({
-      propertyId,
-      startDate: dateFrom,
-      endDate: dateTo,
-      daysOfWeek: selectedDays,
-      basePrice
+    setSaving(true);
+    const toastId = toast.loading('Salvando preços...', {
+      description: `${calculateAffectedDays()} dias serão atualizados. Aguarde...`
     });
+
+    try {
+      await onSave({
+        propertyId,
+        startDate: dateFrom,
+        endDate: dateTo,
+        daysOfWeek: selectedDays,
+        basePrice
+      });
+      toast.success('Preços salvos!', {
+        id: toastId,
+        description: `R$ ${basePrice.toFixed(2)} configurado para ${calculateAffectedDays()} dias`
+      });
+      onClose();
+    } catch (error) {
+      toast.error('Erro ao salvar preços', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const calculateAffectedDays = () => {
@@ -335,11 +356,18 @@ export function PriceEditModal({
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={!dateFrom || !dateTo || selectedDays.length === 0}>
-            Salvar
+          <Button onClick={handleSave} disabled={!dateFrom || !dateTo || selectedDays.length === 0 || saving}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              'Salvar'
+            )}
           </Button>
         </div>
       </DialogContent>

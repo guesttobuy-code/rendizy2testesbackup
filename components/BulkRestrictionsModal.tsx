@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Calendar, Ban, Lock, XCircle, Home, Edit2 } from 'lucide-react';
+import { Calendar, Ban, Lock, XCircle, Home, Edit2, Loader2 } from 'lucide-react';
 import { Property } from '../App';
 import { DateRangePicker } from './DateRangePicker';
+import { toast } from 'sonner';
 
 interface BulkRestrictionsModalProps {
   isOpen: boolean;
@@ -13,12 +14,13 @@ interface BulkRestrictionsModalProps {
   startDate: Date;
   endDate: Date;
   properties: Property[];
-  onSave: (data: { startDate: Date; endDate: Date; restrictionType: 'no-checkin' | 'no-checkout' | 'closed' }) => void;
+  onSave: (data: { startDate: Date; endDate: Date; restrictionType: 'no-checkin' | 'no-checkout' | 'closed' }) => void | Promise<void>;
 }
 
 export function BulkRestrictionsModal({ isOpen, onClose, startDate, endDate, properties, onSave }: BulkRestrictionsModalProps) {
   const [restrictionType, setRestrictionType] = useState<'no-checkin' | 'no-checkout' | 'closed'>('no-checkin');
   const [isEditingDates, setIsEditingDates] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startDate,
     to: endDate
@@ -42,13 +44,45 @@ export function BulkRestrictionsModal({ isOpen, onClose, startDate, endDate, pro
     return diff;
   };
 
-  const handleSave = () => {
-    onSave({
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      restrictionType
-    });
-    onClose();
+  const getRestrictionLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'no-checkin': 'Sem Check-in',
+      'no-checkout': 'Sem Check-out',
+      'closed': 'Fechado'
+    };
+    return labels[type] || type;
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const daysCount = getDaysDiff();
+    
+    const toastId = toast.loading(
+      `Aplicando restrição "${getRestrictionLabel(restrictionType)}" em ${properties.length} propriedades...`,
+      { description: `${daysCount} dias serão atualizados. Aguarde...` }
+    );
+    
+    try {
+      await onSave({
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        restrictionType
+      });
+      
+      toast.success('Restrição aplicada com sucesso!', {
+        id: toastId,
+        description: `"${getRestrictionLabel(restrictionType)}" aplicado em ${properties.length} propriedades`
+      });
+      onClose();
+    } catch (error) {
+      console.error('Erro ao aplicar restrição:', error);
+      toast.error('Erro ao aplicar restrição', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -193,11 +227,18 @@ export function BulkRestrictionsModal({ isOpen, onClose, startDate, endDate, pro
 
         {/* Actions */}
         <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700">
-            Aplicar em {properties.length} {properties.length === 1 ? 'Propriedade' : 'Propriedades'}
+          <Button onClick={handleSave} className="bg-red-600 hover:bg-red-700" disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Aplicando...
+              </>
+            ) : (
+              `Aplicar em ${properties.length} ${properties.length === 1 ? 'Propriedade' : 'Propriedades'}`
+            )}
           </Button>
         </div>
       </DialogContent>

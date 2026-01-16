@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Calendar, DollarSign, User, Mail, Copy, Check, Edit2 } from 'lucide-react';
+import { Calendar, DollarSign, User, Mail, Copy, Check, Edit2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Property } from '../App';
 import { DateRangePicker } from './DateRangePicker';
@@ -32,6 +32,7 @@ export function QuotationModal({
   const [notes, setNotes] = useState('');
   const [paymentOption, setPaymentOption] = useState('full');
   const [linkCopied, setLinkCopied] = useState(false);
+  const [sending, setSending] = useState(false);
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startDate,
@@ -87,31 +88,49 @@ export function QuotationModal({
     }
   };
 
-  const handleSendQuotation = () => {
-    const quotationData = {
-      property,
-      startDate: effectiveStartDate,
-      endDate: effectiveEndDate,
-      nights,
-      totalPrice,
-      guest: {
-        name: guestName,
-        email: guestEmail,
-        phone: guestPhone
-      },
-      validityDays: parseInt(validityDays),
-      paymentOption,
-      notes,
-      link: quotationLink
-    };
-
-    console.log('Cotação criada:', quotationData);
-    
-    toast.success('Cotação criada com sucesso!', {
-      description: `Link enviado para ${guestEmail}`
+  const handleSendQuotation = async () => {
+    setSending(true);
+    const toastId = toast.loading('Criando cotação...', {
+      description: 'Gerando link e enviando para o hóspede...'
     });
 
-    onClose();
+    try {
+      const quotationData = {
+        property,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        nights,
+        totalPrice,
+        guest: {
+          name: guestName,
+          email: guestEmail,
+          phone: guestPhone
+        },
+        validityDays: parseInt(validityDays),
+        paymentOption,
+        notes,
+        link: quotationLink
+      };
+
+      console.log('Cotação criada:', quotationData);
+      
+      // Simular delay de envio
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      toast.success('Cotação criada com sucesso!', {
+        id: toastId,
+        description: `Link enviado para ${guestEmail}`
+      });
+
+      onClose();
+    } catch (error) {
+      toast.error('Erro ao criar cotação', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -347,16 +366,25 @@ export function QuotationModal({
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={sending}>
             Cancelar
           </Button>
           <Button 
             onClick={handleSendQuotation}
-            disabled={!guestName || !guestEmail}
+            disabled={!guestName || !guestEmail || sending}
             className="bg-yellow-600 hover:bg-yellow-700"
           >
-            <Mail className="w-4 h-4 mr-2" />
-            Criar e Enviar Cotação
+            {sending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Enviando...
+              </>
+            ) : (
+              <>
+                <Mail className="w-4 h-4 mr-2" />
+                Criar e Enviar Cotação
+              </>
+            )}
           </Button>
         </div>
       </DialogContent>
