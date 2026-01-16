@@ -323,7 +323,7 @@ app.post('/', async (c) => {
     }
 
     // Determinar status
-    const finalStatus = password ? 'active' : (status || 'invited');
+    const finalStatus = status === 'suspended' ? 'suspended' : 'active';
     const finalPassword = password || generateTemporaryPassword();
     const passwordHash = hashPassword(finalPassword);
     const now = new Date().toISOString();

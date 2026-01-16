@@ -323,7 +323,7 @@ app.post('/login', async (c) => {
 
       console.log('✅ Senha verificada com sucesso!');
 
-      if (user.status !== 'active') {
+      if (user.status === 'suspended') {
         console.log('❌ Usuário suspenso:', username);
         return c.json({
           success: false,
