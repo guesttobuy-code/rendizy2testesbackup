@@ -692,12 +692,45 @@ clientSites.get("/api/:subdomain/properties", async (c: Context) => {
     const subdomain = (c.req.param("subdomain") || "").trim().toLowerCase();
     const supabase = getSupabaseAdminClient();
 
-    const { data: sqlSite, error: sqlError } = await supabase
+    let { data: sqlSite, error: sqlError } = await supabase
       .from("client_sites")
       .select("organization_id,subdomain,is_active")
       .eq("subdomain", subdomain)
       .eq("is_active", true)
       .maybeSingle();
+
+    // Fallback: resolver por slug de organização (normalizado)
+    if (sqlError || !sqlSite) {
+      const normalizeSlug = (value: string) =>
+        value
+          .toLowerCase()
+          .replace(/^rendizy[_-]?/, "")
+          .replace(/[^a-z0-9]/g, "");
+
+      const normalized = normalizeSlug(subdomain);
+
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id, slug")
+        .not("slug", "is", null);
+
+      const orgMatch = (orgs || []).find((org: any) =>
+        normalizeSlug(org.slug || "").includes(normalized)
+      );
+
+      if (orgMatch?.id) {
+        const { data: siteByOrg } = await supabase
+          .from("client_sites")
+          .select("organization_id,subdomain,is_active")
+          .eq("organization_id", orgMatch.id)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (siteByOrg) {
+          sqlSite = siteByOrg;
+          sqlError = null;
+        }
+      }
+    }
 
     if (sqlError || !sqlSite) {
       return c.json(
