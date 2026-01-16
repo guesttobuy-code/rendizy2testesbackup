@@ -2145,6 +2145,19 @@ type PromptVersion = {
 // Isso garante que nunca fique dessincronizado.
 // As entradas abaixo são apenas o HISTÓRICO (versões antigas).
 const PROMPT_HISTORY: Omit<PromptVersion, 'prompt'>[] = [
+  {
+    version: 'v6.0',
+    date: '2026-01-15',
+    time: '21:00',
+    author: 'Copilot + Rafael',
+    changes: [
+      '🧱 Catálogo v6.0 sincronizado com prompt gerado',
+      '🔄 Prompt passou a depender 100% do catálogo',
+      '✅ Consolidação do fluxo de sites (temporada) validada'
+    ],
+    prompt: `# RENDIZY — PROMPT PLUGÁVEL (v6.0)
+Este prompt foi atualizado para v6.1 com seções por modalidade.`,
+  },
   // Histórico começa em v5.5 (versões anteriores à atual)
   {
     version: 'v5.5',
@@ -2374,6 +2387,104 @@ function DocsAIModal({ open, onClose }: {
   // NOTA: CATALOG_VERSION e selectedVersion devem estar sincronizados
   const displayPrompt = selectedVersion === CATALOG_VERSION ? aiPrompt : (currentVersion?.prompt || aiPrompt);
 
+  const catalogBlocks = CLIENT_SITES_BLOCKS_CATALOG.filter((b) => b.stability !== 'deprecated');
+  const universalBlocks = catalogBlocks.filter((b) => !b.modalities || b.modalities.includes('universal'));
+  const vendaBlocks = catalogBlocks.filter((b) => b.modalities?.includes('venda'));
+  const locacaoBlocks = catalogBlocks.filter((b) => b.modalities?.includes('locacao'));
+
+  const getEndpointsForBlocks = (blocks: typeof catalogBlocks, extraIds: string[] = []) => {
+    const ids = new Set<string>(extraIds);
+    blocks.forEach((b) => b.usesEndpoints.forEach((id) => ids.add(id)));
+    return CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints.filter((e) => ids.has(e.id));
+  };
+
+  const universalEndpoints = getEndpointsForBlocks(universalBlocks, ['serve-site']);
+  const vendaEndpoints = getEndpointsForBlocks(vendaBlocks);
+  const locacaoEndpoints = getEndpointsForBlocks(locacaoBlocks);
+
+  const renderBlocks = (blocks: typeof catalogBlocks) => (
+    <div className="space-y-2">
+      {blocks.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-4 text-sm text-gray-500">
+            Nenhum componente específico nesta seção.
+          </CardContent>
+        </Card>
+      ) : (
+        blocks.map((block) => (
+          <Card key={block.id} className="border-l-4 border-l-blue-400">
+            <CardHeader className="py-2 px-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  {block.title}
+                  <Badge
+                    variant={block.stability === 'stable' ? 'default' : 'outline'}
+                    className={`text-xs ${block.stability === 'stable' ? 'bg-green-500' : ''}`}
+                  >
+                    {block.stability === 'stable' ? 'Disponível' : 'Planejado'}
+                  </Badge>
+                </CardTitle>
+              </div>
+              <CardDescription className="text-xs mt-1">{block.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="py-2 px-3 pt-0">
+              <div className="text-xs space-y-1">
+                <div className="flex flex-wrap gap-1">
+                  <span className="text-gray-500">Endpoints:</span>
+                  {block.usesEndpoints.map((ep) => (
+                    <Badge key={ep} variant="secondary" className="text-xs font-mono">{ep}</Badge>
+                  ))}
+                </div>
+                {block.notes && block.notes.length > 0 && block.notes[0] && !block.notes[0].startsWith('#') && (
+                  <p className="text-gray-600 italic">{block.notes[0]}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
+  const renderEndpoints = (endpoints: typeof CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints) => (
+    <div className="space-y-2">
+      {endpoints.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-4 text-sm text-gray-500">
+            Nenhum endpoint específico nesta seção.
+          </CardContent>
+        </Card>
+      ) : (
+        endpoints.map((endpoint) => (
+          <Card key={endpoint.id} className="border-l-4 border-l-green-400">
+            <CardHeader className="py-2 px-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs font-mono">{endpoint.method}</Badge>
+                  {endpoint.title}
+                  <Badge
+                    variant={endpoint.stability === 'stable' ? 'default' : 'outline'}
+                    className={`text-xs ${endpoint.stability === 'stable' ? 'bg-green-500' : ''}`}
+                  >
+                    {endpoint.stability === 'stable' ? 'Estável' : 'Planejado'}
+                  </Badge>
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="py-2 px-3 pt-0">
+              <code className="text-xs bg-gray-100 px-2 py-1 rounded block mb-2 font-mono">
+                {endpoint.pathTemplate}
+              </code>
+              {endpoint.notes && endpoint.notes.length > 0 && (
+                <p className="text-xs text-gray-600">{endpoint.notes[0]}</p>
+              )}
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
   const copyPrompt = () => {
     navigator.clipboard.writeText(displayPrompt);
     setCopied(true);
@@ -2541,78 +2652,46 @@ function DocsAIModal({ open, onClose }: {
               </AlertDescription>
             </Alert>
 
-            {/* Seção: Blocos */}
+            {/* Seção: Componentes por Modalidade */}
             <div>
               <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                <span className="text-xl">🧱</span> Blocos (Componentes)
+                <span className="text-xl">🧱</span> Componentes Universais (todas as modalidades)
               </h3>
-              <div className="space-y-2">
-                {CLIENT_SITES_BLOCKS_CATALOG.filter(b => b.stability !== 'deprecated').map((block) => (
-                  <Card key={block.id} className="border-l-4 border-l-blue-400">
-                    <CardHeader className="py-2 px-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                          {block.title}
-                          <Badge 
-                            variant={block.stability === 'stable' ? 'default' : 'outline'}
-                            className={`text-xs ${block.stability === 'stable' ? 'bg-green-500' : ''}`}
-                          >
-                            {block.stability === 'stable' ? 'Disponível' : 'Planejado'}
-                          </Badge>
-                        </CardTitle>
-                      </div>
-                      <CardDescription className="text-xs mt-1">{block.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="py-2 px-3 pt-0">
-                      <div className="text-xs space-y-1">
-                        <div className="flex flex-wrap gap-1">
-                          <span className="text-gray-500">Endpoints:</span>
-                          {block.usesEndpoints.map(ep => (
-                            <Badge key={ep} variant="secondary" className="text-xs font-mono">{ep}</Badge>
-                          ))}
-                        </div>
-                        {block.notes && block.notes.length > 0 && block.notes[0] && !block.notes[0].startsWith('#') && (
-                          <p className="text-gray-600 italic">{block.notes[0]}</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              {renderBlocks(universalBlocks)}
             </div>
 
-            {/* Seção: Endpoints */}
             <div>
               <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                <span className="text-xl">🔌</span> Endpoints (API)
+                <span className="text-xl">🏠</span> Venda de Imóveis (componentes específicos)
               </h3>
-              <div className="space-y-2">
-                {CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints.map((endpoint) => (
-                  <Card key={endpoint.id} className="border-l-4 border-l-green-400">
-                    <CardHeader className="py-2 px-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs font-mono">{endpoint.method}</Badge>
-                          {endpoint.title}
-                          <Badge 
-                            variant={endpoint.stability === 'stable' ? 'default' : 'outline'}
-                            className={`text-xs ${endpoint.stability === 'stable' ? 'bg-green-500' : ''}`}
-                          >
-                            {endpoint.stability === 'stable' ? 'Estável' : 'Planejado'}
-                          </Badge>
-                        </CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="py-2 px-3 pt-0">
-                      <code className="text-xs bg-gray-100 px-2 py-1 rounded block mb-2 font-mono">
-                        {endpoint.pathTemplate}
-                      </code>
-                      {endpoint.notes && endpoint.notes.length > 0 && (
-                        <p className="text-xs text-gray-600">{endpoint.notes[0]}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+              {renderBlocks(vendaBlocks)}
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                <span className="text-xl">🏘️</span> Locação Residencial (componentes específicos)
+              </h3>
+              {renderBlocks(locacaoBlocks)}
+            </div>
+
+            {/* Seção: Endpoints por Modalidade */}
+            <div>
+              <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                <span className="text-xl">🔌</span> Endpoints por Modalidade
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium text-sm mb-2 text-gray-700">Universais</h4>
+                  {renderEndpoints(universalEndpoints)}
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm mb-2 text-gray-700">Venda de Imóveis</h4>
+                  {renderEndpoints(vendaEndpoints)}
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm mb-2 text-gray-700">Locação Residencial</h4>
+                  {renderEndpoints(locacaoEndpoints)}
+                </div>
               </div>
             </div>
 

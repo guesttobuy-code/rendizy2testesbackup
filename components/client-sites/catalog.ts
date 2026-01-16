@@ -36,22 +36,23 @@
 // ============================================================
 
 /**
- * VERSÃO DO CONTRATO (SINCRONIZADA COM PROMPT)
- * 
- * Esta versão DEVE ser igual à versão do prompt em ClientSitesManager.tsx.
- * Quando atualizar o prompt, atualize esta versão também.
- * Quando atualizar o catálogo, atualize o prompt também.
- * 
+        },
+        {
+          title: 'Modo 2 — site hospedado externamente (fetch direto)',
+          language: 'ts',
+          code: `// Base (Supabase Edge Function):
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v6.0' as const;
+export const CATALOG_VERSION = 'v6.1' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-15T21:00:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-15T22:45:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
+
+export type ClientSitesCatalogModality = 'universal' | 'venda' | 'locacao';
 
 export type ClientSitesCatalogEndpoint = {
   id: string;
@@ -76,6 +77,7 @@ export type ClientSitesCatalogBlock = {
   usesEndpoints: string[];
   requiredFields: string[];
   notes?: string[];
+  modalities?: ClientSitesCatalogModality[];
 };
 
 export type ClientSitesCatalogIntegrationGuide = {
@@ -782,6 +784,44 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
     ]
   },
   {
+    id: 'rent-pricing-panel',
+    title: 'Preço de Locação Residencial',
+    stability: 'stable',
+    modalities: ['locacao'],
+    description:
+      'Bloco de preço mensal + custos recorrentes (quando disponíveis) para locação residencial.',
+    usesEndpoints: ['properties', 'site-config'],
+    requiredFields: [
+      'pricing.monthlyRate',
+      'pricing.currency',
+      'features.longTerm'
+    ],
+    notes: [
+      'Exibir aluguel mensal usando pricing.monthlyRate (fallback: pricing.basePrice quando mensal não existir).',
+      'Se existirem custos recorrentes (IPTU/condomínio/taxas), exibir como breakdown. Se não existir, ocultar.',
+      'Não use checkout/reservas para locação residencial; use CTA de contato/leads.'
+    ]
+  },
+  {
+    id: 'sale-pricing-panel',
+    title: 'Preço de Venda',
+    stability: 'stable',
+    modalities: ['venda'],
+    description:
+      'Bloco de preço de venda e informações básicas para compra e venda.',
+    usesEndpoints: ['properties', 'site-config'],
+    requiredFields: [
+      'pricing.salePrice (planned) OR pricing.basePrice (fallback)',
+      'pricing.currency',
+      'features.sale'
+    ],
+    notes: [
+      'Preferir pricing.salePrice quando disponível; se ausente, usar pricing.basePrice como fallback.',
+      'Se houver campos extras (ex.: IPTU anual), exibir como informação adicional; se ausente, ocultar.',
+      'Não use checkout/reservas para venda; use CTA de contato/leads.'
+    ]
+  },
+  {
     id: 'property-card',
     title: 'Card de Imóvel (reutilizável)',
     stability: 'stable',
@@ -1409,56 +1449,99 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
  */
 function generateBlocksSection(): string {
   const stableBlocks = CLIENT_SITES_BLOCKS_CATALOG.filter(b => b.stability === 'stable');
-  const criticalBlocks = stableBlocks.filter(b => 
-    ['checkout-v2-flow', 'booking-form-v2', 'calendar-daily-pricing', 'payment-method-selector'].includes(b.id)
+  const universalBlocks = stableBlocks.filter(
+    (b) => !b.modalities || b.modalities.includes('universal')
   );
-  const otherBlocks = stableBlocks.filter(b => 
-    !['checkout-v2-flow', 'booking-form-v2', 'calendar-daily-pricing', 'payment-method-selector'].includes(b.id)
-  );
+  const vendaBlocks = stableBlocks.filter((b) => b.modalities?.includes('venda'));
+  const locacaoBlocks = stableBlocks.filter((b) => b.modalities?.includes('locacao'));
 
-  let section = `## 🧱 BLOCOS OBRIGATÓRIOS (Gerado do Catálogo ${CATALOG_VERSION})
+  const criticalIds = ['checkout-v2-flow', 'booking-form-v2', 'calendar-daily-pricing', 'payment-method-selector'];
+  const criticalBlocks = universalBlocks.filter((b) => criticalIds.includes(b.id));
+  const otherUniversalBlocks = universalBlocks.filter((b) => !criticalIds.includes(b.id));
+
+  let section = `## 🧱 COMPONENTES POR MODALIDADE (Gerado do Catálogo ${CATALOG_VERSION})
 
 Os blocos abaixo são OBRIGATÓRIOS e devem ser implementados EXATAMENTE como especificado.
 Esta seção é gerada automaticamente do catálogo — mudanças no catálogo refletem aqui.
 
-### Blocos CRÍTICOS (implemente com atenção especial):
+### ✅ Componentes Universais (válidos para Temporada, Venda e Locação Residencial)
 
 `;
 
-  for (const block of criticalBlocks) {
-    section += `#### ${block.title}
+  if (criticalBlocks.length > 0) {
+    section += `#### Blocos CRÍTICOS (implemente com atenção especial):\n\n`;
+    for (const block of criticalBlocks) {
+      section += `#### ${block.title}
 - **ID**: \`${block.id}\`
 - **Descrição**: ${block.description}
 - **Endpoints**: ${block.usesEndpoints.map(e => `\`${e}\``).join(', ') || 'nenhum'}
 - **Campos obrigatórios**: ${block.requiredFields.map(f => `\`${f}\``).join(', ')}
 `;
-    // Incluir TODAS as notas do bloco crítico (são regras importantes!)
-    if (block.notes && block.notes.length > 0) {
-      section += `\n**📋 REGRAS DETALHADAS:**\n\n`;
-      for (const note of block.notes) {
-        // Formatar notas: se começa com #, é um header
-        if (note.startsWith('##')) {
-          section += `\n${note}\n\n`;
-        } else if (note.startsWith('#')) {
-          section += `\n${note}\n\n`;
-        } else if (note.startsWith('```')) {
-          section += `${note}\n`;
-        } else if (note.trim() === '') {
-          section += '\n';
-        } else {
+      if (block.notes && block.notes.length > 0) {
+        section += `\n**📋 REGRAS DETALHADAS:**\n\n`;
+        for (const note of block.notes) {
+          if (note.startsWith('##')) {
+            section += `\n${note}\n\n`;
+          } else if (note.startsWith('#')) {
+            section += `\n${note}\n\n`;
+          } else if (note.startsWith('```')) {
+            section += `${note}\n`;
+          } else if (note.trim() === '') {
+            section += '\n';
+          } else {
+            section += `${note}\n`;
+          }
+        }
+      }
+      section += '\n---\n\n';
+    }
+  }
+
+  section += `#### Outros Blocos Universais:\n\n`;
+  for (const block of otherUniversalBlocks) {
+    section += `- **${block.title}** (\`${block.id}\`): ${block.description}\n`;
+  }
+
+  section += `\n---\n\n### 🏠 Venda de Imóveis (componentes específicos)\n\n`;
+  if (vendaBlocks.length === 0) {
+    section += '- (nenhum bloco específico no catálogo atual)\n';
+  } else {
+    for (const block of vendaBlocks) {
+      section += `#### ${block.title}
+- **ID**: \`${block.id}\`
+- **Descrição**: ${block.description}
+- **Endpoints**: ${block.usesEndpoints.map(e => `\`${e}\``).join(', ') || 'nenhum'}
+- **Campos obrigatórios**: ${block.requiredFields.map(f => `\`${f}\``).join(', ')}
+`;
+      if (block.notes && block.notes.length > 0) {
+        section += `\n**📋 Observações:**\n\n`;
+        for (const note of block.notes) {
           section += `${note}\n`;
         }
       }
+      section += '\n---\n\n';
     }
-    section += '\n---\n\n';
   }
 
-  section += `### Outros Blocos Estáveis:
-
+  section += `### 🏘️ Locação Residencial (componentes específicos)\n\n`;
+  if (locacaoBlocks.length === 0) {
+    section += '- (nenhum bloco específico no catálogo atual)\n';
+  } else {
+    for (const block of locacaoBlocks) {
+      section += `#### ${block.title}
+- **ID**: \`${block.id}\`
+- **Descrição**: ${block.description}
+- **Endpoints**: ${block.usesEndpoints.map(e => `\`${e}\``).join(', ') || 'nenhum'}
+- **Campos obrigatórios**: ${block.requiredFields.map(f => `\`${f}\``).join(', ')}
 `;
-
-  for (const block of otherBlocks) {
-    section += `- **${block.title}** (\`${block.id}\`): ${block.description}\n`;
+      if (block.notes && block.notes.length > 0) {
+        section += `\n**📋 Observações:**\n\n`;
+        for (const note of block.notes) {
+          section += `${note}\n`;
+        }
+      }
+      section += '\n---\n\n';
+    }
   }
 
   return section;
@@ -1468,34 +1551,55 @@ Esta seção é gerada automaticamente do catálogo — mudanças no catálogo r
  * Gera a seção de endpoints do prompt a partir do catálogo
  */
 function generateEndpointsSection(): string {
-  const stableEndpoints = CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints.filter(e => e.stability === 'stable');
-  const plannedEndpoints = CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints.filter(e => e.stability === 'planned');
+  const stableBlocks = CLIENT_SITES_BLOCKS_CATALOG.filter(b => b.stability === 'stable');
+  const universalBlocks = stableBlocks.filter(
+    (b) => !b.modalities || b.modalities.includes('universal')
+  );
+  const vendaBlocks = stableBlocks.filter((b) => b.modalities?.includes('venda'));
+  const locacaoBlocks = stableBlocks.filter((b) => b.modalities?.includes('locacao'));
 
-  let section = `## 🔌 ENDPOINTS DA API (Gerado do Catálogo ${CATALOG_VERSION})
+  const getEndpointsForBlocks = (blocks: ClientSitesCatalogBlock[], extraIds: string[] = []) => {
+    const ids = new Set<string>(extraIds);
+    blocks.forEach((b) => b.usesEndpoints.forEach((id) => ids.add(id)));
+    return CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints.filter((e) => ids.has(e.id));
+  };
 
-### Endpoints Estáveis (USE):
+  const universalEndpoints = getEndpointsForBlocks(universalBlocks, ['serve-site']);
+  const vendaEndpoints = getEndpointsForBlocks(vendaBlocks);
+  const locacaoEndpoints = getEndpointsForBlocks(locacaoBlocks);
 
-`;
+  const renderEndpoints = (title: string, endpoints: ClientSitesCatalogEndpoint[]) => {
+    let out = `### ${title}\n\n`;
+    const stable = endpoints.filter((e) => e.stability === 'stable');
+    const planned = endpoints.filter((e) => e.stability === 'planned');
 
-  for (const endpoint of stableEndpoints) {
-    section += `#### ${endpoint.title}
-\`\`\`
-${endpoint.method} ${endpoint.pathTemplate}
-\`\`\`
-`;
-    if (endpoint.notes && endpoint.notes.length > 0) {
-      section += `${endpoint.notes.slice(0, 2).join('\n')}\n`;
+    if (stable.length === 0) {
+      out += '- (nenhum endpoint estável específico)\n\n';
+    } else {
+      for (const endpoint of stable) {
+        out += `#### ${endpoint.title}\n\`\`\`\n${endpoint.method} ${endpoint.pathTemplate}\n\`\`\`\n`;
+        if (endpoint.notes && endpoint.notes.length > 0) {
+          out += `${endpoint.notes.slice(0, 2).join('\n')}\n`;
+        }
+        out += '\n';
+      }
     }
-    section += '\n';
-  }
 
-  if (plannedEndpoints.length > 0) {
-    section += `### Endpoints Planejados (NÃO IMPLEMENTE AINDA):
-`;
-    for (const endpoint of plannedEndpoints) {
-      section += `- \`${endpoint.method} ${endpoint.pathTemplate}\` — ${endpoint.title}\n`;
+    if (planned.length > 0) {
+      out += `**Endpoints Planejados (não implementar ainda):**\n`;
+      for (const endpoint of planned) {
+        out += `- \`${endpoint.method} ${endpoint.pathTemplate}\` — ${endpoint.title}\n`;
+      }
+      out += '\n';
     }
-  }
+
+    return out;
+  };
+
+  let section = `## 🔌 ENDPOINTS DA API POR MODALIDADE (Gerado do Catálogo ${CATALOG_VERSION})\n\n`;
+  section += renderEndpoints('Universais (todas as modalidades)', universalEndpoints);
+  section += renderEndpoints('Venda de Imóveis', vendaEndpoints);
+  section += renderEndpoints('Locação Residencial', locacaoEndpoints);
 
   return section;
 }
@@ -1535,6 +1639,16 @@ Antes de gerar o código final, verifique CADA item abaixo. Se algum estiver err
 - [ ] \`PaymentMethodSelector.tsx\` com PIX inline (QR code) + Boleto (PDF link)
 - [ ] \`DateRangePicker.tsx\` ou \`CalendarPicker.tsx\` usando API real
 - [ ] \`GuestAreaButton.tsx\` que redireciona para cápsula (NÃO código embutido)
+
+### Venda de Imóveis (quando modalidade = venda):
+- [ ] Exibir preço usando \`pricing.salePrice\` (fallback: \`pricing.basePrice\`)
+- [ ] NÃO exibir checkout/reserva/calendário
+- [ ] CTA principal é contato (WhatsApp/formulário)
+
+### Locação Residencial (quando modalidade = locação):
+- [ ] Exibir preço usando \`pricing.monthlyRate\` (mensal)
+- [ ] Se existirem custos extras (IPTU/condomínio/taxas), exibir breakdown; se não existir, ocultar
+- [ ] NÃO exibir checkout/reserva/calendário
 
 ### Dados Reais (PROIBIDO MOCKS):
 - [ ] Remover páginas de demo (\`/demo\`) e arquivos \`mocks/*\`
@@ -1624,6 +1738,43 @@ Para ser aceito:
 - A listagem de imóveis carrega via API pública.
 - Assets (JS/CSS/imagens) carregam sem 404.
 - Calendário de disponibilidade busca dados da API real (NUNCA mock).
+
+## 🔀 Modalidades (OBRIGATÓRIO seguir)
+
+O Rendizy possui 3 tipos de cliente e **o site deve se adaptar** de forma clara:
+
+### 1) Temporada (Aluguel por Diária)
+- **Usa calendário + reservas + checkout.**
+- Exibir preço diário com \`pricing.dailyRate\` (fallback: \`pricing.basePrice\`).
+- Blocos críticos obrigatórios: \`calendar-daily-pricing\`, \`booking-form-v2\`, \`checkout-v2-flow\`, \`payment-method-selector\`.
+
+**⛔ PROIBIDO em Temporada:**
+- Omitir calendário/checkout quando a modalidade estiver ativa.
+- Inventar preço no front-end (sempre via API pública).
+
+### 2) Locação Residencial (Aluguel Mensal)
+- **Não usa checkout/reserva/calendário.**
+- Exibir preço mensal com \`pricing.monthlyRate\` (fallback: \`pricing.basePrice\`).
+- Se houver custos recorrentes (IPTU/condomínio/taxas), exibir como breakdown opcional.
+- CTA principal é contato/leads (WhatsApp/formulário).
+
+**⛔ PROIBIDO em Locação Residencial:**
+- Renderizar calendário, formulário de reserva ou checkout.
+- Usar \`dailyRate\` como preço principal.
+
+### 3) Venda de Imóveis
+- **Não usa checkout/reserva/calendário.**
+- Exibir preço de venda com \`pricing.salePrice\` (fallback: \`pricing.basePrice\`).
+- Se houver IPTU anual ou outras infos, exibir como dados adicionais (opcional).
+- CTA principal é contato/leads (WhatsApp/formulário).
+
+**⛔ PROIBIDO em Venda:**
+- Renderizar calendário, formulário de reserva ou checkout.
+- Usar \`monthlyRate\` como preço principal.
+
+### ✅ Regra de Visibilidade por Modalidade
+- Se a modalidade **não estiver habilitada**, **não renderize** o bloco correspondente.
+- Use \`features.shortTerm\`, \`features.longTerm\`, \`features.sale\` do \`siteConfig\`.
 
 ## Stack
 - React 18 + TypeScript
