@@ -43,12 +43,12 @@
           code: `// Base (Supabase Edge Function):
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v6.2' as const;
+export const CATALOG_VERSION = 'v6.3' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-15T23:20:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-15T23:55:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -914,6 +914,7 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       'Regra: o backend é a fonte de verdade (evita divergências entre sites).',
       'Nota: o bloco exibe preço por dia; o total da reserva (limpeza/descontos) é outro contrato (planejado).',
       'UX obrigatório: exibir o preço por dia dentro do quadradinho da data (ex.: R$ 480).',
+      'UI padrão: calendário em modal com **2 meses lado a lado** e navegação por setas (como o padrão MedHome).',
       'Regra de seleção: check-in é INCLUSIVO e check-out é EXCLUSIVO (seleção por noites).',
       'Permitir selecionar checkout em um dia indisponível, desde que TODAS as noites entre check-in e check-out estejam disponíveis.',
       'Exemplo: se há reserva até o dia 21 e outra inicia no 22, o usuário pode selecionar 21 → 22 (1 noite).'
@@ -1708,6 +1709,85 @@ function generateModalitiesMapTable(): string {
   return table;
 }
 
+function generateWhatsNewSection(): string {
+  return `## 🆕 NOVIDADES ${CATALOG_VERSION}
+
+- ✅ Sistema compositor com detecção automática de modalidades
+- ✅ Tabela de mapeamento bloco ↔ modalidade
+- ✅ Marcação visual (🌐 🏖️ 🏠 🏘️) em todos os blocos
+- ✅ Endpoints organizados por modalidade
+- ✅ Prompt gerado automaticamente do catálogo
+\n`;
+}
+
+function generateDecisionFlowSection(): string {
+  return `## 🎛️ FLUXO DE DECISÃO (resumo visual)
+
+Backend retorna features:
+┌─────────────────────────────┐
+│ features.shortTerm = true   │ → 🏖️ Implementar blocos Temporada
+│ features.longTerm = false   │ → 🏠 IGNORAR blocos Residencial
+│ features.sale = true        │ → 🏘️ Implementar blocos Venda
+└─────────────────────────────┘
+                ↓
+        🌐 Blocos Universais → SEMPRE implementar
+\n`;
+}
+
+function generateScenariosSection(): string {
+  return `### 📦 CENÁRIOS COMUNS
+
+#### Cenário 1: Site PURO de Temporada
+\`\`\`json
+{ "shortTerm": true, "longTerm": false, "sale": false }
+\`\`\`
+Implementar:
+- ✅ Todos os blocos universais
+- ✅ \`calendar-daily-pricing\`
+- ✅ \`booking-form-v2\`
+- ✅ \`checkout-v2-flow\`
+- ⛔ \`rent-pricing-panel\`
+- ⛔ \`sale-pricing-panel\`
+
+#### Cenário 2: Site MISTO (Temporada + Venda)
+\`\`\`json
+{ "shortTerm": true, "longTerm": false, "sale": true }
+\`\`\`
+Implementar:
+- ✅ Todos os blocos universais
+- ✅ \`calendar-daily-pricing\` (temporada)
+- ✅ \`sale-pricing-panel\` (venda)
+- ⛔ \`rent-pricing-panel\`
+\n`;
+}
+
+function generateEndpointsTableSection(): string {
+  const endpointModality = (id: string) => {
+    if (['properties', 'site-config', 'serve-site'].includes(id)) return '🌐 Universal';
+    if (['availability-pricing', 'calendar', 'reservation-create', 'calculate-price', 'checkout-session', 'payment-methods'].includes(id)) return '🏖️ Temporada';
+    return '⚠️ Planejado';
+  };
+
+  const statusLabel = (stability: ClientSitesCatalogStability) => {
+    if (stability === 'stable') return '✅ Estável';
+    if (stability === 'planned') return '⚠️ Planejado';
+    return '⛔ Deprecated';
+  };
+
+  let table = `### 🔌 ENDPOINTS POR MODALIDADE (tabela rápida)
+
+| Endpoint | Modalidade | Status | Descrição |
+|----------|-----------|--------|-----------|
+`;
+
+  for (const endpoint of CLIENT_SITES_PUBLIC_CONTRACT_V1.endpoints) {
+    table += `| \`${endpoint.method} ${endpoint.pathTemplate}\` | ${endpointModality(endpoint.id)} | ${statusLabel(endpoint.stability)} | ${endpoint.title} |\n`;
+  }
+
+  table += `\n`;
+  return table;
+}
+
 /**
  * Gera a seção de integration guides do prompt
  */
@@ -1772,6 +1852,9 @@ Se seu site não funcionar, é porque você desviou do padrão. Corrija seu cód
 ---
 `;
 
+  // ==================== PARTE DINÂMICA: NOVIDADES ====================
+  const novidades = generateWhatsNewSection();
+
   // ==================== PARTE DINÂMICA: CHECKLIST ====================
   const checklist = generateChecklistSection();
 
@@ -1811,6 +1894,8 @@ Exemplo: site misto (Temporada + Venda)
 - ✅ Implementar: calendar, booking, checkout (🏖️)
 - ✅ Implementar: sale-pricing-panel (🏘️)
 - ⛔ Ignorar: rent-pricing-panel (🏠)
+
+${generateDecisionFlowSection()}
 
 ## Objetivo (aceitação)
 Você vai gerar um site (SPA) de imobiliária (temporada/locação/venda) que, ao ser enviado como ZIP no painel do RENDIZY, fica **funcionando imediatamente** em:
@@ -1926,8 +2011,14 @@ Gere APENAS os arquivos de código (tsx, ts, css, json, config).
   // ==================== PARTE DINÂMICA: MAPA BLOCOS x MODALIDADES ====================
   const mapaModalidades = generateModalitiesMapTable();
 
+  // ==================== PARTE DINÂMICA: CENÁRIOS ====================
+  const cenarios = generateScenariosSection();
+
   // ==================== PARTE DINÂMICA: ENDPOINTS ====================
   const endpoints = generateEndpointsSection();
+
+  // ==================== PARTE DINÂMICA: ENDPOINTS (TABELA) ====================
+  const endpointsTabela = generateEndpointsTableSection();
 
   // ==================== PARTE DINÂMICA: GUIAS ====================
   const guias = generateIntegrationGuidesSection();
@@ -2057,5 +2148,5 @@ Gere o projeto completo e pronto para ZIP seguindo TUDO acima.
 `;
 
   // ==================== JUNTAR TUDO ====================
-  return header + checklist + objetivoEStack + blocos + '\n' + mapaModalidades + '\n---\n\n' + endpoints + '\n---\n\n' + guias + estrutura + build;
+  return header + novidades + checklist + objetivoEStack + blocos + '\n' + mapaModalidades + '\n' + cenarios + '\n' + endpointsTabela + '\n---\n\n' + endpoints + '\n---\n\n' + guias + estrutura + build;
 }
