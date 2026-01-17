@@ -24,6 +24,18 @@ interface ClientSiteConfig {
   archivePath?: string;
   archiveUrl?: string;
   source?: 'bolt' | 'v0' | 'figma' | 'custom';
+  extractedFilesCount?: number;
+
+  repo?: {
+    provider?: 'github' | 'gitlab' | 'bitbucket';
+    url?: string;
+    branch?: string;
+    deployHookUrl?: string;
+    vercelProjectUrl?: string;
+    lastDeployStatus?: string;
+    lastDeployAt?: string;
+    lastDeployError?: string;
+  };
   createdAt: string;
   updatedAt: string;
   isActive: boolean;

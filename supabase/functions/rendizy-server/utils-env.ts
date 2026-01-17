@@ -69,6 +69,12 @@ export const STAYSNET_WEBHOOK_VERIFY_SIGNATURE = firstDefined(
   "false"
 );
 
+// GitHub Webhook (sites por repositório)
+export const GITHUB_WEBHOOK_SECRET = firstDefined(
+  ["GITHUB_WEBHOOK_SECRET", "RENDIZY_GITHUB_WEBHOOK_SECRET"],
+  ""
+);
+
 // Vercel Deployments API (para build automático de sites)
 // Obter token em: https://vercel.com/account/tokens
 export const VERCEL_ACCESS_TOKEN = firstDefined(
@@ -106,3 +112,4 @@ console.log(
   "[utils-env] STAYSNET_WEBHOOK_VERIFY_SIGNATURE:",
   STAYSNET_WEBHOOK_VERIFY_SIGNATURE ? String(STAYSNET_WEBHOOK_VERIFY_SIGNATURE).trim() : "(default)"
 );
+console.log("[utils-env] GITHUB_WEBHOOK_SECRET:", GITHUB_WEBHOOK_SECRET ? "SET" : "NOT SET");

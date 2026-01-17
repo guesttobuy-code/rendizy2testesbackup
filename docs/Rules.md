@@ -40,7 +40,46 @@ Se um site gerado não funciona:
 
 ---
 
-## 🔴 REGRA #4: CONTRATO É LEI
+## 🔴 REGRA #4: ATUALIZAÇÃO DE SITES É RESPONSABILIDADE DO CLIENTE
+
+Se um site externo estiver desatualizado (bundle antigo ou geração com prompt antigo):
+
+1. **Corrigir no site** (bundle/arquivo do cliente), nunca no core Rendizy
+2. **Gerar nova versão** do site e registrar versão/data
+3. **Notificar o cliente** que é necessário publicar a atualização
+
+**Objetivo:** garantir que uma correção pontual não afete outros sites.
+
+---
+
+## 🔴 REGRA #7: DEPLOY DE SITES VIA REPOSITÓRIO É O PADRÃO
+
+O fluxo oficial para sites de clientes é **repositório + CI/CD (Vercel)**.
+
+- ✅ O repositório é a **fonte de verdade** do site
+- ✅ Deploy é disparado por **push** (webhook GitHub → Vercel)
+- ✅ Configuração fica registrada no site (repo URL, branch, deploy hook)
+- ❌ Upload manual de ZIP é **exceção emergencial** e deve ser registrado
+- ❌ Nunca publicar ZIP desatualizado “só para testar” em produção
+
+**Objetivo:** eliminar regressões por upload manual e garantir rastreabilidade.
+
+---
+
+## 🔴 REGRA #5: CHECKOUT V2 É PADRÃO GLOBAL
+
+O fluxo de checkout deve seguir estritamente o padrão abaixo em TODOS os sites:
+
+1. `successUrl` e `cancelUrl` **devem** usar o domínio Rendizy
+2. Checkout **sempre** abre em nova aba (`window.open`)
+3. A confirmação **sempre** vem do endpoint `/api/checkout/success`
+4. A aba original deve ouvir `BroadcastChannel`/`localStorage` para exibir confirmação
+
+Se um site não segue esse padrão, ele deve ser **corrigido e re-publicado**, sem alterar o backend.
+
+---
+
+## 🔴 REGRA #6: CONTRATO É LEI
 
 Os endpoints, tipos e formatos documentados em `catalog.ts` e no prompt são **imutáveis** após publicação.
 

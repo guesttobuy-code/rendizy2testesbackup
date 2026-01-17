@@ -48,6 +48,18 @@ interface HostingProviders {
   cloudflare_pages?: HostingProviderConfig;
 }
 
+interface RepoSettings {
+  provider?: 'github' | 'gitlab' | 'bitbucket';
+  url?: string;
+  branch?: string;
+  deployHookUrl?: string;
+  vercelProjectUrl?: string;
+  webhookSecret?: string;
+  lastDeployStatus?: string;
+  lastDeployAt?: string;
+  lastDeployError?: string;
+}
+
 interface ClientSite {
   organizationId: string;
   siteName: string;
@@ -80,6 +92,7 @@ interface ClientSite {
     sale: boolean;
   };
   hostingProviders?: HostingProviders;
+  repo?: RepoSettings;
   siteCode?: string;
   createdAt: string;
   updatedAt: string;
@@ -841,6 +854,7 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
   onSuccess: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [deploying, setDeploying] = useState(false);
   const [showVercelToken, setShowVercelToken] = useState(false);
   const [hostingTab, setHostingTab] = useState<'vercel' | 'netlify' | 'cloudflare'>('vercel');
   const [formData, setFormData] = useState({
@@ -871,7 +885,14 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
     netlifyAccessToken: site.hostingProviders?.netlify?.access_token || '',
     netlifySiteId: site.hostingProviders?.netlify?.site_id || '',
     cloudflareApiToken: site.hostingProviders?.cloudflare_pages?.access_token || '',
-    cloudflareAccountId: site.hostingProviders?.cloudflare_pages?.account_id || ''
+    cloudflareAccountId: site.hostingProviders?.cloudflare_pages?.account_id || '',
+    // Repo settings
+    repoProvider: site.repo?.provider || 'github',
+    repoUrl: site.repo?.url || '',
+    repoBranch: site.repo?.branch || 'main',
+    repoDeployHookUrl: site.repo?.deployHookUrl || '',
+    repoVercelProjectUrl: site.repo?.vercelProjectUrl || '',
+    repoWebhookSecret: site.repo?.webhookSecret || ''
   });
 
   // Auto-save: salva automaticamente após 2 segundos de inatividade
@@ -928,6 +949,14 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
                 account_id: data.cloudflareAccountId || undefined
               }
             },
+            repo: {
+              provider: data.repoProvider,
+              url: data.repoUrl || undefined,
+              branch: data.repoBranch || undefined,
+              deployHookUrl: data.repoDeployHookUrl || undefined,
+              vercelProjectUrl: data.repoVercelProjectUrl || undefined,
+              webhookSecret: data.repoWebhookSecret || undefined
+            },
             isActive: data.isActive
           })
         }
@@ -972,6 +1001,31 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
     }
   };
 
+  const handleRepoDeploy = async () => {
+    try {
+      setDeploying(true);
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/rendizy-server/client-sites/${site.organizationId}/repo/deploy`,
+        {
+          method: 'POST',
+          headers: getEdgeHeaders('application/json')
+        }
+      );
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        toast.error(result?.error || 'Falha ao disparar deploy');
+        return;
+      }
+      toast.success('Deploy disparado com sucesso');
+      onSuccess();
+    } catch (error) {
+      console.error('Erro ao disparar deploy:', error);
+      toast.error('Erro ao disparar deploy');
+    } finally {
+      setDeploying(false);
+    }
+  };
+
   const handleClose = () => {
     if (saveStatus === 'saving') {
       toast.info('Aguarde, salvando alterações...');
@@ -1001,12 +1055,13 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
         </DialogHeader>
 
         <Tabs defaultValue="geral" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3 gap-2">
             <TabsTrigger value="geral">Geral</TabsTrigger>
             <TabsTrigger value="contato">Contato</TabsTrigger>
             <TabsTrigger value="design">Design</TabsTrigger>
             <TabsTrigger value="recursos">Recursos</TabsTrigger>
             <TabsTrigger value="hospedagem">🌐 Hospedagem</TabsTrigger>
+            <TabsTrigger value="repositorio">GitHub + Vercel</TabsTrigger>
           </TabsList>
 
           {/* ABA: GERAL */}
@@ -1577,6 +1632,18 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
               </Select>
             </div>
           </TabsContent>
+
+          {/* ABA: GITHUB + VERCEL */}
+          {/* IA NOTE: fluxo canônico é repo + CI/CD; ZIP manual é exceção emergencial */}
+          <TabsContent value="repositorio" className="space-y-4">
+            <RepoVercelCapsule
+              site={site}
+              formData={formData}
+              setFormData={setFormData}
+              deploying={deploying}
+              onDeploy={handleRepoDeploy}
+            />
+          </TabsContent>
         </Tabs>
 
         <DialogFooter>
@@ -1597,6 +1664,172 @@ function EditSiteModal({ site, open, onClose, onSuccess }: {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function RepoVercelCapsule({
+  site,
+  formData,
+  setFormData,
+  deploying,
+  onDeploy
+}: {
+  site: ClientSite;
+  formData: any;
+  setFormData: (next: any) => void;
+  deploying: boolean;
+  onDeploy: () => void;
+}) {
+  const generateSecret = () => {
+    try {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      const b64 = btoa(String.fromCharCode(...Array.from(bytes)));
+      setFormData({ ...formData, repoWebhookSecret: b64 });
+      toast.success('Secret gerado');
+    } catch {
+      toast.error('Falha ao gerar secret');
+    }
+  };
+
+  const copySecret = async () => {
+    try {
+      if (!formData.repoWebhookSecret) return;
+      await navigator.clipboard.writeText(formData.repoWebhookSecret);
+      toast.success('Secret copiado');
+    } catch {
+      toast.error('Falha ao copiar secret');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Alert className="bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200">
+        <AlertTitle>GitHub + Vercel</AlertTitle>
+        <AlertDescription>
+          Configure repositório, branch, deploy hook e o secret do webhook.
+        </AlertDescription>
+      </Alert>
+
+      <div className="space-y-2">
+        <Label>Provedor</Label>
+        <Select
+          value={formData.repoProvider}
+          onValueChange={(value: any) => setFormData({ ...formData, repoProvider: value })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="github">GitHub</SelectItem>
+            <SelectItem value="gitlab">GitLab</SelectItem>
+            <SelectItem value="bitbucket">Bitbucket</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label>URL do repositório</Label>
+        <Input
+          value={formData.repoUrl}
+          onChange={(e) => setFormData({ ...formData, repoUrl: e.target.value })}
+          placeholder="https://github.com/org/site-medhome"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Branch de deploy</Label>
+        <Input
+          value={formData.repoBranch}
+          onChange={(e) => setFormData({ ...formData, repoBranch: e.target.value })}
+          placeholder="main"
+          className="font-mono"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Vercel Deploy Hook</Label>
+        <Input
+          value={formData.repoDeployHookUrl}
+          onChange={(e) => setFormData({ ...formData, repoDeployHookUrl: e.target.value })}
+          placeholder="https://api.vercel.com/v1/integrations/deploy/...."
+          className="font-mono"
+        />
+        <p className="text-xs text-gray-500">
+          Crie um Deploy Hook no projeto da Vercel e cole aqui.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Webhook Secret (GitHub)</Label>
+        <Input
+          value={formData.repoWebhookSecret}
+          onChange={(e) => setFormData({ ...formData, repoWebhookSecret: e.target.value })}
+          placeholder="secret do webhook"
+          className="font-mono"
+        />
+        <p className="text-xs text-gray-500">
+          Use este secret no webhook do GitHub.
+        </p>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={generateSecret}>
+            Gerar secret
+          </Button>
+          <Button type="button" variant="outline" onClick={copySecret} disabled={!formData.repoWebhookSecret}>
+            <Copy className="h-4 w-4" />
+            Copiar
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>URL do projeto na Vercel (opcional)</Label>
+        <Input
+          value={formData.repoVercelProjectUrl}
+          onChange={(e) => setFormData({ ...formData, repoVercelProjectUrl: e.target.value })}
+          placeholder="https://vercel.com/org/projeto"
+        />
+      </div>
+
+      {site.repo?.lastDeployStatus && (
+        <Alert className="bg-gray-50 border-gray-200">
+          <AlertTitle>Último deploy</AlertTitle>
+          <AlertDescription>
+            Status: {site.repo.lastDeployStatus}
+            {site.repo.lastDeployAt ? ` • ${new Date(site.repo.lastDeployAt).toLocaleString('pt-BR')}` : ''}
+            {site.repo.lastDeployError ? ` • Erro: ${site.repo.lastDeployError}` : ''}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          onClick={onDeploy}
+          disabled={deploying || !formData.repoDeployHookUrl}
+        >
+          {deploying ? 'Disparando...' : 'Disparar Deploy'}
+        </Button>
+        {formData.repoVercelProjectUrl && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => window.open(formData.repoVercelProjectUrl, '_blank', 'noopener,noreferrer')}
+          >
+            Abrir Vercel
+          </Button>
+        )}
+        {formData.repoUrl && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => window.open(formData.repoUrl, '_blank', 'noopener,noreferrer')}
+          >
+            Abrir Repo
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 

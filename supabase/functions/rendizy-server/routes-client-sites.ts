@@ -14,7 +14,8 @@ import {
   SUPABASE_PROJECT_REF,
   VERCEL_ACCESS_TOKEN,
   VERCEL_TEAM_ID,
-  VERCEL_PROJECT_ID
+  VERCEL_PROJECT_ID,
+  GITHUB_WEBHOOK_SECRET
 } from './utils-env.ts';
 
 const app = new Hono();
@@ -105,6 +106,19 @@ interface ClientSiteConfig {
   // ✅ NOVO: Arquivos extraídos do ZIP para Storage
   extractedBaseUrl?: string; // Base URL pública do Storage (ex: https://...supabase.co/storage/v1/object/public/client-sites)
   extractedFilesCount?: number; // Quantidade de arquivos extraídos
+
+  // Repositório do site (GitHub/Vercel)
+  repo?: {
+    provider?: 'github' | 'gitlab' | 'bitbucket';
+    url?: string;
+    branch?: string;
+    deployHookUrl?: string;
+    vercelProjectUrl?: string;
+    webhookSecret?: string;
+    lastDeployStatus?: string;
+    lastDeployAt?: string;
+    lastDeployError?: string;
+  };
 
   // Metadados
   createdAt: string;
@@ -277,6 +291,17 @@ function sqlToClientSiteConfig(row: any): ClientSiteConfig {
     archiveUrl: row.archive_url || undefined,
     extractedBaseUrl: row.extracted_base_url || undefined,
     extractedFilesCount: row.extracted_files_count || undefined,
+    repo: {
+      provider: row.repo_provider || undefined,
+      url: row.repo_url || undefined,
+      branch: row.repo_branch || undefined,
+      deployHookUrl: row.repo_deploy_hook_url || undefined,
+      vercelProjectUrl: row.repo_vercel_project_url || undefined,
+      webhookSecret: row.repo_webhook_secret || undefined,
+      lastDeployStatus: row.repo_last_deploy_status || undefined,
+      lastDeployAt: row.repo_last_deploy_at || undefined,
+      lastDeployError: row.repo_last_deploy_error || undefined,
+    },
     hostingProviders: row.hosting_providers || undefined,
     source: row.source || "custom",
     createdAt: row.created_at,
@@ -304,11 +329,59 @@ function clientSiteConfigToSql(config: ClientSiteConfig): any {
     archive_url: config.archiveUrl || null,
     extracted_base_url: config.extractedBaseUrl || null,
     extracted_files_count: config.extractedFilesCount || null,
+    repo_provider: config.repo?.provider || null,
+    repo_url: config.repo?.url || null,
+    repo_branch: config.repo?.branch || null,
+    repo_deploy_hook_url: config.repo?.deployHookUrl || null,
+    repo_vercel_project_url: config.repo?.vercelProjectUrl || null,
+    repo_webhook_secret: config.repo?.webhookSecret || null,
+    repo_last_deploy_status: config.repo?.lastDeployStatus || null,
+    repo_last_deploy_at: config.repo?.lastDeployAt || null,
+    repo_last_deploy_error: config.repo?.lastDeployError || null,
     source: config.source || "custom",
     is_active: config.isActive,
     created_at: config.createdAt || new Date().toISOString(),
     updated_at: config.updatedAt || new Date().toISOString(),
   };
+}
+
+function normalizeRepoUrl(url: string): string {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+
+  // git@github.com:org/repo.git -> https://github.com/org/repo
+  if (raw.startsWith('git@')) {
+    const parts = raw.replace('git@', '').split(':');
+    if (parts.length === 2) {
+      return `https://${parts[0]}/${parts[1]}`.replace(/\.git$/i, '').replace(/\/+$/g, '').toLowerCase();
+    }
+  }
+
+  return raw.replace(/\.git$/i, '').replace(/\/+$/g, '').toLowerCase();
+}
+
+async function verifyGithubSignature(payload: string, signatureHeader: string, secret: string): Promise<boolean> {
+  try {
+    const sigHeader = String(signatureHeader || '').trim().toLowerCase().replace(/\s+/g, '');
+    const cleanSecret = String(secret || '').trim();
+    if (!sigHeader || !sigHeader.startsWith('sha256=')) return false;
+    if (!cleanSecret) return false;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(cleanSecret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+    const bytes = new Uint8Array(sig);
+    const hex = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    const computed = `sha256=${hex}`;
+    return computed === sigHeader;
+  } catch {
+    return false;
+  }
 }
 
 // ============================================================
@@ -1422,6 +1495,241 @@ app.put("/:organizationId", async (c) => {
       {
         success: false,
         error: error.message,
+      },
+      500
+    );
+  }
+});
+
+// POST /make-server-67caf26a/client-sites/:organizationId/repo/deploy
+// Dispara deploy via Vercel Deploy Hook do repositório
+app.post("/:organizationId/repo/deploy", async (c) => {
+  try {
+    const { organizationId } = c.req.param();
+
+    const auth = await requireOrganizationAccess(c, organizationId);
+    if (auth instanceof Response) return auth;
+
+    const supabase = getSupabaseClient();
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("client_sites")
+      .select("id, repo_deploy_hook_url")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (fetchError || !existing) {
+      return c.json(
+        {
+          success: false,
+          error: "Site não encontrado",
+        },
+        404
+      );
+    }
+
+    const hookUrl = existing.repo_deploy_hook_url || "";
+    if (!hookUrl) {
+      return c.json(
+        {
+          success: false,
+          error: "Deploy hook não configurado",
+        },
+        400
+      );
+    }
+
+    const now = new Date().toISOString();
+    const hookResponse = await fetch(hookUrl, { method: "POST" });
+    if (!hookResponse.ok) {
+      const errText = await hookResponse.text().catch(() => "");
+      await supabase
+        .from("client_sites")
+        .update({
+          repo_last_deploy_status: "error",
+          repo_last_deploy_at: now,
+          repo_last_deploy_error: errText || `HTTP ${hookResponse.status}`,
+          updated_at: now,
+        })
+        .eq("organization_id", organizationId);
+
+      return c.json(
+        {
+          success: false,
+          error: "Falha ao disparar deploy",
+          details: errText || `HTTP ${hookResponse.status}`,
+        },
+        502
+      );
+    }
+
+    await supabase
+      .from("client_sites")
+      .update({
+        repo_last_deploy_status: "triggered",
+        repo_last_deploy_at: now,
+        repo_last_deploy_error: null,
+        updated_at: now,
+      })
+      .eq("organization_id", organizationId);
+
+    return c.json({
+      success: true,
+      message: "Deploy disparado com sucesso",
+      deployedAt: now,
+    });
+  } catch (error) {
+    console.error("[CLIENT-SITES] Erro ao disparar deploy:", error);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+      },
+      500
+    );
+  }
+});
+
+// POST /make-server-67caf26a/client-sites/repo/webhook/github
+// Webhook do GitHub: dispara deploy via Vercel Deploy Hook
+// IA NOTE:
+// - Este endpoint precisa ficar sem JWT (config em supabase/config.toml).
+// - A assinatura HMAC deve usar o BODY BRUTO (c.req.text()).
+// - Não parsear JSON antes de validar a assinatura.
+app.post("/repo/webhook/github", async (c) => {
+  try {
+    if (!GITHUB_WEBHOOK_SECRET) {
+      return c.json({ success: false, error: "GITHUB_WEBHOOK_SECRET não configurado" }, 500);
+    }
+
+    const signature = c.req.header("x-hub-signature-256") || "";
+    const event = c.req.header("x-github-event") || "";
+    const payloadText = await c.req.text();
+    let payload: any = null;
+
+    try {
+      payload = JSON.parse(payloadText);
+    } catch {
+      return c.json({ success: false, error: "Payload inválido" }, 400);
+    }
+
+    const repoUrl = payload?.repository?.html_url || payload?.repository?.clone_url || '';
+    const ref = String(payload?.ref || '');
+    const branch = ref.startsWith('refs/heads/') ? ref.replace('refs/heads/', '') : ref;
+    const normalized = normalizeRepoUrl(repoUrl);
+
+    if (!normalized) {
+      return c.json({ success: false, error: "Repo URL ausente" }, 400);
+    }
+
+    const supabase = await getSupabaseClient(c, { useServiceRole: true });
+    const { data: sites, error: sitesError } = await supabase
+      .from("client_sites")
+      .select("organization_id, repo_url, repo_branch, repo_deploy_hook_url, repo_webhook_secret")
+      .not("repo_url", "is", null);
+
+    if (sitesError) {
+      throw sitesError;
+    }
+
+    const match = (sites || []).find((s: any) => {
+      const sUrl = normalizeRepoUrl(s.repo_url || '');
+      if (!sUrl || sUrl !== normalized) return false;
+      if (s.repo_branch && branch && String(s.repo_branch) !== String(branch)) return false;
+      return true;
+    });
+
+    const secretToUse = match?.repo_webhook_secret || GITHUB_WEBHOOK_SECRET;
+    const valid = await verifyGithubSignature(payloadText, signature, secretToUse);
+    if (!valid) {
+      const debug = c.req.header("x-rendizy-debug") === "1";
+      if (debug) {
+        // Retorna apenas dados de comparação (sem expor segredo)
+        const sigHeader = String(signature || '').trim().toLowerCase();
+        const encoder = new TextEncoder();
+        const key = await crypto.subtle.importKey(
+          'raw',
+          encoder.encode(String(secretToUse || '').trim()),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payloadText));
+        const bytes = new Uint8Array(sig);
+        const hex = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+        const computed = `sha256=${hex}`;
+        return c.json({
+          success: false,
+          error: "Assinatura inválida",
+          debug: {
+            signatureHeader: sigHeader,
+            computed,
+            secretSource: match?.repo_webhook_secret ? 'site' : 'global',
+          }
+        }, 401);
+      }
+      return c.json({ success: false, error: "Assinatura inválida" }, 401);
+    }
+
+    if (event !== 'push') {
+      return c.json({ success: true, ignored: true, reason: "Evento não suportado" });
+    }
+
+    if (!match) {
+      return c.json({ success: false, error: "Site não encontrado para este repo/branch" }, 404);
+    }
+
+    if (!match.repo_deploy_hook_url) {
+      return c.json({ success: false, error: "Deploy hook não configurado" }, 400);
+    }
+
+    const now = new Date().toISOString();
+    const hookResponse = await fetch(match.repo_deploy_hook_url, { method: 'POST' });
+    if (!hookResponse.ok) {
+      const errText = await hookResponse.text().catch(() => "");
+      await supabase
+        .from("client_sites")
+        .update({
+          repo_last_deploy_status: "error",
+          repo_last_deploy_at: now,
+          repo_last_deploy_error: errText || `HTTP ${hookResponse.status}`,
+          updated_at: now,
+        })
+        .eq("organization_id", match.organization_id);
+
+      return c.json(
+        {
+          success: false,
+          error: "Falha ao disparar deploy",
+          details: errText || `HTTP ${hookResponse.status}`,
+        },
+        502
+      );
+    }
+
+    await supabase
+      .from("client_sites")
+      .update({
+        repo_last_deploy_status: "triggered",
+        repo_last_deploy_at: now,
+        repo_last_deploy_error: null,
+        updated_at: now,
+      })
+      .eq("organization_id", match.organization_id);
+
+    return c.json({
+      success: true,
+      message: "Deploy disparado",
+      organizationId: match.organization_id,
+      branch,
+      repoUrl: normalized,
+    });
+  } catch (error) {
+    console.error("[CLIENT-SITES] Erro no webhook GitHub:", error);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Erro desconhecido",
       },
       500
     );

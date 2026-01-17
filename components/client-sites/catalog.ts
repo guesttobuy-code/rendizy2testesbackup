@@ -43,12 +43,12 @@
           code: `// Base (Supabase Edge Function):
  * Formato: 'vX.Y' onde X é major (breaking), Y é minor (aditivo)
  */
-export const CATALOG_VERSION = 'v6.5' as const;
+export const CATALOG_VERSION = 'v6.6' as const;
 
 /**
  * Data da última atualização (para referência humana)
  */
-export const CATALOG_UPDATED_AT = '2026-01-16T06:05:00Z' as const;
+export const CATALOG_UPDATED_AT = '2026-01-16T17:35:00Z' as const;
 
 export type ClientSitesCatalogStability = 'stable' | 'planned' | 'deprecated';
 
@@ -916,10 +916,43 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       'Regra: o backend é a fonte de verdade (evita divergências entre sites).',
       'Nota: o bloco exibe preço por dia; o total da reserva (limpeza/descontos) é outro contrato (planejado).',
       'UX obrigatório: exibir o preço por dia dentro do quadradinho da data (ex.: R$ 480).',
-      'UI padrão: calendário em modal com **2 meses lado a lado** e navegação por setas (como o padrão MedHome).',
+      'UI obrigatório (PADRÃO MEDHOME): calendário em **modal central** com overlay, **2 meses lado a lado**, navegação por setas. NÃO usar inline/embutido.',
+      'OBRIGATÓRIO: este seletor deve ser o mesmo padrão visual do MedHome (layout, legenda e interação).',
+      'PROIBIDO: calendário simples sem disponibilidade/preço por dia.',
       'Regra de seleção: check-in é INCLUSIVO e check-out é EXCLUSIVO (seleção por noites).',
       'Permitir selecionar checkout em um dia indisponível, desde que TODAS as noites entre check-in e check-out estejam disponíveis.',
-      'Exemplo: se há reserva até o dia 21 e outra inicia no 22, o usuário pode selecionar 21 → 22 (1 noite).'
+      'Exemplo: se há reserva até o dia 21 e outra inicia no 22, o usuário pode selecionar 21 → 22 (1 noite).',
+      '',
+      '## ⚠️ REGRA CRÍTICA: BLOQUEAR DATAS PASSADAS',
+      '',
+      'Datas anteriores a HOJE devem estar VISUALMENTE DESABILITADAS:',
+      '  - Cor: cinza claro (bg-gray-50 ou similar)',
+      '  - Texto: cinza claro (text-gray-300)',
+      '  - Cursor: not-allowed',
+      '  - Clique: ignorado (não seleciona)',
+      '  - Preço: não exibir',
+      '',
+      '```typescript',
+      '// Verificar se data é passada:',
+      'const today = new Date();',
+      'today.setHours(0, 0, 0, 0);',
+      'const isDatePast = (dateStr: string) => new Date(dateStr) < today;',
+      '```',
+      '',
+      '## ⚠️ REGRA CRÍTICA: VALIDAÇÃO DE MÍNIMO DE NOITES',
+      '',
+      'Se o usuário selecionar menos noites que o mínimo exigido:',
+      '  1. Exibir mensagem de erro VISUAL no formulário (vermelho)',
+      '  2. Mensagem: "Mínimo de X noites para este imóvel"',
+      '  3. Botão de reserva DESABILITADO até corrigir',
+      '  4. Preço total NÃO exibido (ou zerado)',
+      '',
+      '```typescript',
+      'const minNights = property.pricing.minNights || 1;',
+      'const nights = Math.ceil((checkOut - checkIn) / 86400000);',
+      'const isBelowMin = nights > 0 && nights < minNights;',
+      '// Se isBelowMin, mostrar erro e desabilitar submit',
+      '```'
     ]
   },
   {
@@ -1301,20 +1334,39 @@ export const CLIENT_SITES_BLOCKS_CATALOG = [
       '',
       '---',
       '',
-      '### 🚫 O QUE NÃO CRIAR (o Rendizy injeta automaticamente):',
+      '### 🚫 O QUE NÃO CRIAR (quando site servido com script injetado):',
       '',
-      '1. **Select de país/DDI** - O script injeta `<select class="rendizy-country-select">`',
-      '2. **Lógica de autofill** - O script preenche os campos quando hóspede está logado',
-      '3. **Lock de campos** - O script trava inputs e mostra "Edite no Perfil"',
-      '4. **Validação de telefone** - O script valida e converte para E.164',
-      '5. **Mensagens de erro** - O script cria `<div id="rendizy-form-error">`',
-      '6. **Toast de confirmação** - O script cria `<div id="rendizy-checkout-toast">`',
+      '⚠️ ATENÇÃO: As regras abaixo só se aplicam quando o site é servido pelo Rendizy',
+      'com o script booking-v2.js injetado. Para sites standalone (ZIP upload), você',
+      'DEVE implementar essas funcionalidades manualmente.',
       '',
-      '---',
+      '### ✅ O QUE VOCÊ DEVE CRIAR (SEMPRE, para todos os sites):',
       '',
-      '### ✅ O QUE VOCÊ DEVE CRIAR:',
+      '#### Estrutura do formulário de reserva:',
       '',
-      '#### Estrutura HTML obrigatória para cada campo:',
+      '1. **Campo Nome** - obrigatório, preenchido se hóspede logado, readonly quando autofill',
+      '2. **Campo Email** - opcional, preenchido se hóspede logado, readonly quando autofill',
+      '3. **Campo Telefone** - OBRIGATÓRIO, com select de país (DDI), SEMPRE EDITÁVEL',
+      '',
+      '⚠️ REGRA DO TELEFONE:',
+      '  - O campo de telefone DEVE ter um select de país/DDI (Brasil +55 default)',
+      '  - O telefone NÃO deve ser preenchido automaticamente do perfil do hóspede',
+      '  - Razão: o telefone no backend pode estar vinculado a outra organização',
+      '  - O usuário SEMPRE deve digitar o telefone para cada reserva',
+      '',
+      '```tsx',
+      '// Exemplo correto de autofill (nome e email, mas NÃO telefone):',
+      'useEffect(() => {',
+      '  const guest = getStoredGuest();',
+      '  if (guest) {',
+      '    setGuestName(guest.name || "");',
+      '    setGuestEmail(guest.email || "");',
+      '    // ⚠️ NÃO preencher telefone automaticamente!',
+      '    // setGuestPhone(guest.phone);  // ❌ ERRADO',
+      '    setIsGuestAuthed(true);',
+      '  }',
+      '}, []);',
+      '```',
       '',
       '```html',
       '<!-- NOME -->',
@@ -1642,12 +1694,15 @@ Antes de gerar o código final, verifique CADA item abaixo. Se algum estiver err
 - [ ] Após criar reserva, implementar listener de BroadcastChannel para confirmação cross-tab
 
 ### Formulário de Reserva v2 (CRÍTICO — bloco \`booking-form-v2\`):
-- [ ] Campo telefone é OBRIGATÓRIO (não opcional) com dropdown de país (+55, +1, etc)
+- [ ] Campo telefone é OBRIGATÓRIO com select de país/DDI (+55 Brasil default)
+- [ ] Telefone NÃO é preenchido automaticamente (usuário sempre digita)
 - [ ] Inputs usam IDs canônicos: \`name="guestName"\`, \`name="guestEmail"\`, \`name="guestPhone"\`
-- [ ] Se hóspede logado (\`localStorage.rendizy_guest\`), campos são preenchidos automaticamente
-- [ ] Campos preenchidos via autofill ficam \`readOnly={true} disabled={true}\`
+- [ ] Se hóspede logado (\`localStorage.rendizy_guest\`), nome e email são preenchidos automaticamente
+- [ ] Campos nome/email preenchidos via autofill ficam \`readOnly={true}\`
+- [ ] Validação de mínimo de noites com mensagem de erro visual
 
 ### Calendário (CRÍTICO — bloco \`calendar-daily-pricing\`):
+- [ ] DATAS PASSADAS bloqueadas (cinza, não clicáveis)
 - [ ] Calendário usa API real (\`/calendar\`) — NUNCA dados mock/fake
 - [ ] Verificar status com \`day.status === "available"\` (string), NÃO \`day.available\` (não existe)
 - [ ] Exibir preço por dia dentro da célula do calendário (ex.: "R$ 480")
