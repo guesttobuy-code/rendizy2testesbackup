@@ -1,8 +1,8 @@
 # 📚 STAYSNET WEBHOOK - DOCUMENTAÇÃO DE REFERÊNCIA
 
-**Versão:** 1.0.0  
-**Data:** 2026-01-18  
-**Status:** ✅ FUNCIONANDO CORRETAMENTE  
+**Versão:** 1.1.0  
+**Data:** 2026-01-20  
+**Status:** ✅ FUNCIONANDO CORRETAMENTE (COM RECONCILIAÇÃO ATIVA)  
 **Autor:** Documentação gerada após correções de bugs críticos  
 
 ---
@@ -17,6 +17,7 @@
 6. [Estrutura de Dados](#6-estrutura-de-dados)
 7. [Queries Úteis para Debug](#7-queries-úteis-para-debug)
 8. [Checklist de Validação](#8-checklist-de-validação)
+9. [Sistema de Reconciliação](#9-sistema-de-reconciliação) ⭐ NOVO
 
 ---
 
@@ -552,6 +553,80 @@ WHERE reason ILIKE '%Stays.net%'
 
 ---
 
+### BUG 6: Reservas Órfãs (confirmadas no Rendizy, canceladas/inexistentes no Stays) ⭐ CRÍTICO
+
+**Sintoma:** Reservas aparecem como "confirmed" no Rendizy mas não existem mais no Stays.net (foram canceladas ou deletadas na fonte).
+
+**Evidência:** Encontradas 6 reservas órfãs em 2026-01-20:
+```sql
+-- Reservas órfãs encontradas:
+-- GM16R, FN26J, 5MJBY, PJ8TF, H7MQK, 8N7LL
+-- 5 já estavam canceladas, 1 (FN26J) estava confirmed no Rendizy mas não existia no Stays
+```
+
+**Causa:** 
+1. Webhook de cancelamento perdido ou não processado
+2. Reserva cancelada diretamente no Stays sem envio de webhook
+3. Problema de conectividade durante recebimento do webhook
+4. Reserva deletada no Stays (sem ação de cancelamento)
+
+**Impacto:**
+- Dashboard mostra reservas fantasma
+- Calendário bloqueia datas que deveriam estar livres
+- Relatórios financeiros incorretos
+- Confusão operacional
+
+**Solução Implementada:** Sistema de Reconciliação Ativa
+
+```typescript
+// ✅ NOVA VALIDAÇÃO: Antes de confiar em qualquer reserva, validar na fonte
+async function validateReservationExistsInSource(
+  organizationId: string,
+  reservationCode: string,
+  platform: string
+): Promise<{ exists: boolean; currentStatus?: string; rawData?: any }> {
+  
+  if (platform === 'staysnet' || platform === 'stays') {
+    // Chamar API do Stays.net para verificar
+    const response = await fetch(
+      `${STAYS_API_BASE}/booking/getBooking?_id=${reservationCode}`,
+      { headers: { Authorization: `Basic ${btoa(...)}` } }
+    );
+    
+    if (response.status === 404) {
+      return { exists: false };  // ← RESERVA ÓRFÃ DETECTADA
+    }
+    // ...
+  }
+}
+
+// ✅ RECONCILIAÇÃO PERIÓDICA
+// Executa diariamente via CRON ou manualmente
+POST /reconciliation/reservations/:organizationId
+```
+
+**Regra Canônica Implementada:**
+```
+REGRA 4: Reserva Órfã = Cancela Automaticamente
+Se a reserva existe no Rendizy mas NÃO existe na fonte (Stays/Airbnb/Booking),
+ela DEVE ser cancelada automaticamente com status "orphan_cancelled".
+```
+
+**Endpoint de Reconciliação:**
+```bash
+# Executar reconciliação manual
+curl -X POST \
+  "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/reconciliation/reservations/00000000-0000-0000-0000-000000000000" \
+  -H "Content-Type: application/json" \
+  -d '{"autoCancelOrphans": true}'
+```
+
+**Arquivo:** `utils-reservation-reconciliation.ts`, `routes-reconciliation.ts`  
+**ADR Completa:** `docs/ADR_RESERVATION_RECONCILIATION.md`  
+**Data:** 2026-01-20
+
+---
+
 ## 6. ESTRUTURA DE DADOS
 
 ### 6.1 Payload do Webhook (Exemplo)
@@ -787,3 +862,105 @@ supabase functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc
 ---
 
 > **⚠️ IMPORTANTE:** Este documento serve como referência de código funcional. Se houver problemas futuros, compare com as implementações documentadas aqui.
+
+---
+
+## 9. SISTEMA DE RECONCILIAÇÃO ⭐ NOVO
+
+> **ADR Completa:** [ADR_RESERVATION_RECONCILIATION.md](./ADR_RESERVATION_RECONCILIATION.md)
+
+### 9.1 Por que existe?
+
+Em 2026-01-20, foram detectadas 6 reservas órfãs no Rendizy:
+- Reservas que estavam "confirmed" no banco
+- Mas não existiam mais no Stays.net (canceladas ou deletadas)
+
+**Causa raiz:** O sistema confiava cegamente nos webhooks, sem validação na fonte.
+
+### 9.2 Regras Canônicas (IMUTÁVEIS)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  REGRA 1: Reserva sem property_id NÃO EXISTE                   │
+│  REGRA 2: Identidade única = (organization_id, platform, ext_id)│
+│  REGRA 3: Cancelamentos SEMPRE propagam (fonte → Rendizy)       │
+│  REGRA 4: Reserva Órfã = Cancela automaticamente                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 9.3 Endpoints Disponíveis
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/reconciliation/reservations/:orgId` | Executa reconciliação completa |
+| GET | `/reconciliation/missing/:orgId` | Lista reservas faltando no Rendizy |
+| POST | `/reconciliation/validate/:orgId` | Valida reserva específica |
+| GET | `/reconciliation/health/:orgId` | Dashboard de saúde |
+
+### 9.4 Como usar
+
+```bash
+# 1. Verificar saúde atual
+curl "https://.../reconciliation/health/00000000-0000-0000-0000-000000000000"
+
+# 2. Executar reconciliação (dry-run)
+curl -X POST ".../reconciliation/reservations/00000000-0000-0000-0000-000000000000" \
+  -d '{"autoCancelOrphans": false}'
+
+# 3. Executar reconciliação (com correção automática)
+curl -X POST ".../reconciliation/reservations/00000000-0000-0000-0000-000000000000" \
+  -d '{"autoCancelOrphans": true}'
+```
+
+### 9.5 Arquivos Relacionados
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `utils-reservation-reconciliation.ts` | Lógica de reconciliação |
+| `routes-reconciliation.ts` | Endpoints HTTP |
+| `ADR_RESERVATION_RECONCILIATION.md` | Documentação completa |
+
+### 9.6 Multi-Canal (Airbnb, Booking, etc.)
+
+O sistema de reconciliação foi projetado para funcionar com QUALQUER plataforma:
+
+```typescript
+// A mesma lógica serve para todos
+interface PlatformAdapter {
+  validateReservationExists(code: string): Promise<boolean>;
+  fetchReservationsFromSource(dateRange): Promise<Reservation[]>;
+}
+
+// Implementações específicas
+const adapters = {
+  'staysnet': StaysNetAdapter,
+  'airbnb': AirbnbAdapter,     // Futuro
+  'booking': BookingAdapter,   // Futuro
+};
+```
+
+---
+
+## 📝 HISTÓRICO DE ALTERAÇÕES
+
+| Data | Versão | Descrição |
+|------|--------|-----------|
+| 2026-01-18 | 1.0.0 | Documentação inicial após correção de bugs críticos |
+| 2026-01-20 | 1.1.0 | Adicionado BUG 6 (reservas órfãs) e seção de Reconciliação |
+
+---
+
+## 🔗 REFERÊNCIAS
+
+- **Arquivo principal:** `supabase/functions/rendizy-server/routes-staysnet-webhooks.ts`
+- **Reconciliação:** `supabase/functions/rendizy-server/utils-reservation-reconciliation.ts`
+- **Governança:** `docs/04-modules/STAYSNET_INTEGRATION_GOVERNANCE.md`
+- **ADR Reconciliação:** `docs/ADR_RESERVATION_RECONCILIATION.md`
+- **Supabase Project:** `odcgnzfremrqnvtitpcc`
+- **Deploy:** `supabase functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc`
+
+---
+
+> **⚠️ IMPORTANTE:** Este documento serve como referência de código funcional. Se houver problemas futuros, compare com as implementações documentadas aqui.
+>
+> **🛡️ BLINDAGEM:** O sistema agora conta com reconciliação ativa. Execute periodicamente para garantir integridade dos dados.

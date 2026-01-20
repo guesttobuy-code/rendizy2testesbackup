@@ -50,6 +50,7 @@ import * as staysnetRoutes from "./routes-staysnet.ts";
 import * as staysnetWebhooksRoutes from "./routes-staysnet-webhooks.ts";
 import * as staysnetImportModalRoutes from "./routes-staysnet-import-modal.ts";
 import * as dataReconciliationRoutes from "./routes-data-reconciliation.ts";
+import * as reconciliationRoutes from "./routes-reconciliation.ts"; // ✅ Reconciliação de reservas (multi-canal)
 import * as listingSettingsRoutes from "./routes-listing-settings.ts";
 import { tenancyMiddleware, isSuperAdmin } from "./utils-tenancy.ts";
 import { importStaysNetSimple } from "./import-staysnet-simple.ts";
@@ -590,6 +591,23 @@ app.post("/staysnet/backfill/guests/:organizationId", staysnetRoutes.backfillSta
 app.post("/rendizy-server/staysnet/backfill/guests/:organizationId", staysnetRoutes.backfillStaysNetReservationGuests);
 app.post("/staysnet/reservations/reconcile/:organizationId", staysnetRoutes.reconcileStaysNetReservations);
 app.post("/rendizy-server/staysnet/reservations/reconcile/:organizationId", staysnetRoutes.reconcileStaysNetReservations);
+
+// ============================================================================
+// 📊 RECONCILIATION (Multi-Canal - Stays, Airbnb, Booking, etc)
+// ============================================================================
+// POST /reconciliation/reservations/:organizationId - Reconcilia reservas
+app.post("/reconciliation/reservations/:organizationId", reconciliationRoutes.handleReconcileReservations);
+app.post("/rendizy-server/reconciliation/reservations/:organizationId", reconciliationRoutes.handleReconcileReservations);
+// GET /reconciliation/missing/:organizationId - Lista reservas faltantes
+app.get("/reconciliation/missing/:organizationId", reconciliationRoutes.handleFindMissingReservations);
+app.get("/rendizy-server/reconciliation/missing/:organizationId", reconciliationRoutes.handleFindMissingReservations);
+// POST /reconciliation/validate/:organizationId - Valida uma reserva
+app.post("/reconciliation/validate/:organizationId", reconciliationRoutes.handleValidateReservation);
+app.post("/rendizy-server/reconciliation/validate/:organizationId", reconciliationRoutes.handleValidateReservation);
+// GET /reconciliation/health/:organizationId - Saúde das reservas
+app.get("/reconciliation/health/:organizationId", reconciliationRoutes.handleReconciliationHealth);
+app.get("/rendizy-server/reconciliation/health/:organizationId", reconciliationRoutes.handleReconciliationHealth);
+
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade
 // ============================================================================
