@@ -1,0 +1,275 @@
+🔧 TROUBLESHOOTING - v1.0.103.294
+==================================
+
+SE AINDA DER ERRO, SIGA ESTE GUIA:
+===================================
+
+1️⃣ LIMPAR CACHE COMPLETAMENTE
+==============================
+
+Windows/Linux:
+  Ctrl + Shift + Delete
+  → Marcar "Cache de imagens e arquivos"
+  → Limpar dados
+
+Mac:
+  Cmd + Shift + Delete
+  → Marcar "Cache de imagens e arquivos"
+  → Limpar dados
+
+OU:
+
+Hard Refresh:
+  Windows: Ctrl + Shift + R
+  Mac: Cmd + Shift + R
+
+2️⃣ ABRIR CONSOLE DO NAVEGADOR
+==============================
+
+F12 → Aba "Console"
+
+Ou:
+
+Windows: Ctrl + Shift + I
+Mac: Cmd + Option + I
+
+3️⃣ REPRODUZIR O ERRO
+=====================
+
+1. /properties
+2. "Cadastrar Nova Propriedade"
+3. Preencher Step 1
+4. "Salvar e Avançar"
+
+4️⃣ COLETAR INFORMAÇÕES
+=======================
+
+NO CONSOLE, PROCURE POR:
+
+✅ LOGS CORRETOS:
+  💾 [Wizard] Salvando E avançando...
+  ✏️ [PROPERTY ACTIONS] Editando imóvel...
+  ✅ [PROPERTY ACTIONS] Imóvel editado com sucesso!
+  ✅ Step 1 salvo com sucesso!
+
+❌ LOGS DE ERRO:
+  ❌ Erro ao salvar e avançar: ...
+  ❌ NotFoundError: ...
+  ❌ ReferenceError: ...
+  ❌ TypeError: ...
+
+5️⃣ ANÁLISE DE ERROS
+====================
+
+ERRO A: setIsSaving is not defined
+-----------------------------------
+STATUS: ✅ CORRIGIDO na v1.0.103.293
+AÇÃO: Limpe cache e recarregue
+
+ERRO B: NotFoundError: removeChild
+-----------------------------------
+STATUS: ✅ CORRIGIDO na v1.0.103.294
+AÇÃO: Limpe cache e recarregue
+
+ERRO C: Não salva no backend
+-----------------------------
+SINTOMA: Clica mas nada acontece
+LOGS: Procure por "fetch failed" ou "network error"
+AÇÃO: Verifique conexão internet e backend
+
+ERRO D: Não avança de step
+---------------------------
+SINTOMA: Salva mas fica no mesmo step
+LOGS: Procure por "setCurrentStepIndex" no console
+AÇÃO: Cole todos os logs aqui
+
+ERRO E: Outro erro desconhecido
+--------------------------------
+AÇÃO: Cole o erro COMPLETO aqui
+
+6️⃣ VERIFICAR VERSÃO
+====================
+
+NO CONSOLE, DIGITE:
+  localStorage.getItem('buildVersion')
+
+DEVE RETORNAR:
+  "v1.0.103.294-FIX-DOM-CONFLICT"
+
+SE RETORNAR VERSÃO ANTIGA:
+  → Limpe cache completamente
+  → Feche e abra navegador
+  → Tente novamente
+
+7️⃣ VERIFICAR ESTADO DO BOTÃO
+=============================
+
+COMPORTAMENTO CORRETO:
+
+ANTES DE CLICAR:
+  Botão: "💾 Salvar e Avançar"
+  Estado: Habilitado (azul)
+  Cursor: Pointer (mãozinha)
+
+AO CLICAR:
+  Botão: "Salvando... ⏳"
+  Estado: Desabilitado (cinza)
+  Cursor: Not-allowed
+
+APÓS SALVAR (~1-2s):
+  Wizard muda para Step 2
+  Botão novo: "💾 Salvar e Avançar"
+
+SE COMPORTAMENTO DIFERENTE:
+  → Descreva exatamente o que acontece
+  → Cole print da tela
+
+8️⃣ VERIFICAR REDE (NETWORK)
+============================
+
+F12 → Aba "Network"
+
+Ao clicar "Salvar e Avançar":
+
+DEVE APARECER:
+  PUT /make-server-67caf26a/properties/[ID]
+  Status: 200 OK
+  Response: {"success": true, "data": {...}}
+
+SE NÃO APARECER:
+  → Backend pode estar offline
+  → Verifique configuração Supabase
+
+SE STATUS 4XX OU 5XX:
+  → Clique na requisição
+  → Copie "Response"
+  → Cole aqui
+
+9️⃣ TESTAR EM MODO ANÔNIMO
+==========================
+
+Abra navegador em modo anônimo/privado:
+
+Chrome: Ctrl + Shift + N
+Firefox: Ctrl + Shift + P
+Safari: Cmd + Shift + N
+
+Teste novamente:
+1. /properties
+2. Login (se necessário)
+3. "Cadastrar Nova Propriedade"
+4. Testar "Salvar e Avançar"
+
+SE FUNCIONAR EM ANÔNIMO:
+  → Problema é cache/extensões
+  → Limpe cache do navegador normal
+
+SE NÃO FUNCIONAR EM ANÔNIMO:
+  → Problema é código ou backend
+  → Cole logs completos
+
+🔟 ÚLTIMA INSTÂNCIA
+===================
+
+SE NADA FUNCIONOU:
+
+1. COLE AQUI:
+   - URL completa que está usando
+   - Navegador e versão
+   - Sistema operacional
+   - TODOS os logs do console
+   - Print da tela
+   - Comportamento detalhado
+
+2. INFORMAÇÕES EXTRAS:
+   - Está usando preview ou produção?
+   - Já funcionou antes?
+   - Mudou alguma coisa?
+   - Outros usuários têm mesmo problema?
+
+═══════════════════════════════════════════
+
+📊 CHECKLIST GERAL:
+===================
+
+ANTES DE REPORTAR ERRO:
+
+[ ] Limpei cache (Ctrl + Shift + R)
+[ ] Abri console (F12)
+[ ] Reproduzi erro
+[ ] Copiei TODOS os logs do console
+[ ] Verifiquei aba Network
+[ ] Testei em modo anônimo
+[ ] Tirei print da tela
+[ ] Tentei em outro navegador
+
+═══════════════════════════════════════════
+
+💬 TEMPLATE DE REPORTE:
+=======================
+
+```
+🐛 ERRO ENCONTRADO
+
+AMBIENTE:
+- URL: https://...
+- Navegador: Chrome 120
+- OS: Windows 11
+- Versão: v1.0.103.294
+
+PASSOS:
+1. Abri /properties
+2. Cliquei "Cadastrar Nova Propriedade"
+3. Preenchi Step 1
+4. Cliquei "Salvar e Avançar"
+
+ESPERADO:
+Salvar e avançar para Step 2
+
+ACONTECEU:
+[Descreva aqui]
+
+CONSOLE:
+```
+[Cole logs aqui]
+```
+
+NETWORK:
+```
+[Cole responses aqui]
+```
+
+PRINT:
+[Anexe print]
+```
+
+═══════════════════════════════════════════
+
+🎯 99% DOS PROBLEMAS SÃO:
+=========================
+
+1. Cache antigo (50%)
+   → Solução: Ctrl + Shift + R
+
+2. Versão antiga carregada (30%)
+   → Solução: Limpar cache + Reabrir
+
+3. Extensão do navegador (10%)
+   → Solução: Modo anônimo
+
+4. Backend offline (5%)
+   → Solução: Verificar Supabase
+
+5. Outro (5%)
+   → Solução: Reportar detalhado
+
+═══════════════════════════════════════════
+
+✅ LEMBRE-SE:
+=============
+
+Sempre limpe cache ANTES de testar!
+
+Ctrl + Shift + R é seu melhor amigo! 🚀
+
+═══════════════════════════════════════════

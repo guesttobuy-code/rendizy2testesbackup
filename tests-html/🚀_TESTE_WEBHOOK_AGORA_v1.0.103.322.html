@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔗 Teste do Sistema de Webhooks - v1.0.103.322</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            color: #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .version {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 0.4em;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 40px;
+            font-weight: bold;
+            margin-right: 15px;
+            font-size: 1.2em;
+        }
+        
+        .step-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .step-content {
+            color: #555;
+            line-height: 1.8;
+            margin-left: 55px;
+        }
+        
+        .code {
+            background: #2d3748;
+            color: #48bb78;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-size: 0.95em;
+        }
+        
+        .highlight {
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            padding: 12px;
+            background: white;
+            border-radius: 10px;
+        }
+        
+        .feature-icon {
+            font-size: 1.5em;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .success {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .event-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .event-item {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            border: 2px solid #dee2e6;
+        }
+        
+        .event-item code {
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 25px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>
+                🔗 Sistema de Webhooks
+                <span class="version">v1.0.103.322</span>
+            </h1>
+            <p class="subtitle">
+                Configuração automática de webhooks para receber eventos em tempo real da Evolution API
+            </p>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <span class="stat-number">34</span>
+                    <span class="stat-label">Rotas API</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">19</span>
+                    <span class="stat-label">Eventos Disponíveis</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">4</span>
+                    <span class="stat-label">Novos Endpoints</span>
+                </div>
+            </div>
+
+            <div class="success">
+                <strong>✅ IMPLEMENTADO COM SUCESSO!</strong><br>
+                Sistema completo de webhooks pronto para uso com interface visual, monitoramento em tempo real e persistência no Supabase.
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 20px;">📋 PASSO A PASSO</h2>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">1</span>
+                    Limpar Cache do Navegador
+                </div>
+                <div class="step-content">
+                    Pressione <strong class="highlight">Ctrl + Shift + R</strong> (Windows/Linux) ou <strong class="highlight">Cmd + Shift + R</strong> (Mac) para forçar atualização completa e carregar os novos componentes.
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">2</span>
+                    Acessar a Tela de Webhooks
+                </div>
+                <div class="step-content">
+                    <strong>Navegue até:</strong>
+                    <div class="code">
+                        Menu → Integrações → WhatsApp → Aba "Webhooks"
+                    </div>
+                    Você verá a nova aba com o ícone 🔗 "Webhooks" ao lado de "Status & Conexão"
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">3</span>
+                    Selecionar Eventos
+                </div>
+                <div class="step-content">
+                    <p><strong>Opção 1:</strong> Clique em <strong>"Marcar Todos"</strong> para ativar todos os 19 eventos</p>
+                    <p><strong>Opção 2:</strong> Selecione eventos individualmente clicando nas checkboxes</p>
+                    <br>
+                    <strong>Eventos Principais:</strong>
+                    <div class="event-list">
+                        <div class="event-item">📨 <code>MESSAGES_UPSERT</code> - Novas mensagens</div>
+                        <div class="event-item">💬 <code>CHATS_UPDATE</code> - Chats atualizados</div>
+                        <div class="event-item">👤 <code>CONTACTS_UPSERT</code> - Novos contatos</div>
+                        <div class="event-item">🔌 <code>CONNECTION_UPDATE</code> - Status conexão</div>
+                        <div class="event-item">📱 <code>QRCODE_UPDATED</code> - QR Code atualizado</div>
+                        <div class="event-item">👥 <code>GROUPS_UPDATE</code> - Grupos atualizados</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">4</span>
+                    Ativar o Webhook
+                </div>
+                <div class="step-content">
+                    <p>Clique no botão <strong class="highlight">⚡ Ativar Webhook</strong></p>
+                    <p>O sistema irá:</p>
+                    <div class="feature">
+                        <span class="feature-icon">🔗</span>
+                        Configurar o webhook automaticamente na Evolution API
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">💾</span>
+                        Salvar a configuração no Supabase (KV Store)
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">✅</span>
+                        Exibir confirmação de sucesso
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">5</span>
+                    Monitorar Eventos em Tempo Real
+                </div>
+                <div class="step-content">
+                    <p><strong>Envie uma mensagem no WhatsApp</strong> conectado à sua instância</p>
+                    <p>O evento aparecerá automaticamente na seção <strong>"Eventos Recebidos"</strong></p>
+                    <br>
+                    <p><strong>Para cada evento você verá:</strong></p>
+                    <div class="feature">
+                        <span class="feature-icon">🏷️</span>
+                        Nome do evento (badge colorido)
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">🕐</span>
+                        Timestamp formatado
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">📄</span>
+                        Dados completos do evento (JSON expandível)
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">6</span>
+                    Verificar Status do Webhook
+                </div>
+                <div class="step-content">
+                    <p>No topo da tela, você verá o status:</p>
+                    <div class="code">
+                        ✅ Ativo  ← Webhook configurado e funcionando
+                        ❌ Inativo ← Webhook não configurado
+                    </div>
+                    <br>
+                    <p>Você também pode:</p>
+                    <ul style="margin-left: 20px; line-height: 2;">
+                        <li>📋 Copiar a URL do webhook</li>
+                        <li>🔄 Atualizar configuração de eventos</li>
+                        <li>🗑️ Remover webhook completamente</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 20px;">🎯 O QUE VOCÊ DEVE VER</h2>
+
+            <div class="success">
+                <strong>✅ Interface Visual</strong>
+                <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                    <li>Nova aba "Webhooks" no menu de integrações WhatsApp</li>
+                    <li>Card de configuração com URL do webhook</li>
+                    <li>Lista de 19 eventos com checkboxes</li>
+                    <li>Contador de eventos selecionados</li>
+                    <li>Badge de status (Ativo/Inativo)</li>
+                    <li>Botões "Ativar Webhook" e "Remover"</li>
+                </ul>
+            </div>
+
+            <div class="success">
+                <strong>✅ Eventos Recebidos</strong>
+                <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                    <li>Lista scrollável de eventos</li>
+                    <li>Cada evento com badge colorido</li>
+                    <li>Timestamp formatado (DD/MM/YYYY HH:mm:ss)</li>
+                    <li>Detalhes expandíveis com JSON completo</li>
+                    <li>Botão refresh para atualizar lista</li>
+                </ul>
+            </div>
+
+            <div class="success">
+                <strong>✅ Funcionalidades</strong>
+                <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                    <li>Copiar URL do webhook com 1 clique</li>
+                    <li>Marcar/desmarcar todos os eventos</li>
+                    <li>Toggle "Webhook por Evento"</li>
+                    <li>Mensagens de sucesso/erro claras</li>
+                    <li>Atualização em tempo real da lista de eventos</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 20px;">🔧 ENDPOINTS DISPONÍVEIS</h2>
+
+            <div class="code">
+POST /make-server-67caf26a/whatsapp/webhook/setup
+→ Configurar webhook automaticamente
+
+GET /make-server-67caf26a/whatsapp/webhook/status
+→ Verificar status do webhook
+
+GET /make-server-67caf26a/whatsapp/webhook/events
+→ Listar últimos 50 eventos recebidos
+
+DELETE /make-server-67caf26a/whatsapp/webhook
+→ Remover configuração do webhook
+
+POST /make-server-67caf26a/whatsapp/webhook
+→ Receber eventos da Evolution API
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 20px;">🎨 COMPONENTES CRIADOS</h2>
+
+            <div class="feature">
+                <span class="feature-icon">📄</span>
+                <strong>/components/WhatsAppWebhookManager.tsx</strong> - Interface completa de gerenciamento
+            </div>
+
+            <div class="feature">
+                <span class="feature-icon">🔧</span>
+                <strong>routes-whatsapp-evolution-complete.ts</strong> - 4 novas rotas de webhook
+            </div>
+
+            <div class="feature">
+                <span class="feature-icon">📝</span>
+                <strong>WhatsAppIntegration.tsx</strong> - Aba "Webhooks" adicionada
+            </div>
+
+            <div class="feature">
+                <span class="feature-icon">📚</span>
+                <strong>📋_WEBHOOK_SYSTEM_v1.0.103.322.md</strong> - Documentação completa
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 20px;">🐛 TROUBLESHOOTING</h2>
+
+            <div class="warning">
+                <strong>⚠️ Webhook não aparece nos eventos</strong><br>
+                <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                    <li>Verifique se o webhook está com status "Ativo"</li>
+                    <li>Confirme que a instância WhatsApp está conectada</li>
+                    <li>Clique no botão refresh para atualizar a lista</li>
+                    <li>Envie uma mensagem de teste no WhatsApp</li>
+                </ul>
+            </div>
+
+            <div class="warning">
+                <strong>⚠️ Erro ao configurar webhook</strong><br>
+                <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                    <li>Verifique suas credenciais na aba "Configuração"</li>
+                    <li>Confirme que a instância existe na Evolution API</li>
+                    <li>Teste a conexão na aba "Testar"</li>
+                    <li>Verifique os logs do console (F12)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>📚 RENDIZY - Sistema de Gestão de Imóveis de Temporada</p>
+            <p>Versão v1.0.103.322 • Webhooks Evolution API</p>
+            <p style="margin-top: 10px;">🎉 Sistema de Webhooks Implementado e Testado</p>
+        </div>
+    </div>
+</body>
+</html>

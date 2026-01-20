@@ -1,0 +1,39 @@
+═══════════════════════════════════════════════════════════
+   VARIÁVEIS DE AMBIENTE PARA VERCEL
+   Copie e cole diretamente
+═══════════════════════════════════════════════════════════
+
+VARIÁVEL 1 (OBRIGATÓRIA):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:   VITE_SUPABASE_URL
+Value: https://gjphsheavnkdtmsrxmtl.supabase.co
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VARIÁVEL 2 (OBRIGATÓRIA):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:   VITE_SUPABASE_ANON_KEY
+Value: <SUPABASE_ANON_KEY>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VARIÁVEL 3 (OPCIONAL - Backend/Edge Functions):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:   VITE_SUPABASE_SERVICE_ROLE_KEY
+Value: <SUPABASE_SERVICE_ROLE_KEY>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VARIÁVEL 4 (OPCIONAL - Gemini AI):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Key:   GEMINI_API_KEY
+Value: PLACEHOLDER_API_KEY
+(Substitua pela sua chave real se tiver)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MÍNIMO NECESSÁRIO:
+✅ VITE_SUPABASE_URL
+✅ VITE_SUPABASE_ANON_KEY
+
+═══════════════════════════════════════════════════════════

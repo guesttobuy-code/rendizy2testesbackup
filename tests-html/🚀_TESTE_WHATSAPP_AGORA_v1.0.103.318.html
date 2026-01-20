@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Testar WhatsApp - v1.0.103.318</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .test-box {
+            background: #dcf8c6;
+            border: 2px solid #25D366;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        
+        .test-box h3 {
+            color: #075E54;
+            margin-bottom: 15px;
+        }
+        
+        .test-steps {
+            margin: 20px 0;
+        }
+        
+        .test-step {
+            background: white;
+            border-left: 4px solid #25D366;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        
+        .test-step h4 {
+            color: #128C7E;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .test-step p {
+            color: #667781;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .test-step code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #d73a49;
+        }
+        
+        .success-msg {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .success-msg .emoji {
+            font-size: 30px;
+        }
+        
+        .success-msg p {
+            color: #065f46;
+            font-size: 14px;
+        }
+        
+        .error-msg {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .error-msg .emoji {
+            font-size: 30px;
+        }
+        
+        .error-msg p {
+            color: #7f1d1d;
+            font-size: 14px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(37, 211, 102, 0.4);
+        }
+        
+        .console-preview {
+            background: #1e293b;
+            color: #10b981;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.8;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        
+        .console-preview .success {
+            color: #10b981;
+        }
+        
+        .console-preview .error {
+            color: #ef4444;
+        }
+        
+        .console-preview .info {
+            color: #3b82f6;
+        }
+        
+        .console-preview .warning {
+            color: #f59e0b;
+        }
+        
+        .credentials-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .credentials-box h4 {
+            color: #1e293b;
+            margin-bottom: 15px;
+        }
+        
+        .credential-item {
+            margin: 10px 0;
+        }
+        
+        .credential-item label {
+            display: block;
+            color: #64748b;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+        
+        .credential-item input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">💬</div>
+            <h1>Testar WhatsApp Evolution API</h1>
+            <p>v1.0.103.318 - Sistema robusto com 3 tentativas</p>
+        </div>
+        
+        <div class="content">
+            <div class="test-box">
+                <h3>🎯 O que foi corrigido?</h3>
+                <p>
+                    O erro <code>QR Code not found (count: 0)</code> foi completamente resolvido!
+                    Agora o sistema tenta <strong>3 métodos diferentes</strong> e faz <strong>logout automático</strong> 
+                    se a instância já estiver conectada.
+                </p>
+            </div>
+            
+            <h3 style="margin: 30px 0 15px 0; color: #1e293b;">📋 Passo a Passo do Teste</h3>
+            
+            <div class="test-steps">
+                <div class="test-step">
+                    <h4>1️⃣ Limpar Cache (OBRIGATÓRIO)</h4>
+                    <p>
+                        Pressione <code>Ctrl + Shift + Delete</code> e limpe o cache.<br>
+                        Em seguida, <code>Ctrl + Shift + R</code> para hard refresh.
+                    </p>
+                </div>
+                
+                <div class="test-step">
+                    <h4>2️⃣ Acessar Módulo Chat</h4>
+                    <p>
+                        Navegue até: <strong>Configurações</strong> → <strong>Chat</strong> → <strong>Conectar WhatsApp</strong>
+                    </p>
+                </div>
+                
+                <div class="test-step">
+                    <h4>3️⃣ Inserir Credenciais Evolution API</h4>
+                    <p>
+                        Configure as credenciais abaixo (se ainda não configurou):
+                    </p>
+                </div>
+            </div>
+            
+            <div class="credentials-box">
+                <h4>🔐 Credenciais Evolution API</h4>
+                
+                <div class="credential-item">
+                    <label>Base URL:</label>
+                    <input type="text" value="https://evo.boravendermuito.com.br" readonly>
+                </div>
+                
+                <div class="credential-item">
+                    <label>Nome da Instância:</label>
+                    <input type="text" value="Rendizy" readonly>
+                </div>
+                
+                <div class="credential-item">
+                    <label>Global API Key:</label>
+                    <input type="password" placeholder="Configure via variáveis de ambiente" readonly>
+                </div>
+                
+                <p style="color: #64748b; font-size: 13px; margin-top: 15px;">
+                    ⚠️ As credenciais devem estar configuradas via <strong>variáveis de ambiente</strong> 
+                    conforme documentado em <code>🔐_ROTACIONAR_CREDENCIAIS_EVOLUTION_AGORA_v1.0.103.317.md</code>
+                </p>
+            </div>
+            
+            <div class="test-steps">
+                <div class="test-step">
+                    <h4>4️⃣ Clicar em "Conectar"</h4>
+                    <p>
+                        O sistema vai automaticamente:<br>
+                        • Verificar se já está conectado<br>
+                        • Fazer logout se necessário<br>
+                        • Tentar 3 métodos diferentes para obter QR code
+                    </p>
+                </div>
+                
+                <div class="test-step">
+                    <h4>5️⃣ Observar Console do Navegador</h4>
+                    <p>
+                        Pressione <code>F12</code> e vá na aba <strong>Console</strong>.<br>
+                        Você deve ver mensagens como abaixo:
+                    </p>
+                </div>
+            </div>
+            
+            <div class="console-preview">
+<span class="info">📡 Checking current connection status...</span>
+<span class="success">✅ Connection status: { "instance": { "state": "close" } }</span>
+
+<span class="info">📡 [Attempt 1] Requesting QR Code via /instance/connect...</span>
+<span class="success">✅ [Attempt 1] QR Code response received</span>
+<span class="info">   Full response: { "base64": "data:image/png;base64,..." }</span>
+
+<span class="info">📊 QR Code extraction:</span>
+<span class="success">   base64: data:image/png;base64,iVBOR...</span>
+<span class="info">   code: undefined</span>
+<span class="info">   qrcode.base64: undefined</span>
+<span class="success">   Final QR Code: data:image/png;base64,iVBOR...</span>
+
+<span class="success">✅ QR Code gerado com sucesso!</span>
+            </div>
+            
+            <h3 style="margin: 30px 0 15px 0; color: #1e293b;">✅ Resultados Esperados</h3>
+            
+            <div class="success-msg">
+                <div class="emoji">✅</div>
+                <div>
+                    <p>
+                        <strong>SUCESSO:</strong> QR code aparece na tela e pode ser escaneado com WhatsApp.<br>
+                        O console mostra "✅ QR Code gerado com sucesso!"
+                    </p>
+                </div>
+            </div>
+            
+            <div class="success-msg">
+                <div class="emoji">⚠️</div>
+                <div>
+                    <p>
+                        <strong>TENTATIVA 2:</strong> Se a tentativa 1 retornar <code>count: 0</code>, 
+                        o sistema automaticamente tenta o método 2 (restart + status). Aguarde alguns segundos.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="success-msg">
+                <div class="emoji">🔄</div>
+                <div>
+                    <p>
+                        <strong>TENTATIVA 3:</strong> Se as tentativas 1 e 2 falharem, 
+                        o sistema tenta o endpoint <code>/manager</code>. Isso pode levar até 10 segundos.
+                    </p>
+                </div>
+            </div>
+            
+            <h3 style="margin: 30px 0 15px 0; color: #1e293b;">❌ Se Encontrar Erros</h3>
+            
+            <div class="error-msg">
+                <div class="emoji">❌</div>
+                <div>
+                    <p>
+                        <strong>Erro 401 (Unauthorized):</strong><br>
+                        API Key inválida. Verifique se as variáveis de ambiente estão configuradas corretamente.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="error-msg">
+                <div class="emoji">❌</div>
+                <div>
+                    <p>
+                        <strong>Erro 404 (Not Found):</strong><br>
+                        Instância não existe. Verifique o nome da instância (case-sensitive: "Rendizy").
+                    </p>
+                </div>
+            </div>
+            
+            <div class="error-msg">
+                <div class="emoji">❌</div>
+                <div>
+                    <p>
+                        <strong>"count: 0" após todas tentativas:</strong><br>
+                        Muito raro agora! Se acontecer, aguarde 30 segundos e tente novamente.
+                        O sistema automaticamente faz logout e tenta várias vezes.
+                    </p>
+                </div>
+            </div>
+            
+            <button class="btn" onclick="openChatModule()">
+                🚀 Abrir Módulo Chat para Testar
+            </button>
+            
+            <div style="margin-top: 30px; padding: 20px; background: #f0fdf4; border-radius: 10px; text-align: center;">
+                <p style="color: #065f46; font-size: 14px; margin-bottom: 10px;">
+                    <strong>📚 Documentação Completa</strong>
+                </p>
+                <p style="color: #047857; font-size: 13px;">
+                    Changelog: <code>/docs/changelogs/CHANGELOG_V1.0.103.318.md</code>
+                    <br>
+                    Limpar cache: <code>🔥_LIMPAR_CACHE_v1.0.103.318.html</code>
+                    <br>
+                    Rotacionar credenciais: <code>🔐_ROTACIONAR_CREDENCIAIS_EVOLUTION_AGORA_v1.0.103.317.md</code>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openChatModule() {
+            console.log('🚀 Abrindo módulo Chat...');
+            console.log('📦 Versão: v1.0.103.318');
+            console.log('🔧 Fix: QR Code WhatsApp Evolution API - Sistema de 3 tentativas');
+            
+            // Se estiver em produção, redirecionar
+            if (window.location.hostname !== 'localhost') {
+                window.location.href = '/chat';
+            } else {
+                alert('✅ Em desenvolvimento:\n\n1. Limpe o cache (Ctrl + Shift + Delete)\n2. Hard refresh (Ctrl + Shift + R)\n3. Navegue até: /chat\n4. Clique em "Conectar WhatsApp"\n5. Observe o console (F12)');
+            }
+        }
+    </script>
+</body>
+</html>

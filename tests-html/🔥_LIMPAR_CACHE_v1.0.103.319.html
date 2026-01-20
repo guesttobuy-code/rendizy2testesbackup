@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 LIMPAR CACHE v1.0.103.319</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 600px;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    
+    .icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    
+    h1 {
+      color: #2d3748;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+    
+    .version {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .info {
+      background: #ebf8ff;
+      border-left: 4px solid #4299e1;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 30px 0;
+      text-align: left;
+    }
+    
+    .info-title {
+      font-weight: 600;
+      color: #2c5282;
+      margin-bottom: 10px;
+    }
+    
+    .info-text {
+      color: #2c5282;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    
+    .btn {
+      background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(245, 101, 101, 0.3);
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(245, 101, 101, 0.4);
+    }
+    
+    .status {
+      margin-top: 30px;
+      padding: 15px;
+      border-radius: 8px;
+      display: none;
+    }
+    
+    .status.show {
+      display: block;
+    }
+    
+    .status.success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    
+    .steps {
+      text-align: left;
+      margin: 30px 0;
+    }
+    
+    .step {
+      background: #f7fafc;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .step-number {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      margin-right: 10px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">🔥</div>
+    <h1>Limpar Cache do Navegador</h1>
+    <div class="version">v1.0.103.319 - Evolution API Completa</div>
+    
+    <div class="info">
+      <div class="info-title">ℹ️ Por que limpar o cache?</div>
+      <div class="info-text">
+        Implementamos 17 novas rotas da Evolution API e corrigimos o sistema de QR Code. 
+        Para garantir que você está usando a versão mais recente do código, é necessário limpar o cache do navegador.
+      </div>
+    </div>
+    
+    <div class="steps">
+      <div class="step">
+        <span class="step-number">1</span>
+        Clique no botão "LIMPAR CACHE AGORA" abaixo
+      </div>
+      <div class="step">
+        <span class="step-number">2</span>
+        Pressione <strong>Ctrl+Shift+R</strong> (Windows/Linux) ou <strong>Cmd+Shift+R</strong> (Mac)
+      </div>
+      <div class="step">
+        <span class="step-number">3</span>
+        Feche todas as abas do Rendizy e abra novamente
+      </div>
+    </div>
+    
+    <button class="btn" onclick="clearCache()">
+      🔥 LIMPAR CACHE AGORA
+    </button>
+    
+    <div id="status" class="status"></div>
+    
+    <div style="margin-top: 40px; color: #718096; font-size: 14px;">
+      <strong>Novidades v1.0.103.319:</strong><br>
+      ✅ +17 rotas Evolution API<br>
+      ✅ QR Code com retry robusto<br>
+      ✅ 100% dos dados no KV Store<br>
+      ✅ Gestão de perfil e grupos<br>
+      ✅ Webhook completo
+    </div>
+  </div>
+  
+  <script>
+    async function clearCache() {
+      const statusDiv = document.getElementById('status');
+      statusDiv.className = 'status show';
+      statusDiv.innerHTML = '⏳ Limpando cache...';
+      
+      try {
+        // Limpar localStorage
+        localStorage.clear();
+        
+        // Limpar sessionStorage
+        sessionStorage.clear();
+        
+        // Limpar Service Workers
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of registrations) {
+            await registration.unregister();
+          }
+        }
+        
+        // Limpar Cache API
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(name => caches.delete(name))
+          );
+        }
+        
+        // Forçar reload do service worker
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'SKIP_WAITING'
+          });
+        }
+        
+        statusDiv.className = 'status show success';
+        statusDiv.innerHTML = `
+          <strong>✅ Cache Limpo com Sucesso!</strong><br><br>
+          Agora pressione <strong>Ctrl+Shift+R</strong> (Windows/Linux) ou <strong>Cmd+Shift+R</strong> (Mac) para fazer um hard refresh.<br><br>
+          Em seguida, feche todas as abas do Rendizy e abra novamente.
+        `;
+        
+        // Auto-reload após 3 segundos
+        setTimeout(() => {
+          window.location.reload(true);
+        }, 3000);
+        
+      } catch (error) {
+        statusDiv.className = 'status show';
+        statusDiv.style.background = '#fed7d7';
+        statusDiv.style.color = '#742a2a';
+        statusDiv.innerHTML = `
+          <strong>⚠️ Erro ao limpar cache</strong><br><br>
+          ${error.message}<br><br>
+          Por favor, limpe o cache manualmente:
+          <ol style="margin-top: 10px; padding-left: 20px; text-align: left;">
+            <li>Pressione Ctrl+Shift+Delete (Windows/Linux) ou Cmd+Shift+Delete (Mac)</li>
+            <li>Selecione "Todo o período"</li>
+            <li>Marque "Imagens e arquivos em cache"</li>
+            <li>Clique em "Limpar dados"</li>
+          </ol>
+        `;
+      }
+    }
+    
+    // Animar entrada
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.querySelector('.container');
+      container.style.opacity = '0';
+      container.style.transform = 'translateY(20px)';
+      
+      setTimeout(() => {
+        container.style.transition = 'all 0.5s ease-out';
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+      }, 100);
+    });
+  </script>
+</body>
+</html>

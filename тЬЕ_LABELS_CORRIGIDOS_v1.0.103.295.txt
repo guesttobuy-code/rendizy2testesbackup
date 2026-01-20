@@ -1,0 +1,88 @@
+✅ LABELS CORRIGIDOS - v1.0.103.295
+====================================
+
+🎯 CORREÇÃO:
+------------
+
+Você estava absolutamente certo! 
+
+Ao corrigir o bug do DOM na v1.0.103.294, 
+NÃO bagunçou os campos, mas tinha UM label errado.
+
+📝 MUDANÇA:
+-----------
+
+Label CORRIGIDO:
+
+ANTES:
+  "Tipo de anúncio" ❌
+
+AGORA:
+  "Tipo de" ✅
+
+📊 LABELS VERIFICADOS:
+----------------------
+
+✅ "Tipo de propriedade (endereço)" → CORRETO
+   (Casa, Apartamento, Chalé, etc.)
+
+✅ "Tipo de" → CORRIGIDO!
+   (Chalé, Apartamento, Bangalô, Estúdio, etc.)
+
+✅ "Subtipo" → CORRETO
+   • Imóvel inteiro
+   • Quarto privativo
+   • Quarto compartilhado
+
+✅ "Modalidades" → CORRETO
+   [ ] Aluguel por temporada
+   [ ] Compra e venda
+   [ ] Locação residencial
+
+📚 DOCUMENTAÇÃO OFICIAL:
+------------------------
+
+Todos os labels agora seguem:
+/docs/MAPEAMENTO_WIZARD_COMPLETO_BACKEND_v1.0.103.264.md
+
+🔍 O QUE ERA:
+-------------
+
+interface ContentTypeData {
+  propertyTypeId?: string;        ← "Tipo de propriedade (endereço)" ✅
+  accommodationTypeId?: string;   ← "Tipo de anúncio" ❌
+  subtipo?: string;                ← "Subtipo" ✅
+  modalidades?: string[];          ← "Modalidades" ✅
+}
+
+✅ O QUE É AGORA:
+-----------------
+
+interface ContentTypeData {
+  propertyTypeId?: string;        ← "Tipo de propriedade (endereço)" ✅
+  accommodationTypeId?: string;   ← "Tipo de" ✅
+  subtipo?: string;                ← "Subtipo" ✅
+  modalidades?: string[];          ← "Modalidades" ✅
+}
+
+🧪 TESTE AGORA:
+---------------
+
+1. Ctrl + Shift + R (limpar cache)
+2. /properties
+3. "Cadastrar Nova Propriedade"
+4. Verificar labels do Step 1
+
+DEVE VER:
+✅ "Tipo de propriedade (endereço)"
+✅ "Tipo de" (NÃO "Tipo de anúncio")
+✅ "Subtipo"
+✅ "Modalidades"
+
+🎯 RESUMO:
+----------
+
+ERA: 1 label errado ("Tipo de anúncio")
+AGORA: Todos os labels corretos! ✅
+
+TESTE E CONFIRME! 🚀

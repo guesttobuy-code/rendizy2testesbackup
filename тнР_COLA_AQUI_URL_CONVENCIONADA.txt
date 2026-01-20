@@ -1,0 +1,120 @@
+╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+║        ⭐ URL CONVENCIONADA - SEMPRE FUNCIONA ⭐           ║
+║                                                            ║
+║                      /dashboard                            ║
+║                                                            ║
+║  🔥 AGORA COM REDIRECT AUTOMÁTICO! v1.0.103.267 🔥        ║
+║  Só clicar em "Prévia" → vai direto para /dashboard!     ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+
+
+═══════════════════════════════════════════════════════════════
+📍 URLs PRINCIPAIS (copie e cole no preview)
+═══════════════════════════════════════════════════════════════
+
+⭐ DASHBOARD (SEMPRE FUNCIONA):
+/dashboard
+
+🔐 LOGIN:
+/login
+
+📅 CALENDÁRIO:
+/calendario
+
+🏠 IMÓVEIS:
+/properties
+
+➕ NOVO IMÓVEL (WIZARD):
+/properties/new
+
+💬 CHAT WHATSAPP:
+/chat
+
+💰 FINANCEIRO:
+/financeiro
+
+📋 RESERVAS:
+/reservas
+
+
+═══════════════════════════════════════════════════════════════
+🚨 QUANDO USAR /dashboard
+═══════════════════════════════════════════════════════════════
+
+✅ Preview não carrega
+✅ Tela em branco
+✅ Erro "Not Found"
+✅ Sistema travou
+✅ Precisa de um ponto de partida confiável
+
+
+═══════════════════════════════════════════════════════════════
+💬 TEMPLATE DE COMUNICAÇÃO COM ASSISTENTE
+═══════════════════════════════════════════════════════════════
+
+Copie e cole este template:
+
+---
+URL: https://preview-xyz.figma.com/dashboard
+Status: ✅ Funciona OU ❌ Erro
+
+Problema em: [qual rota específica]
+
+Console (F12):
+[cole os erros aqui]
+
+Screenshot: [anexe aqui]
+---
+
+
+═══════════════════════════════════════════════════════════════
+🎯 EXEMPLO DE URL COMPLETA NO PREVIEW
+═══════════════════════════════════════════════════════════════
+
+Sua URL do preview será algo como:
+https://figma-preview-a1b2c3d4e5f6.web.app/
+
+Adicione /dashboard:
+https://figma-preview-a1b2c3d4e5f6.web.app/dashboard
+
+✅ SEMPRE FUNCIONA!
+
+
+═══════════════════════════════════════════════════════════════
+📋 CHECKLIST RÁPIDO
+═══════════════════════════════════════════════════════════════
+
+Quando algo der errado:
+
+[ ] 1. Abri /dashboard
+[ ] 2. Abri F12 → Console
+[ ] 3. Copiei TODOS os erros
+[ ] 4. Tirei screenshot
+[ ] 5. Testei outras URLs
+[ ] 6. Identifiquei qual rota tem problema
+[ ] 7. Enviei relatório completo
+
+
+═══════════════════════════════════════════════════════════════
+🔥 TESTE AGORA!
+═══════════════════════════════════════════════════════════════
+
+1. Clique em "Prévia" no Figma Make
+2. Copie esta URL: /dashboard
+3. Cole no final da URL do preview
+4. Pressione Enter
+5. ✅ Dashboard carrega!
+
+
+═══════════════════════════════════════════════════════════════
+⭐ MEMORIZE
+═══════════════════════════════════════════════════════════════
+
+        /dashboard = URL de emergência
+
+
+📅 Versão: v1.0.103.267
+🎯 Status: ATIVO - Convenção Estabelecida
+⭐ Prioridade: ALTA

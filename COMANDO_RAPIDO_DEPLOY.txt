@@ -1,0 +1,59 @@
+# 🚀 COMANDO RÁPIDO - Deploy Supabase
+
+## ⚠️ IMPORTANTE: Verificar se Supabase CLI está instalado
+
+Se o comando `supabase` não for reconhecido, use uma das opções abaixo:
+
+---
+
+## Opção 1: Usar npx (Recomendado se CLI não estiver instalado)
+Execute no PowerShell:
+```
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL\supabase"
+npx supabase functions deploy rendizy-server --no-verify-jwt
+```
+
+## Opção 2: Script com npx
+Execute no PowerShell:
+```
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL"
+.\deploy-supabase-manual.ps1
+```
+
+## Opção 3: Se Supabase CLI estiver instalado globalmente
+Execute no PowerShell:
+```
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL"
+.\limpar-cache-supabase.ps1
+```
+
+## Opção 4: Comando Manual (se CLI instalado)
+```
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL\supabase"
+supabase functions deploy rendizy-server --no-verify-jwt
+```
+
+---
+
+## Verificar Logs Após Deploy
+
+Se CLI instalado:
+```
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL\supabase"
+supabase functions logs rendizy-server --limit 20
+```
+
+Se usando npx:
+```
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL\supabase"
+npx supabase functions logs rendizy-server --limit 20
+```
+
+---
+
+## Instalar Supabase CLI (Opcional)
+
+Se quiser instalar globalmente:
+```
+npm install -g supabase
+```

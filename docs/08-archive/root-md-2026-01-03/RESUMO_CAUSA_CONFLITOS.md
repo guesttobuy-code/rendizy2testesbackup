@@ -1,0 +1,73 @@
+# 🔍 RESUMO: POR QUE OS CONFLITOS VOLTAM
+
+## 🚨 CAUSA RAIZ IDENTIFICADA
+
+### **PRINCIPAL CAUSA: Scripts de Deploy fazendo `git pull` automático**
+
+**Arquivos problemáticos encontrados:**
+- `deploy-completo-com-pull.ps1` - **Faz `git pull` antes de push**
+- `deploy-github-completo.ps1` - Pode fazer pull automático
+
+**O que acontece:**
+1. ✅ Você resolve conflitos localmente
+2. ✅ Faz commit e push
+3. ❌ **MAS** se o GitHub ainda tem conflitos no histórico
+4. ❌ Quando o script faz `git pull`, os conflitos voltam!
+
+### **OUTRAS CAUSAS:**
+
+2. **Histórico Git com conflitos não resolvidos**
+   - Alguém fez commit com conflitos no passado
+   - Esses conflitos ficam no histórico do Git
+   - Quando você faz `git pull`, eles voltam
+
+3. **Múltiplos branches sendo mesclados**
+   - Branch `main` e branch `c4731a74413e3c6ac95533edb8b5c5ea1726e941`
+   - Git tenta mesclar automaticamente
+   - Conflitos aparecem
+
+## ✅ SOLUÇÕES IMPLEMENTADAS
+
+### **1. Scripts de Proteção**
+- ✅ `prevenir-conflitos.ps1` - Verifica antes de commit
+- ✅ `resolver-todos-conflitos.ps1` - Resolve automaticamente
+- ✅ `.git\hooks\pre-commit` - Bloqueia commits com conflitos
+
+### **2. Documentação**
+- ✅ `PROTECAO_CONTRA_CONFLITOS.md` - Guia completo
+- ✅ `CAUSA_RAIZ_CONFLITOS.md` - Análise detalhada
+- ✅ `SOLUCAO_DEFINITIVA_CONFLITOS.md` - Processo obrigatório
+
+## 🛡️ REGRAS ABSOLUTAS
+
+1. **NUNCA fazer `git pull` sem verificar conflitos primeiro**
+2. **NUNCA fazer commit com conflitos**
+3. **SEMPRE executar `prevenir-conflitos.ps1` antes de qualquer operação Git**
+4. **Se conflitos voltarem, investigar causa antes de resolver**
+
+## 📋 PROCESSO OBRIGATÓRIO
+
+**ANTES DE QUALQUER OPERAÇÃO GIT:**
+
+```powershell
+# 1. Verificar conflitos
+.\prevenir-conflitos.ps1
+
+# 2. Se encontrar, resolver
+.\resolver-todos-conflitos.ps1
+
+# 3. Verificar novamente
+.\prevenir-conflitos.ps1
+
+# 4. Só então fazer operação
+git add .
+git commit -m "mensagem"
+```
+
+## 🎯 PRÓXIMOS PASSOS
+
+1. ✅ Resolver conflitos críticos (FEITO)
+2. ⏳ Atualizar scripts de deploy para novo caminho
+3. ⏳ Atualizar scripts de deploy para NUNCA fazer pull sem verificar
+4. ⏳ Configurar Git para prevenir auto-merge
+5. ⏳ Testar servidor

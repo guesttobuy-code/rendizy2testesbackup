@@ -1,0 +1,113 @@
+# DEPLOY COMPLETO PARA GITHUB
+
+## 🚀 OPÇÃO 1: Script Automático Completo (RECOMENDADO)
+
+Se o repositório Git ainda não foi inicializado ou o remote não está configurado:
+
+```powershell
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL"
+.\setup-git-e-deploy.ps1
+```
+
+Este script:
+- ✅ Inicializa Git se necessário
+- ✅ Configura branch main
+- ✅ Pergunta pela URL do GitHub e configura remote
+- ✅ Adiciona todos os arquivos
+- ✅ Faz commit
+- ✅ Faz push para GitHub
+
+---
+
+## 🚀 OPÇÃO 2: Script Rápido (se Git já está configurado)
+
+Se o Git já está inicializado e o remote já está configurado:
+
+```powershell
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL"
+.\deploy-github-completo.ps1
+```
+
+---
+
+## 📝 OPÇÃO 3: Comandos Manuais
+
+### Se o Git NÃO está inicializado:
+
+```powershell
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL"
+
+# 1. Inicializar Git
+git init
+git checkout -b main
+
+# 2. Adicionar remote (substitua pela URL do seu repositório)
+git remote add origin https://github.com/SEU_USUARIO/rendizy.git
+
+# 3. Adicionar arquivos
+git add -A
+
+# 4. Commit
+git commit -m "feat: Implementar cadeados em todas as capsulas + Corrigir routes-organizations"
+
+# 5. Push
+git push -u origin main
+```
+
+### Se o Git JÁ está inicializado:
+
+```powershell
+cd "C:\Users\rafae\OneDrive\Desktop\RENDIZY PASTA OFICIAL"
+
+# 1. Adicionar TODOS os arquivos
+git add -A
+
+# 2. Ver o que será commitado
+git status
+
+# 3. Fazer commit
+git commit -m "feat: Implementar cadeados em todas as capsulas + Corrigir routes-organizations (remover kv.set) + Deploy Supabase"
+
+# 4. Fazer push
+git push origin main
+# OU se a branch for outra:
+git push origin $(git branch --show-current)
+```
+
+---
+
+## 🔍 Verificar Status
+
+```powershell
+# Ver se é repositório Git
+git rev-parse --git-dir
+
+# Ver branch atual
+git branch --show-current
+
+# Ver remote configurado
+git remote -v
+
+# Ver status
+git status
+
+# Ver último commit
+git log --oneline -1
+```
+
+---
+
+## ⚠️ Se der erro de autenticação:
+
+1. **Use Personal Access Token** (não senha)
+   - GitHub → Settings → Developer settings → Personal access tokens
+   - Crie um token com permissão `repo`
+
+2. **Ou configure SSH:**
+   ```powershell
+   # Gerar chave SSH (se ainda não tiver)
+   ssh-keygen -t ed25519 -C "seu-email@exemplo.com"
+   
+   # Adicionar ao GitHub: Settings → SSH and GPG keys
+   # Depois use URL SSH: git@github.com:USUARIO/repositorio.git
+   ```

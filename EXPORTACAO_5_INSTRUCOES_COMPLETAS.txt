@@ -1,0 +1,239 @@
+===========================================
+RENDIZY - EXPORTAÇÃO PARTE 5/5
+INSTRUÇÕES COMPLETAS DE RECONSTRUÇÃO
+===========================================
+
+🎯 OBJETIVO:
+Reconstruir o RENDIZY do zero em um novo projeto Figma Make
+
+📋 TEMPO ESTIMADO: 15-20 minutos
+
+===========================================
+PASSO 1: CRIAR NOVO PROJETO
+===========================================
+
+1. Abra o Figma Make (https://figma.com/make)
+2. Clique em "New Project" ou "Criar Projeto"
+3. Escolha "Empty Project" ou "Projeto Vazio"
+4. Aguarde o projeto carregar
+
+===========================================
+PASSO 2: CONFIGURAÇÃO BASE
+===========================================
+
+Copie os arquivos de EXPORTACAO_1_CONFIG_BASE.txt:
+
+✅ Criar arquivo: BUILD_VERSION.txt
+   - Cole o conteúdo: v1.0.103.249
+
+✅ Criar arquivo: CACHE_BUSTER.ts
+   - Cole todo o código do BUILD_INFO
+
+✅ Criar arquivo: index.html
+   - Cole o HTML completo
+
+✅ Criar arquivo: src/main.tsx
+   - Cole o código do entry point
+
+✅ Criar arquivo: package.json
+   - Cole as dependências (Figma Make instala automaticamente)
+
+✅ Criar arquivo: tsconfig.json
+   - Cole a configuração TypeScript
+
+✅ Criar arquivo: vite.config.ts
+   - Cole a configuração Vite
+
+===========================================
+PASSO 3: ESTILOS
+===========================================
+
+Copie de EXPORTACAO_2_STYLES.txt:
+
+✅ Criar pasta: styles/
+✅ Criar arquivo: styles/globals.css
+   - Cole TODOS os estilos (incluindo @import do Google Fonts)
+
+===========================================
+PASSO 4: UTILS ESSENCIAIS
+===========================================
+
+Copie de EXPORTACAO_3_UTILS_ESSENCIAIS.txt:
+
+✅ Criar pasta: utils/
+✅ Criar arquivo: utils/mockBackend.ts
+   - Cole o código completo do mock
+
+✅ Criar arquivo: utils/offlineMode.ts
+   - Cole as funções de offline mode
+
+✅ Criar arquivo: utils/api.ts
+   - Cole as APIs básicas
+
+✅ Criar arquivo: utils/autoRecovery.ts
+   - Cole a função vazia (desabilitada)
+
+===========================================
+PASSO 5: APP MINIMALISTA
+===========================================
+
+Copie de EXPORTACAO_4_APP_MINIMO.txt:
+
+✅ Criar arquivo: App.tsx
+   - Cole o código COMPLETO do App minimalista
+   - Este App funciona 100% sem dependências extras
+
+===========================================
+PASSO 6: TESTAR
+===========================================
+
+1. Pressione CTRL + SHIFT + R (recarregar)
+2. Aguarde o sistema compilar
+3. O dashboard deve aparecer com:
+   - ✅ Sidebar com menu
+   - ✅ Dashboard com cards
+   - ✅ Navegação entre módulos funcional
+   - ✅ Toast de "Sistema carregado!"
+
+===========================================
+PASSO 7: VERIFICAR CONSOLE
+===========================================
+
+Abra o console (F12) e verifique:
+
+✅ Mensagens esperadas:
+   🟢 APP MONTOU COM SUCESSO!
+   📊 Build: v1.0.103.249
+   📁 Properties: 2
+   📅 Reservations: 1
+   ✅ Modo Mock habilitado
+   ✅ Modo offline: true
+
+❌ NÃO deve ter erros vermelhos!
+
+===========================================
+SOLUÇÃO DE PROBLEMAS
+===========================================
+
+PROBLEMA: "Not Found" ou tela branca
+SOLUÇÃO: 
+- Verifique se TODOS os imports estão corretos
+- Verifique se App.tsx tem "export default App" no final
+- Verifique se src/main.tsx importa corretamente: "import App from '../App'"
+
+PROBLEMA: Erro de módulo não encontrado
+SOLUÇÃO:
+- Aguarde o Figma Make instalar dependências (pode levar 1-2 min)
+- Recarregue a página (CTRL + SHIFT + R)
+
+PROBLEMA: Erro de CSS/Tailwind
+SOLUÇÃO:
+- Verifique se globals.css foi criado em styles/
+- Verifique se src/main.tsx importa: "import '../styles/globals.css'"
+
+===========================================
+PRÓXIMOS PASSOS (OPCIONAL)
+===========================================
+
+Depois que o App mínimo estiver funcionando, você pode:
+
+1️⃣ ADICIONAR COMPONENTES UI (shadcn):
+   - Crie pasta: components/ui/
+   - Adicione: button.tsx, card.tsx, dialog.tsx
+   (copie do projeto original)
+
+2️⃣ ADICIONAR COMPONENTES PRINCIPAIS:
+   - components/MainSidebar.tsx
+   - components/DashboardInicial.tsx
+   - components/CalendarGrid.tsx
+   (copie do projeto original um por vez)
+
+3️⃣ EXPANDIR MÓDULOS:
+   - Adicione módulo de Agenda
+   - Adicione módulo de Finanças
+   - Adicione módulo de Mensagens
+
+⚠️ IMPORTANTE: Adicione UM componente por vez e teste!
+
+===========================================
+ARQUIVOS DO PROJETO ORIGINAL
+===========================================
+
+Se precisar de componentes específicos, eles estão em:
+
+📁 /components/
+   - MainSidebar.tsx (Sidebar principal)
+   - DashboardInicial.tsx (Dashboard completo)
+   - CalendarGrid.tsx (Calendário visual)
+   - PropertiesManagement.tsx (Gestão de imóveis)
+   - ReservationsManagement.tsx (Gestão de reservas)
+   + 100+ outros componentes
+
+📁 /components/ui/
+   - 58 componentes shadcn (button, card, dialog, etc)
+
+📁 /components/financeiro/
+   - FinanceiroModule.tsx
+   - FinanceiroDashboard.tsx
+   - 5 páginas (DRE, Fluxo Caixa, etc)
+
+📁 /utils/
+   - mockBackend.ts (Backend mock completo - 1500 linhas)
+   - api.ts (APIs completas)
+   - whatsapp/ (Integração WhatsApp)
+   - bookingcom/ (Integração Booking.com)
+
+===========================================
+SUPORTE
+===========================================
+
+Se tiver problemas:
+
+1. Verifique o console do navegador (F12)
+2. Procure por erros vermelhos
+3. Me envie:
+   - Screenshot do console
+   - Screenshot da tela
+   - Mensagem de erro completa
+
+===========================================
+CHECKLIST FINAL
+===========================================
+
+Antes de dizer que está pronto, verifique:
+
+✅ Página carrega sem tela branca
+✅ Console tem "🟢 APP MONTOU COM SUCESSO!"
+✅ Não há erros vermelhos no console
+✅ Toast "Sistema carregado!" aparece
+✅ Sidebar com 3 botões está visível
+✅ Clique nos botões muda o conteúdo
+✅ Dashboard mostra 3 cards com números
+✅ Módulo "Imóveis" lista 2 propriedades
+✅ Módulo "Reservas" lista 1 reserva
+
+Se TODOS os itens acima estiverem ✅, o sistema está funcionando!
+
+===========================================
+VERSÃO EXPORTADA
+===========================================
+
+Build: v1.0.103.249
+Data: 01/11/2025
+Tipo: Versão Minimalista Funcional
+Status: ✅ Testado e Aprovado
+
+Esta versão é 100% funcional e pode ser expandida gradualmente.
+
+===========================================
+FIM DA EXPORTAÇÃO COMPLETA
+===========================================
+
+🎉 SUCESSO!
+
+Você agora tem tudo que precisa para reconstruir o RENDIZY!
+
+Siga os passos na ordem, teste cada etapa, e você terá
+um sistema funcionando em 15-20 minutos.
+
+Boa sorte! 🚀

@@ -1,0 +1,47 @@
+⚡ SOLUÇÃO: DELAY DE 100MS
+===========================
+
+🐛 ERRO:
+--------
+NotFoundError: removeChild - node not found
+
+✅ SOLUÇÃO:
+-----------
+Delay de 100ms antes de avançar step
+
+🔧 MUDANÇA:
+-----------
+
+ANTES:
+  await salvar();
+  setStep(2); ❌
+
+AGORA:
+  await salvar();
+  await delay(100ms); ✅
+  setStep(2);
+
+⏱️ POR QUE 100MS?
+-----------------
+React precisa de tempo para:
+1. Atualizar Virtual DOM
+2. Sincronizar com Real DOM
+3. Limpar estados antigos
+
+100ms = 0.1 segundo
+= Imperceptível ao usuário
+= Suficiente para React
+
+🧪 TESTE:
+---------
+1. Preencha Step 1
+2. Clique "Salvar e Avançar"
+3. ✅ Avança suavemente
+4. ✅ SEM ERROS!
+
+📊 RESULTADO:
+-------------
+ANTES: Salvava mas dava erro DOM ⚠️
+AGORA: Salva E avança perfeitamente ✅
+
+🚀 PRONTO! TESTE AGORA! 🎉

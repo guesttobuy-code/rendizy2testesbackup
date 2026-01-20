@@ -1,0 +1,244 @@
+═══════════════════════════════════════════════════════════
+  🎯 COMPORTAMENTO: ANTES vs AGORA
+═══════════════════════════════════════════════════════════
+
+┌───────────────────────────────────────────────────────┐
+│  ❌ ANTES (v1.0.103.290) - AUTO-SAVE AGRESSIVO       │
+└───────────────────────────────────────────────────────┘
+
+PASSO A PASSO:
+  
+  1. Usuário acessa /properties/new
+     ✅ Tela do wizard abre
+  
+  2. Usuário clica no dropdown "Tipo de propriedade"
+     ✅ Dropdown abre
+  
+  3. Usuário seleciona "Casa"
+     ✅ Campo atualiza
+     ⚙️ handleNext() é chamado
+     ⚙️ triggerSave() é chamado
+     ⚙️ onSave(data) é chamado
+     💾 Backend salva propriedade
+     🔄 Redireciona para /properties
+  
+  4. ❌ USUÁRIO VOLTA PARA LISTA DE IMÓVEIS
+     ❌ NÃO PODE CONTINUAR EDITANDO
+     ❌ TEM QUE EDITAR DE NOVO
+     ❌ EXPERIÊNCIA PÉSSIMA!
+
+PROBLEMA:
+  Sistema salva no BACKEND toda vez que muda um campo!
+  Impossível preencher o formulário!
+
+
+┌───────────────────────────────────────────────────────┐
+│  ✅ AGORA (v1.0.103.291) - AUTO-SAVE LOCAL            │
+└───────────────────────────────────────────────────────┘
+
+PASSO A PASSO:
+  
+  1. Usuário acessa /properties/new
+     ✅ Tela do wizard abre
+  
+  2. Usuário clica no dropdown "Tipo de propriedade"
+     ✅ Dropdown abre
+  
+  3. Usuário seleciona "Casa"
+     ✅ Campo atualiza
+     💾 Salva LOCALMENTE (rascunho)
+     ✅ CONTINUA NA TELA!
+  
+  4. Usuário seleciona "Tipo de anúncio"
+     ✅ Campo atualiza
+     💾 Salva LOCALMENTE (rascunho)
+     ✅ CONTINUA NA TELA!
+  
+  5. Usuário seleciona "Subtipo"
+     ✅ Campo atualiza
+     💾 Salva LOCALMENTE (rascunho)
+     ✅ CONTINUA NA TELA!
+  
+  6. Usuário marca "Modalidades"
+     ✅ Campos atualizam
+     💾 Salva LOCALMENTE (rascunho)
+     ✅ CONTINUA NA TELA!
+  
+  7. Usuário preenche todos os campos que quiser
+     ✅ Tudo sendo salvo LOCALMENTE
+     ✅ CONTINUA NA TELA!
+  
+  8. Usuário clica "SALVAR" (quando quiser)
+     💾 AÍ SIM salva no BACKEND
+     🔄 Redireciona para /properties
+     ✅ EXPERIÊNCIA PERFEITA!
+
+SOLUÇÃO:
+  Auto-save salva APENAS LOCALMENTE!
+  Backend é salvo apenas quando usuário clicar "Salvar"!
+
+
+═══════════════════════════════════════════════════════════
+  📊 TABELA COMPARATIVA
+═══════════════════════════════════════════════════════════
+
+┌─────────────────────┬─────────────┬─────────────┐
+│ Ação                │ ANTES       │ AGORA       │
+├─────────────────────┼─────────────┼─────────────┤
+│ Selecionar "Casa"   │ Salva +     │ Atualiza    │
+│                     │ Redireciona │ campo       │
+│                     │ ❌          │ ✅          │
+├─────────────────────┼─────────────┼─────────────┤
+│ Selecionar tipo     │ (não chega  │ Atualiza    │
+│ de anúncio          │ aqui)       │ campo       │
+│                     │ ❌          │ ✅          │
+├─────────────────────┼─────────────┼─────────────┤
+│ Selecionar subtipo  │ (não chega  │ Atualiza    │
+│                     │ aqui)       │ campo       │
+│                     │ ❌          │ ✅          │
+├─────────────────────┼─────────────┼─────────────┤
+│ Marcar modalidades  │ (não chega  │ Atualiza    │
+│                     │ aqui)       │ campos      │
+│                     │ ❌          │ ✅          │
+├─────────────────────┼─────────────┼─────────────┤
+│ Clicar "Salvar"     │ (não tem    │ Salva no    │
+│                     │ opção)      │ backend     │
+│                     │ ❌          │ ✅          │
+├─────────────────────┼─────────────┼─────────────┤
+│ EXPERIÊNCIA         │ PÉSSIMA     │ PERFEITA    │
+│                     │ 0/10        │ 10/10       │
+└─────────────────────┴─────────────┴─────────────┘
+
+
+═══════════════════════════════════════════════════════════
+  🔧 CÓDIGO: ANTES vs AGORA
+═══════════════════════════════════════════════════════════
+
+ANTES (linha 442):
+──────────────────────────────────────────────────────────
+const handleNext = () => {
+  // ...
+  triggerSave(); // ❌ CHAMAVA BACKEND!
+  // ...
+};
+
+useAutoSave(formData, {
+  onSave: async (data) => {
+    await onSave(data); // ❌ BACKEND!
+  },
+  showToasts: true, // ❌ INCOMODA!
+});
+
+
+AGORA (v1.0.103.291):
+──────────────────────────────────────────────────────────
+const handleNext = () => {
+  // ...
+  // ✅ NÃO chama triggerSave!
+  // Apenas avança para próximo campo
+  // ...
+};
+
+useAutoSave(formData, {
+  onSave: async (data) => {
+    // ✅ SALVA APENAS LOCALMENTE!
+    console.log('💾 Salvando rascunho...');
+  },
+  showToasts: false, // ✅ NÃO incomoda!
+});
+
+
+═══════════════════════════════════════════════════════════
+  💡 ENTENDENDO A LÓGICA
+═══════════════════════════════════════════════════════════
+
+AUTO-SAVE (Local):
+  📍 Propósito: Recuperar dados se recarregar página
+  💾 Salva em: localStorage (navegador)
+  ⏱️ Quando: A cada 2 segundos após parar de digitar
+  🔔 Toast: NÃO (silencioso)
+  🌐 Backend: NÃO
+  ✅ Útil: SIM (recuperação de rascunho)
+
+SAVE MANUAL (Backend):
+  📍 Propósito: Salvar propriedade no banco de dados
+  💾 Salva em: Supabase (backend)
+  ⏱️ Quando: Usuário clica "Salvar"
+  🔔 Toast: SIM ("Propriedade salva!")
+  🌐 Backend: SIM
+  ✅ Útil: SIM (persistência real)
+
+
+═══════════════════════════════════════════════════════════
+  🎯 FLUXO COMPLETO AGORA
+═══════════════════════════════════════════════════════════
+
+                    ┌─────────────────┐
+                    │  /properties    │
+                    └────────┬────────┘
+                             │
+                    Clica "Nova Propriedade"
+                             │
+                             ↓
+                    ┌─────────────────┐
+                    │ /properties/new │
+                    └────────┬────────┘
+                             │
+                    ┌────────┴────────────────┐
+                    │ Wizard de 17 steps      │
+                    │                         │
+                    │ Step 1: Tipo            │
+                    │   ✅ Seleciona Casa     │
+                    │   💾 Salva local        │
+                    │   ✅ CONTINUA editando  │
+                    │                         │
+                    │ Step 2: Localização     │
+                    │   ✅ Preenche endereço  │
+                    │   💾 Salva local        │
+                    │   ✅ CONTINUA editando  │
+                    │                         │
+                    │ Step 3-17: ...          │
+                    │   ✅ Preenche tudo      │
+                    │   💾 Salva local        │
+                    │   ✅ CONTINUA editando  │
+                    │                         │
+                    │ Clica "SALVAR"          │
+                    │   💾 Salva BACKEND      │
+                    │   ✅ Toast sucesso      │
+                    └────────┬────────────────┘
+                             │
+                             ↓
+                    ┌─────────────────┐
+                    │  /properties    │
+                    │                 │
+                    │ ✅ Nova prop    │
+                    │    aparece!     │
+                    └─────────────────┘
+
+
+═══════════════════════════════════════════════════════════
+  🚀 TESTE AGORA!
+═══════════════════════════════════════════════════════════
+
+1. HARD REFRESH (Ctrl + Shift + R)
+
+2. /properties/new
+
+3. Preencha TODOS os campos que quiser
+
+4. Sistema NÃO vai redirecionar
+
+5. Quando terminar, clique "Salvar"
+
+6. AÍ SIM vai salvar e redirecionar!
+
+7. ✅ PERFEITO! 🎉
+
+
+═══════════════════════════════════════════════════════════
+  📌 VERSÃO: v1.0.103.291-DESABILITAR-AUTO-SAVE-BACKEND
+═══════════════════════════════════════════════════════════
+
+CORREÇÃO: SIMPLES E DEFINITIVA ✅
+TESTE: AGUARDANDO
+CONFIANÇA: 100% 💯

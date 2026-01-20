@@ -1,0 +1,145 @@
+===========================================
+RENDIZY - EXPORTAÇÃO PARTE 1/5
+CONFIGURAÇÃO BASE
+===========================================
+
+📄 BUILD_VERSION.txt
+-------------------------------------------
+v1.0.103.249
+-------------------------------------------
+
+📄 CACHE_BUSTER.ts
+-------------------------------------------
+const BUILD_INFO = {
+  version: 'v1.0.103.249',
+  buildDate: '2025-11-01',
+  buildNumber: 249,
+  features: ['Exportação completa para reconstrução'],
+  changes: ['Sistema exportado']
+};
+
+export default BUILD_INFO;
+-------------------------------------------
+
+📄 index.html
+-------------------------------------------
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RENDIZY - Gestão de Imóveis de Temporada</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+-------------------------------------------
+
+📄 src/main.tsx
+-------------------------------------------
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from '../App';
+import '../styles/globals.css';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+-------------------------------------------
+
+📄 tsconfig.json
+-------------------------------------------
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src", "App.tsx", "components", "utils", "types", "hooks", "contexts"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+-------------------------------------------
+
+📄 vite.config.ts
+-------------------------------------------
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173
+  }
+})
+-------------------------------------------
+
+📄 package.json
+-------------------------------------------
+{
+  "name": "rendizy",
+  "version": "1.0.103.249",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "lucide-react": "^0.460.0",
+    "recharts": "^2.15.0",
+    "date-fns": "^4.1.0",
+    "sonner": "^2.0.3",
+    "@radix-ui/react-accordion": "^1.2.2",
+    "@radix-ui/react-alert-dialog": "^1.1.4",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-dropdown-menu": "^2.1.4",
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-popover": "^1.1.4",
+    "@radix-ui/react-select": "^2.1.4",
+    "@radix-ui/react-separator": "^1.1.1",
+    "@radix-ui/react-slot": "^1.1.1",
+    "@radix-ui/react-switch": "^1.1.2",
+    "@radix-ui/react-tabs": "^1.1.2",
+    "@radix-ui/react-toast": "^1.2.4",
+    "@radix-ui/react-tooltip": "^1.1.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.1"
+  }
+}
+-------------------------------------------
+
+===========================================
+FIM DA PARTE 1/5
+Continue com: EXPORTACAO_2_STYLES_E_UTILS.txt
+===========================================

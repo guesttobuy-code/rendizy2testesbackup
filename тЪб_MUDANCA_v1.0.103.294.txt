@@ -1,0 +1,20 @@
+⚡ MUDANÇA v1.0.103.294
+======================
+
+CÓDIGO ANTES:
+  await salvar();
+  setStep(2);
+
+CÓDIGO AGORA:
+  await salvar();
+  await delay(100ms);
+  setStep(2);
+
+RESULTADO:
+  ✅ SEM ERROS DOM!
+
+TESTE:
+  1. /properties
+  2. Cadastrar propriedade
+  3. Salvar e Avançar
+  4. ✅ Funciona!

@@ -1,0 +1,67 @@
+⚡ BUG CORRIGIDO - v1.0.103.293
+================================
+
+🐛 PROBLEMA IDENTIFICADO:
+-------------------------
+Erro: ReferenceError: setIsSaving is not defined
+
+📊 CAUSA RAIZ:
+--------------
+No handleSaveAndNext() e handleFinish(), estava usando:
+  setIsSaving(true)  ❌ Não existe!
+  setIsSaving(false) ❌ Não existe!
+
+O componente PropertyEditWizard recebe "isSaving" como PROP:
+  isSaving = false  ✅ Vem do parent
+
+Mas não tinha ESTADO INTERNO para controlar loading!
+
+✅ SOLUÇÃO APLICADA:
+--------------------
+
+1. CRIADO estado interno:
+   const [isSavingInternal, setIsSavingInternal] = useState<boolean>(false);
+
+2. ATUALIZADO handleSaveAndNext():
+   try {
+     setIsSavingInternal(true);  ✅
+     // ...salvar...
+   } finally {
+     setIsSavingInternal(false); ✅
+   }
+
+3. ATUALIZADO handleFinish():
+   try {
+     setIsSavingInternal(true);  ✅
+     // ...salvar...
+   } finally {
+     setIsSavingInternal(false); ✅
+   }
+
+4. ATUALIZADO botões:
+   disabled={isSaving || isSavingInternal}  ✅
+   {(isSaving || isSavingInternal) ? ... }  ✅
+
+🧪 TESTE AGORA:
+---------------
+
+1. https://suacasaavenda.com.br/properties
+2. Clique "Cadastrar Nova Propriedade"
+3. Preencha Step 1 (Casa, tipo acomodação, etc)
+4. Clique "Salvar e Avançar"
+
+RESULTADO ESPERADO:
+✅ Botão muda para "Salvando... ⏳"
+✅ Salva no backend
+✅ Avança para Step 2
+✅ SEM ERROS no console!
+
+LOGS ESPERADOS:
+---------------
+💾 [Wizard] Salvando E avançando...
+✏️ [PROPERTY ACTIONS] Editando imóvel...
+📊 [PROPERTY ACTIONS] ID: ...
+✅ [PROPERTY ACTIONS] Imóvel editado com sucesso!
+✅ Step 1 salvo com sucesso!
+
+✅ PRONTO! TESTE AGORA! 🚀

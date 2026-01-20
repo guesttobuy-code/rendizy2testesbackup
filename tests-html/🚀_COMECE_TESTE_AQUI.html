@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🚀 Comece o Teste Aqui - RENDIZY</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 40px;
+    }
+
+    .option-card {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 3px solid transparent;
+    }
+
+    .option-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      border-color: #667eea;
+    }
+
+    .option-card.fast {
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+    }
+
+    .option-card.detailed {
+      background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+    }
+
+    .option-card.complete {
+      background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+    }
+
+    .option-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .option-emoji {
+      font-size: 32px;
+    }
+
+    .option-time {
+      background: rgba(0, 0, 0, 0.1);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-left: auto;
+    }
+
+    .option-desc {
+      color: #555;
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    .option-steps {
+      background: white;
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+
+    .option-steps ol {
+      margin-left: 20px;
+      color: #666;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .option-steps li {
+      margin-bottom: 8px;
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 15px;
+      width: 100%;
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .alert {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .alert-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #856404;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert-text {
+      color: #856404;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .footer {
+      background: #f8f9fa;
+      padding: 30px;
+      text-align: center;
+      border-top: 2px solid #e9ecef;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .footer-link {
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      background: white;
+      border: 2px solid #667eea;
+      transition: all 0.3s ease;
+    }
+
+    .footer-link:hover {
+      background: #667eea;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 Teste Step 01 e Barra de Progresso</h1>
+      <p>RENDIZY v1.0.103.305 - Escolha como você quer testar</p>
+    </div>
+
+    <div class="content">
+      <div class="alert">
+        <div class="alert-title">
+          <span>⚠️</span>
+          <span>IMPORTANTE - Sistema 100% Supabase</span>
+        </div>
+        <div class="alert-text">
+          <strong>Mock backend foi DESABILITADO permanentemente.</strong><br>
+          Este teste verifica se o salvamento no Supabase funciona corretamente e se a barra de progresso calcula proporcionalmente.
+        </div>
+      </div>
+
+      <!-- OPÇÃO 1: TESTE RÁPIDO -->
+      <div class="option-card fast" onclick="window.location.href='/🎯_TESTE_RAPIDO_STEP01.md'">
+        <div class="option-title">
+          <span class="option-emoji">⚡</span>
+          <span>Teste Rápido</span>
+          <span class="option-time">3 minutos</span>
+        </div>
+        <div class="option-desc">
+          Perfeito para você que quer confirmar RÁPIDO que o salvamento funciona. Apenas 6 passos simples.
+        </div>
+        <div class="option-steps">
+          <ol>
+            <li>Criar novo imóvel</li>
+            <li>Preencher Step 01 (Tipo)</li>
+            <li>Clicar "Salvar e Avançar"</li>
+            <li>Fechar wizard</li>
+            <li>Recarregar página (F5)</li>
+            <li>Confirmar que dados persistiram ✅</li>
+          </ol>
+        </div>
+        <button class="btn-action" onclick="event.stopPropagation(); window.open('/🎯_TESTE_RAPIDO_STEP01.md')">
+          Começar Teste Rápido →
+        </button>
+      </div>
+
+      <!-- OPÇÃO 2: TESTE COM CHECKLIST -->
+      <div class="option-card detailed" onclick="window.location.href='/✅_CHECKLIST_TESTE_STEP01.html'">
+        <div class="option-title">
+          <span class="option-emoji">✅</span>
+          <span>Teste com Checklist</span>
+          <span class="option-time">10 minutos</span>
+        </div>
+        <div class="option-desc">
+          Para você que quer testar COM ORGANIZAÇÃO. Checklist interativo HTML + guia visual passo a passo.
+        </div>
+        <div class="option-steps">
+          <ol>
+            <li>Abrir checklist HTML no navegador</li>
+            <li>Seguir guia visual passo a passo</li>
+            <li>Marcar cada item conforme completa</li>
+            <li>Testar salvamento + barra de progresso</li>
+            <li>Ver progresso visual do teste</li>
+            <li>Confirmar que TUDO funciona ✅</li>
+          </ol>
+        </div>
+        <button class="btn-action" onclick="event.stopPropagation(); window.open('/✅_CHECKLIST_TESTE_STEP01.html')">
+          Abrir Checklist Interativo →
+        </button>
+      </div>
+
+      <!-- OPÇÃO 3: ENTENDIMENTO COMPLETO -->
+      <div class="option-card complete" onclick="window.location.href='/📑_INDICE_TESTE_STEP01_v1.0.103.305.md'">
+        <div class="option-title">
+          <span class="option-emoji">📚</span>
+          <span>Entendimento Completo</span>
+          <span class="option-time">30 minutos</span>
+        </div>
+        <div class="option-desc">
+          Para você que quer ENTENDER TUDO. Documentação técnica completa com código linha por linha.
+        </div>
+        <div class="option-steps">
+          <ol>
+            <li>Ler análise técnica completa (35+ páginas)</li>
+            <li>Entender código linha por linha</li>
+            <li>Ver diagramas da barra de progresso</li>
+            <li>Executar teste detalhado</li>
+            <li>Verificar no DevTools (Network + Console)</li>
+            <li>Dominar completamente o sistema ✅</li>
+          </ol>
+        </div>
+        <button class="btn-action" onclick="event.stopPropagation(); window.open('/📑_INDICE_TESTE_STEP01_v1.0.103.305.md')">
+          Ver Documentação Completa →
+        </button>
+      </div>
+    </div>
+
+    <div class="footer">
+      <h3 style="margin-bottom: 15px; color: #333;">📖 Documentação Disponível</h3>
+      
+      <div class="footer-links">
+        <a href="/🎯_TESTE_RAPIDO_STEP01.md" class="footer-link">⚡ Teste Rápido</a>
+        <a href="/✅_CHECKLIST_TESTE_STEP01.html" class="footer-link">✅ Checklist HTML</a>
+        <a href="/📸_PASSO_A_PASSO_VISUAL.md" class="footer-link">📸 Guia Visual</a>
+        <a href="/🧪_TESTE_STEP01_SALVAMENTO_E_PROGRESS.md" class="footer-link">🧪 Teste Detalhado</a>
+        <a href="/📊_DIAGRAMA_BARRA_PROGRESSO.md" class="footer-link">📊 Diagrama Barra</a>
+        <a href="/💻_CODIGO_SALVAMENTO_WIZARD.md" class="footer-link">💻 Código Fonte</a>
+        <a href="/docs/📊_LOGICA_SALVAMENTO_WIZARD_v1.0.103.305.md" class="footer-link">📊 Análise Técnica</a>
+        <a href="/🎯_RESPOSTA_RAPIDA_SALVAMENTO_WIZARD.md" class="footer-link">🎯 Resposta Rápida</a>
+        <a href="/📋_RESUMO_SALVAMENTO_SUPABASE.md" class="footer-link">📋 Resumo</a>
+        <a href="/📑_INDICE_TESTE_STEP01_v1.0.103.305.md" class="footer-link">📑 Índice Completo</a>
+      </div>
+
+      <p style="margin-top: 20px; font-size: 14px; color: #6c757d;">
+        <strong>RENDIZY v1.0.103.305</strong> - Sistema 100% Supabase (Mock Desabilitado)<br>
+        Data: 04/11/2025 | 10 documentos criados | ~115 páginas
+      </p>
+
+      <div style="margin-top: 25px; padding-top: 25px; border-top: 2px solid #dee2e6;">
+        <h4 style="color: #333; margin-bottom: 10px;">✅ O que será testado:</h4>
+        <div style="display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; font-size: 14px; color: #666;">
+          <div>✅ Salvamento no Supabase</div>
+          <div>✅ Dados persistem ao recarregar</div>
+          <div>✅ Barra de progresso (7%, 14%, 21%)</div>
+          <div>✅ Cálculo proporcional</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Log para debug
+    console.log('🚀 RENDIZY v1.0.103.305 - Teste Step 01 e Barra de Progresso');
+    console.log('📚 Escolha uma das 3 opções acima para começar');
+    console.log('');
+    console.log('Opções disponíveis:');
+    console.log('  ⚡ Teste Rápido (3 min)');
+    console.log('  ✅ Teste com Checklist (10 min)');
+    console.log('  📚 Entendimento Completo (30 min)');
+  </script>
+</body>
+</html>

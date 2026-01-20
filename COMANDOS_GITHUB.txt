@@ -1,0 +1,38 @@
+═══════════════════════════════════════════════════════════
+   COMANDOS PARA CONECTAR AO GITHUB
+═══════════════════════════════════════════════════════════
+
+1. CRIAR REPOSITÓRIO NO GITHUB:
+   - Acesse: https://github.com/new
+   - Nome: miggro
+   - Crie o repositório (SEM README)
+
+2. CONECTAR LOCAL AO GITHUB:
+   
+   git remote add origin https://github.com/SEU_USUARIO/miggro.git
+   
+   (Substitua SEU_USUARIO pelo seu username do GitHub)
+
+3. FAZER PUSH:
+   
+   git push -u origin main
+
+4. VERIFICAR:
+   
+   git remote -v
+   git status
+
+═══════════════════════════════════════════════════════════
+   DEPLOY NO VERCEL
+═══════════════════════════════════════════════════════════
+
+1. Acesse: https://vercel.com
+2. Login com GitHub
+3. "Add New Project"
+4. Import repositório "miggro"
+5. Configure Environment Variables:
+   - VITE_SUPABASE_URL
+   - VITE_SUPABASE_ANON_KEY
+6. Deploy!
+
+═══════════════════════════════════════════════════════════

@@ -1,0 +1,286 @@
+/**
+ * PROPERTY RESTRICTIONS MODAL
+ * Modal para editar restrições (sem check-in, sem check-out, fechado) para uma propriedade específica
+ * v1.0.1 - Interface atualizada para compatibilidade com App.tsx
+ */
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Button } from './ui/button';
+import { Label } from './ui/label';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Calendar, Ban, Lock, XCircle, Trash2, Edit2, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { DateRangePicker } from './DateRangePicker';
+
+interface PropertyRestrictionsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  propertyId: string;
+  propertyName: string;
+  startDate: Date;
+  endDate: Date;
+  currentRestriction?: string | null;
+  onSave: (data: { propertyId: string; startDate: Date; endDate: Date; restrictionType: 'no-checkin' | 'no-checkout' | 'closed' | null }) => void | Promise<void>;
+}
+
+export function PropertyRestrictionsModal({
+  isOpen,
+  onClose,
+  propertyId,
+  propertyName,
+  startDate,
+  endDate,
+  currentRestriction,
+  onSave
+}: PropertyRestrictionsModalProps) {
+  const [restrictionType, setRestrictionType] = useState<'no-checkin' | 'no-checkout' | 'closed' | null>(
+    (currentRestriction as any) || 'no-checkin'
+  );
+  const [saving, setSaving] = useState(false);
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startDate,
+    to: endDate
+  });
+
+  // Atualizar range quando props mudam
+  useEffect(() => {
+    setDateRange({ from: startDate, to: endDate });
+  }, [startDate, endDate]);
+
+  // Usar datas editadas ou originais
+  const effectiveStartDate = dateRange.from;
+  const effectiveEndDate = dateRange.to;
+
+  const formatDate = (date?: Date) => {
+    if (!date) return '';
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const getDaysDiff = () => {
+    return Math.ceil((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+  const getRestrictionLabel = (type: string | null) => {
+    switch (type) {
+      case 'no-checkin': return 'Sem Check-in';
+      case 'no-checkout': return 'Sem Check-out';
+      case 'closed': return 'Fechado';
+      default: return 'Restrição';
+    }
+  };
+
+  const handleSave = async () => {
+    if (!propertyId) return;
+    
+    setSaving(true);
+    const toastId = toast.loading('Aplicando restrição...', {
+      description: `${getDaysDiff()} dias serão atualizados em ${propertyName}. Aguarde...`
+    });
+
+    try {
+      await onSave({
+        propertyId,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        restrictionType
+      });
+      toast.success('Restrição aplicada!', {
+        id: toastId,
+        description: `${getRestrictionLabel(restrictionType)} configurado para ${getDaysDiff()} dias`
+      });
+      onClose();
+    } catch (error) {
+      toast.error('Erro ao aplicar restrição', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!propertyId) return;
+    
+    setSaving(true);
+    const toastId = toast.loading('Removendo restrição...', {
+      description: `Atualizando ${getDaysDiff()} dias em ${propertyName}. Aguarde...`
+    });
+
+    try {
+      await onSave({
+        propertyId,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        restrictionType: null
+      });
+      toast.success('Restrição removida!', {
+        id: toastId,
+        description: `${getDaysDiff()} dias foram liberados`
+      });
+      onClose();
+    } catch (error) {
+      toast.error('Erro ao remover restrição', {
+        id: toastId,
+        description: error instanceof Error ? error.message : 'Tente novamente'
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Ban className="h-5 w-5 text-red-600" />
+            Restrições de Reserva
+          </DialogTitle>
+          <DialogDescription>
+            Definir restrições de check-in/check-out para as datas selecionadas
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Property Info */}
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <Ban className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <div className="font-medium text-gray-900">{propertyName}</div>
+                <div className="text-sm text-gray-500">ID: {propertyId}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Período selecionado */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-blue-900">Período Selecionado</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingDates(!isEditingDates)}
+                className="h-7 px-2 text-blue-700 hover:text-blue-900 hover:bg-blue-100"
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1" />
+                {isEditingDates ? 'Fechar' : 'Editar'}
+              </Button>
+            </div>
+            
+            {isEditingDates ? (
+              <div className="mt-3">
+                <DateRangePicker
+                  dateRange={dateRange}
+                  onDateRangeChange={(newRange) => setDateRange(newRange)}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="text-blue-900">
+                  <span>{formatDate(effectiveStartDate)}</span>
+                  {getDaysDiff() > 1 && (
+                    <>
+                      <span className="mx-2">→</span>
+                      <span>{formatDate(effectiveEndDate)}</span>
+                    </>
+                  )}
+                </div>
+                <div className="text-sm text-blue-700 mt-1">
+                  📊 Total: {getDaysDiff()} {getDaysDiff() === 1 ? 'dia' : 'dias'} serão afetados
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Tipo de restrição */}
+          <div className="space-y-3">
+            <Label>Tipo de Restrição</Label>
+            <RadioGroup value={restrictionType || ''} onValueChange={(value) => setRestrictionType(value as any)}>
+              <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <RadioGroupItem value="no-checkin" id="no-checkin" />
+                <Label htmlFor="no-checkin" className="flex items-center gap-2 cursor-pointer flex-1">
+                  <Ban className="h-4 w-4 text-orange-600" />
+                  <div>
+                    <div className="font-medium text-gray-900">Sem Check-in</div>
+                    <div className="text-sm text-gray-500">Bloquear entrada de hóspedes nessas datas</div>
+                  </div>
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <RadioGroupItem value="no-checkout" id="no-checkout" />
+                <Label htmlFor="no-checkout" className="flex items-center gap-2 cursor-pointer flex-1">
+                  <Lock className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <div className="font-medium text-gray-900">Sem Check-out</div>
+                    <div className="text-sm text-gray-500">Bloquear saída de hóspedes nessas datas</div>
+                  </div>
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <RadioGroupItem value="closed" id="closed" />
+                <Label htmlFor="closed" className="flex items-center gap-2 cursor-pointer flex-1">
+                  <XCircle className="h-4 w-4 text-red-600" />
+                  <div>
+                    <div className="font-medium text-gray-900">Fechado</div>
+                    <div className="text-sm text-gray-500">Bloquear completamente (entrada e saída)</div>
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Explicação */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
+            <div className="text-sm">
+              <span className="font-medium text-gray-900">O que isso significa?</span>
+            </div>
+            <div className="text-sm text-gray-600">
+              {restrictionType === 'no-checkin' && (
+                <p>✓ Hóspedes não poderão fazer check-in nessas datas, mas podem fazer check-out</p>
+              )}
+              {restrictionType === 'no-checkout' && (
+                <p>✓ Hóspedes não poderão fazer check-out nessas datas, mas podem fazer check-in</p>
+              )}
+              {restrictionType === 'closed' && (
+                <p>✓ Propriedade fica completamente indisponível para novas reservas</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="flex gap-2">
+          {currentRestriction && (
+            <Button variant="outline" onClick={handleRemove} disabled={saving} className="text-red-600 hover:bg-red-50">
+              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              {saving ? 'Removendo...' : 'Remover Restrição'}
+            </Button>
+          )}
+          <div className="flex-1" />
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={saving} className="bg-red-600 hover:bg-red-700">
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Aplicando...
+              </>
+            ) : (
+              'Aplicar Restrição'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

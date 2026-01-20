@@ -1,0 +1,105 @@
+# --- Node / Vite / React ---
+node_modules/
+dist/
+## RENDIZY - .gitignore (normalizado)
+
+# --- Node / Vite / React ---
+node_modules/
+dist/
+build/
+.vite/
+.cache/
+.parcel-cache/
+
+# --- Logs / outputs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+outputs.txt
+tmp_*
+_tmp_*
+_stays_*.md
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.cursor/
+
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Env / Secrets (NEVER COMMIT) ---
+.env
+.env.*
+!.env.example
+
+_rendizy-creds.local.ps1
+
+token.txt
+token*.txt
+*token*.txt
+rendizy-token*.txt
+*.token
+*.jwt
+*.secret
+*.pem
+*.p12
+*.key
+*.cert
+
+# --- Supabase local / CLI ---
+.supabase/
+supabase/.temp/
+supabase/.branches/
+
+# --- Build artifacts ---
+*.tsbuildinfo
+.next/
+out/
+/index-*.js
+/index-*.js.map
+
+# --- Project-specific ---
+site bolt/
+login-que-funcionou-*/
+**/BACKUP/
+tools/*.exe
+*.zip
+*.exe
+
+# --- Local-only artifacts (limpeza de working tree) ---
+DIAGNOSTICO-PRICING-LOGS.ps1
+FIX-RESERVATIONS-ID-TO-TEXT.sql
+TEST-GUESTS-API.ps1
+TESTAR-API-PRICING-DIRETO.ps1
+TESTAR-API-STAYSNET-LISTINGS.ps1
+TESTE-COMPARATIVO-ENDPOINTS.ps1
+scripts/ps/
+staysnet-raw-sample.json
+✅_CORRECOES_HOSPEDES_v1.0.103.600.md
+*.jwt
+
+# --- Local exports (PII / auditoria) ---
+_reports/
+
+# --- Large patch artifacts (do not commit) ---
+docs/08-archive/_inventory/**/*.patch
+.vercel
+.env*.local

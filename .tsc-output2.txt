@@ -1,0 +1,1103 @@
+App.tsx(2,50): error TS6133: 'useNavigate' is declared but its value is never read.
+App.tsx(2,63): error TS6133: 'useLocation' is declared but its value is never read.
+App.tsx(5,1): error TS6133: 'setOfflineMode' is declared but its value is never read.
+App.tsx(9,1): error TS6133: 'VersionBadge' is declared but its value is never read.
+App.tsx(12,1): error TS6133: 'Calendar' is declared but its value is never read.
+App.tsx(13,1): error TS6133: 'PriceEditModal' is declared but its value is never read.
+App.tsx(14,1): error TS6133: 'PropertySidebar' is declared but its value is never read.
+App.tsx(15,1): error TS6133: 'CalendarHeader' is declared but its value is never read.
+App.tsx(16,1): error TS6133: 'QuickActionsModal' is declared but its value is never read.
+App.tsx(17,1): error TS6133: 'ReservationPreviewModal' is declared but its value is never read.
+App.tsx(18,1): error TS6133: 'ReservationDetailsModal' is declared but its value is never read.
+App.tsx(19,1): error TS6133: 'CreateReservationWizard' is declared but its value is never read.
+App.tsx(20,1): error TS6133: 'MinNightsEditModal' is declared but its value is never read.
+App.tsx(21,1): error TS6133: 'BlockModal' is declared but its value is never read.
+App.tsx(22,1): error TS6133: 'BlockDetailsModal' is declared but its value is never read.
+App.tsx(23,1): error TS6133: 'QuotationModal' is declared but its value is never read.
+App.tsx(24,1): error TS6133: 'ListView' is declared but its value is never read.
+App.tsx(25,1): error TS6133: 'TimelineView' is declared but its value is never read.
+App.tsx(26,1): error TS6133: 'ExportModal' is declared but its value is never read.
+App.tsx(27,1): error TS6133: 'TagsManagementModal' is declared but its value is never read.
+App.tsx(28,1): error TS6133: 'EditReservationWizard' is declared but its value is never read.
+App.tsx(29,1): error TS6133: 'PriceTiersModal' is declared but its value is never read.
+App.tsx(30,1): error TS6133: 'SeasonalityModal' is declared but its value is never read.
+App.tsx(31,1): error TS6133: 'CancelReservationModal' is declared but its value is never read.
+App.tsx(32,1): error TS6133: 'LocationsManager' is declared but its value is never read.
+App.tsx(33,1): error TS6133: 'IconsPreview' is declared but its value is never read.
+App.tsx(34,1): error TS6133: 'FontSelector' is declared but its value is never read.
+App.tsx(35,1): error TS6133: 'SettingsPanel' is declared but its value is never read.
+App.tsx(36,1): error TS6133: 'DatabaseInitializer' is declared but its value is never read.
+App.tsx(38,1): error TS6133: 'ConflictAlert' is declared but its value is never read.
+App.tsx(39,1): error TS6133: 'DashboardInicial' is declared but its value is never read.
+App.tsx(40,1): error TS6133: 'DashboardInicialSimple' is declared but its value is never read.
+App.tsx(41,1): error TS6133: 'AdminMasterFunctional' is declared but its value is never read.
+App.tsx(42,1): error TS6133: 'TenantManagement' is declared but its value is never read.
+App.tsx(43,1): error TS6133: 'UserManagement' is declared but its value is never read.
+App.tsx(44,1): error TS6133: 'ClientsAndGuestsManagement' is declared but its value is never read.
+App.tsx(45,1): error TS6133: 'ProprietariosManagement' is declared but its value is never read.
+App.tsx(46,1): error TS6133: 'DocumentosListasClientes' is declared but its value is never read.
+App.tsx(47,1): error TS6133: 'ReservationsManagement' is declared but its value is never read.
+App.tsx(48,1): error TS6133: 'BookingComIntegration' is declared but its value is never read.
+App.tsx(49,1): error TS6133: 'LocationsAndListings' is declared but its value is never read.
+App.tsx(50,1): error TS6133: 'PropertiesManagement' is declared but its value is never read.
+App.tsx(51,1): error TS6133: 'DiagnosticoImovel' is declared but its value is never read.
+App.tsx(52,1): error TS6133: 'SettingsManager' is declared but its value is never read.
+App.tsx(53,1): error TS6133: 'BulkPricingManager' is declared but its value is never read.
+App.tsx(54,1): error TS6133: 'ChatInbox' is declared but its value is never read.
+App.tsx(55,1): error TS6133: 'ChatInboxWithEvolution' is declared but its value is never read.
+App.tsx(56,1): error TS6133: 'GuestsManager' is declared but its value is never read.
+App.tsx(57,1): error TS6133: 'ClientSitesManager' is declared but its value is never read.
+App.tsx(59,1): error TS6133: 'NotFoundPage' is declared but its value is never read.
+App.tsx(60,1): error TS6133: 'EmergencyRouter' is declared but its value is never read.
+App.tsx(62,1): error TS6133: 'PropertyWizardPage' is declared but its value is never read.
+App.tsx(63,1): error TS6133: 'DiagnosticoImovelPage' is declared but its value is never read.
+App.tsx(86,1): error TS6133: 'TasksDashboard' is declared but its value is never read.
+App.tsx(93,1): error TS6133: 'LanguageSwitcher' is declared but its value is never read.
+App.tsx(115,1): error TS6133: 'initAutoRecovery' is declared but its value is never read.
+App.tsx(116,1): error TS6192: All imports in import declaration are unused.
+App.tsx(121,1): error TS6133: 'Button' is declared but its value is never read.
+App.tsx(179,32): error TS6133: 'setErrorBannerDismissed' is declared but its value is never read.
+App.tsx(271,10): error TS6133: 'priceEditModal' is declared but its value is never read.
+App.tsx(278,10): error TS6133: 'minNightsModal' is declared but its value is never read.
+App.tsx(297,10): error TS6133: 'createReservationWizard' is declared but its value is never read.
+App.tsx(304,10): error TS6133: 'blockModal' is declared but its value is never read.
+App.tsx(311,10): error TS6133: 'blockDetailsModal' is declared but its value is never read.
+App.tsx(316,10): error TS6133: 'quotationModal' is declared but its value is never read.
+App.tsx(323,10): error TS6133: 'reservationDetailsModal' is declared but its value is never read.
+App.tsx(328,10): error TS6133: 'exportModal' is declared but its value is never read.
+App.tsx(329,10): error TS6133: 'tagsModal' is declared but its value is never read.
+App.tsx(329,21): error TS6133: 'setTagsModal' is declared but its value is never read.
+App.tsx(332,10): error TS6133: 'editReservationWizard' is declared but its value is never read.
+App.tsx(337,10): error TS6133: 'priceTiersModal' is declared but its value is never read.
+App.tsx(344,10): error TS6133: 'seasonalityModal' is declared but its value is never read.
+App.tsx(349,10): error TS6133: 'cancelReservationModal' is declared but its value is never read.
+App.tsx(349,34): error TS6133: 'setCancelReservationModal' is declared but its value is never read.
+App.tsx(354,10): error TS6133: 'databaseInitModal' is declared but its value is never read.
+App.tsx(354,29): error TS6133: 'setDatabaseInitModal' is declared but its value is never read.
+App.tsx(356,10): error TS6133: 'showConflictAlert' is declared but its value is never read.
+App.tsx(417,9): error TS6133: 'nextMonth' is declared but its value is never read.
+App.tsx(421,9): error TS6133: 'prevMonth' is declared but its value is never read.
+App.tsx(425,9): error TS6133: 'handlePriceEdit' is declared but its value is never read.
+App.tsx(434,9): error TS6133: 'handlePriceSave' is declared but its value is never read.
+App.tsx(441,9): error TS6133: 'handleMinNightsEdit' is declared but its value is never read.
+App.tsx(450,9): error TS6133: 'handleMinNightsSave' is declared but its value is never read.
+App.tsx(465,9): error TS6133: 'handleQuickAction' is declared but its value is never read.
+App.tsx(483,71): error TS2367: This comparison appears to be unintentional because the types '"tiers" | "seasonality"' and '"block"' have no overlap.
+App.tsx(513,9): error TS6133: 'handleOpenReservationDetails' is declared but its value is never read.
+App.tsx(531,9): error TS6133: 'handleBlockUpdate' is declared but its value is never read.
+App.tsx(536,9): error TS6133: 'handleBlockDelete' is declared but its value is never read.
+App.tsx(733,9): error TS6133: 'calendarManager' is declared but its value is never read.
+App.tsx(741,9): error TS6133: 'handleReservationComplete' is declared but its value is never read.
+App.tsx(749,9): error TS6133: 'handleEditReservationComplete' is declared but its value is never read.
+App.tsx(1177,70): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1178,67): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1179,75): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1183,75): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1184,80): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1185,69): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1186,73): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1189,70): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1190,71): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1191,70): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1194,68): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1195,70): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1196,68): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1199,72): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1200,80): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1207,75): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1224,72): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1225,70): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1226,70): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1227,70): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1228,72): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1229,74): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1230,71): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1231,72): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1232,77): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1233,71): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1234,66): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1235,75): error TS2322: Type '{ module: string; }' is not assignable to type 'IntrinsicAttributes & ModulePlaceholderProps'.
+  Property 'module' does not exist on type 'IntrinsicAttributes & ModulePlaceholderProps'.
+App.tsx(1315,10): error TS6133: 'getModuleName' is declared but its value is never read.
+App.tsx(1357,10): error TS6133: 'getModuleDescription' is declared but its value is never read.
+components/AccommodationRulesForm.tsx(16,52): error TS6133: 'Volume2' is declared but its value is never read.
+components/AccommodationRulesForm.tsx(19,1): error TS6133: 'Separator' is declared but its value is never read.
+components/ActionConfirmationDialog.tsx(21,24): error TS6133: 'AlertTriangle' is declared but its value is never read.
+components/admin/AdminMasterModule.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/AdminMaster.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(9,3): error TS6133: 'Shield' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(11,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(14,3): error TS6133: 'Package' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(18,3): error TS6133: 'Mail' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(20,3): error TS6133: 'Edit' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(22,3): error TS6133: 'Server' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(23,3): error TS6133: 'HardDrive' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(24,3): error TS6133: 'RefreshCw' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(32,1): error TS6133: 'Separator' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(91,39): error TS6133: 'onNavigate' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(94,10): error TS6133: 'users' is declared but its value is never read.
+components/AdminMasterFunctional.tsx(132,89): error TS7006: Parameter 'o' implicitly has an 'any' type.
+components/AdvancedSearchDropdown.tsx(2,18): error TS6133: 'Calendar' is declared but its value is never read.
+components/AdvancedSearchDropdown.tsx(2,28): error TS6133: 'User' is declared but its value is never read.
+components/AdvancedSearchDropdown.tsx(2,34): error TS6133: 'Home' is declared but its value is never read.
+components/AdvancedSearchDropdown.tsx(2,40): error TS6133: 'Clock' is declared but its value is never read.
+components/AIIntegration.tsx(271,11): error TS6133: 'defaults' is declared but its value is never read.
+components/AirbnbIntegration.tsx(17,1): error TS6133: 'Separator' is declared but its value is never read.
+components/AirbnbIntegration.tsx(25,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/AmenitiesSelector.tsx(16,8): error TS6133: 'React' is declared but its value is never read.
+components/AmenitiesSelector.tsx(17,45): error TS6133: 'ChevronDown' is declared but its value is never read.
+components/AmenitiesSelector.tsx(22,29): error TS6133: 'CardDescription' is declared but its value is never read.
+components/AmenitiesSelector.tsx(22,58): error TS6133: 'CardTitle' is declared but its value is never read.
+components/AmenitiesSelector.tsx(30,3): error TS6133: 'getAmenitiesByChannel' is declared but its value is never read.
+components/AmenitiesSelector.tsx(217,17): error TS6133: 'someSelected' is declared but its value is never read.
+components/ApiErrorBanner.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/AppRouter.tsx(17,27): error TS6198: All destructured elements are unused.
+components/AutoFixWhatsAppApiKey.tsx(10,1): error TS6133: 'React' is declared but its value is never read.
+components/automations/AutomationDetails.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/automations/AutomationDetails.tsx(3,29): error TS6133: 'CardDescription' is declared but its value is never read.
+components/automations/AutomationDetails.tsx(6,30): error TS6133: 'Edit' is declared but its value is never read.
+components/automations/AutomationsChatLab.tsx(2,29): error TS6133: 'CardDescription' is declared but its value is never read.
+components/automations/AutomationsChatLab.tsx(6,1): error TS6133: 'Badge' is declared but its value is never read.
+components/automations/AutomationsChatLab.tsx(95,9): error TS6133: 'handleDrop' is declared but its value is never read.
+components/automations/AutomationsChatLab.tsx(267,22): error TS18047: 'automationResult.definition' is possibly 'null'.
+components/automations/AutomationsChatLab.tsx(268,9): error TS2322: Type 'AutomationDefinition | null' is not assignable to type '{ name: string; description?: string | undefined; trigger: { type: string; field?: string | undefined; operator?: string | undefined; value?: any; schedule?: string | undefined; threshold?: number | undefined; }; conditions?: { ...; }[] | undefined; actions: { ...; }[]; metadata?: { ...; } | undefined; }'.
+  Type 'null' is not assignable to type '{ name: string; description?: string | undefined; trigger: { type: string; field?: string | undefined; operator?: string | undefined; value?: any; schedule?: string | undefined; threshold?: number | undefined; }; conditions?: { ...; }[] | undefined; actions: { ...; }[]; metadata?: { ...; } | undefined; }'.
+components/automations/AutomationsChatLab.tsx(543,53): error TS18047: 'automationResult.definition' is possibly 'null'.
+components/automations/AutomationsChatLab.tsx(544,16): error TS18047: 'automationResult.definition' is possibly 'null'.
+components/automations/AutomationsChatLab.tsx(545,63): error TS18047: 'automationResult.definition' is possibly 'null'.
+components/automations/AutomationsList.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/automations/AutomationsList.tsx(5,46): error TS6133: 'Edit' is declared but its value is never read.
+components/automations/AutomationsModule.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/automations/AutomationsNaturalLanguageLab.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/automations/AutomationsNaturalLanguageLab.tsx(287,41): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(288,16): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(290,32): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(293,16): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(299,53): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(300,16): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(301,63): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(309,17): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(313,16): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(318,17): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(324,52): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(327,17): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(349,37): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(423,38): error TS18047: 'result.definition' is possibly 'null'.
+components/automations/AutomationsNaturalLanguageLab.tsx(424,25): error TS2322: Type 'AutomationDefinition | null' is not assignable to type '{ name: string; description?: string | undefined; trigger: { type: string; field?: string | undefined; operator?: string | undefined; value?: any; schedule?: string | undefined; threshold?: number | undefined; }; conditions?: { ...; }[] | undefined; actions: { ...; }[]; metadata?: { ...; } | undefined; }'.
+  Type 'null' is not assignable to type '{ name: string; description?: string | undefined; trigger: { type: string; field?: string | undefined; operator?: string | undefined; value?: any; schedule?: string | undefined; threshold?: number | undefined; }; conditions?: { ...; }[] | undefined; actions: { ...; }[]; metadata?: { ...; } | undefined; }'.
+components/automations/ModuleSelector.tsx(7,1): error TS6133: 'cn' is declared but its value is never read.
+components/AutoSaveIndicator.tsx(10,1): error TS6133: 'React' is declared but its value is never read.
+components/BackendStatusIndicator.tsx(10,1): error TS6133: 'React' is declared but its value is never read.
+components/BackendTester.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/bi/BIDashboard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/bi/BIModule.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/bi/BISidebar.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/BlockDetailsModal.tsx(10,85): error TS6133: 'Info' is declared but its value is never read.
+components/BlockModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/BookingComIntegration.tsx(11,8): error TS6133: 'React' is declared but its value is never read.
+components/BookingComIntegration.tsx(18,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/BookingComIntegration.tsx(22,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/BookingComIntegration.tsx(32,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/BookingComIntegration.tsx(64,3): error TS6133: 'BookingComCredentials' is declared but its value is never read.
+components/BookingComIntegration.tsx(115,17): error TS6133: 'setStats' is declared but its value is never read.
+components/BuildLogger.tsx(18,45): error TS2339: Property 'build' does not exist on type '{ version: string; buildDate: string; reason: string; changes: string[]; }'.
+components/BuildLogger.tsx(19,57): error TS2339: Property 'timestamp' does not exist on type '{ version: string; buildDate: string; reason: string; changes: string[]; }'.
+components/BuildLogger.tsx(20,51): error TS2339: Property 'description' does not exist on type '{ version: string; buildDate: string; reason: string; changes: string[]; }'.
+components/BuildLogger.tsx(21,47): error TS2339: Property 'message' does not exist on type '{ version: string; buildDate: string; reason: string; changes: string[]; }'.
+components/BuildLogger.tsx(22,45): error TS2339: Property 'status' does not exist on type '{ version: string; buildDate: string; reason: string; changes: string[]; }'.
+components/BulkMinNightsModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/BulkPriceConditionModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/BulkPricingManager.tsx(17,8): error TS6133: 'React' is declared but its value is never read.
+components/BulkPricingManager.tsx(26,3): error TS6133: 'Save' is declared but its value is never read.
+components/BulkPricingManager.tsx(31,3): error TS6133: 'History' is declared but its value is never read.
+components/BulkPricingManager.tsx(32,3): error TS6133: 'Tag' is declared but its value is never read.
+components/BulkPricingManager.tsx(35,3): error TS6133: 'RotateCcw' is declared but its value is never read.
+components/BulkPricingManager.tsx(48,1): error TS6133: 'Switch' is declared but its value is never read.
+components/BulkPricingManager.tsx(114,19): error TS6133: 'setApplyTo' is declared but its value is never read.
+components/BulkPricingManager.tsx(304,9): error TS6133: 'getOperationIcon' is declared but its value is never read.
+components/BulkRestrictionsModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/calendar/CalendarModule.tsx(18,1): error TS6133: 'React' is declared but its value is never read.
+components/calendar/CalendarModule.tsx(121,15): error TS2322: Type '{ currentMonth: Date; onMonthChange: (date: Date) => void; currentView: "list" | "calendar" | "timeline"; onViewChange: (view: "list" | "calendar" | "timeline") => void; ... 5 more ...; onExport: () => void; }' is not assignable to type 'IntrinsicAttributes & CalendarHeaderProps'.
+  Property 'onMonthChange' does not exist on type 'IntrinsicAttributes & CalendarHeaderProps'.
+components/calendar/CalendarModule.tsx(139,19): error TS2322: Type '{ properties: Property[]; reservations: Reservation[]; blocks: any[]; currentMonth: Date; selectedReservationTypes: string[]; onCellClick: (propertyId: string, startDate: Date, endDate: Date) => void; onReservationClick: (reservation: Reservation) => void; onBlockClick: (block: any) => void; refreshKey: number; }' is not assignable to type 'IntrinsicAttributes & CalendarProps'.
+  Property 'selectedReservationTypes' does not exist on type 'IntrinsicAttributes & CalendarProps'.
+components/calendar/CalendarModule.tsx(151,19): error TS2322: Type '{ properties: Property[]; reservations: Reservation[]; selectedReservationTypes: string[]; onReservationClick: (reservation: Reservation) => void; }' is not assignable to type 'IntrinsicAttributes & ListViewProps'.
+  Property 'selectedReservationTypes' does not exist on type 'IntrinsicAttributes & ListViewProps'.
+components/calendar/CalendarModule.tsx(160,19): error TS2322: Type '{ properties: Property[]; reservations: Reservation[]; blocks: any[]; dateRange: { from: Date; to: Date; }; selectedReservationTypes: string[]; onReservationClick: (reservation: Reservation) => void; onBlockClick: (block: any) => void; }' is not assignable to type 'IntrinsicAttributes & TimelineViewProps'.
+  Property 'blocks' does not exist on type 'IntrinsicAttributes & TimelineViewProps'.
+components/CalendarGrid.tsx(37,7): error TS6133: 'getBasePrice' is declared but its value is never read.
+components/CalendarGrid.tsx(122,7): error TS6133: 'getPlatformColor' is declared but its value is never read.
+components/CalendarGrid.tsx(132,7): error TS6133: 'getStatusColor' is declared but its value is never read.
+components/CalendarGrid.tsx(719,30): error TS6133: 'day' is declared but its value is never read.
+components/CalendarGrid.tsx(815,30): error TS6133: 'day' is declared but its value is never read.
+components/CalendarGrid.tsx(1000,38): error TS6133: 'day' is declared but its value is never read.
+components/CalendarHeader.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/CalendarManagerBadge.tsx(12,8): error TS6133: 'React' is declared but its value is never read.
+components/CalendarManagerBadge.tsx(17,3): error TS6133: 'Tooltip' is declared but its value is never read.
+components/CalendarManagerBadge.tsx(18,3): error TS6133: 'TooltipContent' is declared but its value is never read.
+components/CalendarManagerBadge.tsx(20,3): error TS6133: 'TooltipTrigger' is declared but its value is never read.
+components/CalendarStats.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/CancelReservationModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/CancelReservationModal.tsx(12,1): error TS6133: 'Button' is declared but its value is never read.
+components/chat/ChatModule.tsx(33,1): error TS6133: 'React' is declared but its value is never read.
+components/ChatInbox.tsx(42,3): error TS6133: 'Calendar' is declared but its value is never read.
+components/ChatInbox.tsx(43,3): error TS6133: 'User' is declared but its value is never read.
+components/ChatInbox.tsx(59,25): error TS6133: 'ChatTag' is declared but its value is never read.
+components/ChatInbox.tsx(77,10): error TS6133: 'formatPhoneDisplay' is declared but its value is never read.
+components/ChatInbox.tsx(175,22): error TS6133: 'setProperties' is declared but its value is never read.
+components/ChatInbox.tsx(618,11): error TS6133: 'statusConfig' is declared but its value is never read.
+components/ChatInbox.tsx(783,13): error TS2322: Type '{ id: string; name: string; color: string; }[]' is not assignable to type 'ChatTag[]'.
+  Type '{ id: string; name: string; color: string; }' is missing the following properties from type 'ChatTag': created_at, conversations_count
+components/ChatInbox.tsx(969,83): error TS2339: Property 'contactName' does not exist on type 'UnifiedConversation'.
+components/ChatInbox.tsx(993,13): error TS2353: Object literal may only specify known properties, and 'bedrooms' does not exist in type 'Property'.
+components/ChatInbox.tsx(1041,9): error TS2322: Type '{ id: string; name: string; color: string; }[]' is not assignable to type 'ChatTag[]'.
+  Type '{ id: string; name: string; color: string; }' is missing the following properties from type 'ChatTag': created_at, conversations_count
+components/ChatInbox.tsx(1044,37): error TS2345: Argument of type '{ organization_id: string; id: string; name: string; color: string; description?: string; created_at: Date; conversations_count: number; }' is not assignable to parameter of type 'Partial<ChatTag>'.
+  Types of property 'created_at' are incompatible.
+    Type 'Date' is not assignable to type 'string'.
+components/ChatInbox.tsx(1059,23): error TS6133: 'ticket' is declared but its value is never read.
+components/ChatInbox.tsx(1069,94): error TS2339: Property 'number' does not exist on type 'LocalContact'.
+components/ChatInbox.tsx(1070,94): error TS2339: Property 'email' does not exist on type 'LocalContact'.
+components/ChatInboxWithEvolution.tsx(17,1): error TS6133: 'React' is declared but its value is never read.
+components/ChatTagsModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/client-sites/ClientSitesModule.tsx(17,1): error TS6133: 'React' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(12,8): error TS6133: 'React' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(33,3): error TS6133: 'Calendar' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(34,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(36,3): error TS6133: 'Clock' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(39,3): error TS6133: 'Mail' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(40,3): error TS6133: 'Phone' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(41,3): error TS6133: 'MapPin' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(44,3): error TS6133: 'X' is declared but its value is never read.
+components/ClientsAndGuestsManagement.tsx(132,39): error TS2554: Expected 2 arguments, but got 1.
+components/ClientsAndGuestsManagement.tsx(134,20): error TS7006: Parameter 'data' implicitly has an 'any' type.
+components/ClientSitesManager.tsx(2,29): error TS6133: 'Settings' is declared but its value is never read.
+components/ClientSitesManager.tsx(2,44): error TS6133: 'Trash2' is declared but its value is never read.
+components/ClientSitesManager.tsx(15,1): error TS6133: 'API_BASE_URL' is declared but its value is never read.
+components/common/TagsSelector.tsx(99,5): error TS6133: 'onCancel' is declared but its value is never read.
+components/ConflictAlert.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/ConflictsDetectionDashboard.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/CreateIndividualPropertyModal.tsx(33,1): error TS6133: 'propertiesApi' is declared but its value is never read.
+components/CreateIndividualPropertyModal.tsx(217,28): error TS2345: Argument of type '{ internalName: string; publicName: string; name: string; code: string; type: string; address: { street: string; number: string; complement: string | undefined; neighborhood: string; city: string; state: string; zipCode: string; country: string; }; ... 10 more ...; amenities: never[]; }' is not assignable to parameter of type 'Partial<Property>'.
+  Types of property 'type' are incompatible.
+    Type 'string' is not assignable to type '"location" | "accommodation" | undefined'.
+components/CreateOrganizationModal.tsx(11,26): error TS6133: 'testBackendHealth' is declared but its value is never read.
+components/CreateOrganizationModal.tsx(91,9): error TS6133: 'createOfflineOrganization' is declared but its value is never read.
+components/CreateOrganizationModal.tsx(132,31): error TS2345: Argument of type '{ id: string; name: string; slug: string; status: "active"; plan: string; email: string; phone: string; legalName: string; taxId: string; settings: { language: "pt"; timezone: string; currency: string; dateFormat: string; maxUsers: number; maxProperties: number; }; limits: { ...; }; usage: { ...; }; createdAt: Date;...' is not assignable to parameter of type 'Organization'.
+  Types of property 'plan' are incompatible.
+    Type 'string' is not assignable to type '"free" | "basic" | "professional" | "enterprise"'.
+components/CreateReservationWizard.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/CreateReservationWizard.tsx(11,83): error TS6133: 'CalendarDays' is declared but its value is never read.
+components/crm/AdvancedSearch.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/AdvancedSearch.tsx(7,29): error TS6133: 'Calendar' is declared but its value is never read.
+components/crm/AdvancedSearch.tsx(7,39): error TS6133: 'User' is declared but its value is never read.
+components/crm/AdvancedSearch.tsx(7,45): error TS6133: 'Tag' is declared but its value is never read.
+components/crm/AdvancedSearch.tsx(7,50): error TS6133: 'FileText' is declared but its value is never read.
+components/crm/AdvancedSearch.tsx(218,17): error TS2322: Type '{ value: { from: Date; to: Date; } | undefined; onChange: (range: any) => void; }' is not assignable to type 'IntrinsicAttributes & DateRangePickerProps'.
+  Property 'value' does not exist on type 'IntrinsicAttributes & DateRangePickerProps'.
+components/crm/AdvancedSearch.tsx(219,28): error TS7006: Parameter 'range' implicitly has an 'any' type.
+components/crm/AssigneeSelector.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/AssigneeSelector.tsx(27,3): error TS6133: 'value' is declared but its value is never read.
+components/crm/AutomationSelector.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/AutomationSelector.tsx(4,31): error TS6133: 'Automation' is declared but its value is never read.
+components/crm/ClientProcessView.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ClientProcessView.tsx(2,33): error TS6133: 'TicketPerson' is declared but its value is never read.
+components/crm/ClientProcessView.tsx(7,30): error TS6133: 'CheckCircle2' is declared but its value is never read.
+components/crm/ClientProcessView.tsx(83,11): error TS6133: 'stageProgress' is declared but its value is never read.
+components/crm/ClientProcessView.tsx(99,44): error TS6133: 'ticket' is declared but its value is never read.
+components/crm/ClientStageView.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ClientStageView.tsx(2,33): error TS6133: 'FunnelStage' is declared but its value is never read.
+components/crm/ClientStageView.tsx(2,58): error TS2305: Module '"../../types/funnels"' has no exported member 'StageApprovalRecord'.
+components/crm/ClientStageView.tsx(8,57): error TS6133: 'FileText' is declared but its value is never read.
+components/crm/ClientStageView.tsx(8,67): error TS6133: 'Upload' is declared but its value is never read.
+components/crm/ClientStageView.tsx(29,3): error TS6133: 'clientType' is declared but its value is never read.
+components/crm/ClientStageView.tsx(354,21): error TS6133: 'isBlocked' is declared but its value is never read.
+components/crm/CreateTicketModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/CreateTicketModal.tsx(23,52): error TS6133: 'reservationsApi' is declared but its value is never read.
+components/crm/CreateTicketModal.tsx(60,9): error TS6133: 'isSuperAdmin' is declared but its value is never read.
+components/crm/CreateTicketModal.tsx(301,50): error TS2339: Property 'getAllContacts' does not exist on type 'EvolutionContactsService'.
+components/crm/CreateTicketModal.tsx(302,41): error TS7006: Parameter 'c' implicitly has an 'any' type.
+components/crm/CRMTasksDashboard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/crm/CRMTasksDashboard.tsx(9,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/crm/CRMTasksModule.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/CRMTasksModule.tsx(12,10): error TS6133: 'loadingFunnels' is declared but its value is never read.
+components/crm/DealActivityTimeline.tsx(5,1): error TS6133: 'cn' is declared but its value is never read.
+components/crm/DealAIAgent.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/DealAIAgent.tsx(19,3): error TS6133: 'deal' is declared but its value is never read.
+components/crm/DealAIAgent.tsx(22,3): error TS6133: 'onUpdate' is declared but its value is never read.
+components/crm/DealAIAgent.tsx(27,30): error TS6133: 'action' is declared but its value is never read.
+components/crm/DealCard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/crm/DealChatInterface.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/DealColumn.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(2,16): error TS6133: 'ActivityType' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(7,1): error TS6133: 'Input' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(9,1): error TS6133: 'Badge' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(16,3): error TS6133: 'User' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(19,3): error TS6133: 'Clock' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(20,3): error TS6133: 'CheckCircle2' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(21,3): error TS6133: 'MessageSquare' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(22,3): error TS6133: 'FileText' is declared but its value is never read.
+components/crm/DealDetailLeft.tsx(47,9): error TS6133: 'ownerInitials' is declared but its value is never read.
+components/crm/DealDetailRight.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/DealsListView.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/crm/DealsListView.tsx(35,53): error TS6133: 'onDealUpdate' is declared but its value is never read.
+components/crm/DealsModule.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/DealsModule.tsx(53,5): error TS2741: Property 'ownerId' is missing in type '{ id: string; title: string; value: number; currency: "BRL"; stage: "QUALIFIED"; source: "WHATSAPP"; probability: number; contactName: string; ownerName: string; createdAt: string; updatedAt: string; }' but required in type 'Deal'.
+components/crm/DealsModule.tsx(66,5): error TS2741: Property 'ownerId' is missing in type '{ id: string; title: string; value: number; currency: "BRL"; stage: "QUALIFIED"; source: "WHATSAPP"; probability: number; contactName: string; ownerName: string; createdAt: string; updatedAt: string; }' but required in type 'Deal'.
+components/crm/DealsModule.tsx(79,5): error TS2741: Property 'ownerId' is missing in type '{ id: string; title: string; value: number; currency: "BRL"; stage: "CONTACT_MADE"; source: "EMAIL"; probability: number; contactName: string; ownerName: string; expectedCloseDate: string; createdAt: string; updatedAt: string; }' but required in type 'Deal'.
+components/crm/DealsModule.tsx(93,5): error TS2741: Property 'ownerId' is missing in type '{ id: string; title: string; value: number; currency: "USD"; stage: "MEETING_ARRANGED"; source: "AIRBNB"; probability: number; contactName: string; ownerName: string; createdAt: string; updatedAt: string; }' but required in type 'Deal'.
+components/crm/EditFunnelsModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/FileUpload.tsx(4,44): error TS6133: 'CheckCircle2' is declared but its value is never read.
+components/crm/FileUpload.tsx(37,10): error TS6133: 'uploading' is declared but its value is never read.
+components/crm/FileUpload.tsx(37,21): error TS6133: 'setUploading' is declared but its value is never read.
+components/crm/FormTaskViewer.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/FormTaskViewer.tsx(11,1): error TS6192: All imports in import declaration are unused.
+components/crm/FormTaskViewer.tsx(31,20): error TS2339: Property 'responseData' does not exist on type '{ formId?: string | undefined; responseUrl?: string | undefined; completed?: boolean | undefined; }'.
+components/crm/KanbanBoard.tsx(1,36): error TS6133: 'useEffect' is declared but its value is never read.
+components/crm/KanbanBoard.tsx(14,1): error TS6192: All imports in import declaration are unused.
+components/crm/MultiSelect.tsx(1,46): error TS6133: 'useCallback' is declared but its value is never read.
+components/crm/MyTasksView.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/MyTasksView.tsx(7,50): error TS6133: 'User' is declared but its value is never read.
+components/crm/MyTasksView.tsx(7,61): error TS6133: 'FolderKanban' is declared but its value is never read.
+components/crm/MyTasksView.tsx(7,83): error TS6133: 'ListIcon' is declared but its value is never read.
+components/crm/PersonSelector.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/PersonSelector.tsx(7,39): error TS6133: 'LocalContact' is declared but its value is never read.
+components/crm/PersonSelector.tsx(83,50): error TS2339: Property 'getAllContacts' does not exist on type 'EvolutionContactsService'.
+components/crm/PersonSelector.tsx(85,21): error TS7006: Parameter 'c' implicitly has an 'any' type.
+components/crm/PersonSelector.tsx(91,50): error TS7006: Parameter 'c' implicitly has an 'any' type.
+components/crm/PersonSelector.tsx(107,49): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{ search?: string | undefined; blacklisted?: boolean | undefined; } | undefined'.
+  Type 'string' is not assignable to type '{ search?: string | undefined; blacklisted?: boolean | undefined; }'.
+components/crm/PersonSelector.tsx(128,50): error TS2339: Property 'getAllContacts' does not exist on type 'EvolutionContactsService'.
+components/crm/PersonSelector.tsx(131,21): error TS7006: Parameter 'c' implicitly has an 'any' type.
+components/crm/PersonSelector.tsx(136,18): error TS7006: Parameter 'c' implicitly has an 'any' type.
+components/crm/PersonSelector.tsx(155,21): error TS2783: 'type' is specified more than once, so this usage will be overwritten.
+components/crm/PredeterminedFunnelBuilder.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/PredeterminedFunnelBuilder.tsx(9,54): error TS6133: 'X' is declared but its value is never read.
+components/crm/PredeterminedFunnelBuilder.tsx(33,62): error TS6133: 'onUpdate' is declared but its value is never read.
+components/crm/PredeterminedFunnelBuilder.tsx(211,7): error TS2353: Object literal may only specify known properties, and 'metadata' does not exist in type 'Funnel'.
+components/crm/PredeterminedFunnelBuilder.tsx(212,28): error TS2339: Property 'metadata' does not exist on type 'Funnel'.
+components/crm/PredeterminedFunnelModule.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/PredeterminedFunnelModule.tsx(320,32): error TS6133: 'stage' is declared but its value is never read.
+components/crm/PredeterminedFunnelModule.tsx(320,39): error TS6133: 'index' is declared but its value is never read.
+components/crm/PredeterminedFunnelModule.tsx(333,17): error TS2322: Type '{ id: string | undefined; name: string; avatar: any; } | undefined' is not assignable to type '{ id: string; name: string; avatar?: string | undefined; } | undefined'.
+  Type '{ id: string | undefined; name: string; avatar: any; }' is not assignable to type '{ id: string; name: string; avatar?: string | undefined; }'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+components/crm/PredeterminedFunnelModule.tsx(338,38): error TS2339: Property 'avatar' does not exist on type 'AuthUser'.
+components/crm/PredeterminedFunnelModule.tsx(442,11): error TS2322: Type '{ open: boolean; onClose: () => void; onSave: (ticketData: Partial<ServiceTicket>) => Promise<void>; funnel: Funnel; }' is not assignable to type 'IntrinsicAttributes & CreateTicketModalProps'.
+  Property 'onSave' does not exist on type 'IntrinsicAttributes & CreateTicketModalProps'.
+components/crm/PredeterminedFunnelView.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/PredeterminedFunnelView.tsx(55,11): error TS6133: 'stageProgress' is declared but its value is never read.
+components/crm/PredeterminedFunnelView.tsx(339,17): error TS6133: 'hasApproval' is declared but its value is never read.
+components/crm/PredeterminedStageCard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/crm/ProcessTriggerConfig.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ProcessTriggerConfig.tsx(4,1): error TS6133: 'Label' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(4,1): error TS6133: 'servicesTicketsApi' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(11,3): error TS6133: 'Calendar' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(12,3): error TS6133: 'BarChart3' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(14,10): error TS6133: 'format' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(14,44): error TS6133: 'subMonths' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(15,1): error TS6133: 'ptBR' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(44,9): error TS6133: 'user' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(45,10): error TS6133: 'groupBy' is declared but its value is never read.
+components/crm/ProductivityReports.tsx(45,19): error TS6133: 'setGroupBy' is declared but its value is never read.
+components/crm/PropertySelector.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/PropertySelector.tsx(4,30): error TS6133: 'Property' is declared but its value is never read.
+components/crm/PropertySelector.tsx(41,9): error TS2322: Type 'string' is not assignable to type 'string[]'.
+components/crm/SaveAsTemplateModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ServicesFunnelModule.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ServicesFunnelModule.tsx(2,33): error TS6133: 'FunnelStage' is declared but its value is never read.
+components/crm/ServicesKanbanBoard.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ServicesKanbanBoard.tsx(2,33): error TS6133: 'FunnelStage' is declared but its value is never read.
+components/crm/ServicesTicketAIAgent.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ServicesTicketAIAgent.tsx(19,3): error TS6133: 'ticket' is declared but its value is never read.
+components/crm/ServicesTicketAIAgent.tsx(22,3): error TS6133: 'onUpdate' is declared but its value is never read.
+components/crm/ServicesTicketAIAgent.tsx(27,30): error TS6133: 'action' is declared but its value is never read.
+components/crm/ServicesTicketChatInterface.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ServicesTicketChatInterface.tsx(9,1): error TS6133: 'servicesTicketsApi' is declared but its value is never read.
+components/crm/ServicesTicketChatInterface.tsx(56,25): error TS2339: Property 'contactId' does not exist on type 'ServiceTicket'.
+components/crm/ServicesTicketChatInterface.tsx(66,25): error TS2339: Property 'contactId' does not exist on type 'ServiceTicket'.
+components/crm/ServicesTicketChatInterface.tsx(80,30): error TS2339: Property 'contactName' does not exist on type 'ServiceTicket'.
+components/crm/ServicesTicketChatInterface.tsx(83,10): error TS7006: Parameter 'n' implicitly has an 'any' type.
+components/crm/ServicesTicketChatInterface.tsx(102,25): error TS2339: Property 'contactId' does not exist on type 'ServiceTicket'.
+components/crm/ServicesTicketColumn.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/crm/ServicesTicketDetail.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ServicesTicketDetailLeft.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/ServicesTicketDetailLeft.tsx(12,32): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/crm/ServicesTicketDetailLeft.tsx(12,51): error TS6133: 'Trash2' is declared but its value is never read.
+components/crm/ServicesTicketDetailLeft.tsx(12,100): error TS6133: 'Calendar' is declared but its value is never read.
+components/crm/ServicesTicketDetailLeft.tsx(12,150): error TS6133: 'Home' is declared but its value is never read.
+components/crm/ServicesTicketDetailLeft.tsx(13,1): error TS6133: 'servicesTicketsApi' is declared but its value is never read.
+components/crm/ServicesTicketDetailLeft.tsx(169,9): error TS6133: 'handleAddSubtask' is declared but its value is never read.
+components/crm/ServicesTicketDetailRight.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/SortableDealCard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/crm/StageApproval.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/StageApproval.tsx(13,1): error TS6133: 'Badge' is declared but its value is never read.
+components/crm/StageApproval.tsx(47,3): error TS6133: 'currentUser' is declared but its value is never read.
+components/crm/StageConfigModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/StageConfigModal.tsx(8,1): error TS6133: 'Badge' is declared but its value is never read.
+components/crm/StageConfigModal.tsx(43,26): error TS6133: 'setRequiredFields' is declared but its value is never read.
+components/crm/StageValidation.tsx(3,1): error TS6133: 'Badge' is declared but its value is never read.
+components/crm/TaskComments.tsx(1,27): error TS6133: 'useEffect' is declared but its value is never read.
+components/crm/TaskComments.tsx(32,3): error TS6133: 'taskId' is declared but its value is never read.
+components/crm/TaskComments.tsx(118,81): error TS2339: Property 'role' does not exist on type 'AuthUser'.
+components/crm/TaskDatePicker.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/TaskDependencies.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/TasksDashboard.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/TasksDashboard.tsx(7,3): error TS6133: 'CheckCircle2' is declared but its value is never read.
+components/crm/TasksDashboard.tsx(11,3): error TS6133: 'Users' is declared but its value is never read.
+components/crm/TasksDashboard.tsx(16,1): error TS6133: 'format' is declared but its value is never read.
+components/crm/TasksDashboard.tsx(17,1): error TS6133: 'ptBR' is declared but its value is never read.
+components/crm/TasksDashboard.tsx(42,9): error TS6133: 'user' is declared but its value is never read.
+components/crm/TicketProductsManager.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/TicketProductsManager.tsx(6,29): error TS6133: 'CardHeader' is declared but its value is never read.
+components/crm/TicketProductsManager.tsx(6,41): error TS6133: 'CardTitle' is declared but its value is never read.
+components/crm/TimeEstimate.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/TimelineView.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/crm/TimelineView.tsx(4,72): error TS6133: 'addDays' is declared but its value is never read.
+components/dashboard/DashboardModule.tsx(18,1): error TS6133: 'React' is declared but its value is never read.
+components/DashboardAnalytics.tsx(3,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/DashboardAnalytics.tsx(4,3): error TS6133: 'TrendingDown' is declared but its value is never read.
+components/DashboardAnalytics.tsx(8,3): error TS6133: 'Home' is declared but its value is never read.
+components/DashboardAnalytics.tsx(12,3): error TS6133: 'Clock' is declared but its value is never read.
+components/DashboardAnalytics.tsx(15,16): error TS6133: 'TabsContent' is declared but its value is never read.
+components/DashboardAnalytics.tsx(16,1): error TS6133: 'Badge' is declared but its value is never read.
+components/DashboardAnalytics.tsx(29,3): error TS6133: 'Legend' is declared but its value is never read.
+components/DashboardAnalytics.tsx(101,3): error TS6133: 'organizationId' is declared but its value is never read.
+components/DashboardAnalytics.tsx(103,9): error TS6133: 't' is declared but its value is never read.
+components/DashboardAnalytics.tsx(168,31): error TS6133: 'index' is declared but its value is never read.
+components/DashboardInicial.tsx(8,3): error TS6133: 'AlertTriangle' is declared but its value is never read.
+components/DashboardInicial.tsx(19,15): error TS6133: 'PieChartIcon' is declared but its value is never read.
+components/DashboardInicial.tsx(34,3): error TS6133: 'Legend' is declared but its value is never read.
+components/DashboardInicial.tsx(124,31): error TS2367: This comparison appears to be unintentional because the types '"pending" | "maintenance" | "confirmed" | "blocked"' and '"cancelled"' have no overlap.
+components/DashboardInicial.tsx(135,36): error TS2339: Property 'total' does not exist on type 'Reservation'.
+components/DashboardInicial.tsx(157,31): error TS6133: 'index' is declared but its value is never read.
+components/DashboardInicial.tsx(171,56): error TS2339: Property 'total' does not exist on type 'Reservation'.
+components/DashboardInicial.tsx(188,48): error TS2367: This comparison appears to be unintentional because the types '"pending" | "maintenance" | "confirmed" | "blocked"' and '"cancelled"' have no overlap.
+components/DashboardInicial.tsx(656,30): error TS2367: This comparison appears to be unintentional because the types 'Date' and 'string' have no overlap.
+components/DashboardInicialSimple.tsx(11,44): error TS6133: 'Users' is declared but its value is never read.
+components/DashboardInicialSimple.tsx(26,3): error TS6133: 'onDismissConflictAlert' is declared but its value is never read.
+components/DatabaseInitializer.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/DatabaseInitializer.tsx(5,56): error TS6133: 'RefreshCw' is declared but its value is never read.
+components/DataResetAlert.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/DebugBannerToggle.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/DiagnosticoImovel.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/DocumentosListasClientes.tsx(12,8): error TS6133: 'React' is declared but its value is never read.
+components/DocumentosListasClientes.tsx(16,1): error TS6133: 'Label' is declared but its value is never read.
+components/DocumentosListasClientes.tsx(18,1): error TS6192: All imports in import declaration are unused.
+components/EditReservationWizard.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/EditReservationWizard.tsx(7,1): error TS6192: All imports in import declaration are unused.
+components/EditReservationWizard.tsx(62,22): error TS18048: 'reservation' is possibly 'undefined'.
+components/EditUserModal.tsx(102,44): error TS6133: 'val' is declared but its value is never read.
+components/EmergencyAdminBanner.tsx(11,8): error TS6133: 'React' is declared but its value is never read.
+components/EnvironmentBadge.tsx(1,32): error TS6133: 'Rocket' is declared but its value is never read.
+components/EnvironmentBadge.tsx(7,74): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+components/EnvironmentBadge.tsx(13,74): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+components/EnvironmentBadge.tsx(97,74): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+components/EnvironmentBadge.tsx(102,74): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+components/ErrorBoundary.tsx(11,8): error TS6133: 'React' is declared but its value is never read.
+components/ErrorBoundary.tsx(71,43): error TS2554: Expected 1 arguments, but got 2.
+components/EvolutionContactsList.tsx(11,8): error TS6133: 'React' is declared but its value is never read.
+components/EvolutionContactsList.tsx(16,3): error TS6133: 'Circle' is declared but its value is never read.
+components/EvolutionContactsList.tsx(20,3): error TS6133: 'User' is declared but its value is never read.
+components/EvolutionContactsList.tsx(22,3): error TS6133: 'Filter' is declared but its value is never read.
+components/EvolutionContactsList.tsx(23,3): error TS6133: 'X' is declared but its value is never read.
+components/EvolutionContactsList.tsx(30,1): error TS6133: 'Separator' is declared but its value is never read.
+components/ExportModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/FigmaTestPropertyCreator.tsx(15,20): error TS6133: 'useEffect' is declared but its value is never read.
+components/FigmaTestPropertyCreator.tsx(220,30): error TS2322: Type '{ id: any; url: any; caption: any; tags: any; isPrimary: true; order: number; }' is not assignable to type 'never'.
+components/financeiro/components/CampoPlanoContasMapping.tsx(9,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/components/CampoPlanoContasMappingVisual.tsx(10,16): error TS6133: 'CardContent' is declared but its value is never read.
+components/financeiro/components/CurrencyBadge.tsx(6,1): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/components/DataTable.tsx(131,27): error TS6133: 'value' is declared but its value is never read.
+components/financeiro/components/Money.tsx(6,1): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/components/PeriodPicker.tsx(6,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/components/PlataformasPagamento.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/components/SplitEditor.tsx(6,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/components/SplitEditor.tsx(29,3): error TS6133: 'centrosCusto' is declared but its value is never read.
+components/financeiro/components/SplitEditor.tsx(86,48): error TS6133: 'index' is declared but its value is never read.
+components/financeiro/FinanceiroDashboard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/FinanceiroDashboard.tsx(6,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/financeiro/FinanceiroModule.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/FinanceiroSidebar.tsx(10,3): error TS6133: 'Building2' is declared but its value is never read.
+components/financeiro/FinanceiroSidebar.tsx(13,3): error TS6133: 'PiggyBank' is declared but its value is never read.
+components/financeiro/FinanceiroSidebar.tsx(17,3): error TS6133: 'Calendar' is declared but its value is never read.
+components/financeiro/FinanceiroSidebar.tsx(28,11): error TS6196: 'MenuItem' is declared but never used.
+components/financeiro/FinanceiroSidebar.tsx(280,33): error TS2339: Property 'badge' does not exist on type '{ id: string; label: string; icon: Element; path: string; } | { id: string; label: string; icon: Element; path: string; badge: string; badgeVariant: "default"; } | { id: string; label: string; icon: Element; path: string; badge: string; badgeVariant: "destructive"; } | { ...; }'.
+  Property 'badge' does not exist on type '{ id: string; label: string; icon: Element; path: string; }'.
+components/financeiro/FinanceiroSidebar.tsx(281,50): error TS2339: Property 'badgeVariant' does not exist on type '{ id: string; label: string; icon: Element; path: string; } | { id: string; label: string; icon: Element; path: string; badge: string; badgeVariant: "default"; } | { id: string; label: string; icon: Element; path: string; badge: string; badgeVariant: "destructive"; } | { ...; }'.
+  Property 'badgeVariant' does not exist on type '{ id: string; label: string; icon: Element; path: string; }'.
+components/financeiro/FinanceiroSidebar.tsx(282,37): error TS2339: Property 'badge' does not exist on type '{ id: string; label: string; icon: Element; path: string; } | { id: string; label: string; icon: Element; path: string; badge: string; badgeVariant: "default"; } | { id: string; label: string; icon: Element; path: string; badge: string; badgeVariant: "destructive"; } | { ...; }'.
+  Property 'badge' does not exist on type '{ id: string; label: string; icon: Element; path: string; }'.
+components/financeiro/pages/CentroCustosPage.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/CentroCustosPage.tsx(15,16): error TS6133: 'Edit' is declared but its value is never read.
+components/financeiro/pages/CentroCustosPage.tsx(15,22): error TS6133: 'Trash2' is declared but its value is never read.
+components/financeiro/pages/CentroCustosPage.tsx(24,10): error TS6133: 'error' is declared but its value is never read.
+components/financeiro/pages/CentroCustosPage.tsx(116,9): error TS6133: 'handleEdit' is declared but its value is never read.
+components/financeiro/pages/CentroCustosPage.tsx(119,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/financeiro/pages/ConciliacaoPage.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/ConciliacaoPage.tsx(17,25): error TS6133: 'X' is declared but its value is never read.
+components/financeiro/pages/ConciliacaoPage.tsx(17,37): error TS6133: 'Search' is declared but its value is never read.
+components/financeiro/pages/ConciliacaoPage.tsx(17,53): error TS6133: 'Download' is declared but its value is never read.
+components/financeiro/pages/ConciliacaoPage.tsx(29,10): error TS6133: 'error' is declared but its value is never read.
+components/financeiro/pages/ConciliacaoPage.tsx(166,9): error TS2353: Object literal may only specify known properties, and 'conciliado' does not exist in type 'FiltroFinanceiro'.
+components/financeiro/pages/ConfiguracoesFinanceirasPage.tsx(8,1): error TS6192: All imports in import declaration are unused.
+components/financeiro/pages/ContasBancariasPage.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/ContasBancariasPage.tsx(17,16): error TS6133: 'Edit' is declared but its value is never read.
+components/financeiro/pages/ContasBancariasPage.tsx(17,22): error TS6133: 'Trash2' is declared but its value is never read.
+components/financeiro/pages/ContasBancariasPage.tsx(26,10): error TS6133: 'error' is declared but its value is never read.
+components/financeiro/pages/ContasBancariasPage.tsx(130,9): error TS6133: 'handleEdit' is declared but its value is never read.
+components/financeiro/pages/ContasPagarPage.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/ContasPagarPage.tsx(18,36): error TS6133: 'Calendar' is declared but its value is never read.
+components/financeiro/pages/ContasReceberPage.tsx(33,10): error TS6133: 'selectedItems' is declared but its value is never read.
+components/financeiro/pages/ContasReceberPage.tsx(33,25): error TS6133: 'setSelectedItems' is declared but its value is never read.
+components/financeiro/pages/DREPage.tsx(6,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/DREPage.tsx(25,10): error TS6133: 'searchTerm' is declared but its value is never read.
+components/financeiro/pages/DREPage.tsx(25,22): error TS6133: 'setSearchTerm' is declared but its value is never read.
+components/financeiro/pages/DREPage.tsx(193,9): error TS6133: 'dreMock' is declared but its value is never read.
+components/financeiro/pages/FechamentoCaixaPage.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/FechamentoCaixaPage.tsx(17,1): error TS6133: 'SearchInput' is declared but its value is never read.
+components/financeiro/pages/FechamentoCaixaPage.tsx(52,10): error TS6133: 'searchTerm' is declared but its value is never read.
+components/financeiro/pages/FechamentoCaixaPage.tsx(52,22): error TS6133: 'setSearchTerm' is declared but its value is never read.
+components/financeiro/pages/FechamentoCaixaPage.tsx(104,9): error TS6133: 'contaSelecionada' is declared but its value is never read.
+components/financeiro/pages/FluxoCaixaPage.tsx(6,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/FluxoCaixaPage.tsx(15,1): error TS6133: 'SearchInput' is declared but its value is never read.
+components/financeiro/pages/FluxoCaixaPage.tsx(17,76): error TS6133: 'differenceInMonths' is declared but its value is never read.
+components/financeiro/pages/FluxoCaixaPage.tsx(29,10): error TS6133: 'searchTerm' is declared but its value is never read.
+components/financeiro/pages/FluxoCaixaPage.tsx(29,22): error TS6133: 'setSearchTerm' is declared but its value is never read.
+components/financeiro/pages/FluxoCaixaPage.tsx(59,73): error TS6133: 'index' is declared but its value is never read.
+components/financeiro/pages/FluxoCaixaPage.tsx(124,42): error TS6133: 'index' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(11,1): error TS6133: 'Button' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(12,1): error TS6133: 'Input' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(16,56): error TS6133: 'Search' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(16,64): error TS6133: 'Filter' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(21,1): error TS6133: 'toast' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(26,10): error TS6133: 'error' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(32,10): error TS6133: 'searchTerm' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(32,22): error TS6133: 'setSearchTerm' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(45,55): error TS2353: Object literal may only specify known properties, and 'vencido' does not exist in type 'FiltroFinanceiro'.
+components/financeiro/pages/InadimplenciaPage.tsx(46,53): error TS2353: Object literal may only specify known properties, and 'vencido' does not exist in type 'FiltroFinanceiro'.
+components/financeiro/pages/InadimplenciaPage.tsx(61,47): error TS2339: Property 'tipoTitulo' does not exist on type 'Titulo'.
+components/financeiro/pages/InadimplenciaPage.tsx(145,23): error TS6133: 'row' is declared but its value is never read.
+components/financeiro/pages/InadimplenciaPage.tsx(285,13): error TS2322: Type 'Titulo[]' is not assignable to type '(Titulo & { tipoTitulo: "receber" | "pagar"; })[]'.
+  Type 'Titulo' is not assignable to type 'Titulo & { tipoTitulo: "receber" | "pagar"; }'.
+    Property 'tipoTitulo' is missing in type 'Titulo' but required in type '{ tipoTitulo: "receber" | "pagar"; }'.
+components/financeiro/pages/LancamentosPage.tsx(6,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/PlanoContasPage.tsx(9,10): error TS6133: 'DataTable' is declared but its value is never read.
+components/financeiro/pages/PlanoContasPage.tsx(362,9): error TS6133: 'columns' is declared but its value is never read.
+components/financeiro/pages/RegrasConciliacaoPage.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/RegrasConciliacaoPage.tsx(16,16): error TS6133: 'Edit' is declared but its value is never read.
+components/financeiro/pages/RegrasConciliacaoPage.tsx(16,22): error TS6133: 'Trash2' is declared but its value is never read.
+components/financeiro/pages/RegrasConciliacaoPage.tsx(27,10): error TS6133: 'error' is declared but its value is never read.
+components/financeiro/pages/RegrasConciliacaoPage.tsx(28,10): error TS6133: 'searchTerm' is declared but its value is never read.
+components/financeiro/pages/RegrasConciliacaoPage.tsx(28,22): error TS6133: 'setSearchTerm' is declared but its value is never read.
+components/financeiro/pages/RegrasConciliacaoPage.tsx(187,9): error TS6133: 'handleEdit' is declared but its value is never read.
+components/financeiro/pages/RegrasConciliacaoPage.tsx(214,9): error TS6133: 'handleDelete' is declared but its value is never read.
+components/financeiro/pages/RelatoriosGerenciaisPage.tsx(8,8): error TS6133: 'React' is declared but its value is never read.
+components/financeiro/pages/RelatoriosGerenciaisPage.tsx(12,1): error TS6192: All imports in import declaration are unused.
+components/financeiro/pages/RelatoriosGerenciaisPage.tsx(25,10): error TS6133: 'searchTerm' is declared but its value is never read.
+components/financeiro/pages/RelatoriosGerenciaisPage.tsx(25,22): error TS6133: 'setSearchTerm' is declared but its value is never read.
+components/FontSelector.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/GlobalSettingsManager.tsx(17,8): error TS6133: 'React' is declared but its value is never read.
+components/GlobalSettingsManager.tsx(19,3): error TS6133: 'Settings' is declared but its value is never read.
+components/GlobalSettingsManager.tsx(23,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/GlobalSettingsManager.tsx(26,3): error TS6133: 'Home' is declared but its value is never read.
+components/GlobalSettingsManager.tsx(27,3): error TS6133: 'MessageSquare' is declared but its value is never read.
+components/GlobalSettingsManager.tsx(28,3): error TS6133: 'Users' is declared but its value is never read.
+components/GlobalSettingsManager.tsx(30,3): error TS6133: 'CheckCircle2' is declared but its value is never read.
+components/guests/GuestsModule.tsx(18,1): error TS6133: 'React' is declared but its value is never read.
+components/GuestsManager.tsx(10,3): error TS6133: 'FileText' is declared but its value is never read.
+components/GuestsManager.tsx(12,3): error TS6133: 'X' is declared but its value is never read.
+components/GuestsManager.tsx(16,3): error TS6133: 'Upload' is declared but its value is never read.
+components/GuestsManager.tsx(17,3): error TS6133: 'Download' is declared but its value is never read.
+components/GuestsManager.tsx(18,3): error TS6133: 'Filter' is declared but its value is never read.
+components/GuestsManager.tsx(19,3): error TS6133: 'SlidersHorizontal' is declared but its value is never read.
+components/GuestsManager.tsx(27,29): error TS6133: 'CardHeader' is declared but its value is never read.
+components/GuestsManager.tsx(27,41): error TS6133: 'CardTitle' is declared but its value is never read.
+components/GuestsManager.tsx(34,3): error TS6133: 'DialogTrigger' is declared but its value is never read.
+components/GuestsManager.tsx(39,34): error TS6133: 'AvatarImage' is declared but its value is never read.
+components/GuestsManager.tsx(40,1): error TS6192: All imports in import declaration are unused.
+components/ICalManager.tsx(14,8): error TS6133: 'React' is declared but its value is never read.
+components/ICalManager.tsx(22,3): error TS6133: 'ExternalLink' is declared but its value is never read.
+components/ICalManager.tsx(26,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/ICalManager.tsx(28,3): error TS6133: 'Edit2' is declared but its value is never read.
+components/ICalManager.tsx(30,3): error TS6133: 'Globe' is declared but its value is never read.
+components/ICalManager.tsx(82,42): error TS6133: 'listingName' is declared but its value is never read.
+components/ICalManager.tsx(85,10): error TS6133: 'selectedFeed' is declared but its value is never read.
+components/ICalManager.tsx(85,24): error TS6133: 'setSelectedFeed' is declared but its value is never read.
+components/ICalManager.tsx(311,9): error TS6133: 'getPlatformName' is declared but its value is never read.
+components/integrations/IntegrationsModule.tsx(17,1): error TS6133: 'React' is declared but its value is never read.
+components/IntegrationsManager.tsx(18,3): error TS6133: 'XCircle' is declared but its value is never read.
+components/IntegrationsManager.tsx(21,3): error TS6133: 'BarChart3' is declared but its value is never read.
+components/IntegrationsManager.tsx(25,29): error TS6133: 'CardDescription' is declared but its value is never read.
+components/LanguageSwitcher.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/LanguageSwitcher.tsx(19,34): error TS6133: 't' is declared but its value is never read.
+components/ListView.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/LoadingDebugger.tsx(10,8): error TS6133: 'React' is declared but its value is never read.
+components/LoadingProgress.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/LocationAmenitiesSettings.tsx(25,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/LocationAmenitiesSettings.tsx(236,9): error TS6133: 'filteredAmenities' is declared but its value is never read.
+components/locations/LocationsModule.tsx(17,1): error TS6133: 'React' is declared but its value is never read.
+components/LocationsAndListings.tsx(14,8): error TS6133: 'React' is declared but its value is never read.
+components/LocationsAndListings.tsx(17,3): error TS6133: 'MapPin' is declared but its value is never read.
+components/LocationsAndListings.tsx(23,3): error TS6133: 'Filter' is declared but its value is never read.
+components/LocationsAndListings.tsx(27,3): error TS6133: 'EyeOff' is declared but its value is never read.
+components/LocationsAndListings.tsx(34,3): error TS6133: 'XCircle' is declared but its value is never read.
+components/LocationsAndListings.tsx(35,3): error TS6133: 'Clock' is declared but its value is never read.
+components/LocationsAndListings.tsx(36,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/LocationsAndListings.tsx(39,3): error TS6133: 'Maximize' is declared but its value is never read.
+components/LocationsAndListings.tsx(40,3): error TS6133: 'Wifi' is declared but its value is never read.
+components/LocationsAndListings.tsx(41,3): error TS6133: 'Car' is declared but its value is never read.
+components/LocationsAndListings.tsx(46,3): error TS6133: 'Copy' is declared but its value is never read.
+components/LocationsAndListings.tsx(60,1): error TS6133: 'ScrollArea' is declared but its value is never read.
+components/LocationsAndListings.tsx(71,24): error TS6133: 'propertiesApi' is declared but its value is never read.
+components/LocationsAndListings.tsx(71,86): error TS6133: 'Platform' is declared but its value is never read.
+components/LocationsAndListings.tsx(86,10): error TS6133: 'loading' is declared but its value is never read.
+components/LocationsAndListings.tsx(159,53): error TS2339: Property 'code' does not exist on type 'Listing'.
+components/LocationsAndListings.tsx(208,9): error TS6133: 'handleDeleteListing' is declared but its value is never read.
+components/LocationsAndListings.tsx(246,9): error TS6133: 'handlePublish' is declared but its value is never read.
+components/LocationsAndListings.tsx(261,9): error TS6133: 'handleUnpublish' is declared but its value is never read.
+components/LocationsAndListings.tsx(748,53): error TS2339: Property 'organization_id' does not exist on type 'Listing'.
+components/LocationsListingsSettings.tsx(48,1): error TS6133: 'Separator' is declared but its value is never read.
+components/LocationsManager.tsx(3,29): error TS6133: 'CardDescription' is declared but its value is never read.
+components/LocationsManager.tsx(11,73): error TS6133: 'ChevronRight' is declared but its value is never read.
+components/LocationsManager.tsx(365,35): error TS6133: 'properties' is declared but its value is never read.
+components/LocationsManager.tsx(365,65): error TS6133: 'onManagePhotos' is declared but its value is never read.
+components/LocationsManager.tsx(669,109): error TS2322: Type 'string' is not assignable to type '"pago" | "gratuito" | "rotativo"'.
+components/LoginPage.tsx(53,58): error TS2339: Property 'user' does not exist on type '{ success: boolean; error?: string | undefined; }'.
+components/LoginPage.tsx(62,36): error TS2339: Property 'user' does not exist on type '{ success: boolean; error?: string | undefined; }'.
+components/LoginPage.tsx(63,53): error TS2339: Property 'user' does not exist on type '{ success: boolean; error?: string | undefined; }'.
+components/LoginPage.tsx(65,45): error TS2339: Property 'user' does not exist on type '{ success: boolean; error?: string | undefined; }'.
+components/LogoFull.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/MainSidebar.tsx(6,3): error TS6133: 'MapPin' is declared but its value is never read.
+components/MainSidebar.tsx(8,3): error TS6133: 'CheckSquare' is declared but its value is never read.
+components/MainSidebar.tsx(18,3): error TS6133: 'Database' is declared but its value is never read.
+components/MainSidebar.tsx(21,3): error TS6133: 'X' is declared but its value is never read.
+components/MainSidebar.tsx(26,3): error TS6133: 'ChevronLeft' is declared but its value is never read.
+components/MainSidebar.tsx(35,3): error TS6133: 'Inbox' is declared but its value is never read.
+components/MainSidebar.tsx(36,3): error TS6133: 'Plus' is declared but its value is never read.
+components/MainSidebar.tsx(37,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/MainSidebar.tsx(39,3): error TS6133: 'Award' is declared but its value is never read.
+components/MainSidebar.tsx(40,3): error TS6133: 'ClipboardCheck' is declared but its value is never read.
+components/MainSidebar.tsx(41,3): error TS6133: 'ImageIcon' is declared but its value is never read.
+components/MainSidebar.tsx(42,3): error TS6133: 'PieChart' is declared but its value is never read.
+components/MainSidebar.tsx(44,3): error TS6133: 'Download' is declared but its value is never read.
+components/MainSidebar.tsx(45,3): error TS6133: 'Phone' is declared but its value is never read.
+components/MainSidebar.tsx(53,18): error TS6133: 'CheckSquareIcon' is declared but its value is never read.
+components/MainSidebar.tsx(60,1): error TS6133: 'ScrollArea' is declared but its value is never read.
+components/MainSidebar.tsx(61,1): error TS6133: 'Separator' is declared but its value is never read.
+components/MainSidebar.tsx(74,16): error TS6133: 'LogoIcon' is declared but its value is never read.
+components/MainSidebar.tsx(74,26): error TS6133: 'LogoText' is declared but its value is never read.
+components/MainSidebar.tsx(122,9): error TS6133: 't' is declared but its value is never read.
+components/MainSidebar.tsx(579,16): error TS2339: Property 'submenu' does not exist on type '{ id: string; label: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; iconColor: string; iconBg: string; badge?: undefined; } | ... 5 more ... | { ...; }'.
+  Property 'submenu' does not exist on type '{ id: string; label: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; iconColor: string; iconBg: string; badge?: undefined; }'.
+components/MainSidebar.tsx(580,21): error TS2339: Property 'submenu' does not exist on type '{ id: string; label: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; iconColor: string; iconBg: string; badge?: undefined; } | ... 5 more ... | { ...; }'.
+  Property 'submenu' does not exist on type '{ id: string; label: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; iconColor: string; iconBg: string; badge?: undefined; }'.
+components/MainSidebar.tsx(580,34): error TS7006: Parameter 'sub' implicitly has an 'any' type.
+components/MainSidebar.tsx(1152,43): error TS6133: 'sectionIndex' is declared but its value is never read.
+components/MinNightsEditModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/PermissionsManager.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/PermissionsManager.tsx(5,29): error TS6133: 'CardDescription' is declared but its value is never read.
+components/PermissionsManager.tsx(5,46): error TS6133: 'CardHeader' is declared but its value is never read.
+components/PermissionsManager.tsx(5,58): error TS6133: 'CardTitle' is declared but its value is never read.
+components/PermissionsManager.tsx(10,1): error TS6133: 'Separator' is declared but its value is never read.
+components/PermissionsManager.tsx(16,3): error TS6133: 'X' is declared but its value is never read.
+components/PermissionsManager.tsx(17,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/PermissionsManager.tsx(264,129): error TS6133: 'color' is declared but its value is never read.
+components/PhotoManager.tsx(2,47): error TS6133: 'Plus' is declared but its value is never read.
+components/PhotoManager.tsx(38,3): error TS6133: 'propertyId' is declared but its value is never read.
+components/PhotoManager.tsx(164,9): error TS6133: 'reorderPhotos' is declared but its value is never read.
+components/PhotoManagerTest.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/PhotoManagerTest.tsx(3,17): error TS6133: 'Upload' is declared but its value is never read.
+components/PriceEditModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/PriceEditModal.tsx(7,1): error TS6133: 'Checkbox' is declared but its value is never read.
+components/PriceTiersModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/PriceTiersModal.tsx(6,1): error TS6192: All imports in import declaration are unused.
+components/PriceTiersModal.tsx(8,10): error TS6133: 'Calendar' is declared but its value is never read.
+components/pricing/PricingModule.tsx(17,1): error TS6133: 'React' is declared but its value is never read.
+components/properties-v3/domain/properties/validatorsV3.ts(6,51): error TS2307: Cannot find module './types' or its corresponding type declarations.
+components/properties-v3/PropertiesV3Placeholder.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/properties/PropertiesModule.tsx(38,1): error TS6133: 'React' is declared but its value is never read.
+components/PropertiesFilterSidebar.tsx(11,8): error TS6133: 'React' is declared but its value is never read.
+components/PropertiesFilterSidebar.tsx(14,1): error TS6133: 'Label' is declared but its value is never read.
+components/PropertiesManagement.tsx(29,3): error TS6133: 'Search' is declared but its value is never read.
+components/PropertiesManagement.tsx(483,9): error TS6133: 'handleSaveProperty' is declared but its value is never read.
+components/PropertyDeleteModal.tsx(15,33): error TS6133: 'X' is declared but its value is never read.
+components/PropertyDeleteModal.tsx(43,10): error TS6133: 'loadingReservations' is declared but its value is never read.
+components/PropertyDeleteModal.tsx(144,11): error TS2304: Cannot find name 'toast'.
+components/PropertyDeleteModal.tsx(149,7): error TS2304: Cannot find name 'toast'.
+components/PropertyEditWizard.tsx(33,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+components/PropertyEditWizard.tsx(56,3): error TS6133: 'CardDescription' is declared but its value is never read.
+components/PropertyEditWizard.tsx(57,3): error TS6133: 'CardHeader' is declared but its value is never read.
+components/PropertyEditWizard.tsx(58,3): error TS6133: 'CardTitle' is declared but its value is never read.
+components/PropertyEditWizard.tsx(470,10): error TS6133: 'locationData' is declared but its value is never read.
+components/PropertyEditWizard.tsx(470,24): error TS6133: 'setLocationData' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1182,9): error TS6133: 'getBlockProgress' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1219,11): error TS6133: 'block' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1258,11): error TS6133: 'block' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1503,9): error TS6133: 'handleNext' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1504,11): error TS6133: 'block' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1636,9): error TS6133: 'handleSave' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1664,11): error TS6133: 'modalidades' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1693,11): error TS6133: 'modalidades' is declared but its value is never read.
+components/PropertyEditWizard.tsx(1772,19): error TS6133: 'percentage' is declared but its value is never read.
+components/PropertyEditWizard.tsx(2074,15): error TS2353: Object literal may only specify known properties, and 'locationId' does not exist in type '{ listingAmenities?: string[] | undefined; }'.
+components/PropertyEditWizard.tsx(2096,15): error TS7034: Variable 'configuredCustomFields' implicitly has type 'any[]' in some locations where its type cannot be determined.
+components/PropertyEditWizard.tsx(2107,37): error TS7005: Variable 'configuredCustomFields' implicitly has an 'any[]' type.
+components/PropertyEditWizard.tsx(2186,13): error TS17001: JSX elements cannot have multiple attributes with the same name.
+components/PropertyPhotosModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/PropertyReservationsTransferModal.tsx(105,25): error TS2345: Argument of type 'Reservation[]' is not assignable to parameter of type 'SetStateAction<Reservation[]>'.
+  Type 'import("C:/Users/rafae/OneDrive/Desktop/Rendizyoficial-main arquivos mais atualizado do github 09 12 2025/Rendizyoficial-main/RendizyPrincipal/utils/api").Reservation[]' is not assignable to type 'Reservation[]'.
+    Type 'Reservation' is missing the following properties from type 'Reservation': code, guestName, adults
+components/PropertySidebar.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/PropertySidebar.tsx(66,9): error TS6133: 'allTags' is declared but its value is never read.
+components/PropertyTypesManager.tsx(26,3): error TS6133: 'Filter' is declared but its value is never read.
+components/PropertyTypesManager.tsx(27,3): error TS6133: 'SortAsc' is declared but its value is never read.
+components/PropertyTypesManager.tsx(28,3): error TS6133: 'Grid3x3' is declared but its value is never read.
+components/PropertyTypesManager.tsx(29,3): error TS6133: 'List' is declared but its value is never read.
+components/PropertyTypesManager.tsx(65,1): error TS6133: 'Separator' is declared but its value is never read.
+components/PropertyTypesManager.tsx(346,11): error TS6133: 'user' is declared but its value is never read.
+components/PropertyTypesSettings.tsx(12,16): error TS6133: 'Edit2' is declared but its value is never read.
+components/PropertyTypesSettings.tsx(64,10): error TS6133: 'editingType' is declared but its value is never read.
+components/PropertyTypesSettings.tsx(64,23): error TS6133: 'setEditingType' is declared but its value is never read.
+components/PropertyViewModal.tsx(11,73): error TS6133: 'Wifi' is declared but its value is never read.
+components/PropertyViewModal.tsx(11,79): error TS6133: 'Car' is declared but its value is never read.
+components/PropertyViewModal.tsx(11,109): error TS6133: 'Share2' is declared but its value is never read.
+components/PropertyViewModal.tsx(17,1): error TS6133: 'Separator' is declared but its value is never read.
+components/ProprietariosManagement.tsx(13,8): error TS6133: 'React' is declared but its value is never read.
+components/ProprietariosManagement.tsx(22,1): error TS6133: 'Textarea' is declared but its value is never read.
+components/ProprietariosManagement.tsx(34,3): error TS6133: 'CreditCard' is declared but its value is never read.
+components/ProprietariosManagement.tsx(35,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/ProprietariosManagement.tsx(39,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/ProprietariosManagement.tsx(40,3): error TS6133: 'FileText' is declared but its value is never read.
+components/ProprietariosManagement.tsx(128,39): error TS2554: Expected 2 arguments, but got 1.
+components/ProprietariosManagement.tsx(130,20): error TS7006: Parameter 'data' implicitly has an 'any' type.
+components/QuickActionsModal.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/QuickActionsModal.tsx(4,1): error TS6133: 'Button' is declared but its value is never read.
+components/QuickActionsModal.tsx(23,3): error TS6133: 'propertyId' is declared but its value is never read.
+components/QuickActionsModal.tsx(25,3): error TS6133: 'contactId' is declared but its value is never read.
+components/QuotationModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/ReservationCard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/ReservationDetailsModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/ReservationDetailsModal.tsx(18,3): error TS6133: 'User' is declared but its value is never read.
+components/ReservationDetailsModal.tsx(22,3): error TS6133: 'Clock' is declared but its value is never read.
+components/ReservationDetailsModal.tsx(28,3): error TS6133: 'Trash2' is declared but its value is never read.
+components/ReservationDetailsModal.tsx(43,3): error TS6133: 'RefreshCw' is declared but its value is never read.
+components/ReservationDetailsModal.tsx(45,3): error TS6133: 'Check' is declared but its value is never read.
+components/ReservationDetailsModal.tsx(1201,14): error TS2367: This comparison appears to be unintentional because the types '"pending" | "maintenance" | "confirmed" | "blocked"' and '"cancelled"' have no overlap.
+components/ReservationPreviewModal.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/ReservationPreviewModal.tsx(4,68): error TS6133: 'X' is declared but its value is never read.
+components/reservations/ReservationsModule.tsx(34,1): error TS6133: 'React' is declared but its value is never read.
+components/ReservationsManagement.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/ReservationsManagement.tsx(7,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/ReservationsManagement.tsx(9,3): error TS6133: 'Filter' is declared but its value is never read.
+components/ReservationsManagement.tsx(18,3): error TS6133: 'Download' is declared but its value is never read.
+components/ReservationsManagement.tsx(33,1): error TS6192: All imports in import declaration are unused.
+components/ReservationsManagement.tsx(41,1): error TS6192: All imports in import declaration are unused.
+components/ReservationsManagement.tsx(59,1): error TS6192: All imports in import declaration are unused.
+components/ReservationsManagement.tsx(211,36): error TS2339: Property 'source' does not exist on type 'Reservation'.
+components/ReservationsManagement.tsx(245,9): error TS6133: 'getPropertyName' is declared but its value is never read.
+components/ReservationsManagement.tsx(251,9): error TS6133: 'getGuestName' is declared but its value is never read.
+components/ReservationsManagement.tsx(927,53): error TS2339: Property 'accommodation' does not exist on type '{ pricePerNight: number; baseTotal: number; cleaningFee: number; serviceFee: number; taxes: number; discount: number; total: number; currency: string; appliedTier?: string | undefined; }'.
+components/ReservationsManagement.tsx(934,53): error TS2339: Property 'fees' does not exist on type '{ pricePerNight: number; baseTotal: number; cleaningFee: number; serviceFee: number; taxes: number; discount: number; total: number; currency: string; appliedTier?: string | undefined; }'.
+components/ReservationsManagement.tsx(941,55): error TS2551: Property 'discounts' does not exist on type '{ pricePerNight: number; baseTotal: number; cleaningFee: number; serviceFee: number; taxes: number; discount: number; total: number; currency: string; appliedTier?: string | undefined; }'. Did you mean 'discount'?
+components/ReservationsManagement.tsx(974,13): error TS2739: Type 'Reservation' is missing the following properties from type 'Reservation': guestName, price
+components/ReservationsManagement.tsx(986,13): error TS2739: Type 'Reservation' is missing the following properties from type 'Reservation': guestName, price
+components/ReservationsManagement.tsx(1001,13): error TS2739: Type 'Reservation' is missing the following properties from type 'Reservation': guestName, price
+components/SeasonalityModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/SeasonalityModal.tsx(6,1): error TS6133: 'Checkbox' is declared but its value is never read.
+components/settings/SettingsModule.tsx(17,1): error TS6133: 'React' is declared but its value is never read.
+components/settings/SettingsModule.tsx(60,12): error TS2741: Property 'organizationId' is missing in type '{}' but required in type '{ organizationId: string; listingId?: string | undefined; mode?: "individual" | "global" | undefined; }'.
+components/SettingsManager.tsx(12,8): error TS6133: 'React' is declared but its value is never read.
+components/SettingsManager.tsx(20,3): error TS6133: 'CheckCircle2' is declared but its value is never read.
+components/SettingsManager.tsx(37,3): error TS6133: 'Link2' is declared but its value is never read.
+components/SettingsManager.tsx(38,3): error TS6133: 'Smartphone' is declared but its value is never read.
+components/SettingsManager.tsx(459,19): error TS2322: Type '{ type: "number"; value: any; onChange: (e: ChangeEvent<HTMLInputElement>) => void; className: string; suffix: string; }' is not assignable to type 'IntrinsicAttributes & ClassAttributes<HTMLInputElement> & InputHTMLAttributes<HTMLInputElement>'.
+  Property 'suffix' does not exist on type 'IntrinsicAttributes & ClassAttributes<HTMLInputElement> & InputHTMLAttributes<HTMLInputElement>'.
+components/SettingsManager.tsx(507,49): error TS6133: 'isGlobal' is declared but its value is never read.
+components/SettingsManager.tsx(553,50): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ cancellation_policy: boolean; checkin_checkout: boolean; security_deposit: boolean; minimum_nights: boolean; advance_booking: boolean; additional_fees: boolean; house_rules: boolean; communication: boolean; }'.
+  No index signature with a parameter of type 'string' was found on type '{ cancellation_policy: boolean; checkin_checkout: boolean; security_deposit: boolean; minimum_nights: boolean; advance_booking: boolean; additional_fees: boolean; house_rules: boolean; communication: boolean; }'.
+components/SettingsManager.tsx(793,26): error TS6133: 'organizationId' is declared but its value is never read.
+components/SettingsManager.tsx(794,10): error TS6133: 'loading' is declared but its value is never read.
+components/SettingsManager.tsx(794,19): error TS6133: 'setLoading' is declared but its value is never read.
+components/SettingsManager.tsx(1271,10): error TS6133: 'ChannelsCommunicationSettings' is declared but its value is never read.
+components/SettingsManager.tsx(1274,10): error TS6133: 'showWhatsAppConfig' is declared but its value is never read.
+components/SettingsManager.tsx(1274,30): error TS6133: 'setShowWhatsAppConfig' is declared but its value is never read.
+components/SettingsManager.tsx(1275,10): error TS6133: 'showSMSConfig' is declared but its value is never read.
+components/SettingsManager.tsx(1275,25): error TS6133: 'setShowSMSConfig' is declared but its value is never read.
+components/SettingsManager.tsx(1421,19): error TS2345: Argument of type 'OrganizationChannelConfig | undefined' is not assignable to parameter of type 'SetStateAction<OrganizationChannelConfig | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<OrganizationChannelConfig | null>'.
+components/SettingsManager.tsx(1443,19): error TS2345: Argument of type 'OrganizationChannelConfig | undefined' is not assignable to parameter of type 'SetStateAction<OrganizationChannelConfig | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<OrganizationChannelConfig | null>'.
+components/SettingsPanel.tsx(2,66): error TS6133: 'ImageIcon' is declared but its value is never read.
+components/SettingsPanel.tsx(2,95): error TS6133: 'SettingsIcon' is declared but its value is never read.
+components/SettingsPanel.tsx(5,1): error TS6133: 'useAuth' is declared but its value is never read.
+components/SettingsPanel.tsx(225,59): error TS2304: Cannot find name 'getSizeClass'.
+components/SettingsPanel.tsx(327,63): error TS2304: Cannot find name 'getSizeClass'.
+components/SettingsPanel.tsx(444,50): error TS2304: Cannot find name 'organizationId'.
+components/SettingsPanel.tsx(470,28): error TS2304: Cannot find name 'Badge'.
+components/SettingsPanel.tsx(470,75): error TS2304: Cannot find name 'Badge'.
+components/SettingsPanel.tsx(506,28): error TS2304: Cannot find name 'Badge'.
+components/SettingsPanel.tsx(506,57): error TS2304: Cannot find name 'Badge'.
+components/SettingsPanel.tsx(542,28): error TS2304: Cannot find name 'Badge'.
+components/SettingsPanel.tsx(542,64): error TS2304: Cannot find name 'Badge'.
+components/SettingsPanel.tsx(572,28): error TS2304: Cannot find name 'Badge'.
+components/SettingsPanel.tsx(572,64): error TS2304: Cannot find name 'Badge'.
+components/SmartBackendBanner.tsx(10,1): error TS6133: 'React' is declared but its value is never read.
+components/StaysNetIntegration.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/StaysNetIntegration.tsx(17,1): error TS6192: All imports in import declaration are unused.
+components/StaysNetReservationAnalyzer.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(1,27): error TS6133: 'useEffect' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(18,3): error TS6133: 'Calendar' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(25,3): error TS6133: 'Filter' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(26,3): error TS6133: 'RefreshCw' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(28,3): error TS6133: 'User' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(29,3): error TS6133: 'Home' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(30,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(31,3): error TS6133: 'CalendarRange' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(39,1): error TS6133: 'ptBR' is declared but its value is never read.
+components/StaysNetReservationAnalyzer.tsx(212,28): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ id: string; code: string; reservation_code: string; checkin: string; check_in: string; arrival: string; checkout: string; check_out: string; departure: string; created_at: string; booking_date: string; ... 24 more ...; special_requests: string; }'.
+  No index signature with a parameter of type 'string' was found on type '{ id: string; code: string; reservation_code: string; checkin: string; check_in: string; arrival: string; checkout: string; check_out: string; departure: string; created_at: string; booking_date: string; ... 24 more ...; special_requests: string; }'.
+components/StaysNetReservationAnalyzer.tsx(221,23): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ id: string; code: string; reservation_code: string; checkin: string; check_in: string; arrival: string; checkout: string; check_out: string; departure: string; created_at: string; booking_date: string; ... 24 more ...; special_requests: string; }'.
+  No index signature with a parameter of type 'string' was found on type '{ id: string; code: string; reservation_code: string; checkin: string; check_in: string; arrival: string; checkout: string; check_out: string; departure: string; created_at: string; booking_date: string; ... 24 more ...; special_requests: string; }'.
+components/TagsManagementModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/TagsManagementModal.tsx(13,3): error TS6133: 'X' is declared but its value is never read.
+components/TenantManagement.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/TenantManagement.tsx(4,3): error TS6133: 'OrganizationStats' is declared but its value is never read.
+components/TenantManagement.tsx(6,3): error TS6133: 'isClientOrganization' is declared but its value is never read.
+components/TenantManagement.tsx(7,3): error TS6133: 'generateClientSlug' is declared but its value is never read.
+components/TenantManagement.tsx(8,3): error TS6133: 'extractClientName' is declared but its value is never read.
+components/TenantManagement.tsx(9,3): error TS6133: 'MASTER_ORG_SLUG' is declared but its value is never read.
+components/TenantManagement.tsx(11,29): error TS6133: 'CardDescription' is declared but its value is never read.
+components/TenantManagement.tsx(11,46): error TS6133: 'CardHeader' is declared but its value is never read.
+components/TenantManagement.tsx(11,58): error TS6133: 'CardTitle' is declared but its value is never read.
+components/TenantManagement.tsx(14,1): error TS6133: 'Label' is declared but its value is never read.
+components/TenantManagement.tsx(17,1): error TS6192: All imports in import declaration are unused.
+components/TenantManagement.tsx(24,3): error TS6133: 'MoreVertical' is declared but its value is never read.
+components/TenantManagement.tsx(26,3): error TS6133: 'Edit' is declared but its value is never read.
+components/TenantManagement.tsx(27,3): error TS6133: 'Trash2' is declared but its value is never read.
+components/TenantManagement.tsx(30,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/TenantManagement.tsx(35,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/TenantManagement.tsx(37,3): error TS6133: 'Filter' is declared but its value is never read.
+components/TenantManagement.tsx(44,46): error TS6133: 'testBackendHealth' is declared but its value is never read.
+components/TenantManagement.tsx(259,10): error TS6133: 'selectedOrg' is declared but its value is never read.
+components/TenantManagement.tsx(302,28): error TS6133: 'error' is declared but its value is never read.
+components/TimelineView.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/ui/dialog.tsx(61,10): error TS6133: 'hasDescription' is declared but its value is never read.
+components/ui/dialog.tsx(61,26): error TS6133: 'setHasDescription' is declared but its value is never read.
+components/UserManagement.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/UserManagement.tsx(12,1): error TS6133: 'Switch' is declared but its value is never read.
+components/UserManagement.tsx(18,3): error TS6133: 'MoreVertical' is declared but its value is never read.
+components/UserManagement.tsx(22,3): error TS6133: 'Shield' is declared but its value is never read.
+components/UserManagement.tsx(29,1): error TS6133: 'cn' is declared but its value is never read.
+components/UserManagement.tsx(128,34): error TS6133: 'organizationId' is declared but its value is never read.
+components/UserManagement.tsx(129,17): error TS6133: 'setUsers' is declared but its value is never read.
+components/UserManagement.tsx(130,23): error TS6133: 'setInvitations' is declared but its value is never read.
+components/UserManagement.tsx(133,10): error TS6133: 'editDialogOpen' is declared but its value is never read.
+components/UserManagement.tsx(134,10): error TS6133: 'selectedUser' is declared but its value is never read.
+components/UserManagement.tsx(135,10): error TS6133: 'permissionsDialogOpen' is declared but its value is never read.
+components/UserManagement.tsx(149,29): error TS6133: 'formData' is declared but its value is never read.
+components/UserManagement.tsx(154,9): error TS6133: 'handleUpdateUser' is declared but its value is never read.
+components/UserManagement.tsx(154,29): error TS6133: 'user' is declared but its value is never read.
+components/UserManagement.tsx(154,41): error TS6133: 'updates' is declared but its value is never read.
+components/UserManagement.tsx(165,35): error TS6133: 'invitation' is declared but its value is never read.
+components/UserManagement.tsx(169,35): error TS6133: 'invitation' is declared but its value is never read.
+components/VersionBadge.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+components/VersionBadge.tsx(6,73): error TS2339: Property 'build' does not exist on type '{ version: string; buildDate: string; reason: string; changes: string[]; }'.
+components/VersionBadge.tsx(6,106): error TS2339: Property 'timestamp' does not exist on type '{ version: string; buildDate: string; reason: string; changes: string[]; }'.
+components/ViewUsersModal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+components/ViewUsersModal.tsx(6,66): error TS6133: 'MoreVertical' is declared but its value is never read.
+components/WhatsAppChatsImporter.tsx(7,8): error TS6133: 'React' is declared but its value is never read.
+components/WhatsAppChatsImporter.tsx(11,11): error TS6196: 'WhatsAppChat' is declared but never used.
+components/WhatsAppChatsImporter.tsx(28,11): error TS6196: 'WhatsAppMessage' is declared but never used.
+components/WhatsAppChatsImporter.tsx(84,19): error TS6133: 'phoneNumber' is declared but its value is never read.
+components/WhatsAppConversation.tsx(505,13): error TS2353: Object literal may only specify known properties, and 'bedrooms' does not exist in type 'Property'.
+components/WhatsAppCredentialsTester.tsx(35,13): error TS6133: 'response' is declared but its value is never read.
+components/WhatsAppCredentialsTester.tsx(67,15): error TS6133: 'errorData' is declared but its value is never read.
+components/WhatsAppIntegration.tsx(17,8): error TS6133: 'React' is declared but its value is never read.
+components/WhatsAppIntegration.tsx(32,21): error TS6133: 'publicAnonKey' is declared but its value is never read.
+components/WhatsAppIntegration.tsx(56,1): error TS6133: 'isOfflineMode' is declared but its value is never read.
+components/WhatsAppIntegration.tsx(57,10): error TS6133: 'evolutionService' is declared but its value is never read.
+components/WhatsAppIntegration.tsx(64,11): error TS6196: 'WhatsAppConfig' is declared but never used.
+components/WhatsAppIntegration.tsx(163,21): error TS2345: Argument of type '{ whatsapp: { connected: boolean; connection_status: string; phone_number: string | undefined; last_connected_at: string | undefined; enabled: boolean; api_url: string; instance_name: string; api_key: string; instance_token?: string; qr_code?: string; error_message?: string; }; ... 5 more ...; updated_at: string; }' is not assignable to parameter of type 'SetStateAction<OrganizationChannelConfig | null>'.
+  Type '{ whatsapp: { connected: boolean; connection_status: string; phone_number: string | undefined; last_connected_at: string | undefined; enabled: boolean; api_url: string; instance_name: string; api_key: string; instance_token?: string; qr_code?: string; error_message?: string; }; ... 5 more ...; updated_at: string; }' is not assignable to type 'OrganizationChannelConfig'.
+    The types of 'whatsapp.connection_status' are incompatible between these types.
+      Type 'string' is not assignable to type '"error" | "disconnected" | "connecting" | "connected" | undefined'.
+components/WhatsAppIntegration.tsx(169,15): error TS2322: Type '{ enabled: true; connected: boolean; connection_status: string; phone_number: string | undefined; last_connected_at: string | undefined; api_url: string; instance_name: string; api_key: string; instance_token?: string; qr_code?: string; error_message?: string; }' is not assignable to type 'EvolutionAPIConfig'.
+  Types of property 'connection_status' are incompatible.
+    Type 'string' is not assignable to type '"error" | "disconnected" | "connecting" | "connected" | undefined'.
+components/WhatsAppIntegration.tsx(788,16): error TS2339: Property 'message' does not exist on type 'OrganizationChannelConfig'.
+components/WhatsAppIntegration.tsx(833,30): error TS2339: Property 'lastSync' does not exist on type 'EvolutionAPIConfig'.
+components/WhatsAppIntegration.tsx(835,63): error TS2339: Property 'lastSync' does not exist on type 'EvolutionAPIConfig'.
+components/WhatsAppIntegration.tsx(1103,59): error TS2322: Type '{ children: Element[]; value: string; className: string; onValueChange: () => void; }' is not assignable to type 'IntrinsicAttributes & TabsContentProps & RefAttributes<HTMLDivElement>'.
+  Property 'onValueChange' does not exist on type 'IntrinsicAttributes & TabsContentProps & RefAttributes<HTMLDivElement>'. Did you mean 'onVolumeChange'?
+components/WhatsAppIntegrationMonitor.tsx(11,8): error TS6133: 'React' is declared but its value is never read.
+components/WhatsAppIntegrationMonitor.tsx(111,22): error TS2339: Property 'headers' does not exist on type '{}'.
+components/WhatsAppProviderSelector.tsx(11,8): error TS6133: 'React' is declared but its value is never read.
+components/WhatsAppProviderSelector.tsx(16,1): error TS6133: 'Switch' is declared but its value is never read.
+components/WhatsAppProviderSelector.tsx(17,1): error TS6133: 'Label' is declared but its value is never read.
+components/WhatsAppProviderSelector.tsx(18,1): error TS6133: 'Input' is declared but its value is never read.
+components/WhatsAppWebhookManager.tsx(24,8): error TS6133: 'React' is declared but its value is never read.
+components/WhatsAppWebhookManager.tsx(48,3): error TS6133: 'Eye' is declared but its value is never read.
+components/WhatsAppWebhookManager.tsx(67,11): error TS6196: 'WebhookConfig' is declared but never used.
+components/wizard-steps/ContentDescriptionStep.tsx(17,3): error TS6133: 'Globe' is declared but its value is never read.
+components/wizard-steps/ContentDescriptionStep.tsx(20,3): error TS6133: 'Check' is declared but its value is never read.
+components/wizard-steps/ContentDescriptionStep.tsx(213,10): error TS6133: 'containsEmoji' is declared but its value is never read.
+components/wizard-steps/ContentDescriptionStep.tsx(226,16): error TS6133: 'autoTranslate' is declared but its value is never read.
+components/wizard-steps/ContentDescriptionStep.tsx(228,3): error TS6133: 'from' is declared but its value is never read.
+components/wizard-steps/ContentDescriptionStep.tsx(337,28): error TS2349: This expression is not callable.
+  Type 'Boolean' has no call signatures.
+components/wizard-steps/ContentDescriptionStep.tsx(338,28): error TS2349: This expression is not callable.
+  Type 'Boolean' has no call signatures.
+components/wizard-steps/ContentLocationAmenitiesStep.tsx(15,3): error TS6133: 'Building2' is declared but its value is never read.
+components/wizard-steps/ContentLocationAmenitiesStep.tsx(39,1): error TS6192: All imports in import declaration are unused.
+components/wizard-steps/ContentLocationAmenitiesStep.tsx(98,3): error TS6133: 'propertyType' is declared but its value is never read.
+components/wizard-steps/ContentLocationStep.tsx(30,3): error TS6133: 'Check' is declared but its value is never read.
+components/wizard-steps/ContentLocationStep.tsx(47,24): error TS6133: 'PHOTO_TAGS' is declared but its value is never read.
+components/wizard-steps/ContentLocationStep.tsx(199,11): error TS6133: 'address' is declared but its value is never read.
+components/wizard-steps/ContentPhotosStep.tsx(24,3): error TS6133: 'Info' is declared but its value is never read.
+components/wizard-steps/ContentPhotosStep.tsx(29,3): error TS6133: 'CheckCircle2' is declared but its value is never read.
+components/wizard-steps/ContentPhotosStep.tsx(31,1): error TS6192: All imports in import declaration are unused.
+components/wizard-steps/ContentPhotosStep.tsx(35,1): error TS6133: 'ScrollArea' is declared but its value is never read.
+components/wizard-steps/ContentPhotosStep.tsx(115,10): error TS6133: 'selectedPhoto' is declared but its value is never read.
+components/wizard-steps/ContentRoomsStep.tsx(574,12): error TS2304: Cannot find name 'Upload'.
+components/wizard-steps/ContentRoomsStep.tsx(932,32): error TS2304: Cannot find name 'Upload'.
+components/wizard-steps/ContentTypeStep.tsx(22,21): error TS6133: 'Home' is declared but its value is never read.
+components/wizard-steps/ContentTypeStep.tsx(22,34): error TS6133: 'Check' is declared but its value is never read.
+components/wizard-steps/ContentTypeStep.tsx(25,1): error TS6133: 'Button' is declared but its value is never read.
+components/wizard-steps/ContentTypeStep.tsx(175,15): error TS2322: Type '{ id: string; name: string; category: string; platforms: {}; isActive: boolean; }[]' is not assignable to type 'PropertyType[]'.
+  Type '{ id: string; name: string; category: string; platforms: {}; isActive: boolean; }' is not assignable to type 'PropertyType'.
+    Types of property 'category' are incompatible.
+      Type 'string' is not assignable to type '"location" | "accommodation"'.
+components/wizard-steps/ContentTypeStep.tsx(389,15): error TS2322: Type '{ id: string; name: string; category: string; platforms: {}; isActive: boolean; }[]' is not assignable to type 'PropertyType[]'.
+  Type '{ id: string; name: string; category: string; platforms: {}; isActive: boolean; }' is not assignable to type 'PropertyType'.
+    Types of property 'category' are incompatible.
+      Type 'string' is not assignable to type '"location" | "accommodation"'.
+components/wizard-steps/FinancialContractStep.tsx(12,17): error TS6133: 'useState' is declared but its value is never read.
+components/wizard-steps/FinancialContractStep.tsx(20,36): error TS6133: 'HelpCircle' is declared but its value is never read.
+components/wizard-steps/FinancialContractStep.tsx(23,1): error TS6192: All imports in import declaration are unused.
+components/wizard-steps/FinancialContractStep.tsx(232,3): error TS6133: 'onCreateOwner' is declared but its value is never read.
+components/wizard-steps/FinancialContractStep.tsx(233,3): error TS6133: 'onCreateManager' is declared but its value is never read.
+components/wizard-steps/FinancialDerivedPricingStep.tsx(19,1): error TS6133: 'useState' is declared but its value is never read.
+components/wizard-steps/FinancialDerivedPricingStep.tsx(38,16): error TS6133: 'TabsContent' is declared but its value is never read.
+components/wizard-steps/FinancialIndividualPricingStep.tsx(19,1): error TS6133: 'useState' is declared but its value is never read.
+components/wizard-steps/FinancialIndividualPricingStep.tsx(24,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/wizard-steps/FinancialIndividualPricingStep.tsx(25,3): error TS6133: 'TrendingDown' is declared but its value is never read.
+components/wizard-steps/FinancialIndividualPricingStep.tsx(29,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/wizard-steps/FinancialIndividualPricingStep.tsx(31,3): error TS6133: 'Snowflake' is declared but its value is never read.
+components/wizard-steps/FinancialIndividualPricingStep.tsx(32,3): error TS6133: 'Palmtree' is declared but its value is never read.
+components/wizard-steps/FinancialIndividualPricingStep.tsx(40,1): error TS6133: 'Separator' is declared but its value is never read.
+components/wizard-steps/FinancialIndividualPricingStep.tsx(44,1): error TS6192: All imports in import declaration are unused.
+components/wizard-steps/FinancialResidentialPricingStep.tsx(30,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/wizard-steps/FinancialResidentialPricingStep.tsx(34,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+components/wizard-steps/FinancialResidentialPricingStep.tsx(41,1): error TS6192: All imports in import declaration are unused.
+components/wizard-steps/FinancialResidentialPricingStep.tsx(190,9): error TS6133: 'isOnlyBuySell' is declared but its value is never read.
+components/wizard-steps/FinancialSeasonalPricingStep.tsx(22,3): error TS6133: 'DollarSign' is declared but its value is never read.
+components/wizard-steps/SettingsRulesStep.tsx(15,1): error TS6133: 'Label' is declared but its value is never read.
+contexts/LanguageContext.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+contexts/LanguageContext.tsx(1,54): error TS6133: 'useEffect' is declared but its value is never read.
+contexts/ThemeContext.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+hooks/usePropertyActions.ts(12,1): error TS6133: 'toast' is declared but its value is never read.
+hooks/usePropertyActions.ts(71,7): error TS6133: 'reloadPage' is declared but its value is never read.
+hooks/usePropertyActions.ts(86,46): error TS2345: Argument of type 'Partial<Property>' is not assignable to parameter of type '{ name: string; code: string; address: { street: string; number: string; neighborhood: string; city: string; state: string; zipCode: string; country: string; coordinates?: { lat: number; lng: number; } | undefined; }; ... 4 more ...; showBuildingNumber?: boolean | undefined; }'.
+  Type 'Partial<Property>' is missing the following properties from type '{ name: string; code: string; address: { street: string; number: string; neighborhood: string; city: string; state: string; zipCode: string; country: string; coordinates?: { lat: number; lng: number; } | undefined; }; ... 4 more ...; showBuildingNumber?: boolean | undefined; }': code, address
+hooks/usePropertyActions.ts(150,7): error TS6133: 'reloadPage' is declared but its value is never read.
+hooks/usePropertyActions.ts(230,7): error TS6133: 'reloadPage' is declared but its value is never read.
+hooks/usePropertyActions.ts(246,59): error TS2559: Type 'boolean' has no properties in common with type '{ permanent?: boolean | undefined; force?: boolean | undefined; }'.
+hooks/usePropertyActions.ts(248,60): error TS2559: Type 'boolean' has no properties in common with type '{ permanent?: boolean | undefined; force?: boolean | undefined; }'.
+main.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+main.tsx(32,8): error TS2741: Property 'navigate' is missing in type '{ children: Element; }' but required in type 'Readonly<ErrorBoundaryInternalProps>'.
+pages/DiagnosticoImovelPage.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+pages/PropertyWizardPage.tsx(13,21): error TS6133: 'Save' is declared but its value is never read.
+pages/PropertyWizardPage.tsx(109,30): error TS7006: Parameter 'l' implicitly has an 'any' type.
+templates/site-classico.tsx(10,26): error TS6133: 'useRendizyBooking' is declared but its value is never read.
+templates/site-luxo.tsx(9,82): error TS6133: 'ChevronLeft' is declared but its value is never read.
+templates/site-luxo.tsx(10,26): error TS6133: 'useRendizyBooking' is declared but its value is never read.
+templates/site-moderno.tsx(9,56): error TS6133: 'Share2' is declared but its value is never read.
+templates/site-moderno.tsx(9,91): error TS6133: 'Filter' is declared but its value is never read.
+templates/site-moderno.tsx(9,118): error TS6133: 'X' is declared but its value is never read.
+templates/site-moderno.tsx(9,121): error TS6133: 'Check' is declared but its value is never read.
+templates/site-moderno.tsx(10,26): error TS6133: 'useRendizyBooking' is declared but its value is never read.
+utils/api.ts(9,1): error TS6133: 'API_BASE_URL_OVERRIDE' is declared but its value is never read.
+utils/api.ts(27,34): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+utils/api.ts(425,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+utils/api.ts(553,10): error TS6133: 'tryLocalStorageFallback' is declared but its value is never read.
+utils/api.ts(554,3): error TS6133: 'endpoint' is declared but its value is never read.
+utils/api.ts(555,3): error TS6133: 'options' is declared but its value is never read.
+utils/api.ts(1974,3): error TS6196: 'LinhaExtrato' is declared but never used.
+utils/api.ts(1995,20): error TS2339: Property 'conciliado' does not exist on type 'FiltroFinanceiro'.
+utils/api.ts(1996,45): error TS2339: Property 'conciliado' does not exist on type 'FiltroFinanceiro'.
+utils/apiClient.ts(38,5): error TS7053: Element implicitly has an 'any' type because expression of type '"Authorization"' can't be used to index type 'HeadersInit'.
+  Property 'Authorization' does not exist on type 'HeadersInit'.
+utils/apiClient.ts(59,9): error TS7053: Element implicitly has an 'any' type because expression of type '"Authorization"' can't be used to index type 'HeadersInit'.
+  Property 'Authorization' does not exist on type 'HeadersInit'.
+utils/auditLog.ts(1,1): error TS6192: All imports in import declaration are unused.
+utils/autoRecovery.ts(10,1): error TS6133: 'toast' is declared but its value is never read.
+utils/autoRecovery.ts(15,5): error TS6133: 'backendStatus' is declared but its value is never read.
+utils/bookingcom/api.ts(160,11): error TS6133: 'statusApplicationControl' is declared but its value is never read.
+utils/mockBackend.ts(1872,31): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+utils/navigationGuard.ts(114,37): error TS6133: 'event' is declared but its value is never read.
+utils/offlineOrganizations.ts(111,43): error TS18046: 'error' is of type 'unknown'.
+utils/offlineSync.ts(1,1): error TS6133: 'ServiceTicket' is declared but its value is never read.
+utils/services/evolutionContactsService.ts(60,11): error TS6133: 'apiUrl' is declared but its value is never read.
+utils/services/evolutionContactsService.ts(61,11): error TS6133: 'apiKey' is declared but its value is never read.
+utils/services/evolutionContactsService.ts(62,11): error TS6133: 'instanceName' is declared but its value is never read.
+utils/supabase/info.tsx(2,34): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+utils/supabase/info.tsx(3,29): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+utils/taskExport.ts(1,25): error TS6133: 'ServiceTask' is declared but its value is never read.
+utils/taskNotifications.ts(1,25): error TS6133: 'ServiceTask' is declared but its value is never read.
+utils/taskProgress.ts(5,38): error TS6133: 'TaskStatus' is declared but its value is never read.
+utils/taskProgress.ts(61,12): error TS2367: This comparison appears to be unintentional because the types '"CANCELLED" | "TODO" | "IN_PROGRESS" | "BLOCKED"' and '"COMPLETED"' have no overlap.
+utils/wahaApi.ts(332,3): error TS6133: 'sessionName' is declared but its value is never read.
+utils/whatsapp/evolution/api.ts(18,3): error TS6196: 'ApiResponse' is declared but never used.
+utils/whatsapp/evolution/api.ts(26,28): error TS6133: 'EVOLUTION_ENDPOINTS' is declared but its value is never read.
+utils/whatsapp/evolution/api.ts(26,49): error TS6133: 'getEvolutionHeaders' is declared but its value is never read.
+utils/whatsapp/evolution/api.ts(69,25): error TS2339: Property 'logoutInstance' does not exist on type 'EvolutionAPIClient'.
+utils/whatsapp/evolution/api.ts(77,38): error TS2339: Property 'getInstanceInfo' does not exist on type 'EvolutionAPIClient'.
+utils/whatsapp/evolution/api.ts(98,44): error TS2551: Property 'connectQR' does not exist on type 'EvolutionAPIClient'. Did you mean 'connect'?
+utils/whatsapp/evolution/api.ts(119,42): error TS2554: Expected 2-3 arguments, but got 1.
+utils/whatsapp/evolution/api.ts(139,42): error TS2554: Expected 3-5 arguments, but got 1.
+utils/whatsapp/evolution/api.ts(146,21): error TS6133: 'chatId' is declared but its value is never read.
+utils/whatsapp/evolution/api.ts(146,37): error TS6133: 'limit' is declared but its value is never read.
+utils/whatsapp/evolution/api.ts(174,40): error TS2339: Property 'checkNumber' does not exist on type 'EvolutionAPIClient'.
+utils/whatsapp/evolution/api.ts(189,32): error TS2339: Property 'checkNumber' does not exist on type 'EvolutionAPIClient'.
+utils/whatsapp/evolution/api.ts(202,38): error TS2339: Property 'getInstanceInfo' does not exist on type 'EvolutionAPIClient'.
+utils/whatsapp/waha/api.ts(20,3): error TS6133: 'WhatsAppError' is declared but its value is never read.
+utils/whatsapp/waha/api.ts(154,11): error TS2322: Type '"/api/sendImage"' is not assignable to type '"/api/sendFile"'.
+utils/whatsapp/waha/api.ts(157,11): error TS2322: Type '"/api/sendVideo"' is not assignable to type '"/api/sendFile"'.
+utils/whatsapp/waha/api.ts(160,11): error TS2322: Type '"/api/sendAudio"' is not assignable to type '"/api/sendFile"'.

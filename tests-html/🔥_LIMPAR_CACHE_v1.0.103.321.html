@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 Limpar Cache v1.0.103.321</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .container {
+      max-width: 600px;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    
+    h1 {
+      color: #2d3748;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+    
+    .version {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .icon {
+      font-size: 80px;
+      margin: 20px 0;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    
+    .message {
+      color: #2d3748;
+      font-size: 18px;
+      margin: 20px 0;
+      line-height: 1.6;
+    }
+    
+    .fixes {
+      background: #f0fff4;
+      border-left: 4px solid #48bb78;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: left;
+      border-radius: 8px;
+    }
+    
+    .fixes h3 {
+      color: #22543d;
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+    
+    .fixes ul {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .fixes li {
+      color: #22543d;
+      padding: 8px 0;
+      padding-left: 25px;
+      position: relative;
+    }
+    
+    .fixes li:before {
+      content: "✅";
+      position: absolute;
+      left: 0;
+    }
+    
+    .btn {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+    }
+    
+    .countdown {
+      margin-top: 20px;
+      color: #718096;
+      font-size: 14px;
+    }
+    
+    .success {
+      display: none;
+      background: #f0fff4;
+      border: 2px solid #48bb78;
+      padding: 20px;
+      border-radius: 12px;
+      margin-top: 20px;
+    }
+    
+    .success.show {
+      display: block;
+      animation: slideIn 0.5s;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔥 Limpar Cache</h1>
+    <div class="version">v1.0.103.321 - Instance Not Found + URL Encoding Fix</div>
+    
+    <div class="icon">🔄</div>
+    
+    <div class="message">
+      <strong>CORREÇÕES CRÍTICAS APLICADAS!</strong><br>
+      Limpe o cache para carregar a versão corrigida.
+    </div>
+    
+    <div class="fixes">
+      <h3>🔧 O que foi corrigido:</h3>
+      <ul>
+        <li>URL-encoding de instance names com espaços</li>
+        <li>Removido endpoint /instance/restart (404)</li>
+        <li>Verificação de content-type antes de JSON parse</li>
+        <li>Aguardar 5s após criar instância</li>
+        <li>Detecção de HTML response com mensagem clara</li>
+      </ul>
+    </div>
+    
+    <button class="btn" onclick="clearCache()">
+      🚀 Limpar Cache e Recarregar
+    </button>
+    
+    <div class="countdown" id="countdown"></div>
+    
+    <div class="success" id="success">
+      <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+      <div style="color: #22543d; font-weight: bold; font-size: 18px;">
+        Cache Limpo com Sucesso!
+      </div>
+      <div style="color: #22543d; margin-top: 10px;">
+        Recarregando em <span id="timer">3</span>...
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    function clearCache() {
+      const btn = document.querySelector('.btn');
+      const countdown = document.getElementById('countdown');
+      const success = document.getElementById('success');
+      
+      btn.disabled = true;
+      btn.textContent = '🔄 Limpando...';
+      
+      countdown.textContent = 'Limpando cache do navegador...';
+      
+      // Limpar localStorage
+      localStorage.clear();
+      
+      // Limpar sessionStorage
+      sessionStorage.clear();
+      
+      // Limpar cookies (se houver)
+      document.cookie.split(";").forEach(function(c) { 
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+      });
+      
+      setTimeout(() => {
+        countdown.textContent = 'Cache limpo! Preparando reload...';
+        success.classList.add('show');
+        
+        let time = 3;
+        const timer = document.getElementById('timer');
+        
+        const interval = setInterval(() => {
+          time--;
+          timer.textContent = time;
+          
+          if (time === 0) {
+            clearInterval(interval);
+            // Hard reload
+            window.location.href = window.location.href.split('?')[0] + '?v=1.0.103.321&t=' + Date.now();
+          }
+        }, 1000);
+      }, 1000);
+    }
+    
+    // Animar entrada
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.querySelector('.container');
+      container.style.opacity = '0';
+      container.style.transform = 'translateY(20px)';
+      
+      setTimeout(() => {
+        container.style.transition = 'all 0.5s ease-out';
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+      }, 100);
+    });
+    
+    // Auto-detectar se precisa limpar
+    const currentVersion = localStorage.getItem('app_version');
+    if (currentVersion && currentVersion !== 'v1.0.103.321') {
+      document.querySelector('.message').innerHTML = `
+        <strong>⚠️ VERSÃO DESATUALIZADA DETECTADA!</strong><br>
+        Você está na versão ${currentVersion}<br>
+        Nova versão disponível: v1.0.103.321
+      `;
+    }
+  </script>
+</body>
+</html>

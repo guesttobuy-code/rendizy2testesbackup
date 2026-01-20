@@ -1,0 +1,56 @@
+═══════════════════════════════════════════════════════════
+  🚨 LEIA ISSO - v1.0.103.291
+═══════════════════════════════════════════════════════════
+
+SEU PROBLEMA:
+  ❌ Sistema salvava E redirecionava ao selecionar "Casa"
+  ❌ Impossível continuar editando
+
+CAUSA:
+  Auto-save estava TOO AGRESSIVO
+  Salvava no BACKEND toda vez que mudava um campo
+
+CORREÇÃO APLICADA:
+  ✅ Auto-save agora salva APENAS LOCALMENTE
+  ✅ Backend é salvo apenas quando clicar "Salvar"
+  ✅ Você pode preencher TODOS os campos sem interrupção!
+
+═══════════════════════════════════════════════════════════
+  🎯 TESTE AGORA
+═══════════════════════════════════════════════════════════
+
+1. HARD REFRESH (Ctrl + Shift + R)
+
+2. /properties/new
+
+3. Selecione "Casa"
+   ✅ Campo atualiza
+   ✅ CONTINUA na tela
+   ✅ Não redireciona!
+
+4. Selecione "Tipo de anúncio"
+   ✅ CONTINUA na tela!
+
+5. Selecione "Subtipo"
+   ✅ CONTINUA na tela!
+
+6. Preencha TUDO que quiser
+   ✅ CONTINUA na tela!
+
+7. Quando terminar, clique "SALVAR"
+   ✅ AÍ SIM salva e redireciona!
+
+═══════════════════════════════════════════════════════════
+  ✅ VAI FUNCIONAR!
+═══════════════════════════════════════════════════════════
+
+Esta correção é SIMPLES e DEFINITIVA!
+
+Problema: Auto-save agressivo
+Solução: Auto-save apenas local
+
+TESTE E ME AVISE! 🚀
+
+═══════════════════════════════════════════════════════════
+  📌 v1.0.103.291-DESABILITAR-AUTO-SAVE-BACKEND
+═══════════════════════════════════════════════════════════

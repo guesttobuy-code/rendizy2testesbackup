@@ -1,0 +1,36 @@
+# Arquivos de backup
+*.backup
+*.bak
+index.ts.backup
+
+# Arquivos de teste
+__tests__/
+seed-chat-data.ts
+seed-complete-test.ts
+seed-data-enhanced.ts
+seed-data-test.ts
+seed-data.ts
+
+# Migrations antigas (já aplicadas)
+migrate-client-sites-kv-to-sql.ts
+migrate-medhome-to-sql.ts
+migrate-normalize-properties.ts
+migrate-properties-to-listings.ts
+
+# Documentação
+*.md
+MULTI_TENANT_EXAMPLE.md
+
+# Index alternativo
+index-minimal.ts
+
+# StaysNet full sync (muito grande)
+staysnet-full-sync.ts
+routes-staysnet-import.ts
+
+# Reset database
+reset-database.ts
+
+# Evolution credentials (não usado em produção)
+evolution-credentials.ts
+

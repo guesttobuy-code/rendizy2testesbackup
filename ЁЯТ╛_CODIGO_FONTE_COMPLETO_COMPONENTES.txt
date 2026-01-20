@@ -1,0 +1,91 @@
+===========================================
+   RENDIZY - CÓDIGO-FONTE COMPLETO
+   Principais Componentes para Reconstrução
+===========================================
+
+🎯 OBJETIVO:
+Reconstruir o projeto do zero em um novo Figma Make
+
+📋 ESTRUTURA DE PASTAS:
+/components
+  /ui (58 componentes shadcn - vou listar os principais)
+  /financeiro (módulo completo)
+  /wizard-steps (12 steps)
+  MainSidebar.tsx
+  DashboardInicial.tsx
+  CalendarGrid.tsx
+  PropertiesManagement.tsx
+  ReservationsManagement.tsx
+  ... (outros 70+ componentes)
+
+/utils
+  api.ts
+  mockBackend.ts
+  offlineMode.ts
+  ... (outros helpers)
+
+/App.tsx (arquivo principal)
+
+===========================================
+
+Vou criar arquivos separados para você:
+
+1️⃣ CORE (arquivos essenciais):
+   - App.tsx
+   - MainSidebar.tsx  
+   - DashboardInicial.tsx
+
+2️⃣ UTILS (helpers e APIs):
+   - api.ts
+   - mockBackend.ts
+   - offlineMode.ts
+
+3️⃣ COMPONENTS (principais):
+   - CalendarGrid.tsx
+   - PropertiesManagement.tsx
+   - ReservationsManagement.tsx
+
+4️⃣ UI (shadcn - os mais usados):
+   - button.tsx
+   - card.tsx
+   - dialog.tsx
+   - dropdown-menu.tsx
+
+===========================================
+   INSTRUÇÕES DE USO:
+===========================================
+
+PASSO 1: Criar novo projeto Figma Make vazio
+
+PASSO 2: Copiar arquivos de configuração:
+- package.json
+- index.html
+- src/main.tsx
+- styles/globals.css
+
+PASSO 3: Copiar utils básicos:
+- utils/mockBackend.ts
+- utils/offlineMode.ts
+- utils/api.ts
+
+PASSO 4: Copiar componentes UI (shadcn):
+- components/ui/button.tsx
+- components/ui/card.tsx
+- components/ui/dialog.tsx
+(adicione os outros conforme necessário)
+
+PASSO 5: Copiar componentes principais:
+- components/MainSidebar.tsx
+- components/DashboardInicial.tsx
+- components/CalendarGrid.tsx
+
+PASSO 6: Copiar App.tsx
+
+PASSO 7: Testar e adicionar resto gradualmente
+
+===========================================
+
+Aguarde... vou criar os arquivos individuais
+com o código completo de cada componente.
+
+Digite "CONTINUAR" quando estiver pronto.

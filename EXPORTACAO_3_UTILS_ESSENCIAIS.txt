@@ -1,0 +1,233 @@
+===========================================
+RENDIZY - EXPORTAÇÃO PARTE 3/5
+UTILS ESSENCIAIS
+===========================================
+
+📄 utils/mockBackend.ts (PARTE 1 - SEED DATA)
+-------------------------------------------
+const STORAGE_KEY = 'rendizy_mock_data';
+const MOCK_ENABLED_KEY = 'rendizy_mock_enabled';
+
+// Dados mock iniciais
+export function seedMockData() {
+  const today = new Date();
+  
+  const properties = [
+    {
+      id: 'PRP-A1B2C3',
+      name: 'Apartamento Copacabana 201',
+      code: 'COP201',
+      type: 'apartment',
+      status: 'active',
+      address: {
+        street: 'Av. Atlântica',
+        number: '1500',
+        city: 'Rio de Janeiro',
+        state: 'RJ',
+        country: 'BR',
+      },
+      maxGuests: 4,
+      bedrooms: 2,
+      bathrooms: 1,
+      pricing: {
+        basePrice: 35000, // R$ 350/noite (em centavos)
+        currency: 'BRL',
+      },
+      color: '#3B82F6',
+      isActive: true,
+    },
+    {
+      id: 'PRP-D4E5F6',
+      name: 'Casa Ipanema Premium',
+      code: 'IPA001',
+      type: 'house',
+      status: 'active',
+      address: {
+        street: 'Rua Visconde de Pirajá',
+        number: '500',
+        city: 'Rio de Janeiro',
+        state: 'RJ',
+        country: 'BR',
+      },
+      maxGuests: 8,
+      bedrooms: 4,
+      bathrooms: 3,
+      pricing: {
+        basePrice: 80000, // R$ 800/noite
+        currency: 'BRL',
+      },
+      color: '#10B981',
+      isActive: true,
+    },
+  ];
+
+  const guests = [
+    {
+      id: 'GST-X1Y2Z3',
+      firstName: 'João',
+      lastName: 'Silva',
+      fullName: 'João Silva',
+      email: 'joao.silva@email.com',
+      phone: '+5521987654321',
+    },
+    {
+      id: 'GST-A4B5C6',
+      firstName: 'Maria',
+      lastName: 'Santos',
+      fullName: 'Maria Santos',
+      email: 'maria.santos@email.com',
+      phone: '+5511987654321',
+    },
+  ];
+
+  const reservations = [
+    {
+      id: 'RSV-M1N2O3',
+      propertyId: properties[0].id,
+      guestId: guests[0].id,
+      checkIn: '2025-11-10',
+      checkOut: '2025-11-13',
+      nights: 3,
+      status: 'confirmed',
+      platform: 'airbnb',
+      pricing: {
+        total: 120000, // R$ 1.200
+        currency: 'BRL',
+      },
+    },
+  ];
+
+  const data = { properties, guests, reservations, blocks: [] };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  console.log('✅ Mock data inicializado');
+  return data;
+}
+
+function loadData() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) {
+    return seedMockData();
+  }
+  return JSON.parse(stored);
+}
+
+function saveData(data: any) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// API Mock
+export const mockBackend = {
+  getProperties: async () => {
+    const data = loadData();
+    return { success: true, data: data.properties };
+  },
+  
+  getGuests: async () => {
+    const data = loadData();
+    return { success: true, data: data.guests };
+  },
+  
+  getReservations: async () => {
+    const data = loadData();
+    return { success: true, data: data.reservations };
+  },
+};
+
+// Habilitar/desabilitar mock
+export function enableMockMode() {
+  localStorage.setItem(MOCK_ENABLED_KEY, 'true');
+  console.log('✅ Modo Mock habilitado');
+}
+
+export function disableMockMode() {
+  localStorage.setItem(MOCK_ENABLED_KEY, 'false');
+  console.log('⚠️ Modo Mock desabilitado');
+}
+
+export function isMockEnabled(): boolean {
+  return localStorage.getItem(MOCK_ENABLED_KEY) === 'true';
+}
+
+export function resetMockData() {
+  localStorage.removeItem(STORAGE_KEY);
+  seedMockData();
+  console.log('🔄 Dados resetados');
+}
+-------------------------------------------
+
+📄 utils/offlineMode.ts
+-------------------------------------------
+let offlineMode = false;
+
+export function setOfflineMode(enabled: boolean) {
+  offlineMode = enabled;
+  console.log(`${enabled ? '✅' : '⚠️'} Modo offline: ${enabled}`);
+}
+
+export function isOfflineMode(): boolean {
+  return offlineMode;
+}
+-------------------------------------------
+
+📄 utils/api.ts (BÁSICO)
+-------------------------------------------
+import { mockBackend } from './mockBackend';
+
+const API_URL = 'https://sua-url-supabase.supabase.co/functions/v1/make-server-67caf26a';
+
+async function fetchAPI(endpoint: string, options: any = {}) {
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    
+    if (!response.ok) throw new Error('API Error');
+    return await response.json();
+  } catch (error) {
+    console.warn('⚠️ API falhou, usando mock:', error);
+    // Fallback para mock
+    throw error;
+  }
+}
+
+export const propertiesApi = {
+  list: async () => mockBackend.getProperties(),
+  get: async (id: string) => ({ success: true, data: {} }),
+  create: async (data: any) => ({ success: true, data }),
+  update: async (id: string, data: any) => ({ success: true, data }),
+  delete: async (id: string) => ({ success: true }),
+};
+
+export const reservationsApi = {
+  list: async () => mockBackend.getReservations(),
+  get: async (id: string) => ({ success: true, data: {} }),
+  create: async (data: any) => ({ success: true, data }),
+  update: async (id: string, data: any) => ({ success: true, data }),
+  delete: async (id: string) => ({ success: true }),
+};
+
+export const guestsApi = {
+  list: async () => mockBackend.getGuests(),
+  get: async (id: string) => ({ success: true, data: {} }),
+  create: async (data: any) => ({ success: true, data }),
+  update: async (id: string, data: any) => ({ success: true, data }),
+  delete: async (id: string) => ({ success: true }),
+};
+-------------------------------------------
+
+📄 utils/autoRecovery.ts (DESABILITADO)
+-------------------------------------------
+export function initAutoRecovery() {
+  console.log('⚠️ Auto-recovery DESABILITADO');
+  // Mantido vazio para compatibilidade
+}
+-------------------------------------------
+
+===========================================
+FIM DA PARTE 3/5
+Continue com: EXPORTACAO_4_COMPONENTES.txt
+===========================================

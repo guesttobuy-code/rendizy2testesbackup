@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Label CSS - v1.0.103.299</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin-bottom: 30px;
+            color: #333;
+        }
+        
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        
+        .test-section h2 {
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 18px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        .space-y-2 > * + * {
+            margin-top: 8px;
+        }
+        
+        /* LABEL ORIGINAL DO SHADCN */
+        .label-original {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            line-height: 1;
+            font-weight: 500;
+            user-select: none;
+        }
+        
+        /* LABEL CORRIGIDO */
+        .label-fixed {
+            display: block;
+            width: 100%;
+            font-size: 14px;
+            line-height: 1;
+            font-weight: 500;
+            user-select: none;
+        }
+        
+        select {
+            display: flex;
+            height: 40px;
+            width: 100%;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            background: white;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .correct {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+        }
+        
+        .wrong {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+        }
+        
+        .code {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste: Label CSS - RENDIZY v1.0.103.299</h1>
+        
+        <!-- TESTE 1: Label Original (PROBLEMA) -->
+        <div class="test-section">
+            <h2>❌ TESTE 1: Label Original (com flex items-center gap-2)</h2>
+            <p style="margin-bottom: 16px; color: #666;">Este é o comportamento ANTIGO que causa o problema:</p>
+            
+            <div class="grid">
+                <div class="space-y-2">
+                    <label class="label-original" for="test1-property">Tipo do local</label>
+                    <select id="test1-property">
+                        <option>Selecione</option>
+                    </select>
+                </div>
+                
+                <div class="space-y-2">
+                    <label class="label-original" for="test1-accommodation">Tipo de acomodação</label>
+                    <select id="test1-accommodation">
+                        <option>Selecione</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="result wrong">
+                <strong>Problema:</strong> flex + items-center + gap pode quebrar em 2 linhas<br>
+                Resultado: "Tipo de" (quebrado) "acomodação" (próxima linha ou oculto)
+            </div>
+            
+            <div class="code">
+className="flex items-center gap-2 text-sm leading-none font-medium"</div>
+        </div>
+        
+        <!-- TESTE 2: Label Corrigido (SOLUÇÃO) -->
+        <div class="test-section">
+            <h2>✅ TESTE 2: Label Corrigido (com block w-full)</h2>
+            <p style="margin-bottom: 16px; color: #666;">Este é o comportamento NOVO com a correção:</p>
+            
+            <div class="grid">
+                <div class="space-y-2">
+                    <label class="label-fixed" for="test2-property">Tipo do local</label>
+                    <select id="test2-property">
+                        <option>Selecione</option>
+                    </select>
+                </div>
+                
+                <div class="space-y-2">
+                    <label class="label-fixed" for="test2-accommodation">Tipo de acomodação</label>
+                    <select id="test2-accommodation">
+                        <option>Selecione</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="result correct">
+                <strong>Solução:</strong> display: block + width: 100% garante uma linha só<br>
+                Resultado: "Tipo de acomodação" (completo em uma linha) ✅
+            </div>
+            
+            <div class="code">
+className="block w-full text-sm leading-none font-medium"</div>
+        </div>
+        
+        <!-- TESTE 3: Comparação Lado a Lado -->
+        <div class="test-section">
+            <h2>🔍 TESTE 3: Comparação Direta</h2>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f3f4f6;">
+                        <th style="padding: 12px; text-align: left; border: 1px solid #d1d5db;">Método</th>
+                        <th style="padding: 12px; text-align: left; border: 1px solid #d1d5db;">CSS</th>
+                        <th style="padding: 12px; text-align: left; border: 1px solid #d1d5db;">Resultado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px; border: 1px solid #d1d5db;">Original</td>
+                        <td style="padding: 12px; border: 1px solid #d1d5db; font-family: monospace; font-size: 12px;">
+                            flex items-center gap-2
+                        </td>
+                        <td style="padding: 12px; border: 1px solid #d1d5db; color: #ef4444;">
+                            ❌ "Tipo de" (quebrado)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; border: 1px solid #d1d5db;">Corrigido</td>
+                        <td style="padding: 12px; border: 1px solid #d1d5db; font-family: monospace; font-size: 12px;">
+                            block w-full
+                        </td>
+                        <td style="padding: 12px; border: 1px solid #d1d5db; color: #10b981;">
+                            ✅ "Tipo de acomodação" (completo)
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- INSTRUÇÕES -->
+        <div class="test-section" style="background: #fffbeb; border-color: #f59e0b;">
+            <h2>📋 O QUE FAZER AGORA:</h2>
+            <ol style="margin-left: 20px; line-height: 1.8;">
+                <li>Abra este arquivo HTML no seu navegador</li>
+                <li>Compare os TESTE 1 vs TESTE 2</li>
+                <li>Se os dois aparecerem iguais aqui = problema é no CSS do sistema</li>
+                <li>Se TESTE 2 aparecer correto aqui = a correção funciona!</li>
+                <li>Limpe o cache do navegador: <strong>Ctrl + Shift + R</strong></li>
+                <li>Abra o sistema e veja se aparece como TESTE 2</li>
+            </ol>
+        </div>
+        
+        <!-- DEBUG INFO -->
+        <div style="margin-top: 40px; padding: 20px; background: #1e293b; color: #e2e8f0; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 12px;">
+            <div><strong>BUILD:</strong> v1.0.103.299</div>
+            <div><strong>DATA:</strong> 04 NOV 2025</div>
+            <div><strong>CORREÇÃO:</strong> className="block w-full" nos Labels</div>
+            <div><strong>ARQUIVO:</strong> /components/wizard-steps/ContentTypeStep.tsx</div>
+            <div><strong>LINHAS:</strong> 219 (Tipo do local) e 238 (Tipo de acomodação)</div>
+        </div>
+    </div>
+    
+    <script>
+        console.log('🧪 Teste Label CSS - v1.0.103.299');
+        console.log('✅ Se você ver este log = arquivo HTML carregou corretamente');
+        
+        // Detectar largura dos labels
+        window.addEventListener('load', () => {
+            const originalLabels = document.querySelectorAll('.label-original');
+            const fixedLabels = document.querySelectorAll('.label-fixed');
+            
+            console.log('📊 Labels Originais:', originalLabels.length);
+            originalLabels.forEach((label, i) => {
+                console.log(`  Label ${i+1}: "${label.textContent}" - Width: ${label.offsetWidth}px`);
+            });
+            
+            console.log('📊 Labels Corrigidos:', fixedLabels.length);
+            fixedLabels.forEach((label, i) => {
+                console.log(`  Label ${i+1}: "${label.textContent}" - Width: ${label.offsetWidth}px`);
+            });
+        });
+    </script>
+</body>
+</html>

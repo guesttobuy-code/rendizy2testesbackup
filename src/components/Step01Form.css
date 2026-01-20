@@ -1,0 +1,25 @@
+.step01-card {
+  max-width: 900px;
+  margin: 12px auto;
+  padding: 20px;
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+  background: #fff;
+}
+.step01-card h2 { margin: 0 0 6px 0 }
+.step01-card .muted { color: #666; margin-bottom: 12px }
+.form-row { margin-bottom: 14px }
+.form-row label { display:block; font-weight:600; margin-bottom:6px }
+.form-row input[type="text"], .form-row input[type="email"], .form-row select { width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:4px }
+.form-row.two-cols { display:flex; gap:12px }
+.form-row.two-cols > div { flex:1 }
+.checkboxes label, .radios label { display:block; margin-bottom:6px }
+.status { display:inline-block; margin-left:8px; font-size:12px; color:#888 }
+.status.saving { color: #ff8800 }
+.status.saved { color: #10893e }
+.status.error { color: #c0392b }
+.error { display:block; margin-top:4px; font-size:12px; color:#c0392b; font-weight:500 }
+.footer-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px }
+.btn { padding:8px 14px; border-radius:6px; border: none }
+.btn.secondary { background:#f0f0f0 }
+.btn.primary { background:#0b66ff; color:#fff }

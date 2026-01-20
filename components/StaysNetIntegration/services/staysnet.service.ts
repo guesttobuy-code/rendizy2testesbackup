@@ -1,0 +1,867 @@
+/**
+ * StaysNet Integration - Service Layer
+ * Centralized API communication with error handling and retry logic
+ */
+
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { staysnetLogger } from '../utils/logger';
+import type {
+  StaysNetConfig,
+  StaysNetProperty,
+  ImportOptions,
+  ImportResult,
+  TestConnectionResult,
+  FetchPropertiesResult,
+  ImportType,
+  ImportPreview,
+  ListImportIssuesResult,
+} from '../types';
+
+type NormalizedSectionStats = { fetched: number; created: number; updated: number; failed: number };
+
+function normalizeDateTypeForApi(input: unknown): string {
+  const v = String(input || '').trim().toLowerCase();
+  if (v === 'checkin') return 'arrival';
+  if (v === 'checkout') return 'departure';
+  if (v === 'arrival') return 'arrival';
+  if (v === 'departure') return 'departure';
+  if (v === 'creation') return 'creation';
+  if (v === 'creationorig') return 'creationorig';
+  if (v === 'included') return 'included';
+  return 'arrival';
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+  if (chunkSize <= 0) return [items];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+function parseHttpStatusFromError(error: unknown): number | null {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/\bHTTP\s+(\d{3})\b/);
+  if (!match) return null;
+  const code = Number(match[1]);
+  return Number.isFinite(code) ? code : null;
+}
+
+function isRetryableHttpStatus(status: number): boolean {
+  // 546: Supabase Edge Function compute exceeded
+  // 429: rate limit
+  // 5xx: transient infra
+  return status === 429 || status === 546 || (status >= 500 && status <= 599);
+}
+
+function sumSectionStats(a: NormalizedSectionStats, b: NormalizedSectionStats): NormalizedSectionStats {
+  return {
+    fetched: numberOrZero(a.fetched) + numberOrZero(b.fetched),
+    created: numberOrZero(a.created) + numberOrZero(b.created),
+    updated: numberOrZero(a.updated) + numberOrZero(b.updated),
+    failed: numberOrZero(a.failed) + numberOrZero(b.failed),
+  };
+}
+
+function numberOrZero(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeSectionStats(raw: any): NormalizedSectionStats {
+  if (!raw || typeof raw !== 'object') {
+    return { fetched: 0, created: 0, updated: 0, failed: 0 };
+  }
+
+  // Already normalized
+  if (
+    typeof raw.fetched === 'number' &&
+    typeof raw.created === 'number' &&
+    typeof raw.updated === 'number' &&
+    typeof raw.failed === 'number'
+  ) {
+    return {
+      fetched: numberOrZero(raw.fetched),
+      created: numberOrZero(raw.created),
+      updated: numberOrZero(raw.updated),
+      failed: numberOrZero(raw.failed),
+    };
+  }
+
+  // Newer backend: { fetched, saved, errors, skipped }
+  if (typeof raw.fetched === 'number' || typeof raw.saved === 'number' || typeof raw.errors === 'number') {
+    // Guests import variant: { fetched, processed, created, linked, skipped, errors }
+    // - processed: quantos registros foram processados
+    // - created: quantos hóspedes foram criados
+    // - linked: quantas reservas foram vinculadas ao hóspede
+    if (typeof raw.processed === 'number' || typeof raw.linked === 'number') {
+      const fetched = numberOrZero(raw.processed ?? raw.fetched);
+      const created = numberOrZero(raw.created);
+      const updated = numberOrZero(raw.linked);
+      const failed = numberOrZero(raw.errors);
+      return { fetched, created, updated, failed };
+    }
+
+    const fetched = numberOrZero(raw.fetched);
+    const saved = numberOrZero(raw.saved);
+    const errors = numberOrZero(raw.errors);
+    // "saved" pode incluir inserts+updates; mostramos como "created" por falta de granularidade.
+    return { fetched, created: saved, updated: 0, failed: errors };
+  }
+
+  // Older backend: { total, created, updated, errors }
+  if (typeof raw.total === 'number' || typeof raw.created === 'number' || typeof raw.updated === 'number') {
+    const created = numberOrZero(raw.created);
+    const updated = numberOrZero(raw.updated);
+    const total = numberOrZero(raw.total);
+    const errors = numberOrZero(raw.errors);
+    const fetched = total > 0 ? total : created + updated;
+    return { fetched, created, updated, failed: errors };
+  }
+
+  // Other variants
+  const inserted = numberOrZero(raw.inserted);
+  const upserted = numberOrZero(raw.upserted);
+  const updated = numberOrZero(raw.updated);
+  const errors = numberOrZero(raw.failed ?? raw.errors);
+  const fetched = numberOrZero(raw.fetched) || inserted + upserted + updated;
+  const created = inserted || upserted;
+  return { fetched, created, updated, failed: errors };
+}
+
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1`;
+
+interface RequestOptions extends RequestInit {
+  skipAuth?: boolean;
+  retries?: number;
+}
+
+/**
+ * StaysNet Service Class
+ * Handles all API communication with proper error handling
+ */
+export class StaysNetService {
+  private static unwrapEnvelope<T = any>(response: any): T {
+    // Alguns endpoints devolvem { success, data: {...} }
+    // Outros (imports modulares) devolvem { success, stats, next, ... } direto.
+    if (response && typeof response === 'object' && 'data' in response && (response as any).data != null) {
+      return (response as any).data as T;
+    }
+    return response as T;
+  }
+
+  /**
+   * Generic request method with error handling and retry logic
+   */
+  private static async request<T = any>(
+    endpoint: string,
+    options: RequestOptions = {}
+  ): Promise<T> {
+    const { skipAuth, retries = 0, ...fetchOptions } = options;
+    const token = !skipAuth ? localStorage.getItem('rendizy-token') : null;
+
+    if (!skipAuth && !token) {
+      throw new Error('Token de autenticação não encontrado. Faça login novamente.');
+    }
+
+    const url = `${BASE_URL}${endpoint}`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...fetchOptions.headers,
+    };
+
+    if (token && !skipAuth) {
+      headers['X-Auth-Token'] = token;
+    }
+
+    // Edge Function exige Bearer + apikey mesmo sendo rota privada; não remover.
+    if (publicAnonKey) {
+      headers['Authorization'] = `Bearer ${publicAnonKey}`;
+      headers['apikey'] = publicAnonKey;
+    }
+
+    staysnetLogger.api.info(`Request: ${fetchOptions.method || 'GET'} ${endpoint}`);
+
+    let lastError: Error | null = null;
+
+    // Retry logic
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(url, {
+          ...fetchOptions,
+          headers,
+        });
+
+        staysnetLogger.api.info(`Response: ${response.status} ${response.statusText}`);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMessage: string;
+
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error || errorData.message || response.statusText;
+          } catch {
+            errorMessage = errorText || response.statusText;
+          }
+
+          throw new Error(
+            `HTTP ${response.status}: ${errorMessage}`
+          );
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        lastError = error as Error;
+
+        if (attempt < retries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+          staysnetLogger.api.info(`Retry ${attempt + 1}/${retries} after ${delay}ms`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    staysnetLogger.api.error('Request failed', lastError);
+    throw lastError;
+  }
+
+  /**
+   * Save StaysNet configuration
+   */
+  static async saveConfig(config: StaysNetConfig): Promise<{ success: boolean }> {
+    staysnetLogger.config.info('Salvando configuração...', { baseUrl: config.baseUrl });
+
+    try {
+      const response = await this.request<{ success: boolean }>('/rendizy-server/make-server-67caf26a/settings/staysnet', {
+        method: 'POST',
+        body: JSON.stringify(config),
+      });
+
+      if (response.success) {
+        staysnetLogger.config.success('Configuração salva com sucesso');
+      }
+
+      return response;
+    } catch (error) {
+      staysnetLogger.config.error('Erro ao salvar configuração', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Test StaysNet connection
+   */
+  static async testConnection(config: StaysNetConfig): Promise<TestConnectionResult> {
+    staysnetLogger.connection.info('Testando conexão...', { baseUrl: config.baseUrl });
+
+    try {
+      const response = await this.request<TestConnectionResult>('/rendizy-server/make-server-67caf26a/staysnet/test', {
+        method: 'POST',
+        body: JSON.stringify({
+          apiKey: config.apiKey,
+          apiSecret: config.apiSecret,
+          baseUrl: config.baseUrl,
+        }),
+        retries: 2,
+      });
+
+      if (response.success) {
+        staysnetLogger.connection.success('Conexão estabelecida com sucesso');
+      } else {
+        staysnetLogger.connection.error('Falha na conexão', response.message);
+      }
+
+      return response;
+    } catch (error) {
+      staysnetLogger.connection.error('Erro ao testar conexão', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch available properties from StaysNet
+   */
+  static async fetchProperties(
+    config: StaysNetConfig,
+    options: { skip?: number; limit?: number } = {}
+  ): Promise<FetchPropertiesResult> {
+    const { skip = 0, limit = 20 } = options;
+
+    staysnetLogger.properties.info(`Buscando propriedades (skip: ${skip}, limit: ${limit})`);
+
+    try {
+      const response = await this.request<{ success: boolean; data: any }>('/rendizy-server/make-server-67caf26a/staysnet/test-endpoint', {
+        method: 'POST',
+        body: JSON.stringify({
+          apiKey: config.apiKey,
+          apiSecret: config.apiSecret,
+          baseUrl: config.baseUrl,
+          endpoint: '/content/listings',
+          params: { skip, limit },
+        }),
+      });
+
+      if (!response.success) {
+        throw new Error('Falha ao buscar propriedades');
+      }
+
+      // A API Stays.net retorna um array direto em response.data
+      const properties: StaysNetProperty[] = Array.isArray(response.data) 
+        ? response.data 
+        : [];
+      const total = properties.length;
+
+      staysnetLogger.properties.success(`${properties.length} propriedades carregadas`);
+
+      return {
+        success: true,
+        properties,
+        total,
+      };
+    } catch (error) {
+      staysnetLogger.properties.error('Erro ao buscar propriedades', error);
+      return {
+        success: false,
+        properties: [],
+        total: 0,
+        error: (error as Error).message,
+      };
+    }
+  }
+
+  /**
+   * Fetch ALL properties with pagination
+   */
+  static async fetchAllProperties(config: StaysNetConfig): Promise<StaysNetProperty[]> {
+    staysnetLogger.properties.info('Buscando TODAS as propriedades (paginação inteligente)');
+
+    const allProperties: StaysNetProperty[] = [];
+    let skip = 0;
+    const limit = 20; // ✅ Stays.net: limit max 20
+    let hasMore = true;
+
+    while (hasMore) {
+      const result = await this.fetchProperties(config, { skip, limit });
+
+      if (!result.success || result.properties.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      // Filter only active and hidden properties
+      const validProperties = result.properties.filter(
+        (p) => p.status === 'active' || p.status === 'hidden'
+      );
+
+      allProperties.push(...validProperties);
+      skip += limit;
+
+      // Stop if we fetched less than limit (last page)
+      if (result.properties.length < limit) {
+        hasMore = false;
+      }
+
+      staysnetLogger.properties.info(`Progresso: ${allProperties.length} propriedades`);
+    }
+
+    staysnetLogger.properties.success(`Total: ${allProperties.length} propriedades carregadas`);
+
+    return allProperties;
+  }
+
+  /**
+   * Preview import to detect existing vs new listings (no DB writes)
+   */
+  static async previewImport(propertyIds: string[]): Promise<ImportPreview> {
+    staysnetLogger.import.info('Gerando preview de importação', { total: propertyIds.length });
+
+    const response = await this.request<{ success: boolean; data: ImportPreview }>(
+      '/rendizy-server/make-server-67caf26a/staysnet/import/preview',
+      {
+        method: 'POST',
+        body: JSON.stringify({ propertyIds }),
+      }
+    );
+
+    // API envelopa em { success, data }
+    return (response as any).data || (response as any);
+  }
+
+  /**
+   * Import properties
+   */
+  static async importProperties(
+    config: StaysNetConfig,
+    options: ImportOptions
+  ): Promise<ImportResult> {
+    const rawIds = options.selectedPropertyIds || [];
+    const ids = Array.from(new Set(rawIds.filter(Boolean)));
+
+    staysnetLogger.import.info('Iniciando importação de propriedades', { count: ids.length });
+
+    const BATCH_SIZE = 10; // cadência segura p/ evitar estouro de compute
+    const BETWEEN_BATCH_DELAY_MS = 350;
+    const MAX_ATTEMPTS_PER_BATCH = 4;
+    const BASE_RETRY_DELAY_MS = 800;
+
+    const batches = chunkArray(ids, BATCH_SIZE);
+    let aggregated = normalizeSectionStats(null);
+
+    try {
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batchIds = batches[batchIndex];
+        staysnetLogger.import.info(`Importando lote ${batchIndex + 1}/${batches.length}`, {
+          count: batchIds.length,
+        });
+
+        let lastError: unknown = null;
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_BATCH; attempt++) {
+          try {
+            // ✅ Usar endpoint modular /import/properties
+            const response = await this.request<{ success: boolean; data: any }>(
+              '/rendizy-server/make-server-67caf26a/staysnet/import/properties',
+              {
+                method: 'POST',
+                body: JSON.stringify({
+                  selectedPropertyIds: batchIds,
+                }),
+              }
+            );
+
+            if (!response.success) {
+              throw new Error(response.data?.error || 'Erro ao importar propriedades');
+            }
+
+            const section = normalizeSectionStats(response.data?.stats || response.data);
+            aggregated = sumSectionStats(aggregated, section);
+            break; // success
+          } catch (error) {
+            lastError = error;
+            const status = parseHttpStatusFromError(error);
+            const canRetry = status != null ? isRetryableHttpStatus(status) : attempt < MAX_ATTEMPTS_PER_BATCH;
+
+            if (attempt >= MAX_ATTEMPTS_PER_BATCH || !canRetry) {
+              throw error;
+            }
+
+            const backoff = Math.min(BASE_RETRY_DELAY_MS * Math.pow(2, attempt - 1), 12_000);
+            staysnetLogger.import.info(`Retry lote ${batchIndex + 1}/${batches.length} (tentativa ${attempt}/${MAX_ATTEMPTS_PER_BATCH})`, {
+              status,
+              backoffMs: backoff,
+            });
+            await sleep(backoff);
+          }
+        }
+
+        if (batchIndex < batches.length - 1) {
+          await sleep(BETWEEN_BATCH_DELAY_MS);
+        }
+
+        if (lastError) {
+          // keep for debugging in case logs are needed
+        }
+      }
+
+      staysnetLogger.import.success('Propriedades importadas com sucesso', aggregated);
+      return { success: true, stats: { properties: aggregated } };
+    } catch (error) {
+      staysnetLogger.import.error('Erro ao importar propriedades', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Import reservations
+   */
+  static async importReservations(
+    config: StaysNetConfig,
+    options: ImportOptions
+  ): Promise<ImportResult> {
+    staysnetLogger.import.info('Iniciando importação de reservas', options);
+
+    try {
+      // Importa em lotes para não depender de um único request gigante.
+      // O backend devolve { next: { skip, hasMore } }.
+      const LIMIT = 20;
+      const MAX_PAGES_PER_REQUEST = 10;
+      const MAX_REQUESTS = 200;
+      const BETWEEN_REQUEST_DELAY_MS = 250;
+
+      let aggregated: NormalizedSectionStats = { fetched: 0, created: 0, updated: 0, failed: 0 };
+      let skip = 0;
+      let hasMore = true;
+      let requests = 0;
+
+      while (hasMore && requests < MAX_REQUESTS) {
+        requests++;
+
+        staysnetLogger.import.info(`Import reservas - lote ${requests}${skip > 0 ? ` (skip=${skip})` : ''}`);
+
+        const rawResponse = await this.request<any>(
+          '/rendizy-server/make-server-67caf26a/staysnet/import/reservations',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              apiKey: config.apiKey,
+              apiSecret: config.apiSecret,
+              baseUrl: config.baseUrl,
+              // 🔒 Restringe import às propriedades selecionadas na UI (quando fornecido)
+              selectedPropertyIds: options.selectedPropertyIds || [],
+              // ✅ API StaysNet usa from/to/dateType; backend aceita também startDate/endDate
+              from: options.startDate,
+              to: options.endDate,
+              dateType: normalizeDateTypeForApi(options.dateType || 'included'),
+              startDate: options.startDate,
+              endDate: options.endDate,
+              // ✅ CRÍTICO: incluir canceladas para que reimports reflitam cancelamentos/alterações
+              includeCanceled: '1',
+              // paginação
+              limit: LIMIT,
+              skip,
+              maxPages: MAX_PAGES_PER_REQUEST,
+            }),
+          },
+        );
+
+        const payload = this.unwrapEnvelope<any>(rawResponse);
+        const success = Boolean((rawResponse as any)?.success ?? payload?.success);
+        if (!success) {
+          throw new Error(payload?.error || payload?.message || 'Erro ao importar reservas');
+        }
+
+        const section = normalizeSectionStats(payload?.stats || payload);
+        aggregated = sumSectionStats(aggregated, section);
+
+        const next = payload?.next;
+        hasMore = Boolean(next?.hasMore);
+        if (hasMore) {
+          const nextSkip = Number(next?.skip);
+          skip = Number.isFinite(nextSkip) ? nextSkip : skip + LIMIT * MAX_PAGES_PER_REQUEST;
+          await sleep(BETWEEN_REQUEST_DELAY_MS);
+        }
+      }
+
+      if (hasMore && requests >= MAX_REQUESTS) {
+        staysnetLogger.import.warn('Import reservas interrompido por segurança (MAX_REQUESTS atingido)', {
+          requests,
+          skip,
+          aggregated,
+        });
+      }
+
+      staysnetLogger.import.success('Reservas importadas com sucesso', aggregated);
+      return { success: true, stats: { reservations: aggregated } };
+    } catch (error) {
+      staysnetLogger.import.error('Erro ao importar reservas', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Import guests
+   */
+  static async importGuests(
+    config: StaysNetConfig,
+    options?: Pick<ImportOptions, 'startDate' | 'endDate' | 'dateType'>
+  ): Promise<ImportResult> {
+    staysnetLogger.import.info('Iniciando importação de hóspedes');
+
+    try {
+      const LIMIT = 20;
+      const MAX_PAGES_PER_REQUEST = 10;
+      const MAX_REQUESTS = 200;
+      const BETWEEN_REQUEST_DELAY_MS = 250;
+
+      let aggregated: NormalizedSectionStats = { fetched: 0, created: 0, updated: 0, failed: 0 };
+      let skip = 0;
+      let hasMore = true;
+      let requests = 0;
+
+      while (hasMore && requests < MAX_REQUESTS) {
+        requests++;
+
+        staysnetLogger.import.info(`Import hóspedes - lote ${requests}${skip > 0 ? ` (skip=${skip})` : ''}`);
+
+        const rawResponse = await this.request<any>(
+          '/rendizy-server/make-server-67caf26a/staysnet/import/guests',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              apiKey: config.apiKey,
+              apiSecret: config.apiSecret,
+              baseUrl: config.baseUrl,
+              // ✅ API StaysNet usa from/to/dateType; backend aceita também startDate/endDate
+              from: options?.startDate,
+              to: options?.endDate,
+              dateType: normalizeDateTypeForApi(options?.dateType || 'included'),
+              startDate: options?.startDate,
+              endDate: options?.endDate,
+              // ✅ Manter alinhado com reservas: incluir canceladas para reprocessar vínculos/enriquecimento
+              includeCanceled: '1',
+              // paginação
+              limit: LIMIT,
+              skip,
+              maxPages: MAX_PAGES_PER_REQUEST,
+            }),
+          },
+        );
+
+        const payload = this.unwrapEnvelope<any>(rawResponse);
+        const success = Boolean((rawResponse as any)?.success ?? payload?.success);
+        if (!success) {
+          throw new Error(payload?.error || payload?.message || 'Erro ao importar hóspedes');
+        }
+
+        const section = normalizeSectionStats(payload?.stats || payload);
+        aggregated = sumSectionStats(aggregated, section);
+
+        const next = payload?.next;
+        hasMore = Boolean(next?.hasMore);
+        if (hasMore) {
+          const nextSkip = Number(next?.skip);
+          skip = Number.isFinite(nextSkip) ? nextSkip : skip + LIMIT * MAX_PAGES_PER_REQUEST;
+          await sleep(BETWEEN_REQUEST_DELAY_MS);
+        }
+      }
+
+      if (hasMore && requests >= MAX_REQUESTS) {
+        staysnetLogger.import.warn('Import hóspedes interrompido por segurança (MAX_REQUESTS atingido)', {
+          requests,
+          skip,
+          aggregated,
+        });
+      }
+
+      staysnetLogger.import.success('Hóspedes importados com sucesso', aggregated);
+      return { success: true, stats: { guests: aggregated } };
+    } catch (error) {
+      staysnetLogger.import.error('Erro ao importar hóspedes', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Import blocks (blocked/maintenance) -> tabela blocks
+   */
+  static async importBlocks(
+    config: StaysNetConfig,
+    options: ImportOptions
+  ): Promise<ImportResult> {
+    staysnetLogger.import.info('Iniciando importação de bloqueios', options);
+
+    try {
+      const LIMIT = 20;
+      const MAX_PAGES_PER_REQUEST = 10;
+      const MAX_REQUESTS = 200;
+      const BETWEEN_REQUEST_DELAY_MS = 250;
+
+      let aggregated: NormalizedSectionStats = { fetched: 0, created: 0, updated: 0, failed: 0 };
+      let skip = 0;
+      let hasMore = true;
+      let requests = 0;
+
+      while (hasMore && requests < MAX_REQUESTS) {
+        requests++;
+
+        staysnetLogger.import.info(`Import bloqueios - lote ${requests}${skip > 0 ? ` (skip=${skip})` : ''}`);
+
+        const rawResponse = await this.request<any>(
+          '/rendizy-server/make-server-67caf26a/staysnet/import/blocks',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              apiKey: config.apiKey,
+              apiSecret: config.apiSecret,
+              baseUrl: config.baseUrl,
+              // 🔒 Restringe import às propriedades selecionadas na UI (quando fornecido)
+              selectedPropertyIds: options.selectedPropertyIds || [],
+              from: options.startDate,
+              to: options.endDate,
+              dateType: normalizeDateTypeForApi(options.dateType || 'included'),
+              // paginação
+              limit: LIMIT,
+              skip,
+              maxPages: MAX_PAGES_PER_REQUEST,
+            }),
+          }
+        );
+
+        const payload = this.unwrapEnvelope<any>(rawResponse);
+        const success = Boolean((rawResponse as any)?.success ?? payload?.success);
+        if (!success) {
+          throw new Error(payload?.error || payload?.message || 'Erro ao importar bloqueios');
+        }
+
+        const section = normalizeSectionStats(payload?.stats || payload);
+        aggregated = sumSectionStats(aggregated, section);
+
+        const next = payload?.next;
+        hasMore = Boolean(next?.hasMore);
+        if (hasMore) {
+          const nextSkip = Number(next?.skip);
+          skip = Number.isFinite(nextSkip) ? nextSkip : skip + LIMIT * MAX_PAGES_PER_REQUEST;
+          await sleep(BETWEEN_REQUEST_DELAY_MS);
+        }
+      }
+
+      if (hasMore && requests >= MAX_REQUESTS) {
+        staysnetLogger.import.warn('Import bloqueios interrompido por segurança (MAX_REQUESTS atingido)', {
+          requests,
+          skip,
+          aggregated,
+        });
+      }
+
+      staysnetLogger.import.success('Bloqueios importados com sucesso', aggregated);
+      return { success: true, stats: { blocks: aggregated } };
+    } catch (error) {
+      staysnetLogger.import.error('Erro ao importar bloqueios', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List import issues (e.g. reservations missing property mapping).
+    * Documento canônico: docs/04-modules/STAYSNET_IMPORT_ISSUES.md
+   */
+  static async listImportIssues(params?: { status?: 'open' | 'resolved' | 'all'; limit?: number; offset?: number }): Promise<ListImportIssuesResult> {
+    const status = params?.status || 'open';
+    const limit = typeof params?.limit === 'number' ? params!.limit : 50;
+    const offset = typeof params?.offset === 'number' ? params!.offset : 0;
+
+    const qs = new URLSearchParams({
+      status,
+      limit: String(limit),
+      offset: String(offset),
+    });
+
+    let rawResponse: any;
+    try {
+      rawResponse = await this.request<any>(
+        `/rendizy-server/make-server-67caf26a/staysnet/import/issues?${qs.toString()}`,
+        { method: 'GET' },
+      );
+    } catch (e) {
+      const msg = (e as Error)?.message || String(e);
+
+      // Compat: backend ainda não foi redeployado com a rota nova.
+      // Não tratar como erro fatal no UI; apenas retorna lista vazia.
+      if (/^HTTP\s+404\s*:/i.test(msg)) {
+        return {
+          success: true,
+          issues: [],
+          count: 0,
+          message: 'Endpoint de issues ainda não está disponível no backend (redeploy pendente).',
+        };
+      }
+
+      return {
+        success: false,
+        issues: [],
+        count: 0,
+        error: msg,
+      };
+    }
+
+    const payload = this.unwrapEnvelope<any>(rawResponse);
+    const success = Boolean((rawResponse as any)?.success ?? payload?.success);
+
+    if (!success) {
+      return {
+        success: false,
+        issues: [],
+        count: 0,
+        error: payload?.error || payload?.message || 'Falha ao listar issues de importação',
+      };
+    }
+
+    return {
+      success: true,
+      issues: Array.isArray(payload?.issues) ? payload.issues : [],
+      count: typeof payload?.count === 'number' ? payload.count : (Array.isArray(payload?.issues) ? payload.issues.length : 0),
+      message: payload?.message,
+    };
+  }
+
+  /**
+   * Import all data (full sync)
+   * ✅ CORRIGIDO v1.0.105: Usa endpoints modulares em sequência
+   */
+  static async importAll(
+    config: StaysNetConfig,
+    options: ImportOptions
+  ): Promise<ImportResult> {
+    staysnetLogger.import.info('Iniciando importação completa (modular)', options);
+
+    try {
+      // STEP 1: Importar Properties
+      staysnetLogger.import.info('🏠 STEP 1/4: Importando propriedades...');
+      const propertiesResult = await this.importProperties(config, options);
+      
+      // STEP 2: Importar Reservations
+      staysnetLogger.import.info('📅 STEP 2/4: Importando reservas...');
+      const reservationsResult = await this.importReservations(config, options);
+
+      // STEP 3: Importar Blocks
+      staysnetLogger.import.info('⛔ STEP 3/4: Importando bloqueios...');
+      const blocksResult = await this.importBlocks(config, options);
+      
+      // STEP 4: Importar Guests
+      staysnetLogger.import.info('👤 STEP 4/4: Importando hóspedes...');
+      const guestsResult = await this.importGuests(config, options);
+
+      // Consolidar estatísticas (apenas o que a UI exibe)
+      const stats = {
+        properties: propertiesResult.stats?.properties,
+        reservations: reservationsResult.stats?.reservations,
+        guests: guestsResult.stats?.guests,
+      };
+
+      staysnetLogger.import.success('✅ Importação completa finalizada (modular)', stats);
+
+      return {
+        success: true,
+        stats,
+      };
+    } catch (error) {
+      staysnetLogger.import.error('❌ Erro na importação completa', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generic endpoint test (for API explorer)
+   */
+  static async testEndpoint(
+    config: StaysNetConfig,
+    endpoint: string,
+    params: any = {}
+  ): Promise<any> {
+    staysnetLogger.api.info(`Testando endpoint: ${endpoint}`, params);
+
+    try {
+      const response = await this.request('/rendizy-server/make-server-67caf26a/staysnet/test-endpoint', {
+        method: 'POST',
+        body: JSON.stringify({
+          apiKey: config.apiKey,
+          apiSecret: config.apiSecret,
+          baseUrl: config.baseUrl,
+          endpoint,
+          params,
+        }),
+      });
+
+      return response;
+    } catch (error) {
+      staysnetLogger.api.error(`Erro ao testar ${endpoint}`, error);
+      throw error;
+    }
+  }
+}
