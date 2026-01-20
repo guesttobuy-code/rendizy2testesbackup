@@ -157,10 +157,10 @@ export async function receiveStaysNetWebhook(c: Context) {
     // 🚀 Realtime: processar a fila imediatamente (sem bloquear o response).
     // Em Supabase Edge Functions + Hono, `c.executionCtx.waitUntil` mantém o trabalho rodando.
     // Se não existir ExecutionContext (ambientes diferentes), apenas retorna e o cron consumirá.
-    // ⚠️ TEMPORARIAMENTE DESABILITADO para debug - cron processará
-    const realtimeEnabled = false; // String(Deno.env.get('STAYSNET_WEBHOOK_REALTIME_PROCESS') || 'true')
-      // .trim()
-      // .toLowerCase() === 'true';
+    // ✅ REABILITADO em 2026-01-20 após análise de divergências de números
+    const realtimeEnabled = String(Deno.env.get('STAYSNET_WEBHOOK_REALTIME_PROCESS') || 'true')
+      .trim()
+      .toLowerCase() === 'true';
     const realtimeLimit = Math.max(
       1,
       Math.min(50, Number(Deno.env.get('STAYSNET_WEBHOOK_REALTIME_LIMIT') || 10)),
@@ -325,8 +325,17 @@ function mapReservationStatus(staysStatus: string | undefined): string {
     pending: 'pending',
     inquiry: 'pending',
     confirmed: 'confirmed',
+    // ✅ Stays.net usa 'new' para reservas novas confirmadas
+    new: 'confirmed',
+    booked: 'confirmed',
+    // Check-in/out com variações
     checked_in: 'checked_in',
+    'checked-in': 'checked_in',
+    checkedin: 'checked_in',
     checked_out: 'checked_out',
+    'checked-out': 'checked_out',
+    checkedout: 'checked_out',
+    // Cancelamentos
     cancelled: 'cancelled',
     canceled: 'cancelled',
     // PT-BR (UI Stays)
@@ -334,22 +343,33 @@ function mapReservationStatus(staysStatus: string | undefined): string {
     cancelado: 'cancelled',
     declined: 'cancelled',
     expired: 'cancelled',
+    // No-show com variações
     no_show: 'no_show',
+    'no-show': 'no_show',
+    noshow: 'no_show',
   };
   return map[v] || 'pending';
 }
 
 function deriveReservationStatus(input: { type?: string; status?: string }): string {
   const typeLower = String(input.type || '').trim().toLowerCase();
+  
+  // ✅ PRIORIDADE 1: Tipos que indicam cancelamento
   if (typeLower === 'canceled' || typeLower === 'cancelled' || typeLower === 'cancelada' || typeLower === 'cancelado') return 'cancelled';
-  if (typeLower === 'no_show') return 'no_show';
+  
+  // ✅ PRIORIDADE 2: No-show com variações
+  if (typeLower === 'no_show' || typeLower === 'no-show' || typeLower === 'noshow') return 'no_show';
+
+  // ✅ PRIORIDADE 3: Tipos que indicam confirmação (Stays usa muito 'new' e 'booked')
+  if (typeLower === 'new' || typeLower === 'booked' || typeLower === 'contract' || typeLower === 'confirmed') {
+    return 'confirmed';
+  }
 
   const fromStatus = mapReservationStatus(input.status);
   if (fromStatus === 'pending') {
-    if (typeLower === 'booked' || typeLower === 'contract') return 'confirmed';
-    if (typeLower === 'reserved') return 'pending';
     // PT-BR (UI Stays)
     if (typeLower === 'reserva' || typeLower === 'contrato') return 'confirmed';
+    if (typeLower === 'reserved') return 'pending';
     if (typeLower === 'pré-reserva' || typeLower === 'pre-reserva' || typeLower === 'prereserva') return 'pending';
   }
   return fromStatus;

@@ -237,6 +237,8 @@ export async function cronStaysnetPropertiesSync(c: Context) {
  * 
  * Processa webhooks pendentes da Stays.net.
  * Chamado a cada 5 minutos via pg_cron.
+ * 
+ * ✅ Também reprocessa webhooks com erro (retry até 3x)
  */
 export async function cronStaysnetWebhooks(c: Context) {
   const startTime = Date.now()
@@ -258,14 +260,62 @@ export async function cronStaysnetWebhooks(c: Context) {
     const organizationId = DEFAULT_ORG_ID
     console.log(`🔄 [cronStaysnetWebhooks] Processing pending webhooks for org: ${organizationId}`)
 
-    // Usar a função centralizada de processamento
-    // Nota: processPendingStaysNetWebhooksForOrg obtém o cliente Supabase internamente
+    // 1. Processar webhooks pendentes
     const result = await processPendingStaysNetWebhooksForOrg(organizationId)
 
-    const duration = Date.now() - startTime
-    console.log(`✅ [cronStaysnetWebhooks] Completed in ${duration}ms`)
+    // 2. Retry: reprocessar webhooks com erro (max 3 tentativas)
+    let retryCount = 0
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey)
+        
+        // Buscar webhooks com erro que podem ser reprocessados
+        // (erro há mais de 5 minutos e menos de 3 tentativas)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+        
+        const { data: failedWebhooks } = await supabase
+          .from('staysnet_webhooks')
+          .select('id, retry_count')
+          .eq('organization_id', organizationId)
+          .not('error_message', 'is', null)
+          .lt('retry_count', 3)
+          .lt('processed_at', fiveMinutesAgo)
+          .order('processed_at', { ascending: true })
+          .limit(10)
 
-    return c.json(successResponse(result))
+        if (failedWebhooks && failedWebhooks.length > 0) {
+          console.log(`🔁 [cronStaysnetWebhooks] Found ${failedWebhooks.length} webhooks for retry`)
+          
+          for (const wh of failedWebhooks) {
+            // Resetar para reprocessar
+            await supabase
+              .from('staysnet_webhooks')
+              .update({ 
+                processed_at: null, 
+                error_message: null,
+                retry_count: (wh.retry_count || 0) + 1,
+              })
+              .eq('id', wh.id)
+            retryCount++
+          }
+          
+          // Reprocessar
+          if (retryCount > 0) {
+            console.log(`🔁 [cronStaysnetWebhooks] Reprocessing ${retryCount} failed webhooks...`)
+            await processPendingStaysNetWebhooksForOrg(organizationId, retryCount)
+          }
+        }
+      }
+    } catch (retryErr: any) {
+      console.warn(`⚠️ [cronStaysnetWebhooks] Retry failed: ${retryErr.message}`)
+    }
+
+    const duration = Date.now() - startTime
+    console.log(`✅ [cronStaysnetWebhooks] Completed in ${duration}ms (retried: ${retryCount})`)
+
+    return c.json(successResponse({ ...result, retriedCount: retryCount }))
   } catch (error: any) {
     console.error('❌ [cronStaysnetWebhooks] Error:', error)
     return c.json(errorResponse('Erro ao processar webhooks', { details: error.message }), 500)
