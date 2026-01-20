@@ -607,6 +607,12 @@ app.post("/rendizy-server/reconciliation/validate/:organizationId", reconciliati
 // GET /reconciliation/health/:organizationId - Saúde das reservas
 app.get("/reconciliation/health/:organizationId", reconciliationRoutes.handleReconciliationHealth);
 app.get("/rendizy-server/reconciliation/health/:organizationId", reconciliationRoutes.handleReconciliationHealth);
+// GET /reconciliation/compare/:organizationId - Compara Stays x Rendizy (DIAGNÓSTICO)
+app.get("/reconciliation/compare/:organizationId", reconciliationRoutes.handleCompareStaysVsRendizy);
+app.get("/rendizy-server/reconciliation/compare/:organizationId", reconciliationRoutes.handleCompareStaysVsRendizy);
+// POST /reconciliation/force-sync/:organizationId - Força importação de reservas específicas
+app.post("/reconciliation/force-sync/:organizationId", reconciliationRoutes.handleForceSyncReservations);
+app.post("/rendizy-server/reconciliation/force-sync/:organizationId", reconciliationRoutes.handleForceSyncReservations);
 
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade
