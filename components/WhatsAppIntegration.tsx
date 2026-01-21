@@ -1,8 +1,18 @@
 /**
  * RENDIZY - WhatsApp Integration (Evolution API)
  * 
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  @PROTECTED v1.0.103.1200                                                ║
+ * ║  @ADR docs/ADR/ADR-002-WHATSAPP-EVOLUTION-API-CONNECTION.md              ║
+ * ║  @TESTED 2026-01-21                                                      ║
+ * ║  @STATUS ✅ CONEXÃO FRONTEND FUNCIONANDO                                 ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ * 
  * Integração completa com Evolution API para WhatsApp
  * Permite conectar instâncias WhatsApp e gerenciar configurações
+ * 
+ * 🔒 FUNÇÕES PROTEGIDAS (NÃO MODIFICAR SEM TESTES):
+ * - handleTestConnection() → Usa proxy /whatsapp/test-connection
  * 
  * @figma@ - Modificado em 06/11/2025:
  * - Adicionada nova aba "Webhooks" (linha 583-586)
@@ -10,8 +20,8 @@
  * - Grid expandido de 4 para 5 colunas (linha 570)
  * - Ícone Webhook do lucide-react adicionado
  * 
- * @version 1.0.103.322 (webhooks) / 1.0.103.42 (base)
- * @date 2025-11-06 / 2025-10-29
+ * @version 1.0.103.1200 (proxy fix) / 1.0.103.322 (webhooks) / 1.0.103.42 (base)
+ * @date 2026-01-21 / 2025-11-06 / 2025-10-29
  */
 
 import React, { useState, useEffect } from 'react';
@@ -342,64 +352,49 @@ export default function WhatsAppIntegration() {
     setConnectingWhatsApp(true);
     
     try {
-      // 🔥 TESTE DIRETO DO FRONTEND - Não depende do backend
-      // Testar se conseguimos acessar a API diretamente
-      console.log('🧪 Testando conexão direta com Evolution API...');
+      // ✅ FIX v1.0.103.1200: Usar PROXY do backend (evita Mixed Content HTTPS → HTTP)
+      console.log('🧪 Testando conexão via PROXY backend...');
       console.log('   URL:', cleanUrl);
       console.log('   Instance:', whatsappForm.instance_name.trim());
       console.log('   API Key:', whatsappForm.api_key.substring(0, 10) + '...');
       
-      const testUrl = `${cleanUrl}/instance/fetchInstances`;
-      console.log('   Endpoint:', testUrl);
+      const authToken = typeof localStorage !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
       
-      const response = await fetch(testUrl, {
-        method: 'GET',
-        headers: {
-          'apikey': whatsappForm.api_key.trim(),
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/whatsapp/test-connection`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'Content-Type': 'application/json',
+            ...(authToken ? { 'X-Auth-Token': authToken } : {}),
+          },
+          body: JSON.stringify({
+            api_url: cleanUrl,
+            api_key: whatsappForm.api_key.trim(),
+            instance_name: whatsappForm.instance_name.trim(),
+          }),
+        }
+      );
 
-      console.log('   Status:', response.status);
+      console.log('   Status proxy:', response.status);
+      
+      const result = await response.json();
+      console.log('   Resposta proxy:', result);
 
-      if (response.status === 401) {
+      if (!result.success) {
         setConnectionStatus('error');
-        toast.error('❌ API Key inválida! Crie uma nova no Evolution Manager', {
+        toast.error(`❌ ${result.error}`, {
           duration: 8000,
         });
         return;
       }
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Erro desconhecido');
-        console.error('   Erro:', errorText);
-        setConnectionStatus('error');
-        toast.error(`❌ Erro ${response.status}: ${errorText}`, {
-          duration: 6000,
-        });
-        return;
-      }
-
-      const data = await response.json();
-      console.log('   Resposta:', data);
-
-      // Verificar se a instância existe
-      const instances = Array.isArray(data) ? data : [];
-      const instanceExists = instances.some((inst: any) => 
-        inst.instance?.instanceName === whatsappForm.instance_name.trim()
-      );
-
-      if (instanceExists) {
-        setConnectionStatus('success');
-        toast.success('✅ Conexão OK! Instância encontrada', {
-          duration: 5000,
-        });
-      } else {
-        setConnectionStatus('success');
-        toast.success(`✅ Conexão OK! Instância "${whatsappForm.instance_name.trim()}" será criada ao conectar`, {
-          duration: 6000,
-        });
-      }
+      // Conexão OK!
+      setConnectionStatus('success');
+      toast.success(result.message || '✅ Conexão OK!', {
+        duration: 5000,
+      });
       
       // Salvar configuração após teste bem-sucedido
       await channelsApi.updateConfig(organizationId, {
@@ -420,11 +415,7 @@ export default function WhatsAppIntegration() {
       
       // Mensagens de erro mais específicas
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-        toast.error('❌ Não foi possível conectar! Verifique se a URL está correta e acessível', {
-          duration: 8000,
-        });
-      } else if (error.name === 'TypeError') {
-        toast.error('❌ URL inválida ou inacessível! Verifique a URL da Evolution API', {
+        toast.error('❌ Não foi possível conectar ao servidor! Verifique sua conexão', {
           duration: 8000,
         });
       } else {

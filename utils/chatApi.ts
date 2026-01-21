@@ -1,3 +1,20 @@
+/**
+ * RENDIZY - Chat API Client
+ * 
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  @PROTECTED v1.0.103.1200                                                ║
+ * ║  @ADR docs/ADR/ADR-002-WHATSAPP-EVOLUTION-API-CONNECTION.md              ║
+ * ║  @TESTED 2026-01-21                                                      ║
+ * ║  @STATUS ✅ X-AUTH-TOKEN 128 CHARS FUNCIONANDO                           ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ * 
+ * 🔒 FUNÇÃO PROTEGIDA (NÃO MODIFICAR SEM TESTES):
+ * - fetchAPI() → Inclui X-Auth-Token de 128 caracteres
+ * 
+ * @version 1.0.103.1200
+ * @date 2026-01-21
+ */
+
 import { publicAnonKey } from './supabase/info';
 import { API_BASE_URL } from './apiBase';
 import { isOfflineMode } from './offlineConfig';

@@ -1,6 +1,13 @@
 /**
  * RENDIZY - WhatsApp Webhook Manager
  * 
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  @PROTECTED v1.0.103.1200                                                ║
+ * ║  @ADR docs/ADR/ADR-002-WHATSAPP-EVOLUTION-API-CONNECTION.md              ║
+ * ║  @TESTED 2026-01-21                                                      ║
+ * ║  @STATUS ✅ X-AUTH-TOKEN CORRIGIDO EM TODOS OS FETCHES                   ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ * 
  * @figma@ - Criado em 06/11/2025 (v1.0.103.322)
  * 
  * SISTEMA COMPLETO DE WEBHOOKS EVOLUTION API:
@@ -11,13 +18,20 @@
  * ✅ Interface visual completa com scrollable lists
  * ✅ Persistência no KV Store com tenant isolation
  * 
+ * 🔒 FUNÇÕES PROTEGIDAS (NÃO MODIFICAR SEM TESTES):
+ * - getAuthToken() → Helper para localStorage
+ * - loadWebhookStatus() → Inclui X-Auth-Token
+ * - loadWebhookEvents() → Inclui X-Auth-Token
+ * - setupWebhook() → Inclui X-Auth-Token
+ * - removeWebhook() → Inclui X-Auth-Token
+ * 
  * ARQUITETURA:
- * - Frontend: Este componente (545 linhas)
- * - Backend: 4 rotas em routes-whatsapp-evolution-complete.ts
+ * - Frontend: Este componente (563 linhas)
+ * - Backend: 4 rotas em routes-whatsapp-evolution.ts
  * - Storage: KV Store (whatsapp:webhook:*)
  * 
- * @version 1.0.103.322
- * @date 2025-11-06
+ * @version 1.0.103.1200
+ * @date 2026-01-21
  * @author Figma Make AI
  */
 
@@ -106,6 +120,9 @@ const AVAILABLE_EVENTS = [
   { name: 'CALL', label: 'Chamadas', description: 'Chamadas recebidas' },
 ];
 
+// ✅ FIX v1.0.103.1200: Helper para obter token de autenticação
+const getAuthToken = () => typeof localStorage !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -136,11 +153,13 @@ export default function WhatsAppWebhookManager() {
   const loadWebhookStatus = async () => {
     try {
       setLoading(true);
+      const authToken = getAuthToken();
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/whatsapp/webhook/status`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
+            ...(authToken ? { 'X-Auth-Token': authToken } : {}),
           },
         }
       );
@@ -169,11 +188,13 @@ export default function WhatsAppWebhookManager() {
   const loadWebhookEvents = async () => {
     try {
       setLoadingEvents(true);
+      const authToken = getAuthToken();
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/whatsapp/webhook/events`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
+            ...(authToken ? { 'X-Auth-Token': authToken } : {}),
           },
         }
       );
@@ -197,6 +218,7 @@ export default function WhatsAppWebhookManager() {
   const setupWebhook = async () => {
     try {
       setConfiguring(true);
+      const authToken = getAuthToken();
       
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/whatsapp/webhook/setup`,
@@ -205,6 +227,7 @@ export default function WhatsAppWebhookManager() {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
             'Content-Type': 'application/json',
+            ...(authToken ? { 'X-Auth-Token': authToken } : {}),
           },
           body: JSON.stringify({
             webhookUrl,
@@ -242,12 +265,14 @@ export default function WhatsAppWebhookManager() {
     try {
       setConfiguring(true);
       
+      const authToken = getAuthToken();
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/whatsapp/webhook`,
         {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
+            ...(authToken ? { 'X-Auth-Token': authToken } : {}),
           },
         }
       );

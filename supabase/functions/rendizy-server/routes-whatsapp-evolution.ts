@@ -7,9 +7,20 @@
 // 
 // ESTA FUNCIONALIDADE ESTÁ FUNCIONANDO EM PRODUÇÃO
 // 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  @PROTECTED v1.0.103.1200                                                ║
+// ║  @ADR docs/ADR/ADR-002-WHATSAPP-EVOLUTION-API-CONNECTION.md              ║
+// ║  @TESTED 2026-01-21                                                      ║
+// ║  @STATUS ✅ CONEXÃO BACKEND FUNCIONANDO                                  ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+//
 // CONTRATO DA API (O QUE A CÁPSULA ESPERA):
 // 
 // INPUT (Request):
+// - POST /rendizy-server/make-server-67caf26a/whatsapp/test-connection  ← NOVO v1.0.103.1200
+//   Body: { api_url: string, api_key: string, instance_name: string }
+//   Response: { success: boolean, instanceExists: boolean, instancesCount: number }
+//
 // - POST /rendizy-server/make-server-67caf26a/whatsapp/connect
 //   Body: { api_url: string, instance_name: string, api_key: string }
 //   Headers: { Authorization: "Bearer <token>", apikey: string }
@@ -29,7 +40,7 @@
 // - Error: { success: false, error: string }
 // 
 // DEPENDÊNCIAS FRONTEND (QUEM USA ESTE CONTRATO):
-// - WhatsAppIntegration.tsx → channelsApi.evolution.connect()
+// - WhatsAppIntegration.tsx → handleTestConnection() usa /whatsapp/test-connection
 // - WhatsAppCredentialsTester.tsx → channelsApi.evolution.status()
 // - WhatsAppWebhookManager.tsx → channelsApi.evolution.webhook()
 // - ChatInboxWithEvolution.tsx → evolutionService.getStatus()
@@ -57,6 +68,7 @@
  * 
  * ✅ REFATORADO v1.0.103.600 - CORREÇÃO COMPLETA
  * ✅ CADEADO DE CONTRATO v1.0.103.700 - PROTEÇÃO IMPLEMENTADA
+ * ✅ PROXY TEST-CONNECTION v1.0.103.1200 - EVITA MIXED CONTENT
  * 
  * CORREÇÕES APLICADAS:
  * 1. ✅ Adicionado getOrganizationIdOrThrow(c) em TODAS as rotas
@@ -66,9 +78,10 @@
  * 5. ✅ Try/catch adequado em todas as rotas
  * 6. ✅ Integração com Supabase para salvar conversas/mensagens
  * 7. ✅ Validação segura de envs sem crashar Edge Function
+ * 8. ✅ [v1.0.103.1200] Rota /whatsapp/test-connection para proxy HTTP→HTTPS
  * 
- * @version 1.0.103.700
- * @date 2025-11-30
+ * @version 1.0.103.1200
+ * @date 2026-01-21
  */
 
 // @ts-ignore - Deno runtime suporta npm: protocol
@@ -197,6 +210,88 @@ function getEvolutionMessagesHeaders(config: EvolutionConfig) {
 // ============================================================================
 
 export function whatsappEvolutionRoutes(app: Hono) {
+
+  // ==========================================================================
+  // POST /rendizy-server/whatsapp/test-connection - Testar conexão com Evolution API
+  // ✅ FIX v1.0.103.1200: PROXY para evitar Mixed Content (HTTPS → HTTP)
+  // ==========================================================================
+  app.post('/rendizy-server/make-server-67caf26a/whatsapp/test-connection', async (c) => {
+    try {
+      console.log('[WhatsApp] 🧪 Testando conexão com Evolution API via PROXY...');
+      
+      const payload = await c.req.json();
+      const { api_url, api_key, instance_name } = payload;
+      
+      if (!api_url || !api_key || !instance_name) {
+        return c.json({ 
+          success: false, 
+          error: 'api_url, api_key e instance_name são obrigatórios' 
+        }, 400);
+      }
+      
+      const cleanUrl = api_url.replace(/\/+$/, '');
+      console.log(`[WhatsApp] 🧪 URL: ${cleanUrl}`);
+      console.log(`[WhatsApp] 🧪 Instance: ${instance_name}`);
+      console.log(`[WhatsApp] 🧪 API Key: ${api_key.substring(0, 10)}...`);
+      
+      // Fazer a chamada para a Evolution API do BACKEND (evita Mixed Content)
+      const response = await fetch(`${cleanUrl}/instance/fetchInstances`, {
+        method: 'GET',
+        headers: {
+          'apikey': api_key,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log(`[WhatsApp] 🧪 Status Evolution: ${response.status}`);
+      
+      if (response.status === 401) {
+        return c.json({
+          success: false,
+          error: 'API Key inválida! Crie uma nova no Evolution Manager',
+          httpStatus: 401,
+        }, 200); // Retorna 200 para o frontend processar
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Erro desconhecido');
+        console.error(`[WhatsApp] 🧪 Erro: ${errorText}`);
+        return c.json({
+          success: false,
+          error: `Erro ${response.status}: ${errorText}`,
+          httpStatus: response.status,
+        }, 200);
+      }
+      
+      const data = await response.json();
+      console.log(`[WhatsApp] 🧪 Resposta:`, JSON.stringify(data).substring(0, 200));
+      
+      // Verificar se a instância existe
+      const instances = Array.isArray(data) ? data : [];
+      const instanceExists = instances.some((inst: any) => 
+        inst.instance?.instanceName === instance_name
+      );
+      
+      console.log(`[WhatsApp] 🧪 Instância "${instance_name}" existe: ${instanceExists}`);
+      console.log(`[WhatsApp] 🧪 Total de instâncias: ${instances.length}`);
+      
+      return c.json({
+        success: true,
+        instanceExists,
+        instancesCount: instances.length,
+        message: instanceExists 
+          ? `✅ Conexão OK! Instância "${instance_name}" encontrada`
+          : `✅ Conexão OK! Instância "${instance_name}" será criada ao conectar`,
+      });
+      
+    } catch (error) {
+      console.error('[WhatsApp] 🧪 Erro no test-connection:', error);
+      return c.json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro interno ao testar conexão',
+      }, 500);
+    }
+  });
 
   // ==========================================================================
   // POST /rendizy-server/whatsapp/send-message - Enviar mensagem de texto
