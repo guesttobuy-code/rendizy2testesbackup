@@ -60,30 +60,45 @@ import { tryAutoFetchAndImportPropertyFromStays } from './utils-staysnet-auto-fe
  * para posterior validação/processing.
  */
 export async function receiveStaysNetWebhook(c: Context) {
+  console.log('[StaysNet Webhook] 🚀 INICIO receiveStaysNetWebhook');
+  
   try {
     const { organizationId } = c.req.param();
+    console.log('[StaysNet Webhook] 📝 organizationId:', organizationId);
+    
     if (!organizationId) {
       return c.json(errorResponse('organizationId is required'), 400);
     }
 
-    const clientId = c.req.header('x-stays-client-id') || null;
-    const signature = c.req.header('x-stays-signature') || null;
+    // Ler body
+    let rawText = '';
+    try {
+      rawText = await c.req.text();
+      console.log('[StaysNet Webhook] 📝 Body length:', rawText.length);
+    } catch (e: any) {
+      console.error('[StaysNet Webhook] ❌ Error reading body:', e.message);
+      return c.json(errorResponse('Failed to read body: ' + e.message), 500);
+    }
 
-    // Sempre capturar o body RAW como texto para permitir verificação de assinatura.
-    // (Hono/Deno Request body é consumível 1x)
-    const rawText = await c.req.text();
-
+    // Parse JSON
     let body: any = rawText;
     try {
       body = JSON.parse(rawText);
+      console.log('[StaysNet Webhook] 📝 Body parsed OK');
     } catch {
-      // manter como string
+      console.log('[StaysNet Webhook] ⚠️ Body is not JSON, keeping as string');
     }
 
     const action = typeof body === 'object' && body ? String(body.action || 'unknown') : 'unknown';
     const payload = typeof body === 'object' && body ? (body.payload ?? body) : body;
-    const dt = typeof body === 'object' && body ? (body._dt ?? null) : null;
+    console.log('[StaysNet Webhook] 📝 action:', action);
 
+    // Headers
+    const clientId = c.req.header('x-stays-client-id') || null;
+    const signature = c.req.header('x-stays-signature') || null;
+    const dt = typeof body === 'object' && body ? (body._dt ?? null) : null;
+    
+    // Verificação de assinatura (desabilitada por padrão)
     const verifyEnabled = String(Deno.env.get('STAYSNET_WEBHOOK_VERIFY_SIGNATURE') || '')
       .trim()
       .toLowerCase() === 'true';
@@ -109,26 +124,33 @@ export async function receiveStaysNetWebhook(c: Context) {
       }
     }
 
-    console.log('[StaysNet Webhook] 📝 Calling saveStaysNetWebhookDB...');
-    const save = await staysnetDB.saveStaysNetWebhookDB(
-      organizationId,
-      action,
-      payload,
-      {
-        received_dt: dt,
-        headers: {
-          'x-stays-client-id': clientId,
-          'x-stays-signature': signature,
-          'user-agent': c.req.header('user-agent') || null,
+    // Salvar no banco
+    console.log('[StaysNet Webhook] 📝 Chamando saveStaysNetWebhookDB...');
+    let save;
+    try {
+      save = await staysnetDB.saveStaysNetWebhookDB(
+        organizationId,
+        action,
+        payload,
+        {
+          received_dt: dt,
+          headers: {
+            'x-stays-client-id': clientId,
+            'x-stays-signature': signature,
+            'user-agent': c.req.header('user-agent') || null,
+          },
+          signature_verification: {
+            enabled: verifyEnabled,
+            verified: signatureVerified,
+            reason: signatureReason,
+          },
         },
-        signature_verification: {
-          enabled: verifyEnabled,
-          verified: signatureVerified,
-          reason: signatureReason,
-        },
-      },
-    );
-    console.log('[StaysNet Webhook] 📝 saveStaysNetWebhookDB result:', JSON.stringify(save));
+      );
+      console.log('[StaysNet Webhook] 📝 saveStaysNetWebhookDB result:', JSON.stringify(save));
+    } catch (dbError: any) {
+      console.error('[StaysNet Webhook] ❌ saveStaysNetWebhookDB EXCEPTION:', dbError.message, dbError.stack);
+      return c.json(errorResponse('Database error: ' + dbError.message), 500);
+    }
 
     if (!save.success) {
       console.log('[StaysNet Webhook] ❌ Save failed, returning 500');
@@ -179,10 +201,11 @@ export async function receiveStaysNetWebhook(c: Context) {
 
     console.log('[StaysNet Webhook] ✅ Webhook saved successfully, returning 200. ID:', save.id);
     return c.json(successResponse({ id: save.id, received: true }));
-  } catch (error) {
-    console.error('[StaysNet Webhook] ❌ CATCH BLOCK ERROR:', error);
+  } catch (error: any) {
+    console.error('[StaysNet Webhook] ❌ CATCH BLOCK ERROR:', error?.message || String(error));
+    console.error('[StaysNet Webhook] ❌ STACK:', error?.stack?.substring(0, 1000));
     logError('Error receiving Stays.net webhook', error);
-    return c.json(errorResponse('Failed to receive webhook'), 500);
+    return c.json(errorResponse('Failed to receive webhook: ' + (error?.message || String(error))), 500);
   }
 }
 

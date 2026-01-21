@@ -37,10 +37,18 @@ interface StaysNetConfigDB {
 // ============================================================================
 
 function getSupabaseClient() {
-  return createClient(
-    SUPABASE_URL ?? '',
-    SUPABASE_SERVICE_ROLE_KEY ?? ''
-  );
+  const url = SUPABASE_URL ?? '';
+  const key = SUPABASE_SERVICE_ROLE_KEY ?? '';
+  
+  console.log('[StaysNet DB] 🔧 Creating client with URL:', url ? url.substring(0, 30) + '...' : 'EMPTY');
+  console.log('[StaysNet DB] 🔧 Key available:', key ? 'YES (' + key.length + ' chars)' : 'NO');
+  
+  if (!url || !key) {
+    console.error('[StaysNet DB] ❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY!');
+    throw new Error('Missing Supabase credentials');
+  }
+  
+  return createClient(url, key);
 }
 
 // ============================================================================

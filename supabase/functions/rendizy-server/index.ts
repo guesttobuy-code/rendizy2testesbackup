@@ -95,6 +95,78 @@ app.get("/health", (c) => withCorsJson(c, { ok: true }));
 // Compat: alguns clients chamam com prefixo /rendizy-server
 app.get("/rendizy-server/health", (c) => withCorsJson(c, { ok: true }));
 
+// DEBUG: Testar conexão do banco para webhook
+app.get("/webhook-db-test", async (c) => {
+  try {
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = await import('./utils-env.ts');
+    const { createClient } = await import('jsr:@supabase/supabase-js@2');
+    
+    const url = SUPABASE_URL || '';
+    const key = SUPABASE_SERVICE_ROLE_KEY || '';
+    
+    if (!url || !key) {
+      return withCorsJson(c, { error: 'Missing env vars', url: url ? 'OK' : 'MISSING', key: key ? 'OK' : 'MISSING' });
+    }
+    
+    const supabase = createClient(url, key);
+    
+    const { data, error } = await supabase
+      .from('staysnet_webhooks')
+      .insert({
+        organization_id: 'debug-test',
+        action: 'debug.test',
+        payload: { test: true, timestamp: new Date().toISOString() },
+        received_at: new Date().toISOString(),
+        processed: false,
+      })
+      .select('id')
+      .single();
+      
+    if (error) {
+      return withCorsJson(c, { error: error.message, code: error.code });
+    }
+    
+    return withCorsJson(c, { success: true, id: data.id });
+  } catch (e: any) {
+    return withCorsJson(c, { error: e.message });
+  }
+});
+app.get("/rendizy-server/webhook-db-test", async (c) => {
+  try {
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = await import('./utils-env.ts');
+    const { createClient } = await import('jsr:@supabase/supabase-js@2');
+    
+    const url = SUPABASE_URL || '';
+    const key = SUPABASE_SERVICE_ROLE_KEY || '';
+    
+    if (!url || !key) {
+      return withCorsJson(c, { error: 'Missing env vars', url: url ? 'OK' : 'MISSING', key: key ? 'OK' : 'MISSING' });
+    }
+    
+    const supabase = createClient(url, key);
+    
+    const { data, error } = await supabase
+      .from('staysnet_webhooks')
+      .insert({
+        organization_id: 'debug-test',
+        action: 'debug.test',
+        payload: { test: true, timestamp: new Date().toISOString() },
+        received_at: new Date().toISOString(),
+        processed: false,
+      })
+      .select('id')
+      .single();
+      
+    if (error) {
+      return withCorsJson(c, { error: error.message, code: error.code });
+    }
+    
+    return withCorsJson(c, { success: true, id: data.id });
+  } catch (e: any) {
+    return withCorsJson(c, { error: e.message });
+  }
+});
+
 // ============================================================================
 // 🛡️ CAMADA 1: CORS PROTECTION (CRÍTICO - NÃO MODIFICAR)
 // ============================================================================
@@ -581,8 +653,151 @@ app.post("/make-server-67caf26a/staysnet/import/full", staysnetImportModalRoutes
 app.post("/make-server-67caf26a/staysnet/import/debug", staysnetImportModalRoutes.debugRawStaysNet);
 app.post("/make-server-67caf26a/staysnet/import/SIMPLE", importStaysNetSimple);
 app.post("/make-server-67caf26a/staysnet/import/RPC", importStaysNetRPC);
-app.post("/staysnet/webhook/:organizationId", staysnetWebhooksRoutes.receiveStaysNetWebhook);
-app.post("/rendizy-server/staysnet/webhook/:organizationId", staysnetWebhooksRoutes.receiveStaysNetWebhook);
+
+// ============================================================================
+// WEBHOOK HANDLER INLINE (evita problema de ExecutionContext)
+// ============================================================================
+const webhookHandler = async (c: HonoContext) => {
+  console.log('[StaysNet Webhook INLINE] 🚀 INICIO');
+  try {
+    const organizationId = c.req.param('organizationId');
+    console.log('[StaysNet Webhook INLINE] 📝 organizationId:', organizationId);
+    
+    if (!organizationId) {
+      return c.json({ success: false, error: 'organizationId is required' }, 400);
+    }
+
+    // Ler body
+    let rawText = '';
+    try {
+      rawText = await c.req.text();
+      console.log('[StaysNet Webhook INLINE] 📝 Body length:', rawText.length);
+    } catch (e: any) {
+      console.error('[StaysNet Webhook INLINE] ❌ Error reading body:', e.message);
+      return c.json({ success: false, error: 'Failed to read body: ' + e.message }, 500);
+    }
+
+    // Parse JSON
+    let body: any = rawText;
+    try {
+      body = JSON.parse(rawText);
+      console.log('[StaysNet Webhook INLINE] 📝 Body parsed OK');
+    } catch {
+      console.log('[StaysNet Webhook INLINE] ⚠️ Body is not JSON');
+    }
+
+    const action = typeof body === 'object' && body ? String(body.action || 'unknown') : 'unknown';
+    const payload = typeof body === 'object' && body ? (body.payload ?? body) : body;
+    console.log('[StaysNet Webhook INLINE] 📝 action:', action);
+
+    // Headers
+    const clientId = c.req.header('x-stays-client-id') || null;
+    const signature = c.req.header('x-stays-signature') || null;
+    const dt = typeof body === 'object' && body ? (body._dt ?? null) : null;
+
+    // Import dinâmico para evitar problemas de inicialização
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = await import('./utils-env.ts');
+    const { createClient } = await import('jsr:@supabase/supabase-js@2');
+    
+    const url = SUPABASE_URL || '';
+    const key = SUPABASE_SERVICE_ROLE_KEY || '';
+    
+    if (!url || !key) {
+      console.error('[StaysNet Webhook INLINE] ❌ Missing env vars');
+      return c.json({ success: false, error: 'Missing Supabase credentials' }, 500);
+    }
+    
+    const supabase = createClient(url, key);
+    console.log('[StaysNet Webhook INLINE] 📝 Supabase client created');
+
+    // Inserir no banco
+    const { data, error } = await supabase
+      .from('staysnet_webhooks')
+      .insert({
+        organization_id: organizationId,
+        action,
+        payload,
+        metadata: {
+          received_dt: dt,
+          headers: {
+            'x-stays-client-id': clientId,
+            'x-stays-signature': signature,
+            'user-agent': c.req.header('user-agent') || null,
+          },
+        },
+        received_at: new Date().toISOString(),
+        processed: false,
+      })
+      .select('id')
+      .single();
+      
+    if (error) {
+      console.error('[StaysNet Webhook INLINE] ❌ DB Error:', error.message);
+      return c.json({ success: false, error: 'Database error: ' + error.message }, 500);
+    }
+    
+    console.log('[StaysNet Webhook INLINE] ✅ Webhook salvo! ID:', data.id);
+    
+    // 🔥 PROCESSAMENTO AUTOMÁTICO: Processar webhooks pendentes imediatamente
+    // Isso garante que quando um webhook chega (mesmo atrasado), ele é processado
+    console.log('[StaysNet Webhook INLINE] 🔄 Disparando processamento automático...');
+    try {
+      const { processPendingStaysNetWebhooksForOrg } = await import('./routes-staysnet-webhooks.ts');
+      // Processar até 20 webhooks pendentes (incluindo o que acabou de chegar)
+      const processResult = await processPendingStaysNetWebhooksForOrg(organizationId, 20);
+      console.log('[StaysNet Webhook INLINE] ✅ Processamento automático concluído:', JSON.stringify(processResult));
+    } catch (procError: any) {
+      // Se falhar o processamento, não falha o webhook - será pego pelo CRON
+      console.error('[StaysNet Webhook INLINE] ⚠️ Erro no processamento automático (será retentado pelo CRON):', procError.message);
+    }
+    
+    return c.json({ success: true, id: data.id, received: true, autoProcessed: true, timestamp: new Date().toISOString() });
+  } catch (e: any) {
+    console.error('[StaysNet Webhook INLINE] ❌ Exception:', e.message, e.stack?.substring(0, 500));
+    return c.json({ success: false, error: 'Exception: ' + e.message }, 500);
+  }
+};
+
+app.post("/staysnet/webhook/:organizationId", webhookHandler);
+app.post("/rendizy-server/staysnet/webhook/:organizationId", webhookHandler);
+
+// DEBUG: Teste de inserção no banco
+app.get("/staysnet/webhook-debug", async (c) => {
+  try {
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = await import('./utils-env.ts');
+    const { createClient } = await import('jsr:@supabase/supabase-js@2');
+    
+    const url = SUPABASE_URL || '';
+    const key = SUPABASE_SERVICE_ROLE_KEY || '';
+    
+    if (!url || !key) {
+      return c.json({ error: 'Missing env vars', url: url ? 'OK' : 'MISSING', key: key ? 'OK' : 'MISSING' });
+    }
+    
+    const supabase = createClient(url, key);
+    
+    const { data, error } = await supabase
+      .from('staysnet_webhooks')
+      .insert({
+        organization_id: 'debug-test',
+        action: 'debug.test',
+        payload: { test: true, timestamp: new Date().toISOString() },
+        received_at: new Date().toISOString(),
+        processed: false,
+      })
+      .select('id')
+      .single();
+      
+    if (error) {
+      return c.json({ error: error.message, code: error.code, details: error.details });
+    }
+    
+    return c.json({ success: true, id: data.id });
+  } catch (e: any) {
+    return c.json({ error: e.message, stack: e.stack?.substring(0, 500) });
+  }
+});
+
 app.post("/staysnet/webhooks/process/:organizationId", staysnetWebhooksRoutes.processStaysNetWebhooks);
 app.post("/rendizy-server/staysnet/webhooks/process/:organizationId", staysnetWebhooksRoutes.processStaysNetWebhooks);
 app.get("/staysnet/webhooks/diagnostics/:organizationId", staysnetWebhooksRoutes.getStaysNetWebhooksDiagnostics);
@@ -613,6 +828,9 @@ app.get("/rendizy-server/reconciliation/compare/:organizationId", reconciliation
 // POST /reconciliation/force-sync/:organizationId - Força importação de reservas específicas
 app.post("/reconciliation/force-sync/:organizationId", reconciliationRoutes.handleForceSyncReservations);
 app.post("/rendizy-server/reconciliation/force-sync/:organizationId", reconciliationRoutes.handleForceSyncReservations);
+// POST /reconciliation/auto-sync/:organizationId - RECONCILIAÇÃO AUTOMÁTICA COMPLETA
+app.post("/reconciliation/auto-sync/:organizationId", reconciliationRoutes.handleAutoSync);
+app.post("/rendizy-server/reconciliation/auto-sync/:organizationId", reconciliationRoutes.handleAutoSync);
 
 // ============================================================================
 // ⚡ STAYSNET IMPORT MODULAR (v1.0.104) - Separado por entidade

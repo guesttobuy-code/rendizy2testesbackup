@@ -620,3 +620,258 @@ export async function handleForceSyncReservations(c: Context) {
     return c.json(errorResponse('Force sync failed', { details: error?.message }), 500);
   }
 }
+
+// ============================================================================
+// 🔄 AUTO-SYNC: Reconciliação automática completa
+// ============================================================================
+
+/**
+ * POST /reconciliation/auto-sync/:organizationId
+ * 
+ * Executa reconciliação automática completa:
+ * 1. Compara Stays.net com Rendizy
+ * 2. Identifica reservas faltantes
+ * 3. Sincroniza automaticamente as reservas faltantes
+ * 
+ * Query params:
+ * - date: data para reconciliar (default: hoje, formato YYYY-MM-DD)
+ * 
+ * Útil para chamar via CRON ou após webhooks atrasados.
+ */
+export async function handleAutoSync(c: Context) {
+  try {
+    const { organizationId } = c.req.param();
+    if (!organizationId) {
+      return c.json(errorResponse('organizationId is required'), 400);
+    }
+
+    const targetDate = c.req.query('date') || new Date().toISOString().split('T')[0];
+    console.log(`[AutoSync] 🚀 Starting for org=${organizationId}, date=${targetDate}`);
+
+    // 1. Carregar configurações
+    const staysLogin = Deno.env.get('STAYS_API_LOGIN') || 'a5146970';
+    const staysSecret = Deno.env.get('STAYS_API_SECRET') || 'bfcf4daf';
+    const staysAuth = btoa(`${staysLogin}:${staysSecret}`);
+    const staysBaseUrl = 'https://bvm.stays.net/external/v1';
+
+    const supabase = getSupabaseClient();
+
+    // 2. Buscar reservas do Stays.net com check-in ou check-out no período
+    // API Stays.net usa: from, to, dateType=arrival/departure
+    
+    // Buscar arrivals (check-in na data)
+    const arrivalsResp = await fetch(
+      `${staysBaseUrl}/booking/reservations?from=${targetDate}&to=${targetDate}&dateType=arrival`,
+      { headers: { Authorization: `Basic ${staysAuth}` } }
+    );
+    
+    // Buscar departures (check-out na data)
+    const departuresResp = await fetch(
+      `${staysBaseUrl}/booking/reservations?from=${targetDate}&to=${targetDate}&dateType=departure`,
+      { headers: { Authorization: `Basic ${staysAuth}` } }
+    );
+
+    if (!arrivalsResp.ok || !departuresResp.ok) {
+      const errDetails = {
+        arrivals: arrivalsResp.ok ? 'ok' : `${arrivalsResp.status}`,
+        departures: departuresResp.ok ? 'ok' : `${departuresResp.status}`,
+      };
+      console.error('[AutoSync] API error:', errDetails);
+      return c.json(errorResponse('Failed to fetch from Stays.net', errDetails), 500);
+    }
+
+    const arrivalsData = await arrivalsResp.json();
+    const departuresData = await departuresResp.json();
+
+    // API pode retornar array direto ou { results: [...] }
+    const staysArrivals: any[] = Array.isArray(arrivalsData) ? arrivalsData : (arrivalsData.results || []);
+    const staysDepartures: any[] = Array.isArray(departuresData) ? departuresData : (departuresData.results || []);
+
+    // Filtrar apenas reservas válidas (booked, confirmed, new)
+    const validTypes = ['booked', 'confirmed', 'new'];
+    const filteredArrivals = staysArrivals.filter(r => validTypes.includes(String(r._type || r.type).toLowerCase()));
+    const filteredDepartures = staysDepartures.filter(r => validTypes.includes(String(r._type || r.type).toLowerCase()));
+
+    // Extrair códigos únicos
+    const staysArrivalCodes = [...new Set(filteredArrivals.map(r => r._code || r.code))].filter(Boolean);
+    const staysDepartureCodes = [...new Set(filteredDepartures.map(r => r._code || r.code))].filter(Boolean);
+
+    console.log(`[AutoSync] Stays: ${staysArrivalCodes.length} arrivals, ${staysDepartureCodes.length} departures`);
+
+    // 3. Buscar reservas do Rendizy
+    const { data: rendizyArrivals } = await supabase
+      .from('reservations')
+      .select('confirmation_code')
+      .eq('organization_id', organizationId)
+      .eq('check_in', targetDate)
+      .not('status', 'eq', 'cancelled');
+
+    const { data: rendizyDepartures } = await supabase
+      .from('reservations')
+      .select('confirmation_code')
+      .eq('organization_id', organizationId)
+      .eq('check_out', targetDate)
+      .not('status', 'eq', 'cancelled');
+
+    const rendizyArrivalCodes = (rendizyArrivals || []).map(r => r.confirmation_code).filter(Boolean);
+    const rendizyDepartureCodes = (rendizyDepartures || []).map(r => r.confirmation_code).filter(Boolean);
+
+    console.log(`[AutoSync] Rendizy: ${rendizyArrivalCodes.length} arrivals, ${rendizyDepartureCodes.length} departures`);
+
+    // 4. Encontrar faltantes
+    const missingArrivals = staysArrivalCodes.filter((code: string) => !rendizyArrivalCodes.includes(code));
+    const missingDepartures = staysDepartureCodes.filter((code: string) => !rendizyDepartureCodes.includes(code));
+
+    console.log(`[AutoSync] Missing: ${missingArrivals.length} arrivals, ${missingDepartures.length} departures`);
+
+    // 5. Sincronizar reservas faltantes
+    const allMissing = [...new Set([...missingArrivals, ...missingDepartures])];
+    const syncResults: any[] = [];
+
+    for (const code of allMissing) {
+      try {
+        // Buscar detalhes da reserva
+        const staysResp = await fetch(
+          `${staysBaseUrl}/booking/reservations/${encodeURIComponent(code)}`,
+          { headers: { Authorization: `Basic ${staysAuth}` } }
+        );
+
+        if (!staysResp.ok) {
+          syncResults.push({ code, success: false, error: `Stays API ${staysResp.status}` });
+          continue;
+        }
+
+        const staysData = await staysResp.json();
+        if (!staysData || !staysData._id) {
+          syncResults.push({ code, success: false, error: 'Invalid Stays response' });
+          continue;
+        }
+
+        const listingId = staysData._idlisting || staysData._id_listing || staysData.propertyId;
+        if (!listingId) {
+          syncResults.push({ code, success: false, error: 'No listing ID' });
+          continue;
+        }
+
+        // Resolver property_id
+        let propertyId: string | null = null;
+        const lookups = [
+          { externalIds: { staysnet_property_id: listingId } },
+          { externalIds: { staysnet_listing_id: listingId } },
+          { staysnet_raw: { _id: listingId } },
+        ];
+
+        for (const needle of lookups) {
+          const { data: row } = await supabase
+            .from('properties')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .contains('data', needle)
+            .maybeSingle();
+          if (row?.id) {
+            propertyId = row.id;
+            break;
+          }
+        }
+
+        if (!propertyId) {
+          // Tentar anuncios_ultimate
+          for (const needle of lookups) {
+            const { data: row } = await supabase
+              .from('anuncios_ultimate')
+              .select('id')
+              .eq('organization_id', organizationId)
+              .contains('data', needle)
+              .maybeSingle();
+            if (row?.id) {
+              propertyId = row.id;
+              break;
+            }
+          }
+        }
+
+        if (!propertyId) {
+          syncResults.push({ code, success: false, error: 'Property not found', listingId });
+          continue;
+        }
+
+        // Mapear dados
+        const checkIn = (staysData._checkin || staysData.checkIn || '').split('T')[0];
+        const checkOut = (staysData._checkout || staysData.checkOut || '').split('T')[0];
+        const platform = (staysData._partner || staysData.partner || 'staysnet').toLowerCase();
+        const staysStatus = String(staysData._type || staysData.type || staysData.status || '').toLowerCase();
+        
+        const statusMap: Record<string, string> = {
+          booked: 'confirmed', confirmed: 'confirmed', new: 'confirmed',
+          pending: 'pending', inquiry: 'pending',
+          cancelled: 'cancelled', canceled: 'cancelled',
+          checked_in: 'checked_in', checkedin: 'checked_in',
+          checked_out: 'checked_out', checkedout: 'checked_out',
+        };
+        const status = statusMap[staysStatus] || 'pending';
+
+        const reservationData = {
+          organization_id: organizationId,
+          property_id: propertyId,
+          external_id: staysData._id,
+          platform: platform.includes('airbnb') ? 'airbnb' : platform.includes('booking') ? 'booking' : 'staysnet',
+          confirmation_code: code,
+          check_in: checkIn,
+          check_out: checkOut,
+          status,
+          guest_name: staysData._gname || staysData.guestName || 'Unknown',
+          guest_email: staysData._gemail || staysData.guestEmail || null,
+          guest_phone: staysData._gphone || staysData.guestPhone || null,
+          adults: Number(staysData._nadults || staysData.adults || 1),
+          children: Number(staysData._nchildren || staysData.children || 0),
+          pricing_total: Math.round((Number(staysData._f_total?._f_val || staysData.total || 0)) * 100),
+          raw_data: staysData,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { error: upsertErr } = await supabase
+          .from('reservations')
+          .upsert(reservationData, { onConflict: 'organization_id,platform,external_id' });
+
+        if (upsertErr) {
+          syncResults.push({ code, success: false, error: upsertErr.message });
+        } else {
+          syncResults.push({ code, success: true, propertyId, platform, checkIn, checkOut, status });
+        }
+
+      } catch (err: any) {
+        syncResults.push({ code, success: false, error: err?.message || String(err) });
+      }
+    }
+
+    const successCount = syncResults.filter(r => r.success).length;
+    const failCount = syncResults.filter(r => !r.success).length;
+
+    return c.json(successResponse({
+      message: `AutoSync completed for ${targetDate}`,
+      date: targetDate,
+      stays: {
+        arrivals: staysArrivalCodes.length,
+        departures: staysDepartureCodes.length,
+      },
+      rendizy: {
+        arrivals: rendizyArrivalCodes.length,
+        departures: rendizyDepartureCodes.length,
+      },
+      missing: {
+        arrivals: missingArrivals.length,
+        departures: missingDepartures.length,
+        total: allMissing.length,
+      },
+      synced: {
+        success: successCount,
+        failed: failCount,
+      },
+      results: syncResults,
+    }));
+  } catch (error: any) {
+    logError('Error in auto-sync', error);
+    return c.json(errorResponse('Auto-sync failed', { details: error?.message }), 500);
+  }
+}
+
