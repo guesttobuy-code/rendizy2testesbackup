@@ -1,7 +1,7 @@
 # 📚 ADR: RESERVATION RECONCILIATION SYSTEM
 
-**Versão:** 1.0.0  
-**Data:** 2026-01-20  
+**Versão:** 1.1.0  
+**Data:** 2026-01-21  
 **Status:** ✅ IMPLEMENTADO  
 **Autor:** Sistema de gestão de reservas multi-canal  
 
@@ -381,4 +381,68 @@ WHERE id IN (
 
 | Data | Versão | Descrição |
 |------|--------|-----------|
+| 2026-01-21 | 1.1.0 | Webhook inline handler, auto-process, auto-sync endpoint |
 | 2026-01-20 | 1.0.0 | Criação após incidente de reservas órfãs |
+
+---
+
+## 9. ATUALIZAÇÕES 2026-01-21
+
+### 9.1 Problema: URL de Webhook Incorreta
+
+**Descoberta:**
+A URL configurada no Stays.net estava apontando para uma função inexistente:
+```
+❌ ERRADA: /functions/v1/staysnet-webhook-receiver/...
+✅ CORRETA: /functions/v1/rendizy-server/staysnet/webhook/:orgId
+```
+
+**Impacto:** Webhooks retornavam 404, reservas não sincronizavam em tempo real.
+
+**Correção:** URL correta configurada no Stays.net:
+```
+https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/staysnet/webhook/00000000-0000-0000-0000-000000000000
+```
+
+### 9.2 Problema: ExecutionContext Error
+
+**Sintoma:** Webhook retornava HTTP 500: `"This context has no ExecutionContext"`
+
+**Causa:** Função `receiveStaysNetWebhook` usava APIs não disponíveis no Deno Deploy.
+
+**Solução:** Handler inline no `index.ts` com imports dinâmicos:
+```typescript
+const webhookHandler = async (c: HonoContext) => {
+  // Import dinâmico para evitar problemas de inicialização
+  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = await import('./utils-env.ts');
+  const { createClient } = await import('jsr:@supabase/supabase-js@2');
+  // ... resto do handler
+};
+```
+
+### 9.3 Novo: Processamento Automático de Webhooks
+
+Quando um webhook chega, o sistema agora processa automaticamente até 20 webhooks pendentes:
+```typescript
+// Após salvar webhook, dispara processamento
+const { processPendingStaysNetWebhooksForOrg } = await import('./routes-staysnet-webhooks.ts');
+await processPendingStaysNetWebhooksForOrg(organizationId, 20);
+```
+
+### 9.4 Novo Endpoint: Auto-Sync
+
+```
+POST /reconciliation/auto-sync/:organizationId?date=YYYY-MM-DD
+```
+
+Executa reconciliação completa:
+1. Busca reservas do Stays.net para a data
+2. Compara com Rendizy
+3. Sincroniza reservas faltantes automaticamente
+
+### 9.5 Reservas Canceladas Sincronizadas
+
+Reservas com status `canceled` no Stays agora são atualizadas para `cancelled` no Rendizy:
+- FP20J (cancelada)
+- FP16J (cancelada)
+- FO24J (cancelada)

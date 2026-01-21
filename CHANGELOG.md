@@ -7,6 +7,41 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.0.113] - 2026-01-21
+
+### Fixed
+- 🔧 **StaysNet Webhook URL Corrigida**: URL de webhook estava errada no Stays.net
+  - URL errada: `/functions/v1/staysnet-webhook-receiver/...` (404)
+  - URL correta: `/functions/v1/rendizy-server/staysnet/webhook/:orgId`
+  - Webhooks agora chegam e são processados corretamente
+
+- 🔧 **ExecutionContext Error Fix**: Webhook retornava HTTP 500
+  - Causa: Função usava APIs não disponíveis no Deno Deploy
+  - Solução: Handler inline no `index.ts` com imports dinâmicos
+  - Erro `"This context has no ExecutionContext"` resolvido
+
+- 🔧 **Reservas Canceladas Sincronizadas**: FP20J, FP16J, FO24J
+  - Reservas estavam como `booked` no Rendizy mas `canceled` no Stays
+  - Status atualizado para `cancelled` automaticamente via force-sync
+
+### Added
+- ⚡ **Auto-Process Webhooks**: Processamento automático ao receber webhook
+  - Ao receber webhook, processa até 20 pendentes automaticamente
+  - Não precisa mais esperar o CRON para processar
+  - Resposta inclui `"autoProcessed": true`
+
+- 🔄 **Endpoint Auto-Sync**: `POST /reconciliation/auto-sync/:orgId`
+  - Compara Stays.net com Rendizy para uma data
+  - Sincroniza reservas faltantes automaticamente
+  - Query param: `?date=YYYY-MM-DD` (default: hoje)
+
+### Documentation
+- 📚 ADR_RESERVATION_RECONCILIATION.md atualizado para v1.1.0
+- 📚 Documentado problema de URL de webhook e solução
+- 📚 Documentado problema de ExecutionContext e solução
+
+---
+
 ## [1.0.112] - 2026-01-17
 
 ### Added
