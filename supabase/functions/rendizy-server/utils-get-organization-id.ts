@@ -54,9 +54,15 @@ function parseCookies(cookieHeader: string): Record<string, string> {
  * @returns Token de autenticação ou undefined
  */
 function extractTokenFromContext(c: Context): string | undefined {
+  // 🔍 DEBUG v1.0.103.1200: Log detalhado de todos os headers
+  console.log('🔍 [extractTokenFromContext] Iniciando extração de token...');
+  
   // ✅ PRIORIDADE 1: Tentar obter do header customizado X-Auth-Token (evita validação JWT automática)
   const customToken = c.req.header('X-Auth-Token');
+  console.log('🔍 [extractTokenFromContext] X-Auth-Token header:', customToken ? `${customToken.substring(0, 30)}... (length=${customToken.length})` : 'AUSENTE');
+  
   if (customToken) {
+    console.log('✅ [extractTokenFromContext] Usando token de X-Auth-Token');
     return customToken;
   }
   
@@ -64,17 +70,25 @@ function extractTokenFromContext(c: Context): string | undefined {
   const cookieHeader = c.req.header('Cookie') || '';
   const cookies = parseCookies(cookieHeader);
   const tokenFromCookie = cookies['rendizy-token'];
+  console.log('🔍 [extractTokenFromContext] Cookie header:', cookieHeader ? 'presente' : 'ausente');
+  console.log('🔍 [extractTokenFromContext] Token from cookie:', tokenFromCookie ? `${tokenFromCookie.substring(0, 30)}...` : 'AUSENTE');
   
   if (tokenFromCookie) {
+    console.log('✅ [extractTokenFromContext] Usando token de Cookie');
     return tokenFromCookie;
   }
   
   // ✅ PRIORIDADE 3: Fallback para header Authorization (compatibilidade durante migração)
   const authHeader = c.req.header('Authorization');
+  console.log('🔍 [extractTokenFromContext] Authorization header:', authHeader ? `${authHeader.substring(0, 40)}...` : 'AUSENTE');
+  
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('❌ [extractTokenFromContext] Nenhum token encontrado em nenhum header!');
     return undefined;
   }
-  return authHeader.split(' ')[1];
+  const tokenFromAuth = authHeader.split(' ')[1];
+  console.log('✅ [extractTokenFromContext] Usando token de Authorization Bearer');
+  return tokenFromAuth;
 }
 
 function isServiceRoleRequest(c: Context): boolean {
@@ -324,6 +338,18 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
         expiresAt: s.expires_at,
         revokedAt: s.revoked_at
       })) || []
+    });
+    
+    // 🔍 DEBUG: Comparar token recebido com tokens no banco
+    const tokenToFind = token?.substring(0, 20);
+    const matchFound = allSessions?.some(s => 
+      s.token?.substring(0, 20) === tokenToFind || 
+      s.access_token?.substring(0, 20) === tokenToFind
+    );
+    console.log('🔍 [getOrganizationIdOrThrow] Token recebido vs banco:', {
+      tokenRecebido: tokenToFind,
+      matchEncontrado: matchFound,
+      tokensNoBanco: allSessions?.map(s => s.token?.substring(0, 20)) || []
     });
     
     // ✅ IMPORTANTE: SERVICE_ROLE_KEY não valida JWT - query direta na tabela

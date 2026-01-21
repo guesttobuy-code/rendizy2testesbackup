@@ -224,10 +224,12 @@ app.get('/channels/config', async (c) => {
     return c.json({ success: true, data: apiConfig });
   } catch (error: any) {
     console.error('[Chat] Erro ao buscar configuração:', error);
-    if (error.message?.includes('organization')) {
-      return c.json({ success: false, error: error.message }, 401);
-    }
-    return c.json({ success: false, error: 'Erro ao buscar configuração' }, 500);
+    console.error('[Chat] Error message:', error.message);
+    console.error('[Chat] Error stack:', error.stack);
+    // ✅ FIX: Sempre retornar a mensagem de erro real para debug
+    const errorMessage = error.message || 'Erro ao buscar configuração';
+    const statusCode = error.message?.includes('Unauthorized') || error.message?.includes('organization') ? 401 : 500;
+    return c.json({ success: false, error: errorMessage }, statusCode);
   }
 });
 

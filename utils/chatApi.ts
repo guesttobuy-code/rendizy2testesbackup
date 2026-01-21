@@ -260,6 +260,15 @@ async function fetchAPI<T>(
       ? localStorage.getItem('rendizy-token') 
       : null;
     
+    // 🔍 DEBUG v1.0.103.1200: Log do token sendo enviado
+    console.log('🔍 [chatApi] fetchAPI:', {
+      endpoint,
+      method: restOptions.method || 'GET',
+      hasToken: !!authToken,
+      tokenLength: authToken?.length || 0,
+      tokenPrefix: authToken?.substring(0, 30)
+    });
+    
     const response = await fetch(fullUrl, {
       ...restOptions,
       headers: {
