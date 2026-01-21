@@ -426,15 +426,44 @@ app.post('/channels/whatsapp/connect', async (c) => {
     console.log('📱 [Chat] Conectando WhatsApp:', {
       organization_id: organizationId,
       instance_name: body.instance_name,
+      body_api_url: body.api_url ? `${body.api_url.substring(0, 30)}...` : 'NÃO FORNECIDO',
     });
     
-    // Buscar credenciais do banco
-    const config = await getEvolutionConfigForOrganization(organizationId);
+    // ✅ v1.0.103.1201: Permitir usar credenciais do body se fornecidas
+    // Isso permite conectar mesmo se o banco ainda não tiver os dados salvos
+    let config: EvolutionConfig | null = null;
+    
+    // Se body tem credenciais completas, usar elas (e salvar no banco)
+    if (body.api_url && body.instance_name && body.api_key) {
+      console.log('✅ [Chat] Usando credenciais do request body');
+      config = {
+        api_url: normalizeBaseUrl(body.api_url.trim()),
+        instance_name: body.instance_name.trim(),
+        api_key: body.api_key.trim(),
+        instance_token: body.instance_token?.trim() || body.api_key.trim(),
+        enabled: true,
+      };
+      
+      // Salvar credenciais no banco para futuras consultas
+      const repo = new ChannelConfigRepository();
+      await repo.upsert({
+        organization_id: organizationId,
+        whatsapp_enabled: true,
+        whatsapp_api_url: config.api_url,
+        whatsapp_instance_name: config.instance_name,
+        whatsapp_api_key: config.api_key,
+        whatsapp_instance_token: config.instance_token,
+      });
+      console.log('✅ [Chat] Credenciais salvas no banco');
+    } else {
+      // Fallback: Buscar credenciais do banco
+      config = await getEvolutionConfigForOrganization(organizationId);
+    }
     
     if (!config || !config.enabled) {
       return c.json({ 
         success: false, 
-        error: 'WhatsApp não configurado. Salve as credenciais primeiro.' 
+        error: 'WhatsApp não configurado. Forneça api_url, instance_name e api_key.' 
       }, 400);
     }
 

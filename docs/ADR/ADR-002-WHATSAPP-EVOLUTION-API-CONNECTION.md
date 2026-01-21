@@ -1,4 +1,4 @@
-# ADR-002: WhatsApp Evolution API - Conexão Backend Estabelecida
+# ADR-002: WhatsApp Evolution API - Conexão Completa Estabelecida
 
 ## 🔒 CADEADO DE PROTEÇÃO - NÃO RETROCEDER
 
@@ -6,9 +6,10 @@
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ⚠️  ATENÇÃO: ESTE CÓDIGO ESTÁ FUNCIONANDO EM PRODUÇÃO                      ║
 ║                                                                              ║
-║  Data de Estabilização: 2026-01-21                                          ║
-║  Versão: v1.0.103.1200                                                       ║
-║  Status: ✅ CONEXÃO ESTABELECIDA E TESTADA                                   ║
+║  Data de Estabilização: 2026-01-21 03:54 UTC                                ║
+║  Versão: v1.0.103.1201                                                       ║
+║  Status: ✅ WHATSAPP CONECTADO COM SUCESSO                                   ║
+║  Telefone: +55 21 99441-4512                                                 ║
 ║                                                                              ║
 ║  🚨 NÃO MODIFICAR SEM:                                                       ║
 ║     1. Ler esta ADR completamente                                           ║
@@ -25,12 +26,12 @@
 | Campo | Valor |
 |-------|-------|
 | **ID** | ADR-002 |
-| **Título** | WhatsApp Evolution API - Conexão Backend |
-| **Status** | ✅ ACEITO E IMPLEMENTADO |
+| **Título** | WhatsApp Evolution API - Conexão Completa |
+| **Status** | ✅ ACEITO, IMPLEMENTADO E CONECTADO |
 | **Data** | 2026-01-21 |
 | **Autor** | Sistema Rendizy |
-| **Versão** | v1.0.103.1200 |
-| **Tags** | `#whatsapp` `#evolution-api` `#backend` `#proxy` `#multi-tenant` |
+| **Versão** | v1.0.103.1201 |
+| **Tags** | `#whatsapp` `#evolution-api` `#backend` `#proxy` `#multi-tenant` `#qrcode` |
 
 ---
 
@@ -262,11 +263,14 @@ Invoke-RestMethod `
 | Parâmetro | Valor |
 |-----------|-------|
 | **URL** | `http://76.13.82.60:8080` |
-| **Versão** | v2.2.3 |
+| **Versão** | v2.0.10 ⚠️ (downgrade de v2.2.3 por estabilidade) |
 | **Channel** | Baileys |
-| **Instance** | `rendizy-admin-master` |
+| **Instance** | `rendizy-admin-master` ✅ CONECTADO |
+| **Telefone** | +55 21 99441-4512 |
 | **Global API Key** | `Rendizy2026EvolutionAPI` |
-| **Instance Token** | `886354F0C3A8-49D5-8FBD-AFE3E2698082` |
+| **Docker Image** | `atendai/evolution-api:v2.0.10` |
+| **Redis** | ❌ DESABILITADO (causava loops) |
+| **Cache** | Local (CACHE_LOCAL_ENABLED=true) |
 
 ### Supabase
 
@@ -324,6 +328,81 @@ GET /whatsapp/webhook/status 500 (Internal Server Error)
 
 ---
 
+### ❌ Problema 4: Redis Disconnected Loop (RESOLVIDO - 2026-01-21)
+
+**Causa:** Evolution API v2.2.3 configurada para usar Redis mas sem container Redis
+```
+ERROR [Redis] redis disconnected (repeating every 500ms)
+```
+
+**Solução:** Desabilitar Redis no docker-compose:
+```yaml
+environment:
+  - CACHE_REDIS_ENABLED=false
+  - CACHE_REDIS_URI=
+  - CACHE_LOCAL_ENABLED=true
+```
+
+---
+
+### ❌ Problema 5: Baileys Infinite Reconnection Loop (RESOLVIDO - 2026-01-21)
+
+**Causa:** Instância corrompida no PostgreSQL + versão instável do Evolution API
+```
+INFO [ChannelStartupService] Browser: Evolution API,Chrome,6.8.0-90-generic
+INFO [ChannelStartupService] Baileys version: 2,3000,1015901307
+INFO [ChannelStartupService] Group Ignore: false
+(repetindo indefinidamente a cada ~250ms)
+```
+
+**Solução em 3 passos:**
+1. Downgrade para `atendai/evolution-api:v2.0.10`
+2. Deletar todos os volumes Docker:
+   ```bash
+   docker stop evolution_api evolution_postgres
+   docker rm evolution_api evolution_postgres
+   docker volume rm $(docker volume ls -q)
+   ```
+3. Reimplantar pelo Hostinger Docker Manager
+
+---
+
+### ❌ Problema 6: QR Code count: 0 (RESOLVIDO - 2026-01-21)
+
+**Causa:** Instâncias órfãs no banco impediam geração de QR Code
+```json
+{"count": 0}  // Sem QR Code
+```
+
+**Solução:** Limpeza completa de volumes + banco de dados limpo
+
+---
+
+### ❌ Problema 7: Backend não aceitava credenciais do body (RESOLVIDO - 2026-01-21)
+
+**Causa:** Rota `/channels/whatsapp/connect` só usava credenciais do banco
+```
+success: false, error: 'WhatsApp não configurado. Salve as credenciais primeiro.'
+```
+
+**Solução v1.0.103.1201:** Modificado `routes-chat.ts` para aceitar credenciais do body:
+```typescript
+// ✅ Se body tem credenciais completas, usar elas (e salvar no banco)
+if (body.api_url && body.instance_name && body.api_key) {
+  config = {
+    api_url: normalizeBaseUrl(body.api_url.trim()),
+    instance_name: body.instance_name.trim(),
+    api_key: body.api_key.trim(),
+    instance_token: body.instance_token?.trim() || body.api_key.trim(),
+    enabled: true,
+  };
+  // Salvar credenciais no banco para futuras consultas
+  await repo.upsert({ ... });
+}
+```
+
+---
+
 ## 📚 Referências
 
 - **Documentação Evolution API:** `📚_DOCUMENTACAO_COMPLETA_SUCESSO_WHATSAPP.md`
@@ -334,10 +413,11 @@ GET /whatsapp/webhook/status 500 (Internal Server Error)
 
 ## 🚀 Próximos Passos (Fora do Escopo desta ADR)
 
-1. [ ] Gerar QR Code para conexão
-2. [ ] Sincronizar contatos
-3. [ ] Enviar/receber mensagens
-4. [ ] Configurar webhooks
+1. [x] ~~Gerar QR Code para conexão~~ ✅ FEITO
+2. [x] ~~Escanear e conectar WhatsApp~~ ✅ FEITO (+55 21 99441-4512)
+3. [ ] Sincronizar contatos
+4. [ ] Enviar/receber mensagens
+5. [ ] Configurar webhooks de produção
 
 ---
 
@@ -345,6 +425,9 @@ GET /whatsapp/webhook/status 500 (Internal Server Error)
 
 | Data | Versão | Descrição |
 |------|--------|-----------|
+| 2026-01-21 03:54 | v1.0.103.1201 | ✅ **WHATSAPP CONECTADO!** +55 21 99441-4512 |
+| 2026-01-21 03:39 | v1.0.103.1201 | Downgrade Evolution API v2.0.10, limpeza volumes |
+| 2026-01-21 02:30 | v1.0.103.1200 | Desabilitado Redis, resolvido loop errors |
 | 2026-01-21 | v1.0.103.1200 | Conexão básica estabelecida |
 | 2026-01-21 | v1.0.103.1200 | Proxy test-connection criado |
 | 2026-01-21 | v1.0.103.1200 | X-Auth-Token corrigido |
@@ -355,10 +438,14 @@ GET /whatsapp/webhook/status 500 (Internal Server Error)
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
-║  ✅ CHECKPOINT ESTÁVEL - CONEXÃO WHATSAPP FUNCIONANDO                        ║
+║  ✅ CHECKPOINT ESTÁVEL - WHATSAPP CONECTADO E FUNCIONANDO                    ║
+║                                                                              ║
+║  Instância: rendizy-admin-master                                            ║
+║  Telefone: +55 21 99441-4512                                                ║
+║  Status: OPEN (conectado)                                                   ║
 ║                                                                              ║
 ║  Se você chegou aqui após um bug, VOLTE para este commit:                   ║
-║  - git checkout v1.0.103.1200                                               ║
+║  - git checkout v1.0.103.1201                                               ║
 ║  - Ou restaure os arquivos listados nesta ADR                               ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
