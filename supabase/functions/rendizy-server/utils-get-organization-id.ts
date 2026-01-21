@@ -303,7 +303,28 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
     // 2. PRIORIDADE 1: Tentar buscar da tabela sessions do SQL (ARQUITETURA SQL)
     // ✅ ARQUITETURA SQL v1.0.103.950 - Buscar sessão da tabela sessions do SQL
     console.log(`🔍 [getOrganizationIdOrThrow] Buscando sessão na tabela SQL com token: ${token?.substring(0, 20)}...`);
+    console.log(`🔍 [getOrganizationIdOrThrow] Token completo length: ${token?.length}`);
     const client = getSupabaseClient();
+    
+    // ✅ DEBUG v1.0.103.1200: Verificar quantas sessões existem
+    const { data: allSessions, error: countError } = await client
+      .from('sessions')
+      .select('id, token, access_token, user_id, organization_id, expires_at, revoked_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    console.log('🔍 [getOrganizationIdOrThrow] DEBUG - Últimas 5 sessões:', {
+      count: allSessions?.length || 0,
+      sessions: allSessions?.map(s => ({
+        id: s.id,
+        tokenPrefix: s.token?.substring(0, 20),
+        accessTokenPrefix: s.access_token?.substring(0, 20),
+        userId: s.user_id,
+        organizationId: s.organization_id,
+        expiresAt: s.expires_at,
+        revokedAt: s.revoked_at
+      })) || []
+    });
     
     // ✅ IMPORTANTE: SERVICE_ROLE_KEY não valida JWT - query direta na tabela
     // ✅ CORREÇÃO v1.0.103.600: Buscar PRIMEIRO por access_token (OAuth2), depois por token (legacy)

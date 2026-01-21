@@ -239,6 +239,15 @@ app.get('/channels/config', async (c) => {
  */
 app.patch('/channels/config', async (c) => {
   try {
+    // 🔍 DEBUG v1.0.103.1200: Log todos os headers recebidos
+    const authHeader = c.req.header('Authorization');
+    const xAuthToken = c.req.header('X-Auth-Token');
+    console.log('🔍 [PATCH /channels/config] Headers recebidos:', {
+      authorization: authHeader ? `${authHeader.substring(0, 30)}...` : 'AUSENTE',
+      xAuthToken: xAuthToken ? `${xAuthToken.substring(0, 30)}...` : 'AUSENTE',
+      allHeaders: Object.fromEntries([...c.req.raw.headers.entries()].map(([k, v]) => [k, k.toLowerCase().includes('token') || k.toLowerCase().includes('auth') ? v.substring(0, 30) + '...' : v]))
+    });
+    
     const organizationId = await getOrganizationIdOrThrow(c);
     const body = await c.req.json();
     
