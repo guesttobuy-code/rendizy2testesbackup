@@ -255,11 +255,18 @@ async function fetchAPI<T>(
     // ✅ GARANTIR que credentials não seja passado via options
     const { credentials, ...restOptions } = options;
     
+    // ✅ FIX: Buscar token de autenticação do localStorage
+    const authToken = typeof localStorage !== 'undefined' 
+      ? localStorage.getItem('rendizy-token') 
+      : null;
+    
     const response = await fetch(fullUrl, {
       ...restOptions,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${publicAnonKey}`,
+        // ✅ FIX: Incluir X-Auth-Token para autenticação no backend
+        ...(authToken ? { 'X-Auth-Token': authToken } : {}),
         ...restOptions.headers,
       },
       credentials: 'omit', // ✅ Explícito: não enviar credentials
