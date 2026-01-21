@@ -38,7 +38,8 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  Trash2
+  Trash2,
+  Copy
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -1491,18 +1492,34 @@ function ChatSettingsTab({ organizationId }: { organizationId: string }) {
 // 🆕 CHANNELS COMMUNICATION SETTINGS COMPONENT (v1.0.101)
 // ============================================================================
 
+/**
+ * ARQUITETURA DE PERSISTÊNCIA:
+ * 
+ * Frontend → channelsApi → Backend → ChannelConfigRepository → organization_channel_config (SQL)
+ * 
+ * ✅ Persistência REAL no banco de dados SQL (Supabase)
+ * ✅ RLS (Row Level Security) por organization_id
+ * ✅ UPSERT atômico para evitar race conditions
+ * ❌ NÃO usa localStorage (anti-pattern para dados críticos)
+ * 
+ * @see docs/ADR_EDGE_FUNCTIONS_ARQUITETURA_CENTRALIZADA.md
+ * @see supabase/functions/rendizy-server/repositories/channel-config-repository.ts
+ */
 function ChannelsCommunicationSettings({ organizationId }: { organizationId: string }) {
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<OrganizationChannelConfig | null>(null);
   const [showWhatsAppConfig, setShowWhatsAppConfig] = useState(false);
   const [showSMSConfig, setShowSMSConfig] = useState(false);
   const [whatsappForm, setWhatsappForm] = useState({
     api_url: '',
     instance_name: '',
-    api_key: ''
+    api_key: '',
+    instance_token: ''
   });
   const [connectingWhatsApp, setConnectingWhatsApp] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   
   // Webhook URL para Evolution API
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/chat/channels/whatsapp/webhook`;
@@ -1511,51 +1528,104 @@ function ChannelsCommunicationSettings({ organizationId }: { organizationId: str
     loadConfig();
   }, [organizationId]);
 
+  /**
+   * Carrega configuração do BACKEND (SQL)
+   * ✅ Persistência real - não usa localStorage
+   */
   const loadConfig = async () => {
     setLoading(true);
+    setLastError(null);
     
-    // Sempre tenta carregar do localStorage primeiro
-    const localConfigStr = localStorage.getItem(`whatsapp_config_${organizationId}`);
-    if (localConfigStr) {
-      try {
-        const localConfig = JSON.parse(localConfigStr);
+    // Em modo offline, não tenta carregar
+    if (isOfflineMode()) {
+      console.log('📴 [WhatsApp] Modo offline - usando estado vazio');
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      console.log('📡 [WhatsApp] Carregando configuração do backend...');
+      const result = await channelsApi.getConfig(organizationId);
+      
+      if (result.success && result.data) {
+        console.log('✅ [WhatsApp] Configuração carregada:', {
+          has_whatsapp: !!result.data.whatsapp,
+          enabled: result.data.whatsapp?.enabled,
+          api_url: result.data.whatsapp?.api_url ? '***' : 'vazio',
+          connected: result.data.whatsapp?.connected
+        });
         
-        setConfig(localConfig);
-        if (localConfig.whatsapp) {
+        setConfig(result.data);
+        
+        // Preencher formulário com dados do banco
+        if (result.data.whatsapp) {
           setWhatsappForm({
-            api_url: localConfig.whatsapp.api_url || '',
-            instance_name: localConfig.whatsapp.instance_name || '',
-            api_key: localConfig.whatsapp.api_key || ''
+            api_url: result.data.whatsapp.api_url || '',
+            instance_name: result.data.whatsapp.instance_name || '',
+            api_key: result.data.whatsapp.api_key || '',
+            instance_token: result.data.whatsapp.instance_token || ''
           });
         }
-        
-        setLoading(false);
-        return;
-      } catch (parseError) {
-        console.error('Erro ao fazer parse do localStorage:', parseError);
+      } else {
+        console.log('⚠️ [WhatsApp] Nenhuma configuração encontrada (primeira vez)');
+        // Configuração padrão para nova organização
+        setConfig(null);
       }
+    } catch (error: any) {
+      console.error('❌ [WhatsApp] Erro ao carregar configuração:', error);
+      setLastError(error.message || 'Erro ao carregar configuração');
+      // Não silencia o erro - mostra para o usuário
+    } finally {
+      setLoading(false);
     }
+  };
+
+  /**
+   * Salva configuração no BACKEND (SQL)
+   * ✅ Persistência atômica via UPSERT
+   */
+  const saveConfig = async (newWhatsappConfig: Partial<OrganizationChannelConfig['whatsapp']>) => {
+    setSaving(true);
+    setLastError(null);
     
-    // Se não houver localStorage e não estiver em modo offline, tenta backend
-    if (!isOfflineMode()) {
-      try {
-        const result = await channelsApi.getConfig(organizationId);
-        if (result.success && result.data) {
-          setConfig(result.data);
-          if (result.data.whatsapp) {
-            setWhatsappForm({
-              api_url: result.data.whatsapp.api_url || '',
-              instance_name: result.data.whatsapp.instance_name || '',
-              api_key: result.data.whatsapp.api_key || ''
-            });
-          }
-        }
-      } catch (error) {
-        // Silencia erros em modo offline
+    try {
+      console.log('💾 [WhatsApp] Salvando configuração no backend...', {
+        api_url: newWhatsappConfig.api_url ? '***' : 'vazio',
+        instance_name: newWhatsappConfig.instance_name || 'vazio',
+        enabled: newWhatsappConfig.enabled
+      });
+      
+      const result = await channelsApi.updateConfig(organizationId, {
+        whatsapp: {
+          ...config?.whatsapp,
+          ...newWhatsappConfig,
+          api_url: newWhatsappConfig.api_url || whatsappForm.api_url,
+          instance_name: newWhatsappConfig.instance_name || whatsappForm.instance_name,
+          api_key: newWhatsappConfig.api_key || whatsappForm.api_key,
+          instance_token: newWhatsappConfig.instance_token || whatsappForm.instance_token,
+        } as any
+      });
+      
+      if (result.success && result.data) {
+        console.log('✅ [WhatsApp] Configuração salva com sucesso');
+        setConfig(result.data);
+        return true;
+      } else {
+        const errorMsg = result.error || 'Erro ao salvar configuração';
+        console.error('❌ [WhatsApp] Erro ao salvar:', errorMsg);
+        setLastError(errorMsg);
+        toast.error(errorMsg);
+        return false;
       }
+    } catch (error: any) {
+      const errorMsg = error.message || 'Erro ao salvar configuração';
+      console.error('❌ [WhatsApp] Exceção ao salvar:', error);
+      setLastError(errorMsg);
+      toast.error(errorMsg);
+      return false;
+    } finally {
+      setSaving(false);
     }
-    
-    setLoading(false);
   };
 
   const handleCopyWebhook = async () => {
@@ -1587,26 +1657,67 @@ function ChannelsCommunicationSettings({ organizationId }: { organizationId: str
     }
 
     setConnectingWhatsApp(true);
+    setLastError(null);
+    
     try {
-      const result = await channelsApi.evolution.connect(organizationId, whatsappForm);
+      // 1. Primeiro salva as credenciais no banco
+      console.log('💾 [WhatsApp] Salvando credenciais antes de conectar...');
+      const saveSuccess = await saveConfig({
+        enabled: true,
+        api_url: whatsappForm.api_url,
+        instance_name: whatsappForm.instance_name,
+        api_key: whatsappForm.api_key,
+        instance_token: whatsappForm.instance_token,
+        connection_status: 'connecting'
+      });
+      
+      if (!saveSuccess) {
+        toast.error('Erro ao salvar credenciais');
+        return;
+      }
+      
+      // 2. Agora tenta conectar
+      console.log('🔌 [WhatsApp] Conectando...');
+      const result = await channelsApi.evolution.connect(organizationId, {
+        api_url: whatsappForm.api_url,
+        instance_name: whatsappForm.instance_name,
+        api_key: whatsappForm.api_key
+      });
       
       if (result.success && result.data) {
         setQrCode(result.data.qr_code);
         toast.success('QR Code gerado! Escaneie com o WhatsApp');
         
+        // Atualiza status no banco
+        await saveConfig({ connection_status: 'connecting' });
+        
         // Reload config
         await loadConfig();
       } else {
-        // v1.0.102 not implemented yet
-        toast.info('Integração WhatsApp será implementada na v1.0.102');
+        const errorMsg = result.error || 'Erro ao conectar';
+        console.error('❌ [WhatsApp] Erro ao conectar:', errorMsg);
+        setLastError(errorMsg);
+        
+        // Salva o erro no banco
+        await saveConfig({ 
+          connection_status: 'error',
+          error_message: errorMsg
+        });
+        
+        toast.error(errorMsg);
       }
     } catch (error: any) {
       console.error('Error connecting WhatsApp:', error);
-      if (error.message?.includes('501') || error.message?.includes('v1.0.102')) {
-        toast.info('Integração WhatsApp em desenvolvimento (v1.0.102)');
-      } else {
-        toast.error('Erro ao conectar WhatsApp');
-      }
+      const errorMsg = error.message || 'Erro ao conectar WhatsApp';
+      setLastError(errorMsg);
+      
+      // Salva o erro no banco
+      await saveConfig({ 
+        connection_status: 'error',
+        error_message: errorMsg
+      });
+      
+      toast.error(errorMsg);
     } finally {
       setConnectingWhatsApp(false);
     }
@@ -1618,6 +1729,15 @@ function ChannelsCommunicationSettings({ organizationId }: { organizationId: str
       if (result.success) {
         toast.success('WhatsApp desconectado');
         setQrCode(null);
+        
+        // Atualiza status no banco
+        await saveConfig({
+          connected: false,
+          connection_status: 'disconnected',
+          phone_number: undefined,
+          qr_code: undefined
+        });
+        
         await loadConfig();
       }
     } catch (error) {
@@ -1626,27 +1746,54 @@ function ChannelsCommunicationSettings({ organizationId }: { organizationId: str
     }
   };
 
+  /**
+   * Habilita/Desabilita WhatsApp
+   * ✅ Salva no banco SQL via UPSERT atômico
+   */
   const handleToggleWhatsApp = async (enabled: boolean) => {
     try {
-      const result = await channelsApi.updateConfig(organizationId, {
-        whatsapp: {
-          ...config?.whatsapp,
-          enabled,
-          api_url: whatsappForm.api_url,
-          instance_name: whatsappForm.instance_name,
-          api_key: whatsappForm.api_key,
-          connected: config?.whatsapp?.connected || false,
-          connection_status: config?.whatsapp?.connection_status || 'disconnected'
-        }
+      console.log(`🔄 [WhatsApp] ${enabled ? 'Habilitando' : 'Desabilitando'}...`);
+      
+      const success = await saveConfig({
+        enabled,
+        api_url: whatsappForm.api_url,
+        instance_name: whatsappForm.instance_name,
+        api_key: whatsappForm.api_key,
+        instance_token: whatsappForm.instance_token,
+        connected: config?.whatsapp?.connected || false,
+        connection_status: config?.whatsapp?.connection_status || 'disconnected'
       });
       
-      if (result.success) {
-        setConfig(result.data);
+      if (success) {
         toast.success(enabled ? 'WhatsApp ativado' : 'WhatsApp desativado');
+        await loadConfig();
       }
     } catch (error) {
       console.error('Error toggling WhatsApp:', error);
       toast.error('Erro ao atualizar configuração');
+    }
+  };
+
+  /**
+   * Salva formulário manualmente (botão "Salvar")
+   * ✅ Salva no banco SQL via UPSERT atômico
+   */
+  const handleSaveForm = async () => {
+    if (!whatsappForm.api_url || !whatsappForm.instance_name || !whatsappForm.api_key) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    
+    const success = await saveConfig({
+      enabled: true,
+      api_url: whatsappForm.api_url,
+      instance_name: whatsappForm.instance_name,
+      api_key: whatsappForm.api_key,
+      instance_token: whatsappForm.instance_token
+    });
+    
+    if (success) {
+      toast.success('Configurações salvas no banco de dados!');
     }
   };
 
@@ -1789,7 +1936,21 @@ function ChannelsCommunicationSettings({ organizationId }: { organizationId: str
                     className="mt-2 bg-input border-border text-foreground"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Chave de autenticação da Evolution API
+                    Chave de autenticação da Evolution API (Global API Key)
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-foreground">Instance Token (opcional)</Label>
+                  <Input
+                    type="password"
+                    value={whatsappForm.instance_token}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, instance_token: e.target.value })}
+                    placeholder="token-da-instancia"
+                    className="mt-2 bg-input border-border text-foreground"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Token específico da instância (gerado ao criar a instância no Evolution Manager)
                   </p>
                 </div>
 
@@ -1815,23 +1976,55 @@ function ChannelsCommunicationSettings({ organizationId }: { organizationId: str
                   </p>
                 </div>
 
-                <Button
-                  onClick={handleConnectWhatsApp}
-                  disabled={connectingWhatsApp}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {connectingWhatsApp ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Conectando...
-                    </>
-                  ) : (
-                    <>
-                      <QrCode className="h-4 w-4 mr-2" />
-                      Gerar QR Code
-                    </>
-                  )}
-                </Button>
+                {/* Botões de ação */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleSaveForm}
+                    disabled={saving || !whatsappForm.api_url || !whatsappForm.instance_name || !whatsappForm.api_key}
+                    variant="outline"
+                    className="flex-1 border-blue-500 text-blue-500 hover:bg-blue-500/10"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Salvar Credenciais
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    onClick={handleConnectWhatsApp}
+                    disabled={connectingWhatsApp || !whatsappForm.api_url || !whatsappForm.instance_name || !whatsappForm.api_key}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    {connectingWhatsApp ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Conectando...
+                      </>
+                    ) : (
+                      <>
+                        <QrCode className="h-4 w-4 mr-2" />
+                        Gerar QR Code
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Erro último */}
+                {lastError && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <p className="text-sm text-red-400 flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      {lastError}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* QR Code Display */}
