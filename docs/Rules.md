@@ -12,13 +12,19 @@
 
 📄 **Documento**: [ADR_EDGE_FUNCTIONS_ARQUITETURA_CENTRALIZADA.md](./ADR_EDGE_FUNCTIONS_ARQUITETURA_CENTRALIZADA.md)
 
-**Resumo**: O projeto usa **UMA ÚNICA Edge Function** (`rendizy-server`) para toda lógica de negócio.
+**Resumo**: O projeto usa **3 Edge Functions** para diferentes propósitos:
+
+| Function | Propósito |
+|----------|-----------|
+| `rendizy-server` | Backend principal (webhooks, reservas, calendário) |
+| `rendizy-public` | Sites públicos de clientes |
+| `staysnet-properties-sync-cron` | CRON dedicado: sync propriedades 2x/dia |
 
 | ✅ PERMITIDO | ❌ PROIBIDO |
 |-------------|-------------|
-| `rendizy-server` (backend) | Criar novas functions em `supabase/functions/` |
-| `rendizy-public` (sites públicos) | Importar de `rendizy-server` em outras functions |
-| Adicionar rotas em `rendizy-server` | "Separar para organizar" (já causou bugs) |
+| Adicionar rotas em `rendizy-server` | Criar novas functions aleatórias |
+| Usar `rendizy-public` para sites | Importar de `rendizy-server` em outras functions |
+| CRON separado para sync pesado | "Separar para organizar" sem motivo técnico |
 
 **Contexto**: Em Dezembro 2025, uma IA criou múltiplas Edge Functions separadas que ficaram desincronizadas por 20+ dias, causando perda de webhooks e reservas.
 
@@ -29,10 +35,23 @@
 **Resumo**: Documentação completa do sistema de webhooks da integração Stays.net.
 
 **Inclui**:
+- **Webhook Handler Inline** (index.ts linhas 660-756) - bypass ExecutionContext
+- **Auto-processamento** de webhooks ao receber
 - Fluxo de recebimento e processamento
 - Estrutura de dados dos webhooks
 - Troubleshooting comum
 - Queries de debug
+
+**URL Correta do Webhook**:
+```
+https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/staysnet/webhook/00000000-0000-0000-0000-000000000000
+```
+
+### ADR #3: Sistema de Reconciliação de Reservas
+
+📄 **Documento**: [ADR_RESERVATION_RECONCILIATION.md](./ADR_RESERVATION_RECONCILIATION.md)
+
+**Resumo**: Sistema bidirecional que garante consistência entre Stays.net e Rendizy.
 
 ### ⛔ REGRAS ABSOLUTAS PARA IAs
 

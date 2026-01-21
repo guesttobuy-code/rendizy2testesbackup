@@ -1,8 +1,8 @@
 # 📚 STAYSNET WEBHOOK - DOCUMENTAÇÃO DE REFERÊNCIA
 
-**Versão:** 1.1.0  
-**Data:** 2026-01-20  
-**Status:** ✅ FUNCIONANDO CORRETAMENTE (COM RECONCILIAÇÃO ATIVA)  
+**Versão:** 1.2.0  
+**Data:** 2026-01-21  
+**Status:** ✅ FUNCIONANDO CORRETAMENTE (WEBHOOK INLINE + AUTO-PROCESSAMENTO)  
 **Autor:** Documentação gerada após correções de bugs críticos  
 
 ---
@@ -17,7 +17,8 @@
 6. [Estrutura de Dados](#6-estrutura-de-dados)
 7. [Queries Úteis para Debug](#7-queries-úteis-para-debug)
 8. [Checklist de Validação](#8-checklist-de-validação)
-9. [Sistema de Reconciliação](#9-sistema-de-reconciliação) ⭐ NOVO
+9. [Sistema de Reconciliação](#9-sistema-de-reconciliação)
+10. [Webhook Handler Inline](#10-webhook-handler-inline) ⭐ NOVO
 
 ---
 
@@ -28,21 +29,28 @@ Sistema de integração que recebe webhooks do Stays.net e sincroniza reservas/b
 
 ### Arquivo Principal
 ```
-supabase/functions/rendizy-server/routes-staysnet-webhooks.ts
+supabase/functions/rendizy-server/index.ts (webhook handler inline - linhas 660-756)
+supabase/functions/rendizy-server/routes-staysnet-webhooks.ts (processamento)
 ```
 
 ### Endpoint
 ```
 POST /staysnet/webhook/:organizationId
+POST /rendizy-server/staysnet/webhook/:organizationId
+```
+
+### URL Configurada na Stays.net
+```
+https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/staysnet/webhook/00000000-0000-0000-0000-000000000000
 ```
 
 ### Fluxo Resumido
 ```
-Stays.net → Webhook → Rendizy Server → Banco de Dados (Supabase)
+Stays.net → Webhook → Webhook Handler Inline → Auto-Processamento
                           ↓
                     ┌─────────────────────────────────────┐
                     │ 1. Salva webhook na tabela          │
-                    │ 2. Processa payload                 │
+                    │ 2. Processa até 20 pendentes        │
                     │ 3. Resolve property_id via lookup   │
                     │ 4. Upsert reserva/bloqueio          │
                     └─────────────────────────────────────┘
@@ -941,22 +949,106 @@ const adapters = {
 
 ---
 
+## 10. WEBHOOK HANDLER INLINE ⭐
+
+### 10.1 Contexto do Problema
+
+Em 2026-01-20, descobrimos que o webhook handler em `routes-staysnet-webhooks.ts` falhava com:
+```
+Error: This context has no ExecutionContext
+```
+
+### 10.2 Causa Raiz
+
+O Hono/Supabase Edge Functions usa `ExecutionContext.waitUntil()` para processar em background,
+mas em alguns cenários o contexto não estava disponível, causando falha silenciosa.
+
+### 10.3 Solução: Webhook Handler Inline
+
+Criamos um handler inline diretamente em `index.ts` (linhas 660-756) que:
+
+1. **Não depende de `routes-staysnet-webhooks.ts`** para receber o webhook
+2. **Usa import dinâmico** para evitar problemas de inicialização
+3. **Processa imediatamente** até 20 webhooks pendentes (não depende de CRON)
+4. **Fallback seguro**: se processamento falhar, CRON pega depois
+
+### 10.4 Código de Referência
+
+```typescript
+// index.ts linhas 660-756
+const webhookHandler = async (c: HonoContext) => {
+  const organizationId = c.req.param('organizationId');
+  
+  // 1. Parse body
+  const rawText = await c.req.text();
+  const body = JSON.parse(rawText);
+  const action = body.action || 'unknown';
+  const payload = body.payload ?? body;
+  
+  // 2. Import dinâmico (evita problemas de inicialização)
+  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = await import('./utils-env.ts');
+  const { createClient } = await import('jsr:@supabase/supabase-js@2');
+  const supabase = createClient(url, key);
+  
+  // 3. Salvar no banco
+  const { data } = await supabase
+    .from('staysnet_webhooks')
+    .insert({ organization_id, action, payload, processed: false })
+    .select('id')
+    .single();
+  
+  // 4. AUTO-PROCESSAMENTO IMEDIATO (até 20 webhooks)
+  const { processPendingStaysNetWebhooksForOrg } = await import('./routes-staysnet-webhooks.ts');
+  await processPendingStaysNetWebhooksForOrg(organizationId, 20);
+  
+  return c.json({ success: true, id: data.id, autoProcessed: true });
+};
+
+// Registrar rotas
+app.post("/staysnet/webhook/:organizationId", webhookHandler);
+app.post("/rendizy-server/staysnet/webhook/:organizationId", webhookHandler);
+```
+
+### 10.5 Benefícios
+
+| Antes | Depois |
+|-------|--------|
+| Webhook salvava mas não processava | Webhook salva E processa imediatamente |
+| Dependia 100% do CRON (5 min) | Processamento em tempo real |
+| Falha silenciosa com ExecutionContext | Fallback seguro para CRON |
+| Reservas demoravam até 5 min | Reservas aparecem em segundos |
+
+### 10.6 Diagnóstico
+
+```bash
+# Ver webhooks recentes
+curl "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/staysnet/webhooks/diagnostics/00000000-0000-0000-0000-000000000000"
+
+# Ver contagens
+# pending=0 significa que todos foram processados ✅
+```
+
+---
+
 ## 📝 HISTÓRICO DE ALTERAÇÕES
 
 | Data | Versão | Descrição |
 |------|--------|-----------|
 | 2026-01-18 | 1.0.0 | Documentação inicial após correção de bugs críticos |
 | 2026-01-20 | 1.1.0 | Adicionado BUG 6 (reservas órfãs) e seção de Reconciliação |
+| 2026-01-21 | 1.2.0 | Webhook Handler Inline + Auto-processamento documentado |
 
 ---
 
 ## 🔗 REFERÊNCIAS
 
-- **Arquivo principal:** `supabase/functions/rendizy-server/routes-staysnet-webhooks.ts`
+- **Webhook Handler Inline:** `supabase/functions/rendizy-server/index.ts` (linhas 660-756)
+- **Processamento:** `supabase/functions/rendizy-server/routes-staysnet-webhooks.ts`
 - **Reconciliação:** `supabase/functions/rendizy-server/utils-reservation-reconciliation.ts`
 - **Governança:** `docs/04-modules/STAYSNET_INTEGRATION_GOVERNANCE.md`
 - **ADR Reconciliação:** `docs/ADR_RESERVATION_RECONCILIATION.md`
 - **Supabase Project:** `odcgnzfremrqnvtitpcc`
+- **URL Webhook Stays:** `https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/staysnet/webhook/00000000-0000-0000-0000-000000000000`
 - **Deploy:** `supabase functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc`
 
 ---

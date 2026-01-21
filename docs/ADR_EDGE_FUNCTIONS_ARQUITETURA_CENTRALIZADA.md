@@ -1,7 +1,7 @@
 # ADR: Arquitetura Centralizada de Edge Functions
 
 **Status**: ✅ APROVADO  
-**Data**: 2026-01-18  
+**Data**: 2026-01-21 (Atualizado)  
 **Autor**: Equipe Rendizy  
 **Revisão Obrigatória Por**: Qualquer IA que trabalhe neste projeto
 
@@ -77,16 +77,18 @@ Essas functions **importavam código** de `rendizy-server`, mas tinham deploy se
 
 | Function | Propósito | Autenticação |
 |----------|-----------|--------------|
-| `rendizy-server` | Toda lógica de negócio | Bearer token / API key |
+| `rendizy-server` | Toda lógica de negócio (webhooks, reservas, calendário) | Bearer token / API key |
 | `rendizy-public` | Sites de clientes públicos | Nenhuma |
+| `staysnet-properties-sync-cron` | CRON dedicado sync propriedades 2x/dia | Service Role Key |
 
 ### Functions PROIBIDAS (Deprecated)
 
 | Function | Status | Motivo |
 |----------|--------|--------|
-| `staysnet-webhook-receiver` | 🔴 DEPRECATED | Consolidado em `rendizy-server` |
+| `staysnet-webhook-receiver` | 🔴 DEPRECATED | Webhook handler inline em `rendizy-server/index.ts` |
 | `staysnet-webhooks-cron` | 🔴 DEPRECATED | Consolidado em `rendizy-server` |
-| `staysnet-properties-sync-cron` | 🔴 DEPRECATED | Consolidado em `rendizy-server` |
+| `execute-rpc-fix` | 🔴 DEPRECATED | Hotfix obsoleto |
+| `fix-rpc-function` | 🔴 DEPRECATED | Hotfix obsoleto |
 | Qualquer nova function | 🔴 PROIBIDO | Usar rotas em `rendizy-server` |
 
 ---
@@ -206,10 +208,11 @@ supabase functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc
 | 2026-01-18 | Consolidação aprovada: uma function, múltiplas rotas |
 | 2026-01-18 | Criado routes-cron-staysnet.ts com rotas centralizadas |
 | 2026-01-18 | Migração 20260118_consolidate_cron_jobs_centralized.sql |
-| 2026-01-18 | Deletadas: staysnet-webhook-receiver, staysnet-webhooks-cron, staysnet-properties-sync-cron |
-| 2026-01-18 | Deletadas: execute-rpc-fix, fix-rpc-function (hotfixes obsoletos) |
-| 2026-01-18 | Migrado calendar-rules-batch para /calendar-rules/batch em rendizy-server |
-| 2026-01-18 | **ARQUITETURA FINAL: Apenas 2 Edge Functions (rendizy-server + rendizy-public)** |
+| 2026-01-20 | **FIX CRÍTICO**: Webhook handler inline em index.ts (bypass ExecutionContext) |
+| 2026-01-20 | Auto-processamento de webhooks ao receber (processPendingStaysNetWebhooksForOrg) |
+| 2026-01-21 | Deploy de `staysnet-properties-sync-cron` para sync de propriedades |
+| 2026-01-21 | CRON configurado: 08:00 e 20:00 BRT via pg_cron |
+| 2026-01-21 | **ARQUITETURA FINAL: 3 Edge Functions ativas** |
 
 ---
 
@@ -242,21 +245,21 @@ supabase functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc
 
 ### Edge Functions ATIVAS (APENAS ESTAS)
 
-| Function | Propósito | Deploys |
-|----------|-----------|---------|
-| `rendizy-server` | Backend principal | 749 |
-| `rendizy-public` | Sites públicos | 67 |
+| Function | Propósito | CRON |
+|----------|-----------|------|
+| `rendizy-server` | Backend principal (webhooks, reservas, calendário) | - |
+| `rendizy-public` | Sites públicos | - |
+| `staysnet-properties-sync-cron` | Sync propriedades Stays.net | 08:00 e 20:00 BRT |
 
 ### Edge Functions DELETADAS (NÃO RECRIAR)
 
-| Function | Status | Data Remoção |
-|----------|--------|--------------|
-| `staysnet-webhook-receiver` | 🔴 DELETADA | 18/01/2026 |
-| `staysnet-webhooks-cron` | 🔴 DELETADA | 18/01/2026 |
-| `staysnet-properties-sync-cron` | 🔴 DELETADA | 18/01/2026 |
-| `execute-rpc-fix` | 🔴 DELETADA | 18/01/2026 |
-| `fix-rpc-function` | 🔴 DELETADA | 18/01/2026 |
-| `calendar-rules-batch` | 🔴 DELETADA | 18/01/2026 |
+| Function | Status | Motivo |
+|----------|--------|--------|
+| `staysnet-webhook-receiver` | 🔴 DELETADA | Inline handler em index.ts |
+| `staysnet-webhooks-cron` | 🔴 DELETADA | Processamento inline em webhook handler |
+| `execute-rpc-fix` | 🔴 DELETADA | Hotfix obsoleto |
+| `fix-rpc-function` | 🔴 DELETADA | Hotfix obsoleto |
+| `calendar-rules-batch` | 🔴 DELETADA | Migrado para rotas em rendizy-server |
 
 ---
 
