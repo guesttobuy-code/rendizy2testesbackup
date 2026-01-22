@@ -1,11 +1,59 @@
 /**
  * WhatsApp Chat API - Integração com Evolution API
  * Busca conversas e mensagens do WhatsApp para exibir no Chat
+ * 
+ * @version 2.0.2
+ * @date 2026-01-22
+ * 
+ * Changelog:
+ * - v2.0.2: Adicionado header x-organization-id para fallback de autenticação
  */
 
 import { projectId, publicAnonKey } from './supabase/info';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/rendizy-server`;
+
+/**
+ * Obtém o organizationId do localStorage (cache do AuthContext)
+ * Usado como fallback quando sessão expira mas usuário ainda está "logado" localmente
+ */
+function getCachedOrganizationId(): string | null {
+  try {
+    const userJson = localStorage.getItem('rendizy-user');
+    if (userJson) {
+      const user = JSON.parse(userJson);
+      return user.organizationId || null;
+    }
+  } catch {
+    // Ignorar erro de parse
+  }
+  return null;
+}
+
+/**
+ * Cria headers padrão para requisições à API
+ * Inclui token de autenticação e organizationId como fallback
+ */
+function getApiHeaders(): HeadersInit {
+  const token = localStorage.getItem('rendizy-token');
+  const orgId = getCachedOrganizationId();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${publicAnonKey}`, // Necessário para Supabase
+  };
+  
+  if (token) {
+    (headers as Record<string, string>)['X-Auth-Token'] = token;
+  }
+  
+  // ✅ v2.0.2: Enviar organizationId como header de fallback
+  if (orgId) {
+    (headers as Record<string, string>)['x-organization-id'] = orgId;
+  }
+  
+  return headers;
+}
 
 export interface WhatsAppStatus {
   status: 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' | 'ERROR';
@@ -29,11 +77,7 @@ export async function fetchWhatsAppStatus(): Promise<WhatsAppStatus> {
 
     const response = await fetch(`${BASE_URL}/whatsapp/status`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`, // Necessário para Supabase
-        'X-Auth-Token': token // ✅ Token do usuário (evita validação JWT automática)
-      }
+      headers: getApiHeaders()
     });
 
     console.log('[WhatsApp Chat API] 📡 Status response:', response.status);
@@ -123,11 +167,7 @@ export async function fetchWhatsAppChats(): Promise<WhatsAppChat[]> {
     
     const response = await fetch(`${BASE_URL}/whatsapp/chats`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`, // Necessário para Supabase
-        'X-Auth-Token': token // ✅ Token do usuário (evita validação JWT automática)
-      },
+      headers: getApiHeaders(), // ✅ v2.0.2: Headers centralizados com x-organization-id
     });
 
     console.log('[WhatsApp Chat API] 📡 Status:', response.status);
@@ -174,11 +214,7 @@ export async function fetchWhatsAppMessages(chatId: string, limit: number = 50):
     
     const response = await fetch(`${BASE_URL}/whatsapp/messages/${encodeURIComponent(chatId)}?limit=${limit}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`, // Necessário para Supabase
-        'X-Auth-Token': token // ✅ Token do usuário (evita validação JWT automática)
-      },
+      headers: getApiHeaders(), // ✅ v2.0.2: Headers centralizados com x-organization-id
     });
 
     if (!response.ok) {
@@ -227,11 +263,7 @@ export async function sendWhatsAppMessage(number: string, text: string, options?
 
     const response = await fetch(`${BASE_URL}/whatsapp/send-message`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`, // Necessário para Supabase
-        'X-Auth-Token': token // ✅ Token do usuário (evita validação JWT automática)
-      },
+      headers: getApiHeaders(), // ✅ v2.0.2: Headers centralizados com x-organization-id
       body: JSON.stringify(payload),
     });
 

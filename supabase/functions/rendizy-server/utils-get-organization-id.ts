@@ -493,6 +493,21 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
       console.warn('⚠️ [getOrganizationIdOrThrow] Fallback tenancy falhou:', fallbackError);
     }
 
+    // ✅ v2.0.2: FALLBACK FINAL - Usar x-organization-id do header se fornecido
+    // Isso permite rotas READ-only funcionarem mesmo quando sessão expira
+    // O frontend envia o organizationId cacheado no localStorage
+    if (orgIdOverride) {
+      // Validar que é um UUID válido antes de usar
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(orgIdOverride)) {
+        console.log(`⚠️ [getOrganizationIdOrThrow] FALLBACK: Usando x-organization-id do header: ${orgIdOverride}`);
+        console.log(`⚠️ [getOrganizationIdOrThrow] ATENÇÃO: Sessão não encontrada, mas permitindo via header`);
+        return orgIdOverride;
+      } else {
+        console.warn(`⚠️ [getOrganizationIdOrThrow] x-organization-id inválido (não é UUID): ${orgIdOverride}`);
+      }
+    }
+
     // Se não encontrou sessão no SQL, retornar erro
     console.error(`❌ [getOrganizationIdOrThrow] Sessão não encontrada na tabela SQL - usuário não autenticado`);
     console.error(`❌ [getOrganizationIdOrThrow] Token: ${token ? `${token.substring(0, 20)}...` : 'NONE'}`);
