@@ -72,6 +72,13 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "   1. Testar login: https://rendizy2producao-am7c.vercel.app/login" -ForegroundColor White
     Write-Host "   2. Usuario: rppt / Senha: root" -ForegroundColor White
     Write-Host ""
+
+    Write-Host "Reiniciando servidor local (obrigatório)..." -ForegroundColor Cyan
+    try {
+        & "$PSScriptRoot\reiniciar-servidor.ps1"
+    } catch {
+        Write-Host "⚠️  Falha ao reiniciar servidor local: $_" -ForegroundColor Yellow
+    }
 } else {
     Write-Host ""
     Write-Host "ERRO NO DEPLOY" -ForegroundColor Red

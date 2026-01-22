@@ -233,6 +233,258 @@ app.get('/channels/config', async (c) => {
   }
 });
 
+const processWhatsAppWebhook = async (c: any, payload: any) => {
+  try {
+    console.log('📥 [Chat] WhatsApp webhook received:', JSON.stringify(payload, null, 2));
+
+    const messageData = payload.data;
+    
+    // Skip messages sent by us
+    if (messageData.key?.fromMe) {
+      console.log('⏭️ [Chat] Skipping outgoing message');
+      return c.json({ success: true, message: 'Outgoing message ignored' });
+    }
+
+    // Extract message info
+    const senderJid = messageData.key?.remoteJid;
+    const messageId = messageData.key?.id;
+    void messageId;
+    const senderPhone = senderJid?.split('@')[0] || '';
+    const senderName = messageData.pushName || `+${senderPhone}`;
+    
+    // Extract text from different message types
+    let messageText = '';
+    if (messageData.message?.conversation) {
+      messageText = messageData.message.conversation;
+    } else if (messageData.message?.extendedTextMessage?.text) {
+      messageText = messageData.message.extendedTextMessage.text;
+    } else if (messageData.message?.imageMessage?.caption) {
+      messageText = messageData.message.imageMessage.caption || '📷 Image';
+    } else if (messageData.message?.videoMessage?.caption) {
+      messageText = messageData.message.videoMessage.caption || '🎥 Video';
+    } else if (messageData.message?.audioMessage) {
+      messageText = '🎵 Audio';
+    } else if (messageData.message?.documentMessage) {
+      messageText = '📄 Document';
+    }
+
+    if (!messageText) {
+      console.log('⚠️ [Chat] Could not extract message text');
+      return c.json({ success: true, message: 'No text found' });
+    }
+
+    // Find organization by instance name (robusto para diferentes formatos)
+    const instanceName =
+      payload.instance ||
+      payload.instanceName ||
+      payload.instance_name ||
+      payload?.instance?.instanceName ||
+      payload?.instance?.name ||
+      payload?.instance?.instance_name ||
+      payload?.instance?.instanceId ||
+      payload?.instance?.id ||
+      payload.session ||
+      payload.sessionName ||
+      payload.session_name ||
+      '';
+    const client = getSupabaseClient();
+    
+    // Buscar todas as configurações que têm WhatsApp habilitado
+    const { data: allConfigs, error: fetchError } = await client
+      .from('organization_channel_config')
+      .select('*')
+      .eq('whatsapp_enabled', true)
+      .not('whatsapp_instance_name', 'is', null)
+      .is('deleted_at', null);
+    
+    if (fetchError) {
+      console.error('❌ [Chat] Erro ao buscar configurações:', fetchError);
+      return c.json({ success: false, error: 'Erro ao buscar configurações' }, 500);
+    }
+    
+    // Encontrar configuração por instance_name
+    let orgConfig = allConfigs?.find(
+      data => data.whatsapp_instance_name === instanceName
+    );
+
+    if (!orgConfig && allConfigs?.length === 1) {
+      orgConfig = allConfigs[0];
+      console.warn('⚠️ [Chat] Instance name ausente ou não encontrado, usando única configuração disponível');
+    }
+    
+    if (!orgConfig) {
+      console.error('❌ [Chat] Organization not found for instance:', instanceName);
+      return c.json({ success: false, error: 'Organization not found' }, 404);
+    }
+
+    const organizationId = orgConfig.organization_id;
+    console.log(`✅ [Chat] Found organization: ${organizationId}`);
+
+    // ✅ DEBUG: salvar payload bruto do webhook (não bloqueante)
+    try {
+      await client
+        .from('chat_webhooks')
+        .insert({
+          organization_id: organizationId,
+          channel: 'whatsapp',
+          event: payload.event || 'unknown',
+          payload: payload,
+        } as any);
+    } catch (webhookErr) {
+      console.warn('⚠️ [Chat] Falha ao salvar webhook em chat_webhooks:', webhookErr);
+    }
+
+    // Only process incoming messages
+    if (payload.event !== 'messages.upsert' && payload.event !== 'MESSAGES_UPSERT') {
+      console.log('⏭️ [Chat] Skipping non-message event:', payload.event);
+      return c.json({ success: true, message: 'Event ignored' });
+    }
+
+    // =========================================================================
+    // FASE 1: SALVAMENTO MULTI-TENANT DE MENSAGENS RECEBIDAS
+    // v1.0.104.002 - 2026-01-10
+    // =========================================================================
+
+    // 1) Encontrar ou criar a conversation
+    let conversationId: string | null = null;
+    const remoteJid = senderJid; // ex: 5511999999999@s.whatsapp.net
+    
+    try {
+      // Buscar conversa existente por external_conversation_id (remoteJid)
+      const { data: existingConv } = await client
+        .from('conversations')
+        .select('id, unread_count')
+        .eq('organization_id', organizationId)
+        .eq('external_conversation_id', remoteJid)
+        .maybeSingle();
+
+      if (existingConv?.id) {
+        conversationId = existingConv.id;
+        
+        // Atualizar conversa com última mensagem e incrementar unread
+        await client
+          .from('conversations')
+          .update({
+            last_message: messageText.substring(0, 500),
+            last_message_at: new Date().toISOString(),
+            unread_count: (existingConv.unread_count || 0) + 1,
+            guest_name: senderName || undefined, // Atualizar nome se disponível
+          })
+          .eq('id', conversationId);
+          
+        console.log(`✅ [Chat] Updated existing conversation: ${conversationId}`);
+      } else {
+        // Criar nova conversa
+        const convInsert = {
+          organization_id: organizationId,
+          external_conversation_id: remoteJid,
+          guest_name: senderName,
+          guest_phone: senderPhone,
+          channel: 'whatsapp',
+          status: 'normal',
+          conversation_type: 'guest',
+          last_message: messageText.substring(0, 500),
+          last_message_at: new Date().toISOString(),
+          unread_count: 1,
+          channel_metadata: {
+            instance: instanceName,
+            pushName: senderName,
+          },
+        };
+        
+        const { data: newConv, error: convError } = await client
+          .from('conversations')
+          .insert(convInsert)
+          .select('id')
+          .single();
+          
+        if (convError) {
+          console.error('❌ [Chat] Erro ao criar conversa:', convError);
+        } else {
+          conversationId = newConv?.id || null;
+          console.log(`✅ [Chat] Created new conversation: ${conversationId}`);
+        }
+      }
+    } catch (convErr) {
+      console.error('❌ [Chat] Erro ao processar conversa:', convErr);
+    }
+
+    // 2) Salvar mensagem
+    let savedMessageId: string | null = null;
+    
+    if (conversationId) {
+      try {
+        const msgRow = {
+          organization_id: organizationId,
+          conversation_id: conversationId,
+          sender_type: 'guest',
+          sender_name: senderName,
+          sender_id: senderPhone,
+          content: messageText,
+          attachments: [], // TODO: Processar attachments
+          channel: 'whatsapp',
+          direction: 'incoming',
+          external_id: messageId,
+          external_status: 'delivered',
+          sent_at: new Date().toISOString(),
+          metadata: {
+            remoteJid,
+            pushName: senderName,
+            instance: instanceName,
+          },
+        };
+
+        const { data: savedMsg, error: msgError } = await client
+          .from('messages')
+          .insert(msgRow)
+          .select('id')
+          .single();
+
+        if (msgError) {
+          // Se for duplicate key, a mensagem já foi processada
+          if (msgError.code === '23505') {
+            console.log('⏭️ [Chat] Mensagem duplicada, ignorando:', messageId);
+          } else {
+            console.error('❌ [Chat] Erro ao salvar mensagem:', msgError);
+          }
+        } else {
+          savedMessageId = savedMsg?.id || null;
+          console.log(`✅ [Chat] Saved message: ${savedMessageId}`);
+        }
+      } catch (msgErr) {
+        console.error('❌ [Chat] Erro ao inserir mensagem:', msgErr);
+      }
+    }
+
+    console.log('✅ [Chat] WhatsApp message processed:', {
+      organization_id: organizationId,
+      conversation_id: conversationId,
+      message_id: savedMessageId,
+      sender: senderName,
+      phone: senderPhone,
+      preview: messageText.substring(0, 50) + (messageText.length > 50 ? '...' : ''),
+    });
+
+    return c.json({ 
+      success: true, 
+      message: 'Message saved',
+      data: {
+        organization_id: organizationId,
+        conversation_id: conversationId,
+        message_id: savedMessageId,
+        sender: senderName,
+        phone: senderPhone,
+      }
+    });
+  } catch (error) {
+    console.error('❌ [Chat] Error processing WhatsApp webhook:', error);
+    return c.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, 500);
+  }
+};
+
 /**
  * PATCH /channels/config
  * Atualiza configuração de canais para uma organização
@@ -923,225 +1175,473 @@ app.post('/channels/whatsapp/send', async (c) => {
  * ✅ RESTAURADO DO BACKUP - Implementação completa
  */
 app.post('/channels/whatsapp/webhook', async (c) => {
+  const payload = await c.req.json();
+  return processWhatsAppWebhook(c, payload);
+});
+
+// Compat: quando webhook_by_events=true, Evolution pode chamar /webhook/:event
+app.post('/channels/whatsapp/webhook/:event', async (c) => {
+  const payload = await c.req.json();
+  if (!payload.event) {
+    payload.event = c.req.param('event');
+  }
+  return processWhatsAppWebhook(c, payload);
+});
+
+// ============================================================================
+// CONVERSATIONS ROUTES - CRUD completo para Chat Inbox
+// ============================================================================
+
+/**
+ * GET /conversations
+ * Lista conversas de uma organização
+ */
+app.get('/conversations', async (c) => {
   try {
-    const payload = await c.req.json();
-    
-    console.log('📥 [Chat] WhatsApp webhook received:', JSON.stringify(payload, null, 2));
-
-    // Only process incoming messages
-    if (payload.event !== 'messages.upsert' && payload.event !== 'MESSAGES_UPSERT') {
-      console.log('⏭️ [Chat] Skipping non-message event:', payload.event);
-      return c.json({ success: true, message: 'Event ignored' });
-    }
-
-    const messageData = payload.data;
-    
-    // Skip messages sent by us
-    if (messageData.key?.fromMe) {
-      console.log('⏭️ [Chat] Skipping outgoing message');
-      return c.json({ success: true, message: 'Outgoing message ignored' });
-    }
-
-    // Extract message info
-    const senderJid = messageData.key?.remoteJid;
-    const messageId = messageData.key?.id;
-    void messageId;
-    const senderPhone = senderJid?.split('@')[0] || '';
-    const senderName = messageData.pushName || `+${senderPhone}`;
-    
-    // Extract text from different message types
-    let messageText = '';
-    if (messageData.message?.conversation) {
-      messageText = messageData.message.conversation;
-    } else if (messageData.message?.extendedTextMessage?.text) {
-      messageText = messageData.message.extendedTextMessage.text;
-    } else if (messageData.message?.imageMessage?.caption) {
-      messageText = messageData.message.imageMessage.caption || '📷 Image';
-    } else if (messageData.message?.videoMessage?.caption) {
-      messageText = messageData.message.videoMessage.caption || '🎥 Video';
-    } else if (messageData.message?.audioMessage) {
-      messageText = '🎵 Audio';
-    } else if (messageData.message?.documentMessage) {
-      messageText = '📄 Document';
-    }
-
-    if (!messageText) {
-      console.log('⚠️ [Chat] Could not extract message text');
-      return c.json({ success: true, message: 'No text found' });
-    }
-
-    // Find organization by instance name
-    const instanceName = payload.instance;
+    const organizationId = await getOrganizationIdOrThrow(c);
     const client = getSupabaseClient();
     
-    // Buscar todas as configurações que têm WhatsApp habilitado
-    const { data: allConfigs, error: fetchError } = await client
-      .from('organization_channel_config')
+    const { data, error } = await client
+      .from('conversations')
       .select('*')
-      .eq('whatsapp_enabled', true)
-      .not('whatsapp_instance_name', 'is', null)
-      .is('deleted_at', null);
+      .eq('organization_id', organizationId)
+      .order('last_message_at', { ascending: false });
     
-    if (fetchError) {
-      console.error('❌ [Chat] Erro ao buscar configurações:', fetchError);
-      return c.json({ success: false, error: 'Erro ao buscar configurações' }, 500);
+    if (error) {
+      console.error('❌ [Chat] Erro ao listar conversas:', error);
+      return c.json({ success: false, error: error.message }, 500);
     }
     
-    // Encontrar configuração por instance_name
-    const orgConfig = allConfigs?.find(
-      data => data.whatsapp_instance_name === instanceName
-    );
-    
-    if (!orgConfig) {
-      console.error('❌ [Chat] Organization not found for instance:', instanceName);
-      return c.json({ success: false, error: 'Organization not found' }, 404);
+    return c.json({ success: true, data: data || [] });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao listar conversas:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
     }
+    return c.json({ success: false, error: 'Erro ao listar conversas' }, 500);
+  }
+});
 
-    const organizationId = orgConfig.organization_id;
-    console.log(`✅ [Chat] Found organization: ${organizationId}`);
-
-    // =========================================================================
-    // FASE 1: SALVAMENTO MULTI-TENANT DE MENSAGENS RECEBIDAS
-    // v1.0.104.002 - 2026-01-10
-    // =========================================================================
-
-    // 1) Encontrar ou criar a conversation
-    let conversationId: string | null = null;
-    const remoteJid = senderJid; // ex: 5511999999999@s.whatsapp.net
+/**
+ * GET /conversations/:id
+ * Busca conversa específica
+ */
+app.get('/conversations/:id', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const conversationId = c.req.param('id');
+    const client = getSupabaseClient();
     
-    try {
-      // Buscar conversa existente por external_conversation_id (remoteJid)
-      const { data: existingConv } = await client
-        .from('conversations')
-        .select('id, unread_count')
-        .eq('organization_id', organizationId)
-        .eq('external_conversation_id', remoteJid)
-        .maybeSingle();
-
-      if (existingConv?.id) {
-        conversationId = existingConv.id;
-        
-        // Atualizar conversa com última mensagem e incrementar unread
-        await client
-          .from('conversations')
-          .update({
-            last_message: messageText.substring(0, 500),
-            last_message_at: new Date().toISOString(),
-            unread_count: (existingConv.unread_count || 0) + 1,
-            guest_name: senderName || undefined, // Atualizar nome se disponível
-          })
-          .eq('id', conversationId);
-          
-        console.log(`✅ [Chat] Updated existing conversation: ${conversationId}`);
-      } else {
-        // Criar nova conversa
-        const convInsert = {
-          organization_id: organizationId,
-          external_conversation_id: remoteJid,
-          guest_name: senderName,
-          guest_phone: senderPhone,
-          channel: 'whatsapp',
-          status: 'normal',
-          conversation_type: 'guest',
-          last_message: messageText.substring(0, 500),
-          last_message_at: new Date().toISOString(),
-          unread_count: 1,
-          channel_metadata: {
-            instance: instanceName,
-            pushName: senderName,
-          },
-        };
-        
-        const { data: newConv, error: convError } = await client
-          .from('conversations')
-          .insert(convInsert)
-          .select('id')
-          .single();
-          
-        if (convError) {
-          console.error('❌ [Chat] Erro ao criar conversa:', convError);
-        } else {
-          conversationId = newConv?.id || null;
-          console.log(`✅ [Chat] Created new conversation: ${conversationId}`);
-        }
-      }
-    } catch (convErr) {
-      console.error('❌ [Chat] Erro ao processar conversa:', convErr);
-    }
-
-    // 2) Salvar mensagem
-    let savedMessageId: string | null = null;
+    const { data, error } = await client
+      .from('conversations')
+      .select('*')
+      .eq('id', conversationId)
+      .eq('organization_id', organizationId)
+      .single();
     
-    if (conversationId) {
-      try {
-        const msgRow = {
-          organization_id: organizationId,
-          conversation_id: conversationId,
-          sender_type: 'guest',
-          sender_name: senderName,
-          sender_id: senderPhone,
-          content: messageText,
-          attachments: [], // TODO: Processar attachments
-          channel: 'whatsapp',
-          direction: 'incoming',
-          external_id: messageId,
-          external_status: 'delivered',
-          sent_at: new Date().toISOString(),
-          metadata: {
-            remoteJid,
-            pushName: senderName,
-            instance: instanceName,
-          },
-        };
-
-        const { data: savedMsg, error: msgError } = await client
-          .from('messages')
-          .insert(msgRow)
-          .select('id')
-          .single();
-
-        if (msgError) {
-          // Se for duplicate key, a mensagem já foi processada
-          if (msgError.code === '23505') {
-            console.log('⏭️ [Chat] Mensagem duplicada, ignorando:', messageId);
-          } else {
-            console.error('❌ [Chat] Erro ao salvar mensagem:', msgError);
-          }
-        } else {
-          savedMessageId = savedMsg?.id || null;
-          console.log(`✅ [Chat] Saved message: ${savedMessageId}`);
-        }
-      } catch (msgErr) {
-        console.error('❌ [Chat] Erro ao inserir mensagem:', msgErr);
-      }
+    if (error) {
+      return c.json({ success: false, error: 'Conversa não encontrada' }, 404);
     }
+    
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao buscar conversa:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao buscar conversa' }, 500);
+  }
+});
 
-    console.log('✅ [Chat] WhatsApp message processed:', {
-      organization_id: organizationId,
-      conversation_id: conversationId,
-      message_id: savedMessageId,
-      sender: senderName,
-      phone: senderPhone,
-      preview: messageText.substring(0, 50) + (messageText.length > 50 ? '...' : ''),
-    });
-
-    return c.json({ 
-      success: true, 
-      message: 'Message saved',
-      data: {
+/**
+ * POST /conversations
+ * Cria nova conversa
+ */
+app.post('/conversations', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const body = await c.req.json();
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('conversations')
+      .insert({
+        ...body,
         organization_id: organizationId,
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao criar conversa:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao criar conversa:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao criar conversa' }, 500);
+  }
+});
+
+/**
+ * PATCH /conversations/:id
+ * Atualiza conversa
+ */
+app.patch('/conversations/:id', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const conversationId = c.req.param('id');
+    const body = await c.req.json();
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('conversations')
+      .update(body)
+      .eq('id', conversationId)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao atualizar conversa:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao atualizar conversa:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao atualizar conversa' }, 500);
+  }
+});
+
+/**
+ * DELETE /conversations/:id
+ * Remove conversa
+ */
+app.delete('/conversations/:id', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const conversationId = c.req.param('id');
+    const client = getSupabaseClient();
+    
+    const { error } = await client
+      .from('conversations')
+      .delete()
+      .eq('id', conversationId)
+      .eq('organization_id', organizationId);
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao remover conversa:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao remover conversa:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao remover conversa' }, 500);
+  }
+});
+
+/**
+ * PATCH /conversations/:id/pin
+ * Toggle pin conversa
+ */
+app.patch('/conversations/:id/pin', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const conversationId = c.req.param('id');
+    const client = getSupabaseClient();
+    
+    // Buscar estado atual
+    const { data: existing } = await client
+      .from('conversations')
+      .select('is_pinned')
+      .eq('id', conversationId)
+      .eq('organization_id', organizationId)
+      .single();
+    
+    const newPinnedState = !(existing?.is_pinned || false);
+    
+    const { data, error } = await client
+      .from('conversations')
+      .update({ is_pinned: newPinnedState })
+      .eq('id', conversationId)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao fixar conversa:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao fixar conversa:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao fixar conversa' }, 500);
+  }
+});
+
+/**
+ * PATCH /conversations/:id/order
+ * Atualiza ordem da conversa
+ */
+app.patch('/conversations/:id/order', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const conversationId = c.req.param('id');
+    const body = await c.req.json();
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('conversations')
+      .update({ order: body.order })
+      .eq('id', conversationId)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao reordenar conversa:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao reordenar conversa:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao reordenar conversa' }, 500);
+  }
+});
+
+/**
+ * GET /conversations/:id/messages
+ * Lista mensagens de uma conversa
+ */
+app.get('/conversations/:id/messages', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const conversationId = c.req.param('id');
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .eq('organization_id', organizationId)
+      .order('sent_at', { ascending: true });
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao listar mensagens:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true, data: data || [] });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao listar mensagens:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao listar mensagens' }, 500);
+  }
+});
+
+/**
+ * POST /conversations/:id/messages
+ * Envia mensagem em uma conversa
+ */
+app.post('/conversations/:id/messages', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const conversationId = c.req.param('id');
+    const body = await c.req.json();
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('messages')
+      .insert({
+        ...body,
         conversation_id: conversationId,
-        message_id: savedMessageId,
-        sender: senderName,
-        phone: senderPhone,
+        organization_id: organizationId,
+        sent_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao enviar mensagem:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    // Atualizar last_message na conversa
+    await client
+      .from('conversations')
+      .update({
+        last_message: body.content,
+        last_message_at: new Date().toISOString(),
+      })
+      .eq('id', conversationId);
+    
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao enviar mensagem:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao enviar mensagem' }, 500);
+  }
+});
+
+// ============================================================================
+// TAGS ROUTES - Gerenciamento de tags para categorização
+// ============================================================================
+
+/**
+ * GET /tags
+ * Lista tags de uma organização
+ */
+app.get('/tags', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('chat_tags')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .order('name', { ascending: true });
+    
+    if (error) {
+      // Se tabela não existir, retornar array vazio
+      if (error.code === '42P01') {
+        console.log('ℹ️ [Chat] Tabela chat_tags não existe, retornando array vazio');
+        return c.json({ success: true, data: [] });
       }
-    });
-  } catch (error) {
-    console.error('❌ [Chat] Error processing WhatsApp webhook:', error);
-    return c.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    }, 500);
+      console.error('❌ [Chat] Erro ao listar tags:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true, data: data || [] });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao listar tags:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao listar tags' }, 500);
+  }
+});
+
+/**
+ * POST /tags
+ * Cria nova tag
+ */
+app.post('/tags', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const body = await c.req.json();
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('chat_tags')
+      .insert({
+        ...body,
+        organization_id: organizationId,
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao criar tag:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao criar tag:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao criar tag' }, 500);
+  }
+});
+
+/**
+ * PATCH /tags/:id
+ * Atualiza tag
+ */
+app.patch('/tags/:id', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const tagId = c.req.param('id');
+    const body = await c.req.json();
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('chat_tags')
+      .update(body)
+      .eq('id', tagId)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao atualizar tag:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao atualizar tag:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao atualizar tag' }, 500);
+  }
+});
+
+/**
+ * DELETE /tags/:id
+ * Remove tag
+ */
+app.delete('/tags/:id', async (c) => {
+  try {
+    const organizationId = await getOrganizationIdOrThrow(c);
+    const tagId = c.req.param('id');
+    const client = getSupabaseClient();
+    
+    const { error } = await client
+      .from('chat_tags')
+      .delete()
+      .eq('id', tagId)
+      .eq('organization_id', organizationId);
+    
+    if (error) {
+      console.error('❌ [Chat] Erro ao remover tag:', error);
+      return c.json({ success: false, error: error.message }, 500);
+    }
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error('[Chat] Erro ao remover tag:', error);
+    if (error.message?.includes('organization')) {
+      return c.json({ success: false, error: error.message }, 401);
+    }
+    return c.json({ success: false, error: 'Erro ao remover tag' }, 500);
   }
 });
 

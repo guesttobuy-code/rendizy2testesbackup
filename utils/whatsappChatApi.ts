@@ -314,14 +314,39 @@ export function formatWhatsAppNumber(phone: string | null | undefined): string {
   if (!phone) {
     return '';
   }
+  
+  // ✅ CORREÇÃO: Remover prefixo whatsapp- se existir (formato do ChatInbox)
+  let cleaned = phone;
+  if (cleaned.startsWith('whatsapp-')) {
+    cleaned = cleaned.replace('whatsapp-', '');
+  }
+  
+  // Se já está no formato correto com @s.whatsapp.net, apenas retornar
+  if (cleaned.includes('@s.whatsapp.net') || cleaned.includes('@c.us')) {
+    // Extrair apenas o número e reformatar
+    const numberOnly = cleaned.replace('@s.whatsapp.net', '').replace('@c.us', '').replace(/\D/g, '');
+    // Validar que é um número válido (pelo menos 10 dígitos)
+    if (numberOnly.length < 10 || numberOnly.length > 15) {
+      console.warn('[formatWhatsAppNumber] Número inválido (tamanho):', numberOnly, 'length:', numberOnly.length);
+      return '';
+    }
+    const withCountry = numberOnly.startsWith('55') ? numberOnly : `55${numberOnly}`;
+    return `${withCountry}@s.whatsapp.net`;
+  }
+  
   // Remove tudo que não for número
-  const cleaned = phone.replace(/\D/g, '');
+  cleaned = cleaned.replace(/\D/g, '');
+  
+  // Validar que é um número válido (pelo menos 10 dígitos)
+  if (cleaned.length < 10 || cleaned.length > 15) {
+    console.warn('[formatWhatsAppNumber] Número inválido (tamanho):', cleaned, 'length:', cleaned.length);
+    return '';
+  }
   
   // Se não tiver código do país, adiciona 55 (Brasil)
   const withCountry = cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
   
-  // Adiciona @s.whatsapp.net se não tiver
-  return withCountry.includes('@') ? withCountry : `${withCountry}@s.whatsapp.net`;
+  return `${withCountry}@s.whatsapp.net`;
 }
 
 /**

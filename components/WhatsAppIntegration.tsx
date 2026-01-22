@@ -2,7 +2,7 @@
  * RENDIZY - WhatsApp Integration (Evolution API)
  * 
  * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║  @PROTECTED v1.0.103.1200                                                ║
+ * ║  @PROTECTED v1.0.103.1201                                                ║
  * ║  @ADR docs/ADR/ADR-002-WHATSAPP-EVOLUTION-API-CONNECTION.md              ║
  * ║  @TESTED 2026-01-21                                                      ║
  * ║  @STATUS ✅ CONEXÃO FRONTEND FUNCIONANDO                                 ║
@@ -14,13 +14,18 @@
  * 🔒 FUNÇÕES PROTEGIDAS (NÃO MODIFICAR SEM TESTES):
  * - handleTestConnection() → Usa proxy /whatsapp/test-connection
  * 
+ * ✅ v1.0.103.1201 (2026-01-21): Adicionado toggle para Ativar/Desativar WhatsApp
+ *    - Novo Switch para controlar whatsapp.enabled na configuração
+ *    - Import do componente Switch e ícone Power
+ *    - Card destacado no topo da aba Configuração
+ * 
  * @figma@ - Modificado em 06/11/2025:
  * - Adicionada nova aba "Webhooks" (linha 583-586)
  * - Import do WhatsAppWebhookManager (linha 28)
  * - Grid expandido de 4 para 5 colunas (linha 570)
  * - Ícone Webhook do lucide-react adicionado
  * 
- * @version 1.0.103.1200 (proxy fix) / 1.0.103.322 (webhooks) / 1.0.103.42 (base)
+ * @version 1.0.103.1201 (toggle enable) / 1.0.103.1200 (proxy fix) / 1.0.103.322 (webhooks)
  * @date 2026-01-21 / 2025-11-06 / 2025-10-29
  */
 
@@ -42,6 +47,7 @@ import { Separator } from './ui/separator';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { WhatsAppCredentialsTester } from './WhatsAppCredentialsTester';
 import WhatsAppWebhookManager from './WhatsAppWebhookManager';
+import WhatsAppInstancesManager from './WhatsAppInstancesManager'; // ✅ v2.0: Multi-instance
 import {
   MessageCircle,
   Key,
@@ -60,7 +66,10 @@ import {
   Phone,
   Zap,
   Webhook,
+  Power,
+  Smartphone, // ✅ v2.0: Ícone para multi-instance
 } from 'lucide-react';
+import { Switch } from './ui/switch';
 import { toast } from 'sonner';
 import { channelsApi, OrganizationChannelConfig } from '../utils/chatApi';
 import { isOfflineMode } from '../utils/offlineConfig';
@@ -110,6 +119,7 @@ export default function WhatsAppIntegration() {
   const [realTimeStatus, setRealTimeStatus] = useState<SessionStatus | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [activeTab, setActiveTab] = useState('config');
+  const [showInstancesModal, setShowInstancesModal] = useState(false); // ✅ v2.0: Multi-instance modal
   
   // Webhook URL para Evolution API
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/chat/channels/whatsapp/webhook`;
@@ -779,6 +789,97 @@ export default function WhatsAppIntegration() {
 
         {/* TAB 1: CONFIGURAÇÃO */}
         <TabsContent value="config" className="space-y-6">
+          {/* ✅ TOGGLE PARA ATIVAR/DESATIVAR WHATSAPP */}
+          <Card className="border-2 border-primary/30 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-full ${config?.whatsapp?.enabled ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                    <Power className={`w-6 h-6 ${config?.whatsapp?.enabled ? 'text-green-600' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-lg">
+                      {config?.whatsapp?.enabled ? '✅ WhatsApp Ativado' : '⚪ WhatsApp Desativado'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {config?.whatsapp?.enabled 
+                        ? 'O módulo de chat WhatsApp está ativo para sua organização' 
+                        : 'Ative para usar o chat WhatsApp integrado'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 ml-auto">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {config?.whatsapp?.enabled ? 'Ligado' : 'Desligado'}
+                  </span>
+                  <Switch
+                    checked={config?.whatsapp?.enabled || false}
+                    onCheckedChange={async (checked) => {
+                      try {
+                        console.log(`📱 [WhatsApp] ${checked ? 'Ativando' : 'Desativando'} WhatsApp...`);
+                        
+                        const result = await channelsApi.updateConfig(organizationId, {
+                          whatsapp: {
+                            ...config?.whatsapp,
+                            enabled: checked,
+                          }
+                        });
+                        
+                        if (result.success) {
+                          setConfig(prev => prev ? {
+                            ...prev,
+                            whatsapp: {
+                              ...prev.whatsapp,
+                              enabled: checked
+                            }
+                          } : prev);
+                          
+                          toast.success(checked 
+                            ? '✅ WhatsApp ativado com sucesso!' 
+                            : '⚪ WhatsApp desativado'
+                          );
+                        } else {
+                          toast.error('Erro ao atualizar configuração');
+                        }
+                      } catch (error) {
+                        console.error('Erro ao toggle WhatsApp:', error);
+                        toast.error('Erro ao atualizar configuração');
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ✅ v2.0: CARD PARA GERENCIAR MÚLTIPLAS INSTÂNCIAS - LAYOUT VERTICAL */}
+          <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <Smartphone className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold">Múltiplos Números</p>
+                    <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">NOVO</Badge>
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Conecte vários números WhatsApp para diferentes finalidades.
+              </p>
+              <Button 
+                onClick={() => setShowInstancesModal(true)}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                size="sm"
+              >
+                <Smartphone className="w-4 h-4 mr-2" />
+                Gerenciar Números
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Credenciais da Evolution API</CardTitle>
@@ -1209,6 +1310,30 @@ export default function WhatsAppIntegration() {
 
         {/* TAB 4: AVANÇADO */}
         <TabsContent value="advanced" className="space-y-6">
+          {/* ✅ v2.0: CARD PARA GERENCIAR MÚLTIPLAS INSTÂNCIAS */}
+          <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5 text-blue-600" />
+                Múltiplos Números WhatsApp
+                <Badge variant="outline" className="ml-2 text-blue-600 border-blue-300">NOVO</Badge>
+              </CardTitle>
+              <CardDescription>
+                Conecte vários números WhatsApp para diferentes finalidades (vendas, suporte, reservas, etc).
+                Cada número pode ser identificado com uma cor e descrição.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => setShowInstancesModal(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Smartphone className="w-4 h-4 mr-2" />
+                Gerenciar Números
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Configurações Avançadas</CardTitle>
@@ -1238,6 +1363,12 @@ export default function WhatsAppIntegration() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ✅ v2.0: Modal de Multi-Instância */}
+      <WhatsAppInstancesManager 
+        open={showInstancesModal} 
+        onOpenChange={setShowInstancesModal} 
+      />
     </div>
   );
 }

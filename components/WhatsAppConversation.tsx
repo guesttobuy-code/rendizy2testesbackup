@@ -61,8 +61,89 @@ interface AttachmentItem {
   url?: string;
 }
 
+/**
+ * ✅ CORRIGIDO v1.0.104.012: Extrair e formatar telefone de múltiplas fontes
+ * IMPORTANTE: @lid NÃO é número de telefone - é Link ID interno do WhatsApp!
+ * Só extrair de @s.whatsapp.net ou @c.us
+ */
+function getPhoneForDisplay(contact: LocalContact | null | undefined): string {
+  if (!contact) return 'Número desconhecido';
+  
+  // Se é grupo ou broadcast, não mostrar número
+  if (contact.isGroup) return 'Grupo WhatsApp';
+  if (contact.isBroadcast) return 'Lista de transmissão';
+  
+  // Se o ID é @lid, NÃO tem número real - é Link ID interno
+  if (contact.id?.includes('@lid')) {
+    return 'Número desconhecido';
+  }
+  
+  let phoneRaw = '';
+  
+  // 1. Tentar phoneRaw primeiro (número limpo) - MAS validar que parece BR
+  if (contact.phoneRaw && /^55\d{10,11}$/.test(contact.phoneRaw)) {
+    phoneRaw = contact.phoneRaw;
+  }
+  
+  // 2. Se não tem phoneRaw válido, tentar phone
+  if (!phoneRaw && contact.phone) {
+    const cleaned = contact.phone.replace(/\D/g, '');
+    if (/^55\d{10,11}$/.test(cleaned)) {
+      phoneRaw = cleaned;
+    }
+  }
+  
+  // 3. Se ainda não tem, extrair do ID (MAS só de @s.whatsapp.net ou @c.us)
+  if (!phoneRaw && contact.id) {
+    // Só extrair de formatos que contêm número real
+    if (contact.id.includes('@s.whatsapp.net') || contact.id.includes('@c.us')) {
+      const extracted = contact.id
+        .replace('whatsapp-', '')
+        .replace('@s.whatsapp.net', '')
+        .replace('@c.us', '');
+      
+      // Validar formato brasileiro
+      if (/^55\d{10,11}$/.test(extracted)) {
+        phoneRaw = extracted;
+      }
+    }
+    // @g.us = grupo, @lid = link ID - NÃO extrair
+  }
+  
+  // 4. Validar
+  if (!phoneRaw || phoneRaw.length < 10 || phoneRaw.length > 15) {
+    return 'Número desconhecido';
+  }
+  
+  // 5. Formatar: +55 22 98888-7777
+  if (phoneRaw.startsWith('55') && phoneRaw.length >= 12) {
+    const ddd = phoneRaw.substring(2, 4);
+    const rest = phoneRaw.substring(4);
+    
+    if (rest.length === 9) {
+      return `+55 ${ddd} ${rest.substring(0, 5)}-${rest.substring(5)}`;
+    } else if (rest.length === 8) {
+      return `+55 ${ddd} ${rest.substring(0, 4)}-${rest.substring(4)}`;
+    }
+    return `+55 ${ddd} ${rest}`;
+  }
+  
+  // Formato genérico
+  return `+${phoneRaw}`;
+}
 
 export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
+  // ✅ DEBUG v1.0.104.014: Log para verificar o que está chegando
+  console.log('[WhatsAppConversation] 📥 Contact recebido:', {
+    id: contact?.id,
+    name: contact?.name,
+    phone: contact?.phone,
+    phoneRaw: contact?.phoneRaw,
+    isGroup: contact?.isGroup,
+    isBroadcast: contact?.isBroadcast,
+    conversationType: contact?.conversationType
+  });
+  
   // ✅ CORREÇÃO: Verificar se contact existe
   if (!contact) {
     return (
@@ -93,19 +174,46 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
    * Buscar mensagens do chat
    */
   const loadMessages = async () => {
-    if (!contact?.phone) {
-      console.warn('[WhatsAppConversation] ⚠️ Contato sem telefone');
-      setIsLoadingMessages(false);
-      return;
+    // ✅ CORREÇÃO v1.0.104.005: Detectar grupos (@g.us) e usar ID diretamente
+    const idStr = contact?.id || '';
+    const isGroup = idStr.includes('@g.us');
+    
+    let chatIdToUse = '';
+    
+    if (isGroup) {
+      // Para grupos, usar o ID do grupo diretamente
+      chatIdToUse = idStr.replace('whatsapp-', '');
+      console.log('[WhatsAppConversation] 👥 Conversa de GRUPO detectada:', chatIdToUse);
+    } else {
+      // Para contatos individuais, extrair phone
+      let phoneToUse = contact?.phone;
+      if (!phoneToUse || phoneToUse.length < 10) {
+        const extracted = idStr
+          .replace('whatsapp-', '')
+          .replace('@s.whatsapp.net', '')
+          .replace('@c.us', '')
+          .replace('@g.us', '')
+          .replace(/\D/g, '');
+        if (extracted.length >= 10 && extracted.length <= 15) {
+          phoneToUse = extracted;
+        }
+      }
+      
+      if (!phoneToUse || phoneToUse.length < 10) {
+        console.warn('[WhatsAppConversation] ⚠️ Contato sem telefone válido - phone:', contact?.phone, 'id:', contact?.id);
+        setIsLoadingMessages(false);
+        return;
+      }
+      
+      chatIdToUse = formatWhatsAppNumber(phoneToUse);
     }
     
     setIsLoadingMessages(true);
     try {
       // Formatar chatId do contato
-      const chatId = formatWhatsAppNumber(contact.phone || contact.id);
-      console.log('[WhatsAppConversation] 📥 Buscando mensagens do chat:', chatId);
+      console.log('[WhatsAppConversation] 📥 Buscando mensagens do chat:', chatIdToUse);
       
-      const whatsappMessages = await fetchWhatsAppMessages(chatId, 100);
+      const whatsappMessages = await fetchWhatsAppMessages(chatIdToUse, 100);
       
       // Converter mensagens do WhatsApp para formato de exibição
       const formattedMessages: MessageDisplay[] = whatsappMessages.map((msg) => ({
@@ -141,10 +249,23 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
   };
 
   /**
+   * Verificar se contato é @lid (não é possível responder diretamente)
+   */
+  const isLidContact = contact.id?.includes('@lid') || false;
+
+  /**
    * Enviar mensagem
    */
   const handleSendMessage = async () => {
     if ((!inputText.trim() && attachments.length === 0) || isSending) return;
+    
+    // ✅ AVISO: @lid não pode ser respondido diretamente via Evolution API
+    if (isLidContact) {
+      toast.error('⚠️ Este contato usa ID criptografado (@lid). Não é possível enviar mensagens diretamente pela Evolution API. Solicite o número de telefone do contato.', {
+        duration: 8000,
+      });
+      return;
+    }
 
     const messageText = inputText.trim();
     setInputText('');
@@ -160,9 +281,44 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
       setMessages((prev: MessageDisplay[]) => [...prev, optimisticMessage]);
 
     try {
-      // Formatar número do contato
-      const phoneNumber = formatWhatsAppNumber(contact.phone);
-      console.log('[WhatsAppConversation] 📤 Enviando mensagem para:', phoneNumber);
+      // ✅ CORREÇÃO v1.0.104.021: Detectar tipos de contato e usar ID correto
+      const idStr = contact.id || '';
+      const isGroup = idStr.includes('@g.us');
+      const isLid = idStr.includes('@lid'); // Link ID criptografado do WhatsApp
+      
+      let chatIdToSend = '';
+      
+      if (isGroup) {
+        // Para grupos, usar o ID do grupo diretamente
+        chatIdToSend = idStr.replace('whatsapp-', '');
+        console.log('[WhatsAppConversation] 👥 Enviando para GRUPO:', chatIdToSend);
+      } else if (isLid) {
+        // ✅ CORREÇÃO: @lid é Link ID interno do WhatsApp - usar diretamente
+        chatIdToSend = idStr.replace('whatsapp-', '');
+        console.log('[WhatsAppConversation] 🔗 Enviando para LID (Link ID):', chatIdToSend);
+      } else {
+        // Para contatos individuais com número real, extrair phone
+        let phoneToUse = contact.phone;
+        
+        // Se phone está vazio ou inválido, tentar extrair do id
+        if (!phoneToUse || phoneToUse.length < 10) {
+          // Limpar formato WhatsApp: 5511999999999@s.whatsapp.net
+          const extracted = idStr
+            .replace('whatsapp-', '')
+            .replace('@s.whatsapp.net', '')
+            .replace('@c.us', '')
+            .replace('@g.us', '')
+            .replace(/\D/g, '');
+          if (extracted.length >= 10 && extracted.length <= 15) {
+            phoneToUse = extracted;
+            console.log('[WhatsAppConversation] 📱 Phone extraído do ID:', phoneToUse);
+          }
+        }
+        
+        chatIdToSend = formatWhatsAppNumber(phoneToUse);
+      }
+      
+      console.log('[WhatsAppConversation] 📤 Enviando mensagem para:', chatIdToSend, '(original phone:', contact.phone, ', id:', contact.id, ', isGroup:', isGroup, ', isLid:', isLid, ')');
       
       // If there are attachments, upload them first and collect URLs
       let attachmentUrls: string[] = [];
@@ -223,7 +379,7 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
         setIsUploading(false);
       }
 
-      const result = await sendWhatsAppMessage(phoneNumber, messageText, {
+      const result = await sendWhatsAppMessage(chatIdToSend, messageText, {
         isInternal: isInternalNote,
         attachments: attachmentUrls,
       });
@@ -438,7 +594,8 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
                 {contact?.name || contact?.id || 'Sem nome'}
               </h3>
               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <span>{formatPhoneDisplay(contact.phone)}</span>
+                {/* ✅ CORREÇÃO v1.0.104.010: Extrair telefone de múltiplas fontes */}
+                <span>{getPhoneForDisplay(contact)}</span>
                 {contact.isOnline && (
                   <>
                     <span>•</span>
@@ -700,6 +857,14 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
             </div>
           )}
 
+          {/* ⚠️ Aviso para contatos @lid (não é possível responder) */}
+          {isLidContact && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-sm text-yellow-800 mb-2">
+              <strong>⚠️ Contato @lid:</strong> Este contato usa ID criptografado do WhatsApp. 
+              Não é possível enviar mensagens diretamente. Solicite o número de telefone para responder.
+            </div>
+          )}
+
           <div className="flex items-end gap-2">
             <div className="flex-1 relative">
               <Textarea
@@ -712,15 +877,15 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
                     handleSendMessage();
                   }
                 }}
-                placeholder="Digite uma mensagem..."
-                className="pr-12"
-                disabled={isSending}
+                placeholder={isLidContact ? "Não é possível responder (contato @lid)..." : "Digite uma mensagem..."}
+                className={`pr-12 ${isLidContact ? 'bg-yellow-50 cursor-not-allowed' : ''}`}
+                disabled={isSending || isLidContact}
                 rows={2}
               />
             </div>
             <Button
               onClick={handleSendMessage}
-              disabled={((!inputText.trim() && attachments.length === 0) || isSending) || isUploading}
+              disabled={((!inputText.trim() && attachments.length === 0) || isSending || isLidContact) || isUploading}
               size="icon"
               className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
             >

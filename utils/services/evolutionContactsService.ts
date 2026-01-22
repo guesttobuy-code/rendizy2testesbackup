@@ -13,35 +13,56 @@
 // ============================================
 
 export interface EvolutionContact {
-  id: string; // e.g., "5511987654321@c.us"
-  name: string;
-  pushname: string;
-  isBusiness: boolean;
-  profilePicUrl?: string;
-  isMyContact: boolean;
+  id: string;                    // ID interno Evolution (CUID)
+  remoteJid: string;             // ID WhatsApp: "5511987654321@s.whatsapp.net" ou "123@g.us"
+  name?: string | null;          // Nome do grupo (apenas para @g.us)
+  pushName?: string | null;      // Nome configurado pelo usuário no WhatsApp
+  profilePicUrl?: string | null; // URL da foto de perfil (geralmente null)
+  labels?: string[] | null;      // Etiquetas da Evolution API
+  createdAt?: string;            // Data de criação
+  updatedAt?: string;            // Data de atualização
+  // Campos legados para compatibilidade
+  pushname?: string;             // Alias para pushName
+  isBusiness?: boolean;
+  isMyContact?: boolean;
 }
 
 export interface EvolutionChat {
-  id: string; // Same format as contact.id
-  name: string;
+  id: string;                    // ID interno Evolution (CUID)
+  remoteJid: string;             // ID WhatsApp: "5511987654321@s.whatsapp.net" ou "123@g.us"
+  name?: string | null;          // Nome do grupo (apenas para @g.us)
+  pushName?: string | null;      // Nome do último que mandou mensagem
+  profilePicUrl?: string | null; // URL da foto de perfil
+  labels?: string[] | null;      // Etiquetas
+  createdAt?: string;            // Data de criação
+  updatedAt?: string;            // Data de atualização
+  // Campos legados
   lastMessage?: string;
-  unreadCount: number;
+  unreadCount?: number;
   timestamp?: number;
 }
 
 export interface LocalContact {
-  id: string;
-  name: string;
-  phone: string; // Formatted: +55 11 98765-4321
-  profilePicUrl?: string;
-  isBusiness: boolean;
-  source: 'evolution' | 'manual';
-  lastMessage?: string;
-  unreadCount: number;
-  isOnline: boolean;
-  lastSeen?: Date;
+  id: string;                        // remoteJid: "5511987654321@s.whatsapp.net" ou "123@g.us"
+  name: string;                      // Nome para exibição (calculado)
+  phone: string;                     // Número formatado: +55 11 98765-4321
+  phoneRaw?: string;                 // Número limpo: só dígitos
+  profilePicUrl?: string;            // URL da foto de perfil
+  pushName?: string;                 // Nome do WhatsApp (pushName)
+  groupName?: string;                // Nome do grupo (se for grupo)
+  conversationType: 'contact' | 'group' | 'broadcast' | 'unknown'; // Tipo de conversa
+  isGroup: boolean;                  // true se @g.us
+  isBroadcast: boolean;              // true se @lid
+  isBusiness: boolean;               // É conta business
+  source: 'evolution' | 'manual';    // Fonte do contato
+  lastMessage?: string;              // Última mensagem
+  unreadCount: number;               // Não lidas
+  isOnline: boolean;                 // Está online
+  lastSeen?: Date;                   // Última vez visto
+  labels?: string[];                 // Etiquetas
   createdAt: Date;
   updatedAt: Date;
+  lastSyncAt?: Date;                 // Última sincronização
 }
 
 export interface SyncStats {
@@ -209,25 +230,142 @@ export class EvolutionContactsService {
   }
 
   /**
-   * Merge contact with chat data
+   * ✅ MELHORADO v1.0.104.019: Detectar tipo de conversa pelo remoteJid
+   * CORREÇÃO: @lid são contatos normais (IDs encriptados do WhatsApp Cloud), não broadcasts
+   */
+  private detectConversationType(remoteJid: string): { type: 'contact' | 'group' | 'broadcast' | 'unknown', isGroup: boolean, isBroadcast: boolean } {
+    if (remoteJid.includes('@g.us')) {
+      return { type: 'group', isGroup: true, isBroadcast: false };
+    }
+    // ✅ @broadcast é lista de transmissão
+    if (remoteJid.includes('@broadcast')) {
+      return { type: 'broadcast', isGroup: false, isBroadcast: true };
+    }
+    // ✅ CORREÇÃO: @lid são contatos normais com IDs encriptados do WhatsApp Cloud API
+    // Não são broadcasts - são números de telefone mascarados para privacidade
+    if (remoteJid.includes('@lid')) {
+      return { type: 'contact', isGroup: false, isBroadcast: false };
+    }
+    if (remoteJid.includes('@s.whatsapp.net') || remoteJid.includes('@c.us')) {
+      return { type: 'contact', isGroup: false, isBroadcast: false };
+    }
+    return { type: 'unknown', isGroup: false, isBroadcast: false };
+  }
+
+  /**
+   * ✅ MELHORADO v1.0.104.010: Extrair número limpo do remoteJid
+   */
+  private extractPhoneRaw(remoteJid: string): string {
+    return remoteJid
+      .replace('@s.whatsapp.net', '')
+      .replace('@c.us', '')
+      .replace('@g.us', '')
+      .replace('@lid', '')
+      .replace('@broadcast', '');
+  }
+
+  /**
+   * ✅ MELHORADO v1.0.104.019: Calcular nome de exibição inteligente
+   * CORREÇÃO: Tratar @lid que não têm número de telefone visível
+   */
+  private calculateDisplayName(
+    remoteJid: string,
+    groupName?: string | null,
+    pushName?: string | null,
+    conversationType?: 'contact' | 'group' | 'broadcast' | 'unknown'
+  ): string {
+    // 1. Se tem nome do grupo (só para grupos)
+    if (groupName && groupName.trim()) {
+      return groupName.trim();
+    }
+    
+    // 2. Se tem pushName (nome do WhatsApp)
+    if (pushName && pushName.trim()) {
+      return pushName.trim();
+    }
+    
+    // 3. Fallback por tipo
+    if (conversationType === 'group') {
+      return 'Grupo sem nome';
+    }
+    if (conversationType === 'broadcast') {
+      return 'Lista de transmissão';
+    }
+    
+    // 4. Formatar telefone
+    const phoneRaw = this.extractPhoneRaw(remoteJid);
+    
+    // ✅ v1.0.104.019: Se é @lid, o "número" é um ID encriptado (não telefone real)
+    // Mostramos "Contato WhatsApp" em vez de um ID sem sentido
+    if (remoteJid.includes('@lid')) {
+      // ID encriptado - não tem número visível
+      return 'Contato WhatsApp';
+    }
+    
+    // Se é um número de telefone válido (apenas dígitos)
+    if (/^\d+$/.test(phoneRaw) && phoneRaw.length >= 8) {
+      return this.formatPhoneNumber(remoteJid);
+    }
+    
+    return 'Desconhecido';
+  }
+
+  /**
+   * ✅ MELHORADO v1.0.104.018: Merge contact com todos os campos da API
+   * IMPORTANTE: updatedAt deve refletir o timestamp da última mensagem para ordenação correta
    */
   private mergeContactWithChat(
     contact: EvolutionContact,
     chat?: EvolutionChat
   ): LocalContact {
+    // Usar remoteJid como ID principal (compatibilidade com código existente)
+    const remoteJid = contact.remoteJid || contact.id;
+    
+    // Detectar tipo
+    const { type: conversationType, isGroup, isBroadcast } = this.detectConversationType(remoteJid);
+    
+    // Obter nomes (priorizar da API, fallback para legado)
+    const pushName = contact.pushName || contact.pushname || null;
+    const groupName = contact.name || chat?.name || null;
+    
+    // Calcular nome para exibição
+    const displayName = this.calculateDisplayName(remoteJid, groupName, pushName, conversationType);
+    
+    // Extrair número limpo
+    const phoneRaw = this.extractPhoneRaw(remoteJid);
+    
+    // ✅ v1.0.104.018: Usar timestamp do CHAT (última mensagem) para ordenação correta
+    // Prioridade: chat.timestamp > contact.updatedAt > now
+    let lastActivityDate: Date;
+    if (chat?.timestamp && chat.timestamp > 0) {
+      lastActivityDate = new Date(chat.timestamp * 1000); // Evolution usa timestamp Unix
+    } else if (contact.updatedAt) {
+      lastActivityDate = new Date(contact.updatedAt);
+    } else {
+      lastActivityDate = new Date();
+    }
+    
     return {
-      id: contact.id,
-      name: contact.name || contact.pushname || 'Sem nome',
-      phone: this.formatPhoneNumber(contact.id),
-      profilePicUrl: contact.profilePicUrl,
-      isBusiness: contact.isBusiness,
+      id: remoteJid,
+      name: displayName,
+      phone: isGroup || isBroadcast ? '' : this.formatPhoneNumber(remoteJid),
+      phoneRaw: isGroup || isBroadcast ? '' : phoneRaw,
+      profilePicUrl: contact.profilePicUrl || chat?.profilePicUrl || undefined,
+      pushName: pushName || undefined,
+      groupName: groupName || undefined,
+      conversationType,
+      isGroup,
+      isBroadcast,
+      isBusiness: contact.isBusiness || false,
       source: 'evolution',
       lastMessage: chat?.lastMessage,
       unreadCount: chat?.unreadCount || 0,
-      isOnline: contact.isMyContact,
+      isOnline: contact.isMyContact || false,
       lastSeen: chat?.timestamp ? new Date(chat.timestamp * 1000) : undefined,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      labels: contact.labels || chat?.labels || undefined,
+      createdAt: contact.createdAt ? new Date(contact.createdAt) : new Date(),
+      updatedAt: lastActivityDate, // ✅ Agora reflete última atividade do CHAT
+      lastSyncAt: new Date(),
     };
   }
 
@@ -315,7 +453,7 @@ export class EvolutionContactsService {
         const supabase = createClient(supabaseUrl, publicAnonKey);
         
         const { data, error } = await supabase
-          .from('evolution_contacts')
+          .from('chat_contacts')
           .select('*')
           .eq('organization_id', organizationId)
           .order('updated_at', { ascending: false });
@@ -326,8 +464,11 @@ export class EvolutionContactsService {
           return this.getStoredContactsFromLocalStorage();
         }
         
-        console.log(`✅ [EvolutionContactsService] ${data.length} contatos carregados do SQL para org ${organizationId}`);
-        return data.map(this.mapSqlToLocalContact);
+        console.log(`✅ [EvolutionContactsService] ${data.length} contatos carregados do SQL (chat_contacts) para org ${organizationId}`);
+        // ✅ CORREÇÃO: Usar arrow function para manter contexto do this
+        const mappedContacts = data.map((sqlContact) => this.mapSqlToLocalContact(sqlContact));
+        console.log(`📱 [EvolutionContactsService] Primeiro contato mapeado:`, mappedContacts[0] ? { id: mappedContacts[0].id, phone: mappedContacts[0].phone, name: mappedContacts[0].name } : 'nenhum');
+        return mappedContacts;
       } catch (sqlError) {
         console.error(`❌ [EvolutionContactsService] Erro crítico ao buscar contatos do SQL para org ${organizationId}:`, sqlError);
         // Fallback para localStorage
@@ -377,11 +518,11 @@ export class EvolutionContactsService {
         const contactsToSave = contacts.map(c => this.mapLocalToSqlContact(c, organizationId));
         
         const { error } = await supabase
-          .from('evolution_contacts')
+          .from('chat_contacts')
           .upsert(contactsToSave, { onConflict: 'id,organization_id' });
         
         if (error) {
-          console.warn(`⚠️ [EvolutionContactsService] Erro ao salvar contatos no SQL para org ${organizationId}:`, error.message);
+          console.warn(`⚠️ [EvolutionContactsService] Erro ao salvar contatos no SQL (chat_contacts) para org ${organizationId}:`, error.message);
           // Fallback para localStorage
           this.saveContactsToLocalStorage(contacts);
           return;
@@ -414,49 +555,92 @@ export class EvolutionContactsService {
   }
 
   /**
-   * ✅ RESTAURADO: Map SQL contact to LocalContact
+   * ✅ MELHORADO v1.0.104.010: Map SQL contact to LocalContact com todos os campos
    */
   private mapSqlToLocalContact(sqlContact: any): LocalContact {
+    // Usar external_id (formato WhatsApp) como id
+    const whatsappId = sqlContact.external_id || sqlContact.id;
+    
+    // Detectar tipo
+    const { type: conversationType, isGroup, isBroadcast } = this.detectConversationType(whatsappId);
+    
+    // Calcular nome para exibição
+    const displayName = this.calculateDisplayName(
+      whatsappId,
+      sqlContact.group_name,
+      sqlContact.pushname || sqlContact.name,
+      conversationType
+    );
+    
     return {
-      id: sqlContact.id,
-      name: sqlContact.name,
-      phone: sqlContact.phone,
-      profilePicUrl: sqlContact.profile_pic_url,
+      id: whatsappId,
+      name: displayName,
+      phone: sqlContact.phone || '',
+      phoneRaw: sqlContact.phone_raw || this.extractPhoneRaw(whatsappId),
+      profilePicUrl: sqlContact.profile_pic_url || undefined,
+      pushName: sqlContact.pushname || undefined,
+      groupName: sqlContact.group_name || undefined,
+      conversationType: sqlContact.conversation_type || conversationType,
+      isGroup: sqlContact.is_group ?? isGroup,
+      isBroadcast: sqlContact.is_broadcast ?? isBroadcast,
       isBusiness: sqlContact.is_business || false,
       source: sqlContact.source || 'evolution',
       lastMessage: sqlContact.last_message,
       unreadCount: sqlContact.unread_count || 0,
       isOnline: sqlContact.is_online || false,
       lastSeen: sqlContact.last_seen ? new Date(sqlContact.last_seen) : undefined,
+      labels: sqlContact.labels || undefined,
       createdAt: new Date(sqlContact.created_at),
-      updatedAt: new Date(sqlContact.updated_at)
+      updatedAt: new Date(sqlContact.updated_at),
+      lastSyncAt: sqlContact.last_sync_at ? new Date(sqlContact.last_sync_at) : undefined,
     };
   }
 
   /**
-   * ✅ RESTAURADO: Map LocalContact to SQL contact
+   * ✅ MELHORADO v1.0.104.010: Map LocalContact to SQL contact com todos os campos
    */
   private mapLocalToSqlContact(localContact: LocalContact, organizationId: string): any {
     return {
-      id: localContact.id,
+      // IDs
+      external_id: localContact.id,
       organization_id: organizationId,
+      channel: 'whatsapp',
+      
+      // Nomes
       name: localContact.name,
-      phone: localContact.phone,
-      phone_raw: localContact.id.replace('@c.us', '').replace('@s.whatsapp.net', ''),
-      pushname: localContact.name,
-      is_business: localContact.isBusiness,
-      is_my_contact: false,
-      is_online: localContact.isOnline,
-      profile_pic_url: localContact.profilePicUrl,
+      pushname: localContact.pushName || localContact.name,
+      group_name: localContact.groupName || null,
+      
+      // Telefone
+      phone: localContact.phone || null,
+      phone_raw: localContact.phoneRaw || this.extractPhoneRaw(localContact.id),
+      
+      // Tipo de conversa
+      conversation_type: localContact.conversationType || 'contact',
+      is_group: localContact.isGroup || false,
+      is_broadcast: localContact.isBroadcast || false,
+      is_business: localContact.isBusiness || false,
+      
+      // Mídia
+      profile_pic_url: localContact.profilePicUrl || null,
+      
+      // Status
+      is_online: localContact.isOnline || false,
+      last_seen: localContact.lastSeen?.toISOString() || null,
+      
+      // Mensagens
       last_message: typeof localContact.lastMessage === 'string' 
         ? localContact.lastMessage 
-        : JSON.stringify(localContact.lastMessage),
-      unread_count: localContact.unreadCount,
-      last_seen: localContact.lastSeen?.toISOString(),
-      source: localContact.source,
-      created_at: localContact.createdAt.toISOString(),
-      updated_at: localContact.updatedAt.toISOString(),
-      last_sync_at: new Date().toISOString()
+        : localContact.lastMessage ? JSON.stringify(localContact.lastMessage) : null,
+      unread_count: localContact.unreadCount || 0,
+      
+      // Metadados
+      labels: localContact.labels ? JSON.stringify(localContact.labels) : null,
+      source: localContact.source || 'evolution',
+      last_sync_at: new Date().toISOString(),
+      
+      // Datas (só atualizar se novo)
+      updated_at: new Date().toISOString(),
     };
   }
 
@@ -575,9 +759,14 @@ export function getEvolutionContactsService(): EvolutionContactsService {
 /**
  * Initialize Evolution Contacts Service
  * Call this once when app starts
+ * 
+ * ✅ v1.0.104.016: Auto-sync DESABILITADO - webhook mantém dados atualizados
+ * O refresh automático a cada 5 minutos estava causando piscadas na tela.
+ * Webhooks da Evolution API são responsáveis por manter os dados em tempo real.
  */
 export function initializeEvolutionContactsService(): void {
   const service = getEvolutionContactsService();
-  service.startAutoSync();
-  console.log('✅ Evolution Contacts Service inicializado');
+  // ❌ DESABILITADO: Auto-sync causa refresh desnecessário na tela
+  // service.startAutoSync();
+  console.log('✅ Evolution Contacts Service inicializado (auto-sync DESABILITADO - webhook ativo)');
 }

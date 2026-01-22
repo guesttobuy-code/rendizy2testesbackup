@@ -63,6 +63,7 @@ import { importStaysNetFinance } from "./import-staysnet-finance.ts"; // ✅ MOD
 import { listStaysNetImportIssues } from "./import-staysnet-issues.ts"; // ✅ MODULAR: Issues (reservas sem imóvel)
 import chatApp from "./routes-chat.ts";
 import { whatsappEvolutionRoutes } from "./routes-whatsapp-evolution.ts";
+import { channelInstancesRoutes } from "./routes-channel-instances.ts"; // ✅ v2.0: Multi-instance WhatsApp
 import * as currencySettingsRoutes from "./routes-currency-settings.ts";
 import { registerDiscountPackagesRoutes } from "./routes-discount-packages.ts";
 import * as organizationsRoutes from "./routes-organizations.ts";
@@ -86,7 +87,7 @@ function withCorsJson(c: any, payload: unknown) {
   // Esses handlers ficam ANTES do middleware global; então setamos CORS aqui também.
   c.header("Access-Control-Allow-Origin", "*");
   c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer, x-organization-id");
   c.header("Access-Control-Max-Age", "86400");
   return c.json(payload);
 }
@@ -188,7 +189,7 @@ app.use("*", async (c, next) => {
   // Set CORS headers for ALL requests
   c.header("Access-Control-Allow-Origin", "*");
   c.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD");
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer, x-organization-id");
   c.header("Access-Control-Max-Age", "86400");
   
   // Handle preflight - retornar IMEDIATAMENTE sem processar mais nada
@@ -198,7 +199,7 @@ app.use("*", async (c, next) => {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer, x-organization-id",
         "Access-Control-Max-Age": "86400",
       }
     });
@@ -582,6 +583,13 @@ app.route("/rendizy-server/make-server-67caf26a/chat", chatApp);
 // ============================================================================
 // Registra o contrato legado (não modificar aqui; está em routes-whatsapp-evolution.ts)
 whatsappEvolutionRoutes(app as any);
+
+// ============================================================================
+// CHANNEL INSTANCES API v2.0 - Multi-instance WhatsApp
+// ============================================================================
+// Nova API para gerenciar múltiplas instâncias por organização
+// Usa tabela channel_instances com arquitetura multi-tenant
+channelInstancesRoutes(app as any);
 
 // Alias estável: frontend novo usa /whatsapp/*
 // Reescreve para o prefixo legado sem duplicar handlers.
@@ -1032,7 +1040,7 @@ Deno.serve(async (req) => {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-client-info, Prefer, x-organization-id",
         "Access-Control-Max-Age": "86400",
       }
     });
@@ -1059,7 +1067,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, apikey, X-Auth-Token, x-organization-id",
         }
       }
     );

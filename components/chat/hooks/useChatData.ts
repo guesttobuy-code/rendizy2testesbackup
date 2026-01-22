@@ -5,9 +5,18 @@
  * 
  * Projeto Fluência - Fase 3: Modularização Chat
  * Extraído de ChatInbox.tsx para reduzir complexidade
+ * 
+ * @version v1.0.104.018
+ * @date 2026-01-22
+ * 
+ * CHANGELOG v1.0.104.018:
+ * - Adicionado sync inicial dos chats do WhatsApp (UMA VEZ ao carregar)
+ * - Usa ref para garantir que sync só acontece uma vez
+ * - Não faz polling periódico (evita flicker)
+ * - Webhooks continuam responsáveis por mensagens novas em tempo real
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { chatApi, Conversation } from '../../../utils/chatApi';
 import { getEvolutionContactsService, LocalContact } from '../../../utils/services/evolutionContactsService';
 
@@ -41,6 +50,9 @@ export function useChatData(organizationId?: string) {
   const [conversations, setConversations] = useState<UnifiedConversation[]>([]);
   const [contacts, setContacts] = useState<LocalContact[]>([]);
   const [tags, setTags] = useState<any[]>([]);
+  
+  // ✅ v1.0.104.018: Ref para garantir sync inicial UMA ÚNICA VEZ
+  const hasInitialSyncDone = useRef(false);
 
   // Helper para extrair texto de lastMessage
   const extractMessageText = (lastMessage: any): string => {
@@ -87,6 +99,21 @@ export function useChatData(organizationId?: string) {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      const service = getEvolutionContactsService();
+      
+      // ✅ v1.0.104.018: Sync inicial dos chats do WhatsApp (UMA VEZ)
+      // Isso importa TODOS os chats existentes do WhatsApp para o sistema
+      if (!hasInitialSyncDone.current && organizationId) {
+        hasInitialSyncDone.current = true;
+        console.log('🔄 [useChatData] Iniciando sync inicial dos chats do WhatsApp...');
+        try {
+          const stats = await service.syncContactsAndChats(organizationId);
+          console.log('✅ [useChatData] Sync inicial concluído:', stats);
+        } catch (syncError) {
+          console.warn('⚠️ [useChatData] Erro no sync inicial (não crítico):', syncError);
+        }
+      }
+
       // Carregar conversas do backend
       if (organizationId) {
         const convResult = await chatApi.conversations.list(organizationId);
@@ -96,8 +123,7 @@ export function useChatData(organizationId?: string) {
         }
       }
 
-      // Carregar contatos WhatsApp
-      const service = getEvolutionContactsService();
+      // Carregar contatos WhatsApp (agora do SQL após sync)
       const storedContacts = await service.getStoredContacts(organizationId || undefined);
       setContacts(storedContacts);
 

@@ -218,6 +218,17 @@ try {
 Write-ColorOutput Green "`n✅ DEPLOY COMPLETO COM SUCESSO!`n"
 Write-ColorOutput Cyan "========================================`n"
 Write-ColorOutput White "📦 Versão: $newVersion"
+
+# ============================================================================
+# PASSO 6: Reiniciar servidor local (OBRIGATÓRIO)
+# ============================================================================
+
+Write-ColorOutput Cyan "`nReiniciando servidor local (obrigatório)..."
+try {
+    & "$PSScriptRoot\reiniciar-servidor.ps1"
+} catch {
+    Write-ColorOutput Yellow "⚠️  Falha ao reiniciar servidor local: $_"
+}
 Write-ColorOutput White "☁️  Backend: Deployado no Supabase"
 Write-ColorOutput White "📤 GitHub: Código enviado"
 Write-ColorOutput White "💾 Backup: $backupPath.zip"

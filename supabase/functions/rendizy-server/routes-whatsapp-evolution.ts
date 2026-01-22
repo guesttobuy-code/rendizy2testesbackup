@@ -355,6 +355,16 @@ export function whatsappEvolutionRoutes(app: Hono) {
 
           if (conv && (conv as any).id) {
             conversationId = (conv as any).id;
+            
+            // ✅ CORREÇÃO v1.0.104.020: Atualizar last_message_at ao enviar mensagem
+            await client
+              .from('conversations')
+              .update({
+                last_message: text.substring(0, 500),
+                last_message_at: new Date().toISOString(),
+              })
+              .eq('id', conversationId);
+            console.log(`[WhatsApp] [${organizationId}] Conversa atualizada com last_message_at: ${conversationId}`);
           } else {
             // criar conversa mínima
             const convInsert: any = {
@@ -1953,7 +1963,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
       console.log(`[WhatsApp Webhook Setup] Eventos: ${events.join(', ')}`);
 
       // Configurar webhook na Evolution API
-      // A Evolution API espera webhook com enabled, url, events e webhook_by_events
+      // A Evolution API espera url/events no nível raiz (não dentro de "webhook")
       // Também precisa corrigir GROUPS_UPDATE para GROUP_UPDATE
       const correctedEvents = events.map(event => 
         event === 'GROUPS_UPDATE' ? 'GROUP_UPDATE' : event
@@ -1965,12 +1975,10 @@ export function whatsappEvolutionRoutes(app: Hono) {
           method: 'POST',
           headers: getEvolutionMessagesHeaders(config),
           body: JSON.stringify({
-            webhook: {
-              enabled: true,
-              url: webhookUrl,
-              events: correctedEvents,
-              webhook_by_events: webhookByEvents || false,
-            }
+            enabled: true,
+            url: webhookUrl,
+            events: correctedEvents,
+            webhook_by_events: webhookByEvents || false,
           }),
         }
       );
@@ -1980,12 +1988,10 @@ export function whatsappEvolutionRoutes(app: Hono) {
         console.error(`[WhatsApp Webhook Setup] Erro HTTP ${response.status}:`, errorText);
         console.error(`[WhatsApp Webhook Setup] URL: ${config.api_url}/webhook/set/${config.instance_name}`);
         console.error(`[WhatsApp Webhook Setup] Body enviado:`, JSON.stringify({
-          webhook: {
-            enabled: true,
-            url: webhookUrl,
-            events: correctedEvents,
-            webhook_by_events: webhookByEvents || false,
-          }
+          enabled: true,
+          url: webhookUrl,
+          events: correctedEvents,
+          webhook_by_events: webhookByEvents || false,
         }));
         return c.json({ 
           success: false,
