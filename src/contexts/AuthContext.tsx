@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User, Organization, Permission, PermissionCheck, DEFAULT_PERMISSIONS } from '../../types/tenancy';
 // ✅ ARQUITETURA OAuth2 v1.0.103.1010: Integração com authService e BroadcastChannel
 import { login as authServiceLogin, logout as authServiceLogout, getCurrentUser } from '../../services/authService';
@@ -51,6 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return false;
   });
+  
+  // ✅ FIX v1.0.103.600: Ref para evitar chamadas repetidas ao /me
+  const isLoadingUserRef = useRef(false);
+  const lastLoadTimeRef = useRef(0);
+  const MIN_LOAD_INTERVAL = 5000; // 5 segundos mínimo entre carregamentos
 
   useEffect(() => {
     let isMounted = true;
@@ -68,6 +73,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     const loadUser = async (retries = 1, skipDelay = false, isPeriodicCheck = false) => {
+      // ✅ FIX v1.0.103.600: Evitar chamadas repetidas
+      const now = Date.now();
+      if (isLoadingUserRef.current) {
+        console.log('⏳ [AuthContext] Já está carregando usuário, ignorando chamada duplicada');
+        return;
+      }
+      if (now - lastLoadTimeRef.current < MIN_LOAD_INTERVAL && !isPeriodicCheck) {
+        console.log('⏳ [AuthContext] Chamada muito recente, ignorando (throttle)');
+        return;
+      }
+      
+      isLoadingUserRef.current = true;
+      lastLoadTimeRef.current = now;
+      
       try {
         if (!isPeriodicCheck) {
           console.log('🔐 [AuthContext] Verificando sessão via token no header...');
@@ -87,19 +106,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setTimeout(() => {
               if (isMounted) {
                 setIsLoading(false);
-                if (!user) {
-                  setUser(null);
-                }
               }
             }, 100);
           }
+          isLoadingUserRef.current = false;
           return;
         }
 
         const cachedUserRaw = localStorage.getItem('rendizy-user');
         const cachedUser = cachedUserRaw ? (() => { try { return JSON.parse(cachedUserRaw); } catch { return null; } })() : null;
 
-        if (!isPeriodicCheck && cachedUser && cachedUser.id && !user) {
+        if (!isPeriodicCheck && cachedUser && cachedUser.id) {
           console.log('⚡ [AuthContext] Usando cache local de usuário para acelerar carregamento');
           setUser(cachedUser);
           setHasTokenState(true);
@@ -300,8 +317,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsLoading(false);
         }
       } finally {
-        if (isMounted && !isPeriodicCheck) {
-        }
+        // ✅ FIX v1.0.103.600: Reset da flag de loading
+        isLoadingUserRef.current = false;
       }
     };
 
@@ -441,7 +458,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribeTokenRefreshed();
       unsubscribeSessionExpired();
     };
-  }, [user]);
+  // ✅ FIX v1.0.103.600: Remover [user] da dependência para evitar loop infinito
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const login = async (username: string, password: string) => {
     setIsLoading(true);

@@ -1,7 +1,20 @@
+/**
+ * ChatModule - Módulo de Chat do Rendizy
+ * 
+ * @version v2.0.0 - Refatorado para usar SimpleChatInbox
+ * @date 2026-01-22
+ * 
+ * Changelog:
+ * - v2.0.0: Substituído ChatInboxWithEvolution por SimpleChatInbox
+ *   - Removido Kanban desnecessário
+ *   - Fluxo simplificado e fluido
+ *   - Polling automático funcionando
+ */
+
 import React from 'react';
 import { MainSidebar } from '../MainSidebar';
 import { LoadingProgress } from '../LoadingProgress';
-import { ChatInboxWithEvolution } from '../ChatInboxWithEvolution';
+import { SimpleChatInbox } from './SimpleChatInbox';
 import { cn } from '../ui/utils';
 
 interface ChatModuleProps {
@@ -40,8 +53,9 @@ export function ChatModule({
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72',
         )}
       >
-        <div className="flex-1 overflow-hidden">
-          <ChatInboxWithEvolution />
+        {/* ✅ v2.0.0: Chat simplificado e funcional */}
+        <div className="flex-1 overflow-hidden h-[calc(100vh-0px)]">
+          <SimpleChatInbox />
         </div>
       </div>
     </div>

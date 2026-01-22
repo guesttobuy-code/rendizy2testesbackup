@@ -96,22 +96,41 @@ const CHANNELS: IntegrationChannel[] = [
     }
   },
   {
-    id: 'whatsapp',
-    name: 'WhatsApp Business',
-    description: 'Integração com Evolution API para mensagens',
+    id: 'whatsapp-evolution',
+    name: 'WhatsApp Evolution API',
+    description: 'Integração WhatsApp via Evolution API (servidor atual)',
     icon: Globe,
     iconColor: 'text-white',
     gradientFrom: 'from-green-500',
     gradientTo: 'to-green-600',
-    status: 'active', // ✅ REATIVADO v1.0.103.84 - Integração completa com proxy seguro
+    status: 'active',
     stats: {
       connected: 0,
       active: 0,
       inactive: 0
     },
     badge: {
-      text: 'NOVO', // ✅ Mudado de 'EM BREVE' para 'NOVO'
-      variant: 'success' // ✅ Mudado de 'secondary' para 'success'
+      text: 'Evolution',
+      variant: 'success'
+    }
+  },
+  {
+    id: 'whatsapp-waha',
+    name: 'WhatsApp WAHA',
+    description: 'Integração WhatsApp via WAHA - API moderna e estável',
+    icon: Globe,
+    iconColor: 'text-white',
+    gradientFrom: 'from-emerald-500',
+    gradientTo: 'to-teal-600',
+    status: 'active',
+    stats: {
+      connected: 0,
+      active: 0,
+      inactive: 0
+    },
+    badge: {
+      text: 'NOVO',
+      variant: 'warning'
     }
   },
   {
@@ -478,7 +497,8 @@ export function IntegrationsManager() {
           <div className="mt-4">
             {/* Render specific integration component */}
             {selectedChannel === 'staysnet' && <StaysNetIntegration />}
-            {selectedChannel === 'whatsapp' && <WhatsAppIntegration />}
+            {selectedChannel === 'whatsapp-evolution' && <WhatsAppIntegration provider="evolution" />}
+            {selectedChannel === 'whatsapp-waha' && <WhatsAppIntegration provider="waha" />}
             {selectedChannel === 'bookingcom' && <BookingComIntegration />}
             {selectedChannel === 'airbnb' && <AirbnbIntegration />}
             {selectedChannel === 'ai-provider' && <AIIntegration />}

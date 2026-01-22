@@ -1353,11 +1353,237 @@ export function whatsappEvolutionRoutes(app: Hono) {
     }
   };
 
-  // ✅ ROTA NOVA (sem prefixo)
-  app.get('/rendizy-server/make-server-67caf26a/whatsapp/chats', handleGetWhatsAppChats);
+  // ✅ ROTA SEM PREFIXO (frontend novo)
+  app.get('/rendizy-server/whatsapp/chats', handleGetWhatsAppChats);
   
-  // ✅ ROTA DE COMPATIBILIDADE (com prefixo antigo para frontend em produção)
+  // ✅ ROTA COM PREFIXO (compatibilidade com frontend antigo)
   app.get('/rendizy-server/make-server-67caf26a/whatsapp/chats', handleGetWhatsAppChats);
+
+  // ==========================================================================
+  // ✅ ROTAS ADICIONAIS SEM PREFIXO (para o SimpleChatInbox novo)
+  // ==========================================================================
+
+  // Handler para send-message (extraído para reuso)
+  const handleSendMessage = async (c: any) => {
+    try {
+      const organizationId = await getOrganizationIdOrThrow(c);
+      const config = await getEvolutionConfigForOrganization(organizationId) || getEvolutionConfigFromEnv();
+      
+      if (!config || !config.enabled) {
+        return c.json({ 
+          error: 'WhatsApp não configurado para esta organização. Configure em Settings → WhatsApp.' 
+        }, 400);
+      }
+
+      const payload = await c.req.json();
+      const { number, text, attachments: attachmentsFromClient, isInternal } = payload;
+
+      if (!number || !text) {
+        return c.json({ error: 'Número e texto são obrigatórios' }, 400);
+      }
+
+      console.log(`[WhatsApp] [${organizationId}] Enviando mensagem:`, { number, text });
+
+      const response = await fetch(
+        `${config.api_url}/message/sendText/${config.instance_name}`,
+        {
+          method: 'POST',
+          headers: getEvolutionMessagesHeaders(config),
+          body: JSON.stringify({ number, text }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[WhatsApp] [${organizationId}] Erro ao enviar mensagem:`, errorText);
+        return c.json({ error: 'Erro ao enviar mensagem', details: errorText }, response.status as any);
+      }
+
+      const data = await response.json();
+      console.log(`[WhatsApp] [${organizationId}] Mensagem enviada com sucesso`);
+
+      // Persistir no banco (simplificado)
+      try {
+        const client = getSupabaseClient();
+        
+        // Encontrar ou criar conversation
+        const { data: conv } = await client
+          .from('conversations')
+          .select('id')
+          .eq('organization_id', organizationId)
+          .eq('external_conversation_id', number)
+          .maybeSingle();
+
+        const conversationId = conv?.id || null;
+
+        if (conversationId) {
+          await client
+            .from('conversations')
+            .update({
+              last_message: text.substring(0, 500),
+              last_message_at: new Date().toISOString(),
+            })
+            .eq('id', conversationId);
+        }
+      } catch (err) {
+        console.warn('[WhatsApp] Erro ao persistir:', err);
+      }
+
+      return c.json({ success: true, data });
+    } catch (error) {
+      console.error('[WhatsApp] Erro em send-message:', error);
+      if (error instanceof Error && error.message.includes('organization')) {
+        return c.json({ error: error.message }, 401);
+      }
+      return c.json({ error: 'Erro interno ao enviar mensagem' }, 500);
+    }
+  };
+
+  // Handler para messages/:chatId (extraído para reuso)
+  const handleGetMessagesForChat = async (c: any) => {
+    try {
+      const organizationId = await getOrganizationIdOrThrow(c);
+      const config = await getEvolutionConfigForOrganization(organizationId) || getEvolutionConfigFromEnv();
+      
+      if (!config || !config.enabled) {
+        return c.json({ error: 'WhatsApp não configurado para esta organização' }, 400);
+      }
+
+      const chatId = c.req.param('chatId');
+      const limitParam = c.req.query('limit');
+      const limit = limitParam ? parseInt(limitParam) || 50 : 50;
+
+      if (!chatId) {
+        return c.json({ error: 'chatId é obrigatório' }, 400);
+      }
+
+      console.log(`[WhatsApp] [${organizationId}] 📥 Buscando mensagens do chat:`, chatId);
+
+      const response = await fetch(
+        `${config.api_url}/chat/findMessages/${config.instance_name}`,
+        {
+          method: 'POST',
+          headers: getEvolutionMessagesHeaders(config),
+          body: JSON.stringify({
+            where: { key: { remoteJid: chatId } },
+            limit,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[WhatsApp] [${organizationId}] Erro ao buscar mensagens:`, errorText);
+        return c.json({ error: 'Erro ao buscar mensagens', details: errorText }, response.status as any);
+      }
+
+      const responseData = await response.json();
+      
+      // Extrair mensagens de múltiplos formatos possíveis
+      let messages: any[] = [];
+      
+      if (Array.isArray(responseData)) {
+        messages = responseData.flatMap((item: any) => {
+          if (item?.messages?.records && Array.isArray(item.messages.records)) {
+            return item.messages.records;
+          }
+          if (item?.records && Array.isArray(item.records)) {
+            return item.records;
+          }
+          return [item];
+        });
+      } else if (responseData && Array.isArray(responseData.data)) {
+        messages = responseData.data.flatMap((item: any) => {
+          if (item?.messages?.records && Array.isArray(item.messages.records)) {
+            return item.messages.records;
+          }
+          if (item?.records && Array.isArray(item.records)) {
+            return item.records;
+          }
+          return [item];
+        });
+      } else if (responseData?.messages?.records && Array.isArray(responseData.messages.records)) {
+        messages = responseData.messages.records;
+      } else if (responseData?.messages && Array.isArray(responseData.messages)) {
+        messages = responseData.messages;
+      } else if (responseData?.records && Array.isArray(responseData.records)) {
+        messages = responseData.records;
+      } else if (responseData && typeof responseData === 'object') {
+        messages = [responseData];
+      }
+      
+      console.log(`[WhatsApp] [${organizationId}] ✉️ Mensagens encontradas:`, messages.length);
+
+      return c.json({ success: true, data: messages });
+    } catch (error) {
+      console.error('[WhatsApp] Erro em messages/:chatId:', error);
+      if (error instanceof Error && error.message.includes('organization')) {
+        return c.json({ error: error.message }, 401);
+      }
+      return c.json({ error: 'Erro interno ao buscar mensagens' }, 500);
+    }
+  };
+
+  // Handler para messages inbox
+  const handleGetMessagesInbox = async (c: any) => {
+    try {
+      const organizationId = await getOrganizationIdOrThrow(c);
+      const config = await getEvolutionConfigForOrganization(organizationId) || getEvolutionConfigFromEnv();
+      
+      if (!config || !config.enabled) {
+        return c.json({ 
+          success: true, 
+          data: [], 
+          offline: true, 
+          message: 'WhatsApp não configurado para esta organização' 
+        });
+      }
+
+      const DEFAULT_LIMIT = 50;
+
+      const response = await fetch(
+        `${config.api_url}/message/inbox/${config.instance_name}`,
+        {
+          method: 'GET',
+          headers: getEvolutionMessagesHeaders(config),
+        }
+      );
+
+      if (!response.ok) {
+        console.error(`[WhatsApp] [${organizationId}] Erro ao buscar mensagens`);
+        return c.json({ 
+          success: true, 
+          data: [], 
+          offline: true, 
+          message: 'Erro ao conectar com Evolution API' 
+        });
+      }
+
+      let data = await response.json();
+
+      if (Array.isArray(data)) {
+        data = data.slice(0, DEFAULT_LIMIT);
+      }
+
+      return c.json({ success: true, data });
+    } catch (error) {
+      console.error('[WhatsApp] Erro em messages:', error);
+      if (error instanceof Error && error.message.includes('organization')) {
+        return c.json({ error: error.message }, 401);
+      }
+      return c.json({ 
+        success: true, 
+        data: [], 
+        offline: true, 
+        message: 'Erro interno ao buscar mensagens' 
+      });
+    }
+  };
+
+  // ROTAS SEM PREFIXO
+  app.post('/rendizy-server/whatsapp/send-message', handleSendMessage);
+  app.get('/rendizy-server/whatsapp/messages', handleGetMessagesInbox);
+  app.get('/rendizy-server/whatsapp/messages/:chatId', handleGetMessagesForChat);
   
   // ✅ ROTA DE COMPATIBILIDADE PARA CONTATOS (com prefixo antigo para frontend em produção)
   // Reutiliza o mesmo handler da rota principal (sem prefixo)

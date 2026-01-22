@@ -63,11 +63,19 @@ export async function fetchWhatsAppStatus(): Promise<WhatsAppStatus> {
   }
 }
 
+/**
+ * Interface de Chat do WhatsApp
+ * Reflete estrutura da Evolution API v2
+ */
 interface WhatsAppChat {
-  id: string;
-  name?: string;
+  id: string;           // ID interno do banco
+  remoteJid?: string;   // JID do WhatsApp (ex: 5521999887766@s.whatsapp.net)
+  name?: string;        // Nome salvo na agenda
+  pushName?: string;    // Nome do perfil WhatsApp
   profilePictureUrl?: string;
+  profilePicUrl?: string;
   lastMessageTimestamp?: number;
+  updatedAt?: string;   // Timestamp ISO
   unreadCount?: number;
   lastMessage?: {
     fromMe: boolean;

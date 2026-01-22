@@ -80,6 +80,10 @@ import { useAuth } from '../src/contexts/AuthContext';
 // TYPES
 // ============================================================================
 
+interface WhatsAppIntegrationProps {
+  provider?: 'evolution' | 'waha';
+}
+
 interface WhatsAppConfig {
   api_url: string;
   instance_name: string;
@@ -95,7 +99,7 @@ interface WhatsAppConfig {
 // MAIN COMPONENT
 // ============================================================================
 
-export default function WhatsAppIntegration() {
+export default function WhatsAppIntegration({ provider = 'evolution' }: WhatsAppIntegrationProps) {
   const { organization } = useAuth();
   
   // Obter organizationId do contexto, com fallback seguro
@@ -702,6 +706,206 @@ export default function WhatsAppIntegration() {
     );
   }
 
+  // ============================================================================
+  // WAHA PROVIDER - Tela específica para WAHA
+  // ============================================================================
+  if (provider === 'waha') {
+    return (
+      <div className="space-y-6">
+        {/* HEADER WAHA */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+              <MessageCircle className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold">WhatsApp WAHA</h2>
+              <p className="text-sm text-muted-foreground">
+                Integração via WAHA (WhatsApp HTTP API) • API moderna e estável
+              </p>
+            </div>
+          </div>
+          
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Em Desenvolvimento
+          </Badge>
+        </div>
+
+        {/* INFORMAÇÕES SOBRE WAHA */}
+        <Alert className="bg-blue-50 border-blue-200">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            <div className="space-y-3">
+              <p className="font-semibold">🚀 WAHA - WhatsApp HTTP API</p>
+              <p className="text-sm">
+                WAHA é uma alternativa moderna à Evolution API, com melhor documentação, 
+                dashboard integrado e maior estabilidade.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="bg-white/60 rounded-lg p-3">
+                  <h4 className="font-medium text-blue-900 mb-2">✅ Vantagens</h4>
+                  <ul className="text-xs space-y-1 text-blue-700">
+                    <li>• Dashboard visual incluído</li>
+                    <li>• Websockets nativos (real-time)</li>
+                    <li>• Documentação excelente (Swagger)</li>
+                    <li>• Múltiplos engines (WEBJS, NOWEB, GOWS)</li>
+                    <li>• QR Code via endpoint dedicado</li>
+                    <li>• Retry automático em webhooks</li>
+                  </ul>
+                </div>
+                
+                <div className="bg-white/60 rounded-lg p-3">
+                  <h4 className="font-medium text-blue-900 mb-2">📋 Requisitos</h4>
+                  <ul className="text-xs space-y-1 text-blue-700">
+                    <li>• Docker instalado no servidor</li>
+                    <li>• Mínimo: 2 CPU + 4GB RAM</li>
+                    <li>• Porta 3000 disponível</li>
+                    <li>• WAHA Plus para mídia (opcional)</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="bg-white/60 rounded-lg p-3 mt-3">
+                <h4 className="font-medium text-blue-900 mb-2">🐳 Instalação Rápida</h4>
+                <div className="font-mono text-xs bg-gray-900 text-green-400 p-3 rounded">
+                  <p># 1. Baixar imagem</p>
+                  <p>docker pull devlikeapro/waha</p>
+                  <p className="mt-2"># 2. Inicializar (gera credenciais)</p>
+                  <p>docker run --rm -v "$(pwd):/app/env" devlikeapro/waha init-waha /app/env</p>
+                  <p className="mt-2"># 3. Executar</p>
+                  <p>docker run -it --env-file "$(pwd)/.env" -p 3000:3000 devlikeapro/waha</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-4">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open('https://waha.devlike.pro/docs/overview/introduction/', '_blank')}
+                >
+                  📚 Documentação
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open('https://github.com/devlikeapro/waha', '_blank')}
+                >
+                  🐙 GitHub
+                </Button>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        {/* CARD DE IMPLEMENTAÇÃO PENDENTE */}
+        <Card className="border-dashed border-2 border-amber-300 bg-amber-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-700">
+              <Settings className="w-5 h-5" />
+              Configuração WAHA
+            </CardTitle>
+            <CardDescription>
+              A integração com WAHA está em desenvolvimento. Em breve você poderá:
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-amber-200 flex items-center justify-center">
+                  <span className="text-xs">1</span>
+                </div>
+                Conectar seu servidor WAHA existente
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-amber-200 flex items-center justify-center">
+                  <span className="text-xs">2</span>
+                </div>
+                Gerenciar múltiplas sessões WhatsApp
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-amber-200 flex items-center justify-center">
+                  <span className="text-xs">3</span>
+                </div>
+                Configurar webhooks automaticamente
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-amber-200 flex items-center justify-center">
+                  <span className="text-xs">4</span>
+                </div>
+                Utilizar Websockets para mensagens em tempo real
+              </li>
+            </ul>
+            
+            <Alert className="bg-green-50 border-green-200 mt-4">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 text-sm">
+                <strong>💡 Enquanto isso:</strong> Use a integração <strong>Evolution API</strong> que já está 100% funcional.
+                Ambas as APIs são compatíveis e você pode migrar depois.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+
+        {/* COMPARATIVO RÁPIDO */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">📊 Comparativo: Evolution vs WAHA</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-3">Aspecto</th>
+                    <th className="text-center py-2 px-3">Evolution API</th>
+                    <th className="text-center py-2 px-3">WAHA</th>
+                  </tr>
+                </thead>
+                <tbody className="text-muted-foreground">
+                  <tr className="border-b">
+                    <td className="py-2 px-3">Instalação</td>
+                    <td className="text-center py-2 px-3">🟡 Média</td>
+                    <td className="text-center py-2 px-3">🟢 Fácil</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-3">Documentação</td>
+                    <td className="text-center py-2 px-3">🟡 Média</td>
+                    <td className="text-center py-2 px-3">🟢 Excelente</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-3">Estabilidade</td>
+                    <td className="text-center py-2 px-3">🔴 Baixa</td>
+                    <td className="text-center py-2 px-3">🟢 Alta</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-3">Dashboard</td>
+                    <td className="text-center py-2 px-3">❌ Não</td>
+                    <td className="text-center py-2 px-3">✅ Sim</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2 px-3">Websockets</td>
+                    <td className="text-center py-2 px-3">❌ Não</td>
+                    <td className="text-center py-2 px-3">✅ Sim</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-3">Comunidade BR</td>
+                    <td className="text-center py-2 px-3">🟢 Alta</td>
+                    <td className="text-center py-2 px-3">🟡 Média</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // EVOLUTION API PROVIDER (Padrão)
+  // ============================================================================
   return (
     <div className="space-y-6">
       {/* MODO OFFLINE WARNING */}
@@ -735,9 +939,9 @@ export default function WhatsAppIntegration() {
             <MessageCircle className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">WhatsApp Business</h2>
+            <h2 className="text-2xl font-bold">WhatsApp Evolution API</h2>
             <p className="text-sm text-muted-foreground">
-              Integração com Evolution API • Receba e envie mensagens
+              Integração com Evolution API v2 • Receba e envie mensagens
             </p>
           </div>
         </div>
