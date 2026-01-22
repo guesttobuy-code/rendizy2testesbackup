@@ -43,6 +43,35 @@ function normalizeBaseUrl(url: string): string {
 
 async function getEvolutionConfigForOrganization(organizationId: string): Promise<EvolutionConfig | null> {
   try {
+    const client = getSupabaseClient();
+    
+    // ✅ V2: Primeiro tentar buscar em channel_instances (nova arquitetura)
+    const { data: channelInstance } = await client
+      .from('channel_instances')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .eq('channel', 'whatsapp')
+      .eq('provider', 'evolution')
+      .eq('is_enabled', true)
+      .is('deleted_at', null)
+      .order('is_default', { ascending: false }) // Priorizar instância padrão
+      .limit(1)
+      .maybeSingle();
+    
+    if (channelInstance && channelInstance.api_url && channelInstance.instance_name && channelInstance.api_key) {
+      console.log(`✅ [Chat.getEvolutionConfig] Usando channel_instances para org ${organizationId}`);
+      return {
+        api_url: normalizeBaseUrl(channelInstance.api_url),
+        instance_name: channelInstance.instance_name,
+        api_key: channelInstance.api_key,
+        instance_token: channelInstance.instance_token || channelInstance.api_key,
+        enabled: true,
+      };
+    }
+    
+    // ✅ FALLBACK: Tentar tabela legada organization_channel_config
+    console.warn(`⚠️ [Chat.getEvolutionConfig] Nada em channel_instances, tentando tabela legada...`);
+    
     const repo = new ChannelConfigRepository();
     const data = await repo.findByOrganizationId(organizationId);
 
@@ -289,35 +318,63 @@ const processWhatsAppWebhook = async (c: any, payload: any) => {
       '';
     const client = getSupabaseClient();
     
-    // Buscar todas as configurações que têm WhatsApp habilitado
-    const { data: allConfigs, error: fetchError } = await client
-      .from('organization_channel_config')
+    // ✅ V2.0: Buscar instância em channel_instances (nova arquitetura multi-canal)
+    const { data: channelInstance, error: ciError } = await client
+      .from('channel_instances')
       .select('*')
-      .eq('whatsapp_enabled', true)
-      .not('whatsapp_instance_name', 'is', null)
-      .is('deleted_at', null);
+      .eq('channel', 'whatsapp')
+      .eq('instance_name', instanceName)
+      .eq('is_enabled', true)
+      .is('deleted_at', null)
+      .maybeSingle();
     
-    if (fetchError) {
-      console.error('❌ [Chat] Erro ao buscar configurações:', fetchError);
-      return c.json({ success: false, error: 'Erro ao buscar configurações' }, 500);
+    if (ciError) {
+      console.warn('⚠️ [Chat] Erro ao buscar channel_instances:', ciError);
+      // Não retorna erro, vai tentar fallback
     }
     
-    // Encontrar configuração por instance_name
-    let orgConfig = allConfigs?.find(
-      data => data.whatsapp_instance_name === instanceName
-    );
+    // Fallback: Tentar buscar na tabela antiga se não encontrou
+    let organizationId: string | null = null;
+    let channelInstanceId: string | null = null;
+    
+    if (channelInstance) {
+      organizationId = channelInstance.organization_id;
+      channelInstanceId = channelInstance.id;
+      console.log(`✅ [Chat] Found instance in channel_instances: ${instanceName} -> org ${organizationId}`);
+    } else {
+      // FALLBACK: Buscar em organization_channel_config (legado)
+      console.warn(`⚠️ [Chat] Instance não encontrada em channel_instances, tentando tabela legada...`);
+      const { data: legacyConfigs, error: legacyError } = await client
+        .from('organization_channel_config')
+        .select('*')
+        .eq('whatsapp_enabled', true)
+        .not('whatsapp_instance_name', 'is', null)
+        .is('deleted_at', null);
+      
+      if (legacyError) {
+        console.error('❌ [Chat] Erro ao buscar configurações legadas:', legacyError);
+        return c.json({ success: false, error: 'Erro ao buscar configurações' }, 500);
+      }
+      
+      let orgConfig = legacyConfigs?.find(
+        data => data.whatsapp_instance_name === instanceName
+      );
 
-    if (!orgConfig && allConfigs?.length === 1) {
-      orgConfig = allConfigs[0];
-      console.warn('⚠️ [Chat] Instance name ausente ou não encontrado, usando única configuração disponível');
+      if (!orgConfig && legacyConfigs?.length === 1) {
+        orgConfig = legacyConfigs[0];
+        console.warn('⚠️ [Chat] Instance name ausente ou não encontrado, usando única configuração disponível');
+      }
+      
+      if (orgConfig) {
+        organizationId = orgConfig.organization_id;
+        console.log(`✅ [Chat] Found organization via legacy config: ${organizationId}`);
+      }
     }
     
-    if (!orgConfig) {
+    if (!organizationId) {
       console.error('❌ [Chat] Organization not found for instance:', instanceName);
       return c.json({ success: false, error: 'Organization not found' }, 404);
     }
-
-    const organizationId = orgConfig.organization_id;
     console.log(`✅ [Chat] Found organization: ${organizationId}`);
 
     // ✅ DEBUG: salvar payload bruto do webhook (não bloqueante)
@@ -375,7 +432,7 @@ const processWhatsAppWebhook = async (c: any, payload: any) => {
         console.log(`✅ [Chat] Updated existing conversation: ${conversationId}`);
       } else {
         // Criar nova conversa
-        const convInsert = {
+        const convInsert: any = {
           organization_id: organizationId,
           external_conversation_id: remoteJid,
           guest_name: senderName,
@@ -389,6 +446,7 @@ const processWhatsAppWebhook = async (c: any, payload: any) => {
           channel_metadata: {
             instance: instanceName,
             pushName: senderName,
+            channel_instance_id: channelInstanceId, // V2: rastrear qual instância recebeu
           },
         };
         

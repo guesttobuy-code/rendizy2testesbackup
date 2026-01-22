@@ -116,7 +116,7 @@ function normalizeBaseUrl(url: string): string {
 /**
  * Busca credenciais Evolution API da organização no Supabase
  * 
- * ✅ REFATORADO: Busca por organization_id ao invés de envs globais
+ * ✅ REFATORADO V2: Primeiro tenta channel_instances, depois fallback para organization_channel_config
  * 
  * @param organizationId - ID da organização (UUID)
  * @returns Promise<EvolutionConfig | null> - Configuração ou null se não encontrada
@@ -124,6 +124,33 @@ function normalizeBaseUrl(url: string): string {
 async function getEvolutionConfigForOrganization(organizationId: string): Promise<EvolutionConfig | null> {
   try {
     const client = getSupabaseClient();
+    
+    // ✅ V2: Primeiro tentar buscar em channel_instances (nova arquitetura)
+    const { data: channelInstance, error: ciError } = await client
+      .from('channel_instances')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .eq('channel', 'whatsapp')
+      .eq('provider', 'evolution')
+      .eq('is_enabled', true)
+      .is('deleted_at', null)
+      .order('is_default', { ascending: false }) // Priorizar instância padrão
+      .limit(1)
+      .maybeSingle();
+    
+    if (channelInstance && channelInstance.api_url && channelInstance.instance_name && channelInstance.api_key) {
+      console.log(`✅ [getEvolutionConfigForOrganization] Usando channel_instances para org ${organizationId}`);
+      return {
+        api_url: normalizeBaseUrl(channelInstance.api_url),
+        instance_name: channelInstance.instance_name,
+        api_key: channelInstance.api_key,
+        instance_token: channelInstance.instance_token || channelInstance.api_key,
+        enabled: true,
+      };
+    }
+    
+    // ✅ FALLBACK: Tentar tabela legada organization_channel_config
+    console.warn(`⚠️ [getEvolutionConfigForOrganization] Nada em channel_instances, tentando tabela legada...`);
     
     const { data, error } = await client
       .from('organization_channel_config')

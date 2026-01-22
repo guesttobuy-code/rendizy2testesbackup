@@ -271,12 +271,21 @@ export async function getOrganizationIdOrThrow(c: Context): Promise<string> {
     } catch {
       // Query vazia, continuar
     }
+    
+    // ✅ V2: Também aceitar x-organization-id header
+    if (!orgIdOverride) {
+      const orgIdFromHeader = c.req.header('x-organization-id');
+      if (orgIdFromHeader && typeof orgIdFromHeader === 'string') {
+        orgIdOverride = orgIdFromHeader;
+      }
+    }
 
     // 1. Extrair token do header Authorization
     console.log('🔍 [getOrganizationIdOrThrow] Headers recebidos:', {
       'X-Auth-Token': c.req.header('X-Auth-Token')?.substring(0, 20) + '...',
       'Authorization': c.req.header('Authorization')?.substring(0, 30) + '...',
-      'Cookie': c.req.header('Cookie') ? 'presente' : 'ausente'
+      'Cookie': c.req.header('Cookie') ? 'presente' : 'ausente',
+      'x-organization-id': c.req.header('x-organization-id') || 'ausente'
     });
     
     const token = extractTokenFromContext(c);
