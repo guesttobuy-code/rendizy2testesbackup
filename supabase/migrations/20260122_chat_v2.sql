@@ -4,15 +4,44 @@
 -- Cria estrutura de banco para sistema de chat unificado
 -- Suporta múltiplos canais: WhatsApp, Airbnb, Booking, SMS, Email
 --
--- @version 2.0.0
+-- @version 2.0.1
 -- @date 2026-01-22
 -- ============================================
+
+-- ============================================
+-- 0. LIMPEZA (Dropar tabelas existentes se necessário)
+-- ============================================
+
+-- Dropar triggers primeiro
+DROP TRIGGER IF EXISTS trigger_update_conversation_on_new_message ON chat_messages;
+DROP TRIGGER IF EXISTS trigger_chat_channel_configs_updated_at ON chat_channel_configs;
+DROP TRIGGER IF EXISTS trigger_chat_conversations_updated_at ON chat_conversations;
+
+-- Dropar funções
+DROP FUNCTION IF EXISTS update_conversation_on_new_message() CASCADE;
+DROP FUNCTION IF EXISTS update_chat_channel_configs_updated_at() CASCADE;
+DROP FUNCTION IF EXISTS update_chat_conversations_updated_at() CASCADE;
+DROP FUNCTION IF EXISTS get_or_create_conversation(UUID, TEXT, TEXT, TEXT, TEXT) CASCADE;
+
+-- Dropar policies
+DROP POLICY IF EXISTS chat_conversations_select ON chat_conversations;
+DROP POLICY IF EXISTS chat_conversations_insert ON chat_conversations;
+DROP POLICY IF EXISTS chat_conversations_update ON chat_conversations;
+DROP POLICY IF EXISTS chat_messages_select ON chat_messages;
+DROP POLICY IF EXISTS chat_messages_insert ON chat_messages;
+DROP POLICY IF EXISTS chat_channel_configs_select ON chat_channel_configs;
+DROP POLICY IF EXISTS chat_channel_configs_all ON chat_channel_configs;
+
+-- Dropar tabelas (na ordem correta por causa das FKs)
+DROP TABLE IF EXISTS chat_messages CASCADE;
+DROP TABLE IF EXISTS chat_channel_configs CASCADE;
+DROP TABLE IF EXISTS chat_conversations CASCADE;
 
 -- ============================================
 -- 1. TABELA DE CONVERSAS
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS chat_conversations (
+CREATE TABLE chat_conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     
@@ -78,7 +107,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_conversations_property
 -- 2. TABELA DE MENSAGENS
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS chat_messages (
+CREATE TABLE chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id UUID NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -134,7 +163,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_external_id
 -- 3. TABELA DE CONFIGURAÇÃO DE CANAIS
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS chat_channel_configs (
+CREATE TABLE chat_channel_configs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     
