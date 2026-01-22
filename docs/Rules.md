@@ -12,19 +12,18 @@
 
 📄 **Documento**: [ADR_EDGE_FUNCTIONS_ARQUITETURA_CENTRALIZADA.md](./ADR_EDGE_FUNCTIONS_ARQUITETURA_CENTRALIZADA.md)
 
-**Resumo**: O projeto usa **3 Edge Functions** para diferentes propósitos:
+**Resumo**: O projeto usa **2 Edge Functions** apenas:
 
 | Function | Propósito |
 |----------|-----------|
-| `rendizy-server` | Backend principal (webhooks, reservas, calendário) |
+| `rendizy-server` | Backend principal (webhooks, reservas, calendário, CRONs, APIs) |
 | `rendizy-public` | Sites públicos de clientes |
-| `staysnet-properties-sync-cron` | CRON dedicado: sync propriedades 2x/dia |
 
 | ✅ PERMITIDO | ❌ PROIBIDO |
 |-------------|-------------|
-| Adicionar rotas em `rendizy-server` | Criar novas functions aleatórias |
-| Usar `rendizy-public` para sites | Importar de `rendizy-server` em outras functions |
-| CRON separado para sync pesado | "Separar para organizar" sem motivo técnico |
+| Adicionar rotas em `rendizy-server` | Criar novas functions em `supabase/functions/` |
+| Usar `rendizy-public` para sites | Criar functions separadas "para organizar" |
+| CRONs como rotas em rendizy-server | Functions temporárias de fix/debug |
 
 **Contexto**: Em Dezembro 2025, uma IA criou múltiplas Edge Functions separadas que ficaram desincronizadas por 20+ dias, causando perda de webhooks e reservas.
 
