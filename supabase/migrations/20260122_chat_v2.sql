@@ -4,7 +4,7 @@
 -- Cria estrutura de banco para sistema de chat unificado
 -- Suporta múltiplos canais: WhatsApp, Airbnb, Booking, SMS, Email
 --
--- @version 2.0.2
+-- @version 2.0.3
 -- @date 2026-01-22
 -- ============================================
 
@@ -41,7 +41,7 @@ CREATE TABLE chat_conversations (
     contact_avatar_url TEXT,
     
     -- Contexto de negócio
-    reservation_id UUID REFERENCES reservations(id) ON DELETE SET NULL,
+    reservation_id TEXT REFERENCES reservations(id) ON DELETE SET NULL,
     property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
     guest_id UUID REFERENCES guests(id) ON DELETE SET NULL,
     
