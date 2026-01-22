@@ -4,38 +4,24 @@
 -- Cria estrutura de banco para sistema de chat unificado
 -- Suporta múltiplos canais: WhatsApp, Airbnb, Booking, SMS, Email
 --
--- @version 2.0.1
+-- @version 2.0.2
 -- @date 2026-01-22
 -- ============================================
 
 -- ============================================
--- 0. LIMPEZA (Dropar tabelas existentes se necessário)
+-- 0. LIMPEZA (Dropar objetos existentes)
 -- ============================================
 
--- Dropar triggers primeiro
-DROP TRIGGER IF EXISTS trigger_update_conversation_on_new_message ON chat_messages;
-DROP TRIGGER IF EXISTS trigger_chat_channel_configs_updated_at ON chat_channel_configs;
-DROP TRIGGER IF EXISTS trigger_chat_conversations_updated_at ON chat_conversations;
+-- Dropar tabelas primeiro (CASCADE remove triggers e policies automaticamente)
+DROP TABLE IF EXISTS chat_messages CASCADE;
+DROP TABLE IF EXISTS chat_channel_configs CASCADE;
+DROP TABLE IF EXISTS chat_conversations CASCADE;
 
 -- Dropar funções
 DROP FUNCTION IF EXISTS update_conversation_on_new_message() CASCADE;
 DROP FUNCTION IF EXISTS update_chat_channel_configs_updated_at() CASCADE;
 DROP FUNCTION IF EXISTS update_chat_conversations_updated_at() CASCADE;
 DROP FUNCTION IF EXISTS get_or_create_conversation(UUID, TEXT, TEXT, TEXT, TEXT) CASCADE;
-
--- Dropar policies
-DROP POLICY IF EXISTS chat_conversations_select ON chat_conversations;
-DROP POLICY IF EXISTS chat_conversations_insert ON chat_conversations;
-DROP POLICY IF EXISTS chat_conversations_update ON chat_conversations;
-DROP POLICY IF EXISTS chat_messages_select ON chat_messages;
-DROP POLICY IF EXISTS chat_messages_insert ON chat_messages;
-DROP POLICY IF EXISTS chat_channel_configs_select ON chat_channel_configs;
-DROP POLICY IF EXISTS chat_channel_configs_all ON chat_channel_configs;
-
--- Dropar tabelas (na ordem correta por causa das FKs)
-DROP TABLE IF EXISTS chat_messages CASCADE;
-DROP TABLE IF EXISTS chat_channel_configs CASCADE;
-DROP TABLE IF EXISTS chat_conversations CASCADE;
 
 -- ============================================
 -- 1. TABELA DE CONVERSAS
