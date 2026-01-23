@@ -141,6 +141,8 @@ export interface Conversation {
   conversation_type: 'guest' | 'lead';
   last_message: string;
   last_message_at: string;
+  // ✅ v1.0.104.020: Adicionado unread_count para refletir contagem real do banco
+  unread_count?: number;
   checkin_date?: string;
   checkout_date?: string;
   order?: number;

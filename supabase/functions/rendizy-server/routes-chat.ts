@@ -410,7 +410,7 @@ const processWhatsAppWebhook = async (c: any, payload: any) => {
       // Buscar conversa existente por external_conversation_id (remoteJid)
       const { data: existingConv } = await client
         .from('conversations')
-        .select('id, unread_count')
+        .select('id, unread_count, instance_id')
         .eq('organization_id', organizationId)
         .eq('external_conversation_id', remoteJid)
         .maybeSingle();
@@ -419,14 +419,23 @@ const processWhatsAppWebhook = async (c: any, payload: any) => {
         conversationId = existingConv.id;
         
         // Atualizar conversa com última mensagem e incrementar unread
+        // ✅ V2.1: Também atualiza instance_id se estiver null (retrocompatibilidade)
+        const updateData: any = {
+          last_message: messageText.substring(0, 500),
+          last_message_at: new Date().toISOString(),
+          unread_count: (existingConv.unread_count || 0) + 1,
+          guest_name: senderName || undefined, // Atualizar nome se disponível
+        };
+        
+        // Se a conversa ainda não tem instance_id, preencher agora
+        if (channelInstanceId && !existingConv.instance_id) {
+          updateData.instance_id = channelInstanceId;
+          console.log(`📌 [Chat] Atualizando instance_id da conversa existente: ${channelInstanceId}`);
+        }
+        
         await client
           .from('conversations')
-          .update({
-            last_message: messageText.substring(0, 500),
-            last_message_at: new Date().toISOString(),
-            unread_count: (existingConv.unread_count || 0) + 1,
-            guest_name: senderName || undefined, // Atualizar nome se disponível
-          })
+          .update(updateData)
           .eq('id', conversationId);
           
         console.log(`✅ [Chat] Updated existing conversation: ${conversationId}`);
@@ -443,6 +452,7 @@ const processWhatsAppWebhook = async (c: any, payload: any) => {
           last_message: messageText.substring(0, 500),
           last_message_at: new Date().toISOString(),
           unread_count: 1,
+          instance_id: channelInstanceId, // ✅ V2.1: Salvar instance_id diretamente na coluna
           channel_metadata: {
             instance: instanceName,
             pushName: senderName,

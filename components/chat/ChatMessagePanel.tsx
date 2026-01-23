@@ -339,12 +339,12 @@ export function ChatMessagePanel({
   
   return (
     <div 
-      className={`flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden ${className}`}
-      style={{ maxHeight }}
+      className={`flex flex-col h-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden ${className}`}
+      style={{ maxHeight, minHeight: '100%' }}
     >
-      {/* Header */}
+      {/* Header - FIXO NO TOPO */}
       {showHeader && (
-        <div className="flex items-center gap-3 p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex-shrink-0 flex items-center gap-3 p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <Avatar className="h-8 w-8">
             <AvatarImage src={contactAvatar} />
             <AvatarFallback className="bg-green-100 text-green-700 text-xs">
@@ -387,20 +387,21 @@ export function ChatMessagePanel({
         </div>
       )}
       
-      {/* Messages Area */}
-      <ScrollArea className="flex-1 p-3 bg-gray-50 dark:bg-gray-900" style={{ minHeight: compact ? '150px' : '200px' }}>
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-8 text-gray-500">
-            <MessageCircle className="h-10 w-10 mb-2 opacity-30" />
-            <p className="text-sm">Nenhuma mensagem</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {messages.map(msg => (
+      {/* Messages Area - ÁREA FLEXÍVEL QUE OCUPA O ESPAÇO DISPONÍVEL */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <ScrollArea className="h-full p-3 bg-gray-50 dark:bg-gray-900">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full py-8 text-gray-500">
+              <MessageCircle className="h-10 w-10 mb-2 opacity-30" />
+              <p className="text-sm">Nenhuma mensagem</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {messages.map(msg => (
               <div
                 key={msg.id}
                 className={`flex ${msg.fromMe ? 'justify-end' : 'justify-start'}`}
@@ -445,10 +446,11 @@ export function ChatMessagePanel({
             <div ref={messagesEndRef} />
           </div>
         )}
-      </ScrollArea>
+        </ScrollArea>
+      </div>
       
-      {/* Input Area */}
-      <div className="p-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      {/* Input Area - FIXO NA PARTE INFERIOR */}
+      <div className="flex-shrink-0 p-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="flex gap-2">
           <Textarea
             ref={textareaRef}
