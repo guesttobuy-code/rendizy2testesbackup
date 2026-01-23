@@ -1257,6 +1257,282 @@ app.post('/channels/whatsapp/webhook/:event', async (c) => {
 });
 
 // ============================================================================
+// WAHA WEBHOOK - WhatsApp HTTP API
+// ============================================================================
+
+/**
+ * Processar webhook do WAHA
+ * 
+ * WAHA usa formato diferente do Evolution:
+ * - session: nome da sessão (ao invés de instance)
+ * - event: message, message.any, session.status
+ * - payload: objeto com a mensagem
+ * 
+ * Docs: https://waha.devlike.pro/docs/how-to/events/
+ */
+const processWahaWebhook = async (c: any, payload: any) => {
+  try {
+    console.log('📥 [Chat/WAHA] Webhook received:', JSON.stringify(payload, null, 2));
+
+    const event = payload.event;
+    const sessionName = payload.session;
+    const messageData = payload.payload || payload;
+    
+    // Eventos que nos interessam
+    const messageEvents = ['message', 'message.any'];
+    
+    // Se for evento de status, apenas logar
+    if (event === 'session.status') {
+      console.log(`📊 [Chat/WAHA] Session ${sessionName} status:`, payload.payload?.status);
+      return c.json({ success: true, message: 'Status event logged' });
+    }
+    
+    // Ignorar eventos não relacionados a mensagens
+    if (!messageEvents.includes(event)) {
+      console.log(`⏭️ [Chat/WAHA] Skipping event: ${event}`);
+      return c.json({ success: true, message: 'Event ignored' });
+    }
+
+    // Skip mensagens enviadas por nós
+    if (messageData.fromMe === true) {
+      console.log('⏭️ [Chat/WAHA] Skipping outgoing message');
+      return c.json({ success: true, message: 'Outgoing message ignored' });
+    }
+
+    // Extrair informações da mensagem
+    // WAHA usa formato: 5511999999999@c.us
+    const senderJid = messageData.from || messageData.chatId || '';
+    const messageId = messageData.id || '';
+    const senderPhone = senderJid.split('@')[0] || '';
+    const senderName = messageData._data?.notifyName || messageData._data?.pushname || `+${senderPhone}`;
+    
+    // Extrair texto da mensagem
+    let messageText = '';
+    if (messageData.body) {
+      messageText = messageData.body;
+    } else if (messageData.text) {
+      messageText = messageData.text;
+    } else if (messageData.caption) {
+      messageText = messageData.caption;
+    } else if (messageData.hasMedia) {
+      const mediaType = messageData.type || 'media';
+      messageText = `[${mediaType}]`;
+    }
+
+    if (!messageText) {
+      console.log('⚠️ [Chat/WAHA] Could not extract message text');
+      return c.json({ success: true, message: 'No text found' });
+    }
+
+    // Buscar organização pela sessão
+    const client = getSupabaseClient();
+    
+    // Buscar em channel_instances (WAHA)
+    const { data: channelInstance, error: ciError } = await client
+      .from('channel_instances')
+      .select('*')
+      .eq('channel', 'whatsapp')
+      .eq('provider', 'waha')
+      .eq('instance_name', sessionName)
+      .eq('is_enabled', true)
+      .is('deleted_at', null)
+      .maybeSingle();
+    
+    if (ciError) {
+      console.warn('⚠️ [Chat/WAHA] Erro ao buscar channel_instances:', ciError);
+    }
+    
+    let organizationId: string | null = null;
+    let channelInstanceId: string | null = null;
+    
+    if (channelInstance) {
+      organizationId = channelInstance.organization_id;
+      channelInstanceId = channelInstance.id;
+      console.log(`✅ [Chat/WAHA] Found instance: ${sessionName} -> org ${organizationId}`);
+    } else {
+      // Fallback: buscar em organization_channel_config pelo waha_session_name
+      console.warn(`⚠️ [Chat/WAHA] Instance não encontrada, tentando config legada...`);
+      
+      const { data: legacyConfigs } = await client
+        .from('organization_channel_config')
+        .select('*')
+        .not('waha', 'is', null)
+        .is('deleted_at', null);
+      
+      const orgConfig = legacyConfigs?.find((cfg: any) => {
+        const wahaConfig = cfg.waha as any;
+        return wahaConfig?.session_name === sessionName && wahaConfig?.enabled;
+      });
+      
+      if (orgConfig) {
+        organizationId = orgConfig.organization_id;
+        console.log(`✅ [Chat/WAHA] Found via legacy config: ${organizationId}`);
+      }
+    }
+    
+    if (!organizationId) {
+      console.error('❌ [Chat/WAHA] Organization not found for session:', sessionName);
+      return c.json({ success: false, error: 'Organization not found' }, 404);
+    }
+
+    // Salvar webhook para debug
+    try {
+      await client
+        .from('chat_webhooks')
+        .insert({
+          organization_id: organizationId,
+          channel: 'whatsapp',
+          provider: 'waha',
+          event: event,
+          payload: payload,
+        } as any);
+    } catch (webhookErr) {
+      console.warn('⚠️ [Chat/WAHA] Falha ao salvar webhook:', webhookErr);
+    }
+
+    // Encontrar ou criar conversa
+    let conversationId: string | null = null;
+    
+    try {
+      // Buscar conversa existente
+      const { data: existingConv } = await client
+        .from('conversations')
+        .select('id, unread_count, instance_id')
+        .eq('organization_id', organizationId)
+        .eq('external_conversation_id', senderJid)
+        .maybeSingle();
+
+      if (existingConv?.id) {
+        conversationId = existingConv.id;
+        
+        // Atualizar conversa
+        const updateData: any = {
+          last_message: messageText.substring(0, 500),
+          last_message_at: new Date().toISOString(),
+          unread_count: (existingConv.unread_count || 0) + 1,
+          guest_name: senderName || undefined,
+        };
+        
+        if (channelInstanceId && !existingConv.instance_id) {
+          updateData.instance_id = channelInstanceId;
+        }
+        
+        await client
+          .from('conversations')
+          .update(updateData)
+          .eq('id', conversationId);
+          
+        console.log(`✅ [Chat/WAHA] Updated conversation: ${conversationId}`);
+      } else {
+        // Criar nova conversa
+        const { data: newConv, error: convError } = await client
+          .from('conversations')
+          .insert({
+            organization_id: organizationId,
+            external_conversation_id: senderJid,
+            guest_name: senderName,
+            guest_phone: senderPhone,
+            channel: 'whatsapp',
+            status: 'normal',
+            conversation_type: 'guest',
+            last_message: messageText.substring(0, 500),
+            last_message_at: new Date().toISOString(),
+            unread_count: 1,
+            instance_id: channelInstanceId,
+            channel_metadata: {
+              session: sessionName,
+              provider: 'waha',
+              pushName: senderName,
+              channel_instance_id: channelInstanceId,
+            },
+          })
+          .select('id')
+          .single();
+          
+        if (convError) {
+          console.error('❌ [Chat/WAHA] Erro ao criar conversa:', convError);
+        } else {
+          conversationId = newConv?.id || null;
+          console.log(`✅ [Chat/WAHA] Created conversation: ${conversationId}`);
+        }
+      }
+    } catch (convErr) {
+      console.error('❌ [Chat/WAHA] Erro ao processar conversa:', convErr);
+    }
+
+    // Salvar mensagem
+    if (conversationId) {
+      try {
+        const { error: msgError } = await client
+          .from('messages')
+          .insert({
+            organization_id: organizationId,
+            conversation_id: conversationId,
+            sender_type: 'guest',
+            sender_name: senderName,
+            sender_id: senderPhone,
+            content: messageText,
+            attachments: [],
+            channel: 'whatsapp',
+            direction: 'incoming',
+            external_id: messageId,
+            external_status: 'delivered',
+            sent_at: new Date().toISOString(),
+            metadata: {
+              remoteJid: senderJid,
+              pushName: senderName,
+              provider: 'waha',
+              session: sessionName,
+              hasMedia: messageData.hasMedia,
+              mediaType: messageData.type,
+            },
+          });
+
+        if (msgError) {
+          console.error('❌ [Chat/WAHA] Erro ao salvar mensagem:', msgError);
+        } else {
+          console.log(`✅ [Chat/WAHA] Message saved for conversation ${conversationId}`);
+        }
+      } catch (msgErr) {
+        console.error('❌ [Chat/WAHA] Erro ao processar mensagem:', msgErr);
+      }
+    }
+
+    return c.json({ 
+      success: true, 
+      data: {
+        conversation_id: conversationId,
+        organization_id: organizationId,
+        provider: 'waha',
+      }
+    });
+  } catch (error: any) {
+    console.error('[Chat/WAHA] Erro no webhook:', error);
+    return c.json({ success: false, error: error.message || 'Erro interno' }, 500);
+  }
+};
+
+/**
+ * POST /channels/waha/webhook
+ * Webhook para receber mensagens do WAHA (WhatsApp HTTP API)
+ * 
+ * Rota completa: /rendizy-server/chat/channels/waha/webhook
+ */
+app.post('/channels/waha/webhook', async (c) => {
+  const payload = await c.req.json();
+  return processWahaWebhook(c, payload);
+});
+
+// Compat: WAHA pode enviar evento no path
+app.post('/channels/waha/webhook/:event', async (c) => {
+  const payload = await c.req.json();
+  if (!payload.event) {
+    payload.event = c.req.param('event');
+  }
+  return processWahaWebhook(c, payload);
+});
+
+// ============================================================================
 // CONVERSATIONS ROUTES - CRUD completo para Chat Inbox
 // ============================================================================
 

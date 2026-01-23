@@ -4,9 +4,28 @@
  * ╔══════════════════════════════════════════════════════════════════════════╗
  * ║  @PROTECTED v1.0.103.1200                                                ║
  * ║  @ADR docs/ADR/ADR-002-WHATSAPP-EVOLUTION-API-CONNECTION.md              ║
+ * ║  @ADR docs/ADR/ADR-008-MODULAR-INTEGRATIONS-ARCHITECTURE.md              ║
  * ║  @TESTED 2026-01-21                                                      ║
  * ║  @STATUS ✅ X-AUTH-TOKEN 128 CHARS FUNCIONANDO                           ║
  * ╚══════════════════════════════════════════════════════════════════════════╝
+ * 
+ * @ARCHITECTURE ADR-008 - API Client Modular
+ * @API_CLIENT Multi-provider (Evolution, WAHA)
+ * @PATTERN Namespace por provider: channelsApi.evolution.*, channelsApi.waha.*
+ * 
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🚨 ORGANIZAÇÃO DE MÉTODOS POR PROVIDER (ADR-008)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * Estrutura:
+ * - channelsApi.evolution.*  → Métodos específicos Evolution API
+ * - channelsApi.waha.*       → Métodos específicos WAHA
+ * - channelsApi.generic.*    → Métodos genéricos (configuração de canal)
+ * 
+ * PARA ADICIONAR NOVO PROVIDER:
+ * 1. Criar novo namespace: channelsApi.novoProvider = { ... }
+ * 2. Implementar métodos específicos
+ * 3. NUNCA misturar código entre namespaces
  * 
  * 🔒 FUNÇÃO PROTEGIDA (NÃO MODIFICAR SEM TESTES):
  * - fetchAPI() → Inclui X-Auth-Token de 128 caracteres
@@ -537,11 +556,38 @@ export interface TwilioConfig {
   last_recharged_at?: string;
 }
 
+/**
+ * WAHA (WhatsApp HTTP API) Configuration
+ * Docs: https://waha.devlike.pro/docs/
+ * 
+ * Diferenças da Evolution API:
+ * - Header: X-Api-Key (não apikey)
+ * - QR: GET /api/{session}/auth/qr
+ * - Sessions: /api/sessions
+ * - Status: STOPPED, STARTING, SCAN_QR_CODE, WORKING, FAILED
+ */
+export interface WAHAConfig {
+  enabled: boolean;
+  api_url: string;           // Ex: https://waha.seudominio.com
+  api_key: string;           // Header X-Api-Key
+  session_name: string;      // Nome da sessão (default: "default")
+  connected: boolean;
+  phone_number?: string;
+  qr_code?: string;
+  connection_status?: 'disconnected' | 'connecting' | 'scan_qr_code' | 'connected' | 'error';
+  last_connected_at?: string;
+  error_message?: string;
+  engine?: 'WEBJS' | 'NOWEB' | 'GOWS'; // Engine do WAHA
+}
+
 export interface OrganizationChannelConfig {
   organization_id: string;
   
   // WhatsApp (Evolution API)
   whatsapp?: EvolutionAPIConfig;
+  
+  // WhatsApp (WAHA)
+  waha?: WAHAConfig;
   
   // SMS (Twilio)
   sms?: TwilioConfig;
@@ -613,6 +659,435 @@ export const channelsApi = {
           metadata,
         }),
       }),
+  },
+  
+  // WAHA - WhatsApp HTTP API (alternativa à Evolution)
+  // Docs: https://waha.devlike.pro/docs/
+  waha: {
+    /**
+     * Testar conexão com servidor WAHA
+     * Verifica se o servidor está acessível e a API key é válida
+     */
+    testConnection: async (config: { api_url: string; api_key: string }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sessions`, {
+          method: 'GET',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return { success: false, error: `WAHA Error ${response.status}: ${errorText}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro de conexão' };
+      }
+    },
+    
+    /**
+     * Listar sessões do servidor WAHA
+     */
+    listSessions: async (config: { api_url: string; api_key: string }): Promise<{ success: boolean; data?: unknown[]; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sessions?all=true`, {
+          method: 'GET',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          return { success: false, error: `Failed to list sessions: ${response.status}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao listar sessões' };
+      }
+    },
+    
+    /**
+     * Obter status de uma sessão específica
+     * Status WAHA: STOPPED, STARTING, SCAN_QR_CODE, WORKING, FAILED
+     */
+    getSessionStatus: async (config: { api_url: string; api_key: string; session_name: string }): Promise<{ success: boolean; data?: { status: string; name?: string; me?: { id: string; pushName: string } }; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sessions/${config.session_name}`, {
+          method: 'GET',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          // Sessão não existe
+          if (response.status === 404) {
+            return { success: true, data: { status: 'NOT_FOUND', name: config.session_name } };
+          }
+          return { success: false, error: `Failed to get session status: ${response.status}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao verificar status' };
+      }
+    },
+    
+    /**
+     * Criar nova sessão WAHA
+     * @param webhookUrl URL para receber webhooks (mensagens)
+     */
+    createSession: async (config: { 
+      api_url: string; 
+      api_key: string; 
+      session_name: string;
+      webhook_url?: string;
+    }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        
+        const body: Record<string, unknown> = {
+          name: config.session_name,
+          start: true, // Iniciar automaticamente
+        };
+        
+        // Configurar webhook se fornecido
+        if (config.webhook_url) {
+          body.config = {
+            webhooks: [{
+              url: config.webhook_url,
+              events: ['message', 'message.any', 'session.status'],
+              retries: {
+                policy: 'exponential',
+                delaySeconds: 2,
+                attempts: 5
+              }
+            }]
+          };
+        }
+        
+        const response = await fetch(`${cleanUrl}/api/sessions`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return { success: false, error: `Failed to create session: ${errorText}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao criar sessão' };
+      }
+    },
+    
+    /**
+     * Iniciar sessão (obtém QR Code)
+     */
+    startSession: async (config: { api_url: string; api_key: string; session_name: string }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sessions/${config.session_name}/start`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return { success: false, error: `Failed to start session: ${errorText}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao iniciar sessão' };
+      }
+    },
+    
+    /**
+     * Obter QR Code para scan
+     * WAHA endpoint: GET /api/{session}/auth/qr
+     */
+    getQRCode: async (config: { api_url: string; api_key: string; session_name: string }): Promise<{ success: boolean; data?: { mimetype?: string; data?: string; value?: string }; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/${config.session_name}/auth/qr`, {
+          method: 'GET',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Accept': 'application/json', // Retorna base64
+          },
+        });
+        
+        if (!response.ok) {
+          // Se não está no estado de QR code, pode retornar erro
+          if (response.status === 404 || response.status === 422) {
+            return { success: true, data: { data: '' } }; // QR não disponível
+          }
+          return { success: false, error: `Failed to get QR code: ${response.status}` };
+        }
+        
+        const data = await response.json(); // { mimetype: "image/png", data: "base64..." }
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao obter QR Code' };
+      }
+    },
+    
+    /**
+     * Parar sessão
+     */
+    stopSession: async (config: { api_url: string; api_key: string; session_name: string }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sessions/${config.session_name}/stop`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          return { success: false, error: `Failed to stop session: ${response.status}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao parar sessão' };
+      }
+    },
+    
+    /**
+     * Logout (desconecta WhatsApp)
+     */
+    logoutSession: async (config: { api_url: string; api_key: string; session_name: string }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sessions/${config.session_name}/logout`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          return { success: false, error: `Failed to logout session: ${response.status}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao desconectar' };
+      }
+    },
+    
+    /**
+     * Deletar sessão
+     */
+    deleteSession: async (config: { api_url: string; api_key: string; session_name: string }): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sessions/${config.session_name}`, {
+          method: 'DELETE',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          return { success: false, error: `Failed to delete session: ${response.status}` };
+        }
+        
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao deletar sessão' };
+      }
+    },
+    
+    /**
+     * Enviar mensagem de texto via WAHA
+     */
+    sendText: async (config: { 
+      api_url: string; 
+      api_key: string; 
+      session_name: string;
+      chatId: string; // formato: 5521999999999@c.us
+      text: string;
+    }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sendText`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            session: config.session_name,
+            chatId: config.chatId,
+            text: config.text,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return { success: false, error: `Failed to send message: ${errorText}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao enviar mensagem' };
+      }
+    },
+    
+    /**
+     * Enviar imagem via WAHA
+     */
+    sendImage: async (config: {
+      api_url: string;
+      api_key: string;
+      session_name: string;
+      chatId: string;
+      imageUrl: string;
+      caption?: string;
+    }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sendImage`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            session: config.session_name,
+            chatId: config.chatId,
+            file: { url: config.imageUrl },
+            caption: config.caption || '',
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return { success: false, error: `Failed to send image: ${errorText}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao enviar imagem' };
+      }
+    },
+    
+    /**
+     * Enviar documento/arquivo via WAHA
+     */
+    sendFile: async (config: {
+      api_url: string;
+      api_key: string;
+      session_name: string;
+      chatId: string;
+      fileUrl: string;
+      filename?: string;
+      caption?: string;
+    }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sendFile`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            session: config.session_name,
+            chatId: config.chatId,
+            file: {
+              url: config.fileUrl,
+              filename: config.filename,
+            },
+            caption: config.caption || '',
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return { success: false, error: `Failed to send file: ${errorText}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao enviar arquivo' };
+      }
+    },
+    
+    /**
+     * Marcar mensagens como lidas
+     */
+    sendSeen: async (config: {
+      api_url: string;
+      api_key: string;
+      session_name: string;
+      chatId: string;
+    }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+        const response = await fetch(`${cleanUrl}/api/sendSeen`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            session: config.session_name,
+            chatId: config.chatId,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return { success: false, error: `Failed to send seen: ${errorText}` };
+        }
+        
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao marcar como lido' };
+      }
+    },
   },
   
   // Twilio - SMS

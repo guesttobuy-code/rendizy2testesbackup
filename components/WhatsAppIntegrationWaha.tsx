@@ -1,0 +1,1153 @@
+/**
+ * RENDIZY - WhatsApp Integration (WAHA - WhatsApp HTTP API)
+ * 
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  @PROTECTED v1.0.104.001                                                 ║
+ * ║  @ADR docs/ADR/ADR-007-MULTI-CHANNEL-CHAT-ARCHITECTURE.md                ║
+ * ║  @ADR docs/ADR/ADR-008-MODULAR-INTEGRATIONS-ARCHITECTURE.md              ║
+ * ║  @TESTED 2026-01-22                                                      ║
+ * ║  @STATUS 🚧 EM DESENVOLVIMENTO                                           ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ * 
+ * @ARCHITECTURE ADR-008 - Provider Isolado
+ * @PROVIDER WAHA
+ * @INDEPENDENT Este componente é 100% independente de outros providers
+ * @DOCS https://waha.devlike.pro/docs/overview/introduction/
+ * 
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🚨 REGRA OBRIGATÓRIA: COMPONENTE ISOLADO POR PROVIDER
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * Este arquivo é um COMPONENTE ISOLADO para o provider WAHA.
+ * Ele DEVE:
+ * ✅ Conter APENAS lógica do provider WAHA
+ * ✅ Gerenciar seu próprio estado independentemente
+ * ✅ Usar tipos específicos (WAHAConfig, WAHASession, etc)
+ * ✅ Ser testável isoladamente
+ * 
+ * Ele NUNCA deve:
+ * ❌ Importar código do Evolution
+ * ❌ Compartilhar estado com outros providers
+ * ❌ Ter dependências cruzadas entre providers
+ * 
+ * API WAHA:
+ * - Header: X-Api-Key
+ * - Endpoints: /api/sessions, /api/{session}/auth/qr, etc
+ * - Status: STOPPED, STARTING, SCAN_QR_CODE, WORKING, FAILED
+ * 
+ * GitHub: https://github.com/devlikeapro/waha
+ * 
+ * @version 1.0.104.001
+ * @date 2026-01-22
+ */
+
+import { useState, useEffect } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Badge } from './ui/badge';
+import { Alert, AlertDescription } from './ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Separator } from './ui/separator';
+import { Switch } from './ui/switch';
+import { projectId } from '../utils/supabase/info';
+import {
+  MessageCircle,
+  Key,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  QrCode,
+  Link2,
+  Copy,
+  CheckCircle,
+  RefreshCw,
+  Settings,
+  Phone,
+  Zap,
+  Webhook,
+  Power,
+  Play,
+  Square,
+  ExternalLink,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { channelsApi, OrganizationChannelConfig } from '../utils/chatApi';
+import { useAuth } from '../src/contexts/AuthContext';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+type WAHAStatus = 'STOPPED' | 'STARTING' | 'SCAN_QR_CODE' | 'WORKING' | 'FAILED';
+
+interface WAHASession {
+  name: string;
+  status: WAHAStatus;
+  me?: {
+    id: string;
+    pushName: string;
+  };
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+export default function WhatsAppIntegrationWaha() {
+  const { organization } = useAuth();
+  const organizationId = organization?.id || '00000000-0000-0000-0000-000000000001';
+  
+  // Estados principais
+  const [loading, setLoading] = useState(true);
+  const [config, setConfig] = useState<OrganizationChannelConfig | null>(null);
+  const [activeTab, setActiveTab] = useState('config');
+  
+  // Formulário WAHA
+  const [wahaForm, setWahaForm] = useState({
+    api_url: '',
+    api_key: '',
+    session_name: 'default',
+    engine: 'WEBJS' as 'WEBJS' | 'NOWEB' | 'GOWS',
+  });
+  const [showApiKey, setShowApiKey] = useState(false);
+  
+  // Estados de operação
+  const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  
+  // Estados de sessão
+  const [sessionStatus, setSessionStatus] = useState<WAHAStatus | null>(null);
+  const [sessions, setSessions] = useState<WAHASession[]>([]);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
+  const [startingSession, setStartingSession] = useState(false);
+  
+  // Webhook URL para WAHA
+  const webhookUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/chat/channels/waha/webhook`;
+
+  // ============================================================================
+  // LOAD CONFIG
+  // ============================================================================
+
+  useEffect(() => {
+    loadConfig();
+  }, [organizationId]);
+
+  const loadConfig = async () => {
+    setLoading(true);
+    try {
+      const result = await channelsApi.getConfig(organizationId);
+      if (result.success && result.data) {
+        setConfig(result.data);
+        
+        // Preencher formulário com dados WAHA salvos
+        if (result.data.waha) {
+          setWahaForm({
+            api_url: result.data.waha.api_url || '',
+            api_key: result.data.waha.api_key || '',
+            session_name: result.data.waha.session_name || 'default',
+            engine: (result.data.waha.engine as 'WEBJS' | 'NOWEB' | 'GOWS') || 'WEBJS',
+          });
+          
+          // Se já está configurado, verificar status
+          if (result.data.waha.enabled && result.data.waha.api_url) {
+            checkSessionStatus();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ [WAHA] Erro ao carregar configurações:', error);
+      toast.error('Erro ao carregar configurações');
+    }
+    setLoading(false);
+  };
+
+  // ============================================================================
+  // WAHA API FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Testar conexão com servidor WAHA
+   */
+  const handleTestConnection = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key) {
+      toast.error('Preencha URL e API Key');
+      return;
+    }
+
+    setTesting(true);
+    setConnectionStatus('idle');
+    
+    try {
+      const result = await channelsApi.waha.testConnection({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+      });
+
+      if (result.success) {
+        setConnectionStatus('success');
+        toast.success('✅ Conexão OK com servidor WAHA!');
+        
+        // Listar sessões existentes
+        await listSessions();
+      } else {
+        setConnectionStatus('error');
+        toast.error(`❌ ${result.error || 'Falha na conexão'}`);
+      }
+    } catch (error: any) {
+      setConnectionStatus('error');
+      toast.error(`❌ Erro: ${error.message || 'Falha na conexão'}`);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  /**
+   * Listar sessões no servidor WAHA
+   */
+  const listSessions = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key) return;
+    
+    try {
+      const result = await channelsApi.waha.listSessions({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+      });
+
+      if (result.success && result.data) {
+        setSessions(result.data as WAHASession[]);
+        console.log('📋 [WAHA] Sessões encontradas:', result.data);
+      }
+    } catch (error) {
+      console.error('❌ [WAHA] Erro ao listar sessões:', error);
+    }
+  };
+
+  /**
+   * Verificar status da sessão configurada
+   */
+  const checkSessionStatus = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
+    
+    setCheckingStatus(true);
+    try {
+      const result = await channelsApi.waha.getSessionStatus({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+        session_name: wahaForm.session_name.trim(),
+      });
+
+      if (result.success && result.data) {
+        setSessionStatus(result.data.status as WAHAStatus);
+        
+        // Se status é SCAN_QR_CODE, buscar QR Code
+        if (result.data.status === 'SCAN_QR_CODE') {
+          await fetchQRCode();
+        } else if (result.data.status === 'WORKING') {
+          setQrCode(null);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [WAHA] Erro ao verificar status:', error);
+      setSessionStatus('FAILED');
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  /**
+   * Buscar QR Code para sessão
+   */
+  const fetchQRCode = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
+    
+    try {
+      const result = await channelsApi.waha.getQRCode({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+        session_name: wahaForm.session_name.trim(),
+      });
+
+      if (result.success && result.data) {
+        // WAHA retorna { mimetype, data } onde data é base64
+        const qrData = result.data.data || result.data.value || '';
+        if (qrData && typeof qrData === 'string') {
+          const finalQr = qrData.startsWith('data:image') ? qrData : `data:image/png;base64,${qrData}`;
+          setQrCode(finalQr);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [WAHA] Erro ao buscar QR Code:', error);
+    }
+  };
+
+  /**
+   * Criar nova sessão no servidor WAHA
+   */
+  const handleCreateSession = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) {
+      toast.error('Preencha todos os campos');
+      return;
+    }
+
+    setCreatingSession(true);
+    try {
+      const result = await channelsApi.waha.createSession({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+        session_name: wahaForm.session_name.trim(),
+        webhook_url: webhookUrl,
+      });
+
+      if (result.success) {
+        toast.success('✅ Sessão criada com sucesso!');
+        await listSessions();
+        await checkSessionStatus();
+      } else {
+        toast.error(`❌ ${result.error || 'Erro ao criar sessão'}`);
+      }
+    } catch (error: any) {
+      toast.error(`❌ Erro: ${error.message || 'Falha ao criar sessão'}`);
+    } finally {
+      setCreatingSession(false);
+    }
+  };
+
+  /**
+   * Iniciar sessão (gera QR Code)
+   */
+  const handleStartSession = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
+
+    setStartingSession(true);
+    try {
+      const result = await channelsApi.waha.startSession({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+        session_name: wahaForm.session_name.trim(),
+      });
+
+      if (result.success) {
+        toast.success('✅ Sessão iniciada! Aguarde o QR Code...');
+        
+        // Polling para pegar QR Code
+        let attempts = 0;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          await checkSessionStatus();
+          
+          if (sessionStatus === 'SCAN_QR_CODE' || sessionStatus === 'WORKING' || attempts > 10) {
+            clearInterval(pollInterval);
+          }
+        }, 2000);
+      } else {
+        toast.error(`❌ ${result.error || 'Erro ao iniciar sessão'}`);
+      }
+    } catch (error: any) {
+      toast.error(`❌ Erro: ${error.message || 'Falha ao iniciar sessão'}`);
+    } finally {
+      setStartingSession(false);
+    }
+  };
+
+  /**
+   * Parar sessão
+   */
+  const handleStopSession = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
+
+    try {
+      const result = await channelsApi.waha.stopSession({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+        session_name: wahaForm.session_name.trim(),
+      });
+
+      if (result.success) {
+        toast.success('Sessão parada');
+        setSessionStatus('STOPPED');
+        setQrCode(null);
+      } else {
+        toast.error(`❌ ${result.error || 'Erro ao parar sessão'}`);
+      }
+    } catch (error: any) {
+      toast.error(`❌ Erro: ${error.message || 'Falha ao parar sessão'}`);
+    }
+  };
+
+  /**
+   * Desconectar WhatsApp (logout)
+   */
+  const handleLogoutSession = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
+
+    try {
+      const result = await channelsApi.waha.logoutSession({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+        session_name: wahaForm.session_name.trim(),
+      });
+
+      if (result.success) {
+        toast.success('WhatsApp desconectado');
+        setSessionStatus('STOPPED');
+        setQrCode(null);
+      } else {
+        toast.error(`❌ ${result.error || 'Erro ao desconectar'}`);
+      }
+    } catch (error: any) {
+      toast.error(`❌ Erro: ${error.message || 'Falha ao desconectar'}`);
+    }
+  };
+
+  /**
+   * Salvar configuração WAHA no banco
+   */
+  const handleSaveConfig = async () => {
+    if (!wahaForm.api_url || !wahaForm.api_key) {
+      toast.error('Preencha URL e API Key');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const configToSave = {
+        waha: {
+          enabled: true,
+          api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+          api_key: wahaForm.api_key.trim(),
+          session_name: wahaForm.session_name.trim() || 'default',
+          engine: wahaForm.engine,
+          connected: sessionStatus === 'WORKING',
+          connection_status: (sessionStatus === 'WORKING' ? 'connected' : 'disconnected') as 'connected' | 'disconnected',
+        }
+      };
+
+      const result = await channelsApi.updateConfig(organizationId, configToSave);
+
+      if (result.success) {
+        toast.success('✅ Configuração WAHA salva!');
+        await loadConfig();
+      } else {
+        toast.error(`❌ ${result.error || 'Erro ao salvar'}`);
+      }
+    } catch (error: any) {
+      toast.error(`❌ Erro: ${error.message || 'Falha ao salvar'}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Copiar webhook URL
+   */
+  const handleCopyWebhook = async () => {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      toast.success('URL do webhook copiada!');
+    } catch (err) {
+      toast.error('Erro ao copiar. Copie manualmente.');
+    }
+  };
+
+  // ============================================================================
+  // POLLING DE STATUS
+  // ============================================================================
+
+  useEffect(() => {
+    if (activeTab !== 'status' || !config?.waha?.enabled) return;
+    
+    checkSessionStatus();
+    
+    const interval = setInterval(() => {
+      checkSessionStatus();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, config?.waha?.enabled]);
+
+  // ============================================================================
+  // RENDER - LOADING
+  // ============================================================================
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <Loader2 className="h-8 w-8 text-emerald-500 mx-auto mb-4 animate-spin" />
+        <p className="text-muted-foreground">Carregando configurações WAHA...</p>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // RENDER - MAIN
+  // ============================================================================
+
+  return (
+    <div className="space-y-6">
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+            <MessageCircle className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold">WhatsApp WAHA</h2>
+            <p className="text-sm text-muted-foreground">
+              Integração via WAHA (WhatsApp HTTP API) • API moderna e estável
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {sessionStatus === 'WORKING' && (
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              Conectado
+            </Badge>
+          )}
+          {sessionStatus === 'SCAN_QR_CODE' && (
+            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+              <QrCode className="w-3 h-3 mr-1" />
+              Aguardando QR
+            </Badge>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open('https://waha.devlike.pro/docs/overview/introduction/', '_blank')}
+          >
+            <ExternalLink className="w-4 h-4 mr-1" />
+            Docs
+          </Button>
+        </div>
+      </div>
+
+      {/* TABS */}
+      <Tabs defaultValue="config" className="space-y-6" onValueChange={setActiveTab}>
+        <TabsList className="w-full flex flex-wrap gap-3">
+          <TabsTrigger value="config" className="flex-none justify-center px-4 py-2 min-w-[150px]">
+            <Key className="w-4 h-4 mr-2" />
+            Configuração
+          </TabsTrigger>
+          <TabsTrigger value="status" className="flex-none justify-center px-4 py-2 min-w-[150px]">
+            <Zap className="w-4 h-4 mr-2" />
+            Status & Conexão
+          </TabsTrigger>
+          <TabsTrigger value="webhooks" className="flex-none justify-center px-4 py-2 min-w-[150px]">
+            <Webhook className="w-4 h-4 mr-2" />
+            Webhooks
+          </TabsTrigger>
+          <TabsTrigger value="info" className="flex-none justify-center px-4 py-2 min-w-[150px]">
+            <Settings className="w-4 h-4 mr-2" />
+            Sobre WAHA
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB: CONFIGURAÇÃO */}
+        <TabsContent value="config" className="space-y-6">
+          {/* Toggle Ativar/Desativar */}
+          <Card className="border-2 border-primary/30 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-full ${config?.waha?.enabled ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                    <Power className={`w-6 h-6 ${config?.waha?.enabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-lg">
+                      {config?.waha?.enabled ? '✅ WAHA Ativado' : '⚪ WAHA Desativado'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {config?.waha?.enabled 
+                        ? 'O módulo WAHA está ativo para sua organização' 
+                        : 'Ative para usar o WAHA como provider WhatsApp'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 ml-auto">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {config?.waha?.enabled ? 'Ligado' : 'Desligado'}
+                  </span>
+                  <Switch
+                    checked={config?.waha?.enabled || false}
+                    onCheckedChange={async (checked) => {
+                      try {
+                        const result = await channelsApi.updateConfig(organizationId, {
+                          waha: {
+                            enabled: checked,
+                            api_url: config?.waha?.api_url || '',
+                            api_key: config?.waha?.api_key || '',
+                            session_name: config?.waha?.session_name || 'default',
+                            connected: config?.waha?.connected || false,
+                          }
+                        });
+                        
+                        if (result.success) {
+                          setConfig(prev => prev ? {
+                            ...prev,
+                            waha: {
+                              enabled: checked,
+                              api_url: prev.waha?.api_url || '',
+                              api_key: prev.waha?.api_key || '',
+                              session_name: prev.waha?.session_name || 'default',
+                              connected: prev.waha?.connected || false,
+                            }
+                          } : prev);
+                          
+                          toast.success(checked ? '✅ WAHA ativado!' : '⚪ WAHA desativado');
+                        }
+                      } catch (error) {
+                        toast.error('Erro ao atualizar');
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Formulário de Credenciais */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Credenciais do Servidor WAHA</CardTitle>
+              <CardDescription>
+                Configure a conexão com seu servidor WAHA
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* URL do Servidor */}
+              <div className="space-y-2">
+                <Label htmlFor="waha_api_url">URL do Servidor WAHA</Label>
+                <div className="flex gap-2">
+                  <Link2 className="w-5 h-5 text-muted-foreground mt-2" />
+                  <Input
+                    id="waha_api_url"
+                    value={wahaForm.api_url}
+                    onChange={(e) => setWahaForm({ ...wahaForm, api_url: e.target.value })}
+                    placeholder="http://localhost:3000 ou https://waha.seuservidor.com"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  💡 URL base do seu servidor WAHA (porta padrão: 3000)
+                </p>
+              </div>
+
+              {/* API Key */}
+              <div className="space-y-2">
+                <Label htmlFor="waha_api_key">API Key (X-Api-Key)</Label>
+                <div className="flex gap-2">
+                  <Key className="w-5 h-5 text-muted-foreground mt-2" />
+                  <div className="flex-1 relative">
+                    <Input
+                      id="waha_api_key"
+                      type={showApiKey ? 'text' : 'password'}
+                      value={wahaForm.api_key}
+                      onChange={(e) => setWahaForm({ ...wahaForm, api_key: e.target.value })}
+                      placeholder="sua-api-key-waha"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  🔒 Chave de autenticação gerada na inicialização do WAHA
+                </p>
+              </div>
+
+              {/* Nome da Sessão */}
+              <div className="space-y-2">
+                <Label htmlFor="waha_session">Nome da Sessão</Label>
+                <div className="flex gap-2">
+                  <Phone className="w-5 h-5 text-muted-foreground mt-2" />
+                  <Input
+                    id="waha_session"
+                    value={wahaForm.session_name}
+                    onChange={(e) => setWahaForm({ ...wahaForm, session_name: e.target.value })}
+                    placeholder="default"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  💡 Identificador da sessão WhatsApp (use "default" se não souber)
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* Botões de Ação */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleTestConnection}
+                  disabled={testing || !wahaForm.api_url || !wahaForm.api_key}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {testing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Testando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Testar Conexão
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  onClick={handleSaveConfig}
+                  disabled={saving || !wahaForm.api_url || !wahaForm.api_key}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Salvar Configurações
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Status do Teste */}
+              {connectionStatus !== 'idle' && (
+                <Alert className={connectionStatus === 'success' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}>
+                  {connectionStatus === 'success' ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-700" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-700" />
+                  )}
+                  <AlertDescription className={connectionStatus === 'success' ? 'text-green-900' : 'text-red-900'}>
+                    {connectionStatus === 'success' 
+                      ? '✅ Conexão estabelecida com servidor WAHA!'
+                      : '❌ Falha na conexão. Verifique URL e API Key.'}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Sessões Encontradas */}
+              {sessions.length > 0 && (
+                <div className="mt-4">
+                  <Label className="mb-2 block">Sessões no Servidor:</Label>
+                  <div className="space-y-2">
+                    {sessions.map((session) => (
+                      <div 
+                        key={session.name}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4" />
+                          <span className="font-medium">{session.name}</span>
+                          <Badge variant={session.status === 'WORKING' ? 'default' : 'outline'}>
+                            {session.status}
+                          </Badge>
+                        </div>
+                        {session.me?.pushName && (
+                          <span className="text-sm text-muted-foreground">
+                            {session.me.pushName}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: STATUS & CONEXÃO */}
+        <TabsContent value="status" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Conectar WhatsApp</CardTitle>
+              <CardDescription>
+                Gerencie a sessão WAHA e conecte seu WhatsApp
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Status Atual */}
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    sessionStatus === 'WORKING' ? 'bg-green-500' :
+                    sessionStatus === 'SCAN_QR_CODE' ? 'bg-yellow-500 animate-pulse' :
+                    sessionStatus === 'STARTING' ? 'bg-blue-500 animate-pulse' :
+                    'bg-gray-400'
+                  }`} />
+                  <span className="font-medium">
+                    Status: {sessionStatus || 'Desconhecido'}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={checkSessionStatus}
+                  disabled={checkingStatus}
+                >
+                  <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+
+              {/* Ações de Sessão */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Criar Sessão */}
+                {!sessionStatus || sessionStatus === 'FAILED' ? (
+                  <Button
+                    onClick={handleCreateSession}
+                    disabled={creatingSession || !wahaForm.api_url || !wahaForm.api_key}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {creatingSession ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Settings className="h-4 w-4 mr-2" />
+                    )}
+                    Criar Sessão
+                  </Button>
+                ) : null}
+
+                {/* Iniciar Sessão */}
+                {sessionStatus === 'STOPPED' && (
+                  <Button
+                    onClick={handleStartSession}
+                    disabled={startingSession}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {startingSession ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-2" />
+                    )}
+                    Iniciar Sessão
+                  </Button>
+                )}
+
+                {/* Parar Sessão */}
+                {(sessionStatus === 'WORKING' || sessionStatus === 'SCAN_QR_CODE') && (
+                  <Button
+                    onClick={handleStopSession}
+                    variant="outline"
+                    className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                  >
+                    <Square className="h-4 w-4 mr-2" />
+                    Parar Sessão
+                  </Button>
+                )}
+
+                {/* Desconectar WhatsApp */}
+                {sessionStatus === 'WORKING' && (
+                  <Button
+                    onClick={handleLogoutSession}
+                    variant="outline"
+                    className="border-red-500 text-red-600 hover:bg-red-50"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Desconectar
+                  </Button>
+                )}
+              </div>
+
+              {/* QR Code Display */}
+              {qrCode && sessionStatus === 'SCAN_QR_CODE' && (
+                <div className="p-6 rounded-lg bg-muted border border-border text-center">
+                  <QrCode className="h-8 w-8 mx-auto mb-3 text-emerald-500" />
+                  <p className="text-sm text-foreground mb-4">
+                    ✅ Escaneie o QR Code com o WhatsApp
+                  </p>
+                  <div className="bg-white p-4 inline-block rounded-lg shadow-lg">
+                    <img 
+                      src={qrCode} 
+                      alt="WhatsApp QR Code" 
+                      className="w-64 h-64 object-contain"
+                    />
+                  </div>
+                  <div className="mt-4 text-left space-y-2 text-sm text-muted-foreground">
+                    <p><strong>📱 Como conectar:</strong></p>
+                    <ol className="list-decimal list-inside space-y-1 ml-4">
+                      <li>Abra o WhatsApp no celular</li>
+                      <li>Menu (⋮) → "Aparelhos conectados"</li>
+                      <li>"Conectar um aparelho"</li>
+                      <li>Aponte a câmera para o QR Code</li>
+                    </ol>
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchQRCode}
+                    className="mt-4"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Atualizar QR Code
+                  </Button>
+                </div>
+              )}
+
+              {/* Conectado */}
+              {sessionStatus === 'WORKING' && (
+                <Alert className="bg-green-50 border-green-300">
+                  <CheckCircle2 className="h-4 w-4 text-green-700" />
+                  <AlertDescription className="text-green-900">
+                    <strong>✅ WhatsApp conectado via WAHA!</strong>
+                    <p className="text-sm mt-1">
+                      Sessão: {wahaForm.session_name} está ativa e recebendo mensagens.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Status Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <p className="text-2xl mt-1">
+                      {sessionStatus === 'WORKING' ? 'Online' :
+                       sessionStatus === 'SCAN_QR_CODE' ? 'QR Code' :
+                       sessionStatus === 'STARTING' ? 'Iniciando' :
+                       'Offline'}
+                    </p>
+                  </div>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    sessionStatus === 'WORKING' ? 'bg-green-500/10' :
+                    sessionStatus === 'SCAN_QR_CODE' ? 'bg-yellow-500/10' :
+                    'bg-gray-500/10'
+                  }`}>
+                    {sessionStatus === 'WORKING' ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    ) : sessionStatus === 'SCAN_QR_CODE' ? (
+                      <QrCode className="h-6 w-6 text-yellow-500" />
+                    ) : (
+                      <XCircle className="h-6 w-6 text-gray-500" />
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Sessão</p>
+                    <p className="text-2xl mt-1">{wahaForm.session_name || '-'}</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <Phone className="h-6 w-6 text-blue-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Engine</p>
+                    <p className="text-2xl mt-1">{wahaForm.engine || 'WEBJS'}</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <Zap className="h-6 w-6 text-purple-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* TAB: WEBHOOKS */}
+        <TabsContent value="webhooks" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuração de Webhooks</CardTitle>
+              <CardDescription>
+                Configure o webhook para receber eventos do WAHA
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>URL do Webhook (Rendizy)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={webhookUrl}
+                    readOnly
+                    className="bg-muted font-mono text-xs"
+                  />
+                  <Button variant="outline" size="sm" onClick={handleCopyWebhook}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  📡 Este webhook é configurado automaticamente ao criar a sessão
+                </p>
+              </div>
+
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  <strong>💡 Eventos Configurados:</strong>
+                  <ul className="text-sm mt-2 space-y-1">
+                    <li>• <code>message</code> - Mensagens recebidas</li>
+                    <li>• <code>message.any</code> - Todas as mensagens</li>
+                    <li>• <code>state.change</code> - Mudança de estado</li>
+                    <li>• <code>session.status</code> - Status da sessão</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: SOBRE WAHA */}
+        <TabsContent value="info" className="space-y-6">
+          <Alert className="bg-blue-50 border-blue-200">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              <div className="space-y-3">
+                <p className="font-semibold">🚀 WAHA - WhatsApp HTTP API</p>
+                <p className="text-sm">
+                  WAHA é uma alternativa moderna à Evolution API, com melhor documentação, 
+                  dashboard integrado e maior estabilidade.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div className="bg-white/60 rounded-lg p-3">
+                    <h4 className="font-medium text-blue-900 mb-2">✅ Vantagens</h4>
+                    <ul className="text-xs space-y-1 text-blue-700">
+                      <li>• Dashboard visual incluído</li>
+                      <li>• Websockets nativos (real-time)</li>
+                      <li>• Documentação excelente (Swagger)</li>
+                      <li>• Múltiplos engines (WEBJS, NOWEB, GOWS)</li>
+                      <li>• QR Code via endpoint dedicado</li>
+                      <li>• Retry automático em webhooks</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-white/60 rounded-lg p-3">
+                    <h4 className="font-medium text-blue-900 mb-2">📋 Requisitos</h4>
+                    <ul className="text-xs space-y-1 text-blue-700">
+                      <li>• Docker instalado no servidor</li>
+                      <li>• Mínimo: 2 CPU + 4GB RAM</li>
+                      <li>• Porta 3000 disponível</li>
+                      <li>• WAHA Plus para mídia (opcional)</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                <div className="bg-white/60 rounded-lg p-3 mt-3">
+                  <h4 className="font-medium text-blue-900 mb-2">🐳 Instalação Rápida</h4>
+                  <div className="font-mono text-xs bg-gray-900 text-green-400 p-3 rounded">
+                    <p># 1. Baixar imagem</p>
+                    <p>docker pull devlikeapro/waha</p>
+                    <p className="mt-2"># 2. Inicializar (gera credenciais)</p>
+                    <p>docker run --rm -v "$(pwd):/app/env" devlikeapro/waha init-waha /app/env</p>
+                    <p className="mt-2"># 3. Executar</p>
+                    <p>docker run -it --env-file "$(pwd)/.env" -p 3000:3000 devlikeapro/waha</p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open('https://waha.devlike.pro/docs/overview/introduction/', '_blank')}
+                  >
+                    📚 Documentação
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open('https://github.com/devlikeapro/waha', '_blank')}
+                  >
+                    🐙 GitHub
+                  </Button>
+                </div>
+              </div>
+            </AlertDescription>
+          </Alert>
+
+          {/* Comparativo */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">📊 Comparativo: Evolution vs WAHA</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-3">Aspecto</th>
+                      <th className="text-center py-2 px-3">Evolution API</th>
+                      <th className="text-center py-2 px-3">WAHA</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-muted-foreground">
+                    <tr className="border-b">
+                      <td className="py-2 px-3">Instalação</td>
+                      <td className="text-center py-2 px-3">🟡 Média</td>
+                      <td className="text-center py-2 px-3">🟢 Fácil</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 px-3">Documentação</td>
+                      <td className="text-center py-2 px-3">🟡 Média</td>
+                      <td className="text-center py-2 px-3">🟢 Excelente</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 px-3">Estabilidade</td>
+                      <td className="text-center py-2 px-3">🔴 Baixa</td>
+                      <td className="text-center py-2 px-3">🟢 Alta</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 px-3">Dashboard</td>
+                      <td className="text-center py-2 px-3">❌ Não</td>
+                      <td className="text-center py-2 px-3">✅ Sim</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 px-3">Websockets</td>
+                      <td className="text-center py-2 px-3">❌ Não</td>
+                      <td className="text-center py-2 px-3">✅ Sim</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-3">Comunidade BR</td>
+                      <td className="text-center py-2 px-3">🟢 Alta</td>
+                      <td className="text-center py-2 px-3">🟡 Média</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
