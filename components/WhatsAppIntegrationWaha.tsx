@@ -41,7 +41,7 @@
  * @date 2026-01-22
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -58,6 +58,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Separator } from './ui/separator';
 import { Switch } from './ui/switch';
 import { projectId } from '../utils/supabase/info';
+import { getSupabaseClient } from '../utils/supabase/client';
 import {
   MessageCircle,
   Key,
@@ -83,6 +84,22 @@ import { toast } from 'sonner';
 import { channelsApi, OrganizationChannelConfig } from '../utils/chatApi';
 import { useAuth } from '../src/contexts/AuthContext';
 import WhatsAppInstancesManagerWaha from './WhatsAppInstancesManagerWaha';
+
+// ============================================================================
+// WAHA INSTANCE TYPE (from channel_instances)
+// ============================================================================
+interface WahaInstance {
+  id: string;
+  organization_id: string;
+  instance_name: string;
+  api_url: string;
+  api_key: string;
+  status: string;
+  is_enabled: boolean;
+  description?: string;
+  color?: string;
+  webhook_url?: string;
+}
 
 // ============================================================================
 // TYPES
@@ -116,6 +133,11 @@ export default function WhatsAppIntegrationWaha() {
   const [config, setConfig] = useState<OrganizationChannelConfig | null>(null);
   const [activeTab, setActiveTab] = useState('config');
   
+  // Estado persistente do WAHA (vem do channel_instances)
+  const [wahaInstance, setWahaInstance] = useState<WahaInstance | null>(null);
+  const [wahaEnabled, setWahaEnabled] = useState(false);
+  const [savingToggle, setSavingToggle] = useState(false);
+  
   // Formulário WAHA - inicializado com valores do .env
   const [wahaForm, setWahaForm] = useState({
     api_url: DEFAULT_WAHA_URL,
@@ -139,12 +161,44 @@ export default function WhatsAppIntegrationWaha() {
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/chat/channels/waha/webhook`;
 
   // ============================================================================
-  // LOAD CONFIG
+  // LOAD CONFIG - Carrega configuração + instância WAHA do banco
   // ============================================================================
+
+  const loadWahaInstance = useCallback(async () => {
+    if (!organizationId) return;
+    
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await (supabase
+        .from('channel_instances') as any)
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('provider', 'waha')
+        .is('deleted_at', null)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Erro ao carregar instância WAHA:', error);
+        return;
+      }
+      
+      if (data) {
+        setWahaInstance(data as WahaInstance);
+        setWahaEnabled(data.is_enabled ?? false);
+        console.log('📦 [WAHA] Instância carregada do banco:', data);
+      } else {
+        setWahaInstance(null);
+        setWahaEnabled(false);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar instância WAHA:', err);
+    }
+  }, [organizationId]);
 
   useEffect(() => {
     loadConfig();
-  }, [organizationId]);
+    loadWahaInstance();
+  }, [organizationId, loadWahaInstance]);
 
   const loadConfig = async () => {
     setLoading(true);
@@ -203,6 +257,147 @@ export default function WhatsAppIntegrationWaha() {
   /**
    * Verificar status da sessão configurada
    */
+  /**
+   * TOGGLE WAHA - Ativar/Desativar WAHA com persistência
+   * Fluxo unificado:
+   * - ATIVAR: Cria sessão no WAHA + Salva no channel_instances + Mostra QR
+   * - DESATIVAR: Para sessão + Soft delete no banco
+   */
+  const handleToggleWaha = async (enabled: boolean) => {
+    if (!organizationId) {
+      toast.error('Organização não encontrada');
+      return;
+    }
+    
+    setSavingToggle(true);
+    const supabase = getSupabaseClient();
+    
+    try {
+      if (enabled) {
+        // ============= ATIVAR WAHA =============
+        console.log('🟢 [WAHA] Ativando WAHA...');
+        
+        // 1. Criar sessão no servidor WAHA (sempre "default" no WAHA Core)
+        const createResult = await channelsApi.waha.createSession({
+          api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+          api_key: wahaForm.api_key.trim(),
+          session_name: 'default',
+          webhook_url: webhookUrl,
+        });
+        
+        // Se sessão já existe, tudo bem
+        if (!createResult.success && !createResult.error?.includes('already exists')) {
+          toast.error(createResult.error || 'Erro ao criar sessão no WAHA');
+          setSavingToggle(false);
+          return;
+        }
+        
+        // 2. Salvar/atualizar no banco channel_instances
+        if (wahaInstance) {
+          // Atualizar existente
+          const { error: updateError } = await (supabase
+            .from('channel_instances') as any)
+            .update({
+              is_enabled: true,
+              status: 'connecting',
+              deleted_at: null, // reativar se estava soft-deleted
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', wahaInstance.id);
+          
+          if (updateError) {
+            console.error('Erro ao atualizar instância:', updateError);
+          }
+        } else {
+          // Criar nova instância
+          const { data: newInstance, error: insertError } = await (supabase
+            .from('channel_instances') as any)
+            .insert({
+              organization_id: organizationId,
+              channel: 'whatsapp',
+              provider: 'waha',
+              instance_name: 'default',
+              api_url: wahaForm.api_url.trim(),
+              api_key: wahaForm.api_key.trim(),
+              description: 'WhatsApp Principal',
+              color: '#25D366',
+              webhook_url: webhookUrl,
+              status: 'connecting',
+              is_enabled: true,
+              is_default: true,
+            })
+            .select()
+            .single();
+          
+          if (insertError) {
+            console.error('Erro ao criar instância:', insertError);
+          } else {
+            setWahaInstance(newInstance as WahaInstance);
+          }
+        }
+        
+        // 3. Atualizar estado local
+        setWahaEnabled(true);
+        
+        // 4. Verificar status e mostrar QR
+        await checkSessionStatus();
+        
+        // 5. Mudar para aba de Status automaticamente
+        setActiveTab('status');
+        
+        toast.success('✅ WAHA ativado! Escaneie o QR Code para conectar.');
+        
+      } else {
+        // ============= DESATIVAR WAHA =============
+        console.log('🔴 [WAHA] Desativando WAHA...');
+        
+        // 1. Parar sessão no WAHA (não deletar, só parar)
+        try {
+          await channelsApi.waha.stopSession({
+            api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+            api_key: wahaForm.api_key.trim(),
+            session_name: 'default',
+          });
+        } catch (stopErr) {
+          console.warn('Erro ao parar sessão (pode já estar parada):', stopErr);
+        }
+        
+        // 2. Soft delete no banco
+        if (wahaInstance) {
+          const { error: updateError } = await (supabase
+            .from('channel_instances') as any)
+            .update({
+              is_enabled: false,
+              status: 'disconnected',
+              deleted_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', wahaInstance.id);
+          
+          if (updateError) {
+            console.error('Erro ao desativar instância:', updateError);
+          }
+        }
+        
+        // 3. Atualizar estado local
+        setWahaEnabled(false);
+        setSessionStatus(null);
+        setQrCode(null);
+        
+        toast.success('⚪ WAHA desativado');
+      }
+      
+      // Recarregar instância do banco
+      await loadWahaInstance();
+      
+    } catch (error: any) {
+      console.error('Erro ao toggle WAHA:', error);
+      toast.error(error.message || 'Erro ao atualizar configuração');
+    } finally {
+      setSavingToggle(false);
+    }
+  };
+
   const checkSessionStatus = async () => {
     if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
     
@@ -394,7 +589,7 @@ export default function WhatsAppIntegrationWaha() {
   // ============================================================================
 
   useEffect(() => {
-    if (activeTab !== 'status' || !config?.waha?.enabled) return;
+    if (activeTab !== 'status' || !wahaEnabled) return;
     
     checkSessionStatus();
     
@@ -485,61 +680,44 @@ export default function WhatsAppIntegrationWaha() {
 
         {/* TAB: CONFIGURAÇÃO */}
         <TabsContent value="config" className="space-y-6">
-          {/* Toggle Ativar/Desativar */}
+          {/* Toggle Ativar/Desativar - USA wahaEnabled (persistente) */}
           <Card className="border-2 border-primary/30 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-full ${config?.waha?.enabled ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
-                    <Power className={`w-6 h-6 ${config?.waha?.enabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                  <div className={`p-3 rounded-full ${wahaEnabled ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                    {savingToggle ? (
+                      <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+                    ) : (
+                      <Power className={`w-6 h-6 ${wahaEnabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                    )}
                   </div>
                   <div className="space-y-1">
                     <p className="font-semibold text-lg">
-                      {config?.waha?.enabled ? '✅ WAHA Ativado' : '⚪ WAHA Desativado'}
+                      {wahaEnabled ? '✅ WAHA Ativado' : '⚪ WAHA Desativado'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {config?.waha?.enabled 
-                        ? 'O módulo WAHA está ativo para sua organização' 
-                        : 'Ative para usar o WAHA como provider WhatsApp'}
+                      {savingToggle 
+                        ? 'Processando...' 
+                        : wahaEnabled 
+                          ? 'O módulo WAHA está ativo para sua organização' 
+                          : 'Ative para usar o WAHA como provider WhatsApp'}
                     </p>
+                    {wahaEnabled && wahaInstance && (
+                      <p className="text-xs text-emerald-600">
+                        💾 Salvo no banco | Sessão: {wahaInstance.instance_name}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 ml-auto">
                   <span className="text-sm font-medium text-muted-foreground">
-                    {config?.waha?.enabled ? 'Ligado' : 'Desligado'}
+                    {wahaEnabled ? 'Ligado' : 'Desligado'}
                   </span>
                   <Switch
-                    checked={config?.waha?.enabled || false}
-                    onCheckedChange={async (checked) => {
-                      try {
-                        const result = await channelsApi.updateConfig(organizationId, {
-                          waha: {
-                            enabled: checked,
-                            api_url: config?.waha?.api_url || '',
-                            api_key: config?.waha?.api_key || '',
-                            session_name: config?.waha?.session_name || 'default',
-                            connected: config?.waha?.connected || false,
-                          }
-                        });
-                        
-                        if (result.success) {
-                          setConfig(prev => prev ? {
-                            ...prev,
-                            waha: {
-                              enabled: checked,
-                              api_url: prev.waha?.api_url || '',
-                              api_key: prev.waha?.api_key || '',
-                              session_name: prev.waha?.session_name || 'default',
-                              connected: prev.waha?.connected || false,
-                            }
-                          } : prev);
-                          
-                          toast.success(checked ? '✅ WAHA ativado!' : '⚪ WAHA desativado');
-                        }
-                      } catch (error) {
-                        toast.error('Erro ao atualizar');
-                      }
-                    }}
+                    checked={wahaEnabled}
+                    disabled={savingToggle}
+                    onCheckedChange={handleToggleWaha}
                   />
                 </div>
               </div>

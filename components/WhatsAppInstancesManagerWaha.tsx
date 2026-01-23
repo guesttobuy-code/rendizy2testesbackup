@@ -51,6 +51,8 @@ import {
 import { toast } from 'sonner';
 import { channelsApi } from '../utils/chatApi';
 import { projectId } from '../utils/supabase/info';
+import { getSupabaseClient } from '../utils/supabase/client';
+import { useAuth } from '../contexts/AuthContext';
 
 // ============================================================================
 // TYPES
@@ -66,6 +68,10 @@ interface WAHASession {
     pushName: string;
   };
   config?: unknown;
+  // Metadados do banco (channel_instances)
+  description?: string;
+  color?: string;
+  dbId?: string; // ID no channel_instances
 }
 
 interface Props {
@@ -158,9 +164,11 @@ function SessionCard({
   const phoneNumber = session.me?.id?.replace('@c.us', '') || null;
   const profileName = session.me?.pushName || null;
   
-  // Gerar cor baseada no nome da sessão (determinístico)
-  const colorIndex = session.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % PRESET_COLORS.length;
-  const color = PRESET_COLORS[colorIndex];
+  // Usar cor salva ou gerar baseada no nome (determinístico)
+  const color = session.color || PRESET_COLORS[session.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % PRESET_COLORS.length];
+  
+  // Display name: descrição salva ou nome técnico
+  const displayName = session.description || session.name;
   
   return (
     <Card className="border-l-4" style={{ borderLeftColor: color }}>
@@ -175,7 +183,7 @@ function SessionCard({
             </div>
             
             <div>
-              <h4 className="font-medium text-gray-900">{session.name}</h4>
+              <h4 className="font-medium text-gray-900">{displayName}</h4>
               {phoneNumber ? (
                 <p className="text-sm text-gray-600">+{phoneNumber}</p>
               ) : (
@@ -183,6 +191,9 @@ function SessionCard({
               )}
               {profileName && (
                 <p className="text-xs text-gray-500">{profileName}</p>
+              )}
+              {session.description && (
+                <p className="text-xs text-gray-400">ID: {session.name}</p>
               )}
             </div>
           </div>
@@ -252,6 +263,10 @@ function SessionCard({
 // ============================================================================
 
 export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaConfig }: Props) {
+  // Context
+  const { organization } = useAuth();
+  const organizationId = organization?.id;
+  
   // State
   const [sessions, setSessions] = useState<WAHASession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -263,6 +278,8 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
   
   // Dados temporários
   const [newSessionName, setNewSessionName] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newColor, setNewColor] = useState('#25D366');
   const [selectedSession, setSelectedSession] = useState<WAHASession | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
@@ -282,15 +299,44 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
     
     setLoading(true);
     try {
+      // 1. Buscar sessões do servidor WAHA
       const result = await channelsApi.waha.listSessions({
         api_url: wahaConfig.api_url,
         api_key: wahaConfig.api_key,
       });
       
-      if (result.success && result.data) {
-        setSessions(result.data as WAHASession[]);
-      } else {
+      if (!result.success || !result.data) {
         toast.error(result.error || 'Erro ao carregar sessões');
+        setLoading(false);
+        return;
+      }
+      
+      const wahaSessions = result.data as WAHASession[];
+      
+      // 2. Buscar metadados do banco (description, color)
+      if (organizationId) {
+        const supabase = getSupabaseClient();
+        const { data: dbInstances } = await supabase
+          .from('channel_instances')
+          .select('id, instance_name, description, color')
+          .eq('organization_id', organizationId)
+          .eq('provider', 'waha')
+          .is('deleted_at', null) as { data: { id: string; instance_name: string; description: string | null; color: string | null }[] | null };
+        
+        // 3. Mesclar: WAHA sessions + metadados do banco
+        const mergedSessions = wahaSessions.map((session: WAHASession) => {
+          const dbInstance = dbInstances?.find((db) => db.instance_name === session.name);
+          return {
+            ...session,
+            description: dbInstance?.description || undefined,
+            color: dbInstance?.color || undefined,
+            dbId: dbInstance?.id || undefined,
+          };
+        });
+        
+        setSessions(mergedSessions);
+      } else {
+        setSessions(wahaSessions);
       }
     } catch (error) {
       console.error('Erro ao carregar sessões:', error);
@@ -298,7 +344,7 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
     } finally {
       setLoading(false);
     }
-  }, [wahaConfig]);
+  }, [wahaConfig, organizationId]);
 
   useEffect(() => {
     if (open) {
@@ -311,43 +357,97 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
   // ============================================================================
 
   const handleCreateSession = async () => {
-    if (!newSessionName.trim()) {
-      toast.error('Digite um nome para a sessão');
+    if (!newDescription.trim()) {
+      toast.error('Digite uma descrição para identificar o número');
       return;
     }
     
-    // Validar nome (apenas letras, números, hífen e underscore)
-    const validName = /^[a-zA-Z0-9_-]+$/.test(newSessionName);
-    if (!validName) {
-      toast.error('Nome inválido. Use apenas letras, números, hífen e underscore');
+    if (!organizationId) {
+      toast.error('Organização não encontrada');
       return;
     }
+    
+    // WAHA Core só suporta sessão "default"
+    const sessionName = 'default';
     
     setCreating(true);
     try {
+      // 1. Verificar se já existe instância no banco
+      const supabase = getSupabaseClient();
+      const { data: existingInstance } = await supabase
+        .from('channel_instances')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('provider', 'waha')
+        .eq('instance_name', sessionName)
+        .is('deleted_at', null)
+        .maybeSingle();
+      
+      if (existingInstance) {
+        toast.error('❌ Já existe uma sessão WAHA ativa. Use o botão de atualizar ou exclua a existente.');
+        setCreating(false);
+        return;
+      }
+      
+      // 2. Criar sessão no servidor WAHA (sempre "default" no WAHA Core)
       const result = await channelsApi.waha.createSession({
         api_url: wahaConfig.api_url,
         api_key: wahaConfig.api_key,
-        session_name: newSessionName.trim(),
+        session_name: sessionName,
         webhook_url: webhookUrl,
       });
       
-      if (result.success) {
-        toast.success('✅ Sessão criada! Escaneie o QR Code');
-        setShowAddModal(false);
-        setNewSessionName('');
-        
-        // Carregar sessões e mostrar QR
-        await loadSessions();
-        
-        // Abrir modal de QR automaticamente
-        const newSession = { name: newSessionName.trim(), status: 'SCAN_QR_CODE' as WAHAStatus };
-        setSelectedSession(newSession);
-        setShowQrModal(true);
-        fetchQrCode(newSessionName.trim());
-      } else {
-        toast.error(result.error || 'Erro ao criar sessão');
+      if (!result.success) {
+        // Se já existe no WAHA, pode ser que só precisa iniciar
+        if (result.error?.includes('already exists')) {
+          toast.info('Sessão já existe no WAHA. Salvando no banco...');
+        } else {
+          toast.error(result.error || 'Erro ao criar sessão no WAHA');
+          setCreating(false);
+          return;
+        }
       }
+      
+      // 3. Salvar metadados no banco (channel_instances)
+      const { error: dbError } = await supabase
+        .from('channel_instances')
+        .insert({
+          organization_id: organizationId,
+          channel: 'whatsapp',
+          provider: 'waha',
+          instance_name: sessionName,
+          api_url: wahaConfig.api_url,
+          api_key: wahaConfig.api_key,
+          description: newDescription.trim(),
+          color: newColor,
+          webhook_url: webhookUrl,
+          status: 'connecting',
+          is_enabled: true,
+          is_default: true,
+        });
+      
+      if (dbError) {
+        console.error('Erro ao salvar no banco:', dbError);
+        // Sessão criada no WAHA, mas erro no banco - não é crítico
+        toast.warning('Sessão criada, mas erro ao salvar descrição');
+      } else {
+        console.log('✅ Sessão salva no banco channel_instances');
+      }
+      
+      toast.success('✅ Sessão criada! Escaneie o QR Code');
+      setShowAddModal(false);
+      setNewSessionName('');
+      setNewDescription('');
+      setNewColor('#25D366');
+      
+      // Carregar sessões e mostrar QR
+      await loadSessions();
+      
+      // Abrir modal de QR automaticamente
+      const newSession = { name: sessionName, status: 'SCAN_QR_CODE' as WAHAStatus, description: newDescription.trim(), color: newColor };
+      setSelectedSession(newSession);
+      setShowQrModal(true);
+      fetchQrCode(sessionName);
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar sessão');
     } finally {
@@ -435,23 +535,45 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
   };
 
   const handleDelete = async (session: WAHASession) => {
-    if (!confirm(`Deseja realmente deletar a sessão "${session.name}"? Esta ação não pode ser desfeita.`)) {
+    const displayName = session.description || session.name;
+    if (!confirm(`Deseja realmente deletar a sessão "${displayName}"? Esta ação não pode ser desfeita.`)) {
       return;
     }
     
     try {
+      // 1. Deletar do servidor WAHA
       const result = await channelsApi.waha.deleteSession({
         api_url: wahaConfig.api_url,
         api_key: wahaConfig.api_key,
         session_name: session.name,
       });
       
-      if (result.success) {
-        toast.success('Sessão deletada');
-        await loadSessions();
-      } else {
-        toast.error(result.error || 'Erro ao deletar sessão');
+      if (!result.success) {
+        toast.error(result.error || 'Erro ao deletar sessão do WAHA');
+        return;
       }
+      
+      // 2. Soft delete no banco (se existir)
+      const supabase = getSupabaseClient();
+      if (session.dbId) {
+        // @ts-ignore - Supabase types not updated for this table
+        await supabase
+          .from('channel_instances')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', session.dbId);
+      } else if (organizationId) {
+        // Tentar encontrar pelo instance_name
+        // @ts-ignore - Supabase types not updated for this table
+        await supabase
+          .from('channel_instances')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('organization_id', organizationId)
+          .eq('instance_name', session.name)
+          .eq('provider', 'waha');
+      }
+      
+      toast.success('Sessão deletada');
+      await loadSessions();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao deletar sessão');
     }
@@ -556,7 +678,7 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
                 <Smartphone className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-500">Nenhuma sessão criada</p>
                 <p className="text-sm text-gray-400 mt-1">
-                  Clique em "Nova Sessão" para adicionar um número
+                  Clique em "Conectar WhatsApp" para adicionar seu número
                 </p>
               </div>
             ) : (
@@ -587,11 +709,12 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
             </Button>
             <Button
               onClick={() => setShowAddModal(true)}
-              disabled={!wahaConfig.api_url || !wahaConfig.api_key}
+              disabled={!wahaConfig.api_url || !wahaConfig.api_key || sessions.length > 0}
               className="bg-green-600 hover:bg-green-700"
+              title={sessions.length > 0 ? 'WAHA Core suporta apenas 1 sessão' : ''}
             >
               <Plus className="w-4 h-4 mr-2" />
-              Nova Sessão
+              Conectar WhatsApp
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -601,25 +724,50 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Nova Sessão WAHA</DialogTitle>
+            <DialogTitle>Conectar WhatsApp (WAHA)</DialogTitle>
             <DialogDescription>
-              Crie uma nova sessão para conectar outro número de WhatsApp
+              Configure a conexão do seu WhatsApp
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            <Alert className="bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800 text-sm">
+                <strong>WAHA Core (gratuito)</strong> suporta apenas 1 número WhatsApp.
+                Para múltiplos números, é necessário o <a href="https://waha.devlike.pro/" target="_blank" rel="noopener" className="underline">WAHA Plus</a>.
+              </AlertDescription>
+            </Alert>
+
             <div>
-              <Label htmlFor="session_name">Nome da Sessão</Label>
+              <Label htmlFor="description">Nome/Descrição *</Label>
               <Input
-                id="session_name"
-                placeholder="ex: vendas, suporte, comercial"
-                value={newSessionName}
-                onChange={(e) => setNewSessionName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                id="description"
+                placeholder="Ex: WhatsApp Principal, Atendimento..."
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
                 className="mt-1"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Use apenas letras minúsculas, números, hífen e underscore
+                Nome amigável para identificar esta conexão
               </p>
+            </div>
+
+            <div>
+              <Label>Cor de identificação</Label>
+              <div className="flex gap-2 mt-2">
+                {PRESET_COLORS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`w-8 h-8 rounded-full transition-transform ${
+                      newColor === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setNewColor(color)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
 
@@ -629,13 +777,13 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
             </Button>
             <Button 
               onClick={handleCreateSession} 
-              disabled={creating || !newSessionName.trim()}
+              disabled={creating || !newDescription.trim()}
               className="bg-green-600 hover:bg-green-700"
             >
               {creating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Criando...
+                  Conectando...
                 </>
               ) : (
                 <>
