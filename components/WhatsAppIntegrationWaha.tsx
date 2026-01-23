@@ -90,6 +90,7 @@ import {
   Smartphone,
   Edit,
   Palette,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { channelsApi, OrganizationChannelConfig } from '../utils/chatApi';
@@ -193,7 +194,12 @@ export default function WhatsAppIntegrationWaha() {
   // ============================================================================
 
   const loadWahaInstance = useCallback(async () => {
-    if (!organizationId) return;
+    if (!organizationId) {
+      console.log('⚠️ [WAHA] organizationId não definido, pulando carregamento');
+      return;
+    }
+    
+    console.log('🔄 [WAHA] Carregando instância para org:', organizationId);
     
     try {
       const supabase = getSupabaseClient();
@@ -206,20 +212,38 @@ export default function WhatsAppIntegrationWaha() {
         .maybeSingle();
       
       if (error) {
-        console.error('Erro ao carregar instância WAHA:', error);
+        console.error('❌ [WAHA] Erro ao carregar instância:', error);
         return;
       }
+      
+      console.log('📦 [WAHA] Resultado da query:', data);
       
       if (data) {
         setWahaInstance(data as WahaInstance);
         setWahaEnabled(data.is_enabled ?? false);
-        console.log('📦 [WAHA] Instância carregada do banco:', data);
+        console.log('✅ [WAHA] Instância carregada:', {
+          id: data.id,
+          description: data.description,
+          is_enabled: data.is_enabled,
+          status: data.status
+        });
+        
+        // Se está ativado, verificar status da sessão automaticamente
+        if (data.is_enabled && data.api_url && data.api_key) {
+          setWahaForm({
+            api_url: data.api_url,
+            api_key: data.api_key,
+            session_name: data.instance_name || 'default',
+            engine: 'WEBJS',
+          });
+        }
       } else {
+        console.log('ℹ️ [WAHA] Nenhuma instância encontrada para esta organização');
         setWahaInstance(null);
         setWahaEnabled(false);
       }
     } catch (err) {
-      console.error('Erro ao carregar instância WAHA:', err);
+      console.error('❌ [WAHA] Erro ao carregar instância:', err);
     }
   }, [organizationId]);
 
@@ -227,6 +251,19 @@ export default function WhatsAppIntegrationWaha() {
     loadConfig();
     loadWahaInstance();
   }, [organizationId, loadWahaInstance]);
+
+  // Verificar status da sessão automaticamente quando instância é carregada
+  useEffect(() => {
+    if (wahaInstance && wahaInstance.is_enabled && wahaInstance.api_url && wahaInstance.api_key) {
+      console.log('🔄 [WAHA] Instância ativa detectada, verificando status da sessão...');
+      // Passar config diretamente para não depender do estado wahaForm
+      checkSessionStatus({
+        api_url: wahaInstance.api_url,
+        api_key: wahaInstance.api_key,
+        session_name: wahaInstance.instance_name || 'default',
+      });
+    }
+  }, [wahaInstance]);
 
   const loadConfig = async () => {
     setLoading(true);
@@ -347,6 +384,7 @@ export default function WhatsAppIntegrationWaha() {
       }
       
       // 2. Salvar no banco channel_instances com o nome personalizado
+      // Valores válidos de status: connected, disconnected, qr_pending, error
       const { data: newInstance, error: insertError } = await (supabase
         .from('channel_instances') as any)
         .insert({
@@ -359,7 +397,7 @@ export default function WhatsAppIntegrationWaha() {
           description: sessionDescription.trim(), // Nome amigável
           color: sessionColor,
           webhook_url: webhookUrl,
-          status: 'connecting',
+          status: 'qr_pending', // Aguardando scan do QR Code
           is_enabled: true,
           is_default: true,
         })
@@ -521,16 +559,24 @@ export default function WhatsAppIntegrationWaha() {
     }
   };
 
-  const checkSessionStatus = async () => {
-    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
+  const checkSessionStatus = async (overrideConfig?: { api_url: string; api_key: string; session_name: string }) => {
+    const config = overrideConfig || wahaForm;
+    if (!config.api_url || !config.api_key || !config.session_name) {
+      console.log('⚠️ [WAHA] checkSessionStatus: Configuração incompleta', config);
+      return;
+    }
+    
+    console.log('🔍 [WAHA] Verificando status da sessão:', config.session_name);
     
     setCheckingStatus(true);
     try {
       const result = await channelsApi.waha.getSessionStatus({
-        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
-        api_key: wahaForm.api_key.trim(),
-        session_name: wahaForm.session_name.trim(),
+        api_url: config.api_url.trim().replace(/\/$/, ''),
+        api_key: config.api_key.trim(),
+        session_name: config.session_name.trim(),
       });
+
+      console.log('📡 [WAHA] Status recebido:', result);
 
       if (result.success && result.data) {
         setSessionStatus(result.data.status as WAHAStatus);
@@ -646,16 +692,22 @@ export default function WhatsAppIntegrationWaha() {
   };
 
   /**
-   * Parar sessão
+   * Parar sessão (mantém configuração, só para a execução)
    */
   const handleStopSession = async () => {
-    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
+    const config = wahaInstance ? {
+      api_url: wahaInstance.api_url,
+      api_key: wahaInstance.api_key,
+      session_name: wahaInstance.instance_name || 'default',
+    } : wahaForm;
+    
+    if (!config.api_url || !config.api_key || !config.session_name) return;
 
     try {
       const result = await channelsApi.waha.stopSession({
-        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
-        api_key: wahaForm.api_key.trim(),
-        session_name: wahaForm.session_name.trim(),
+        api_url: config.api_url.trim().replace(/\/$/, ''),
+        api_key: config.api_key.trim(),
+        session_name: config.session_name.trim(),
       });
 
       if (result.success) {
@@ -671,27 +723,97 @@ export default function WhatsAppIntegrationWaha() {
   };
 
   /**
-   * Desconectar WhatsApp (logout)
+   * Desconectar WhatsApp (logout) - Desloga o número mas mantém a sessão
    */
   const handleLogoutSession = async () => {
-    if (!wahaForm.api_url || !wahaForm.api_key || !wahaForm.session_name) return;
+    const config = wahaInstance ? {
+      api_url: wahaInstance.api_url,
+      api_key: wahaInstance.api_key,
+      session_name: wahaInstance.instance_name || 'default',
+    } : wahaForm;
+    
+    if (!config.api_url || !config.api_key || !config.session_name) return;
 
     try {
       const result = await channelsApi.waha.logoutSession({
-        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
-        api_key: wahaForm.api_key.trim(),
-        session_name: wahaForm.session_name.trim(),
+        api_url: config.api_url.trim().replace(/\/$/, ''),
+        api_key: config.api_key.trim(),
+        session_name: config.session_name.trim(),
       });
 
       if (result.success) {
         toast.success('WhatsApp desconectado');
         setSessionStatus('STOPPED');
         setQrCode(null);
+        
+        // Atualizar status no banco para 'disconnected'
+        if (wahaInstance) {
+          const supabase = getSupabaseClient();
+          await (supabase.from('channel_instances') as any)
+            .update({ status: 'disconnected' })
+            .eq('id', wahaInstance.id);
+        }
       } else {
         toast.error(`❌ ${result.error || 'Erro ao desconectar'}`);
       }
     } catch (error: any) {
       toast.error(`❌ Erro: ${error.message || 'Falha ao desconectar'}`);
+    }
+  };
+
+  /**
+   * Deletar sessão completamente (remove do WAHA + soft delete no banco)
+   */
+  const handleDeleteSession = async () => {
+    const config = wahaInstance ? {
+      api_url: wahaInstance.api_url,
+      api_key: wahaInstance.api_key,
+      session_name: wahaInstance.instance_name || 'default',
+    } : wahaForm;
+    
+    if (!config.api_url || !config.api_key || !config.session_name) return;
+
+    // Confirmação
+    if (!confirm('⚠️ Tem certeza que deseja DELETAR esta sessão?\n\nIsso irá:\n- Desconectar o WhatsApp\n- Remover a sessão do servidor\n- Desativar a integração\n\nAs conversas anteriores serão mantidas.')) {
+      return;
+    }
+
+    try {
+      // 1. Primeiro desconectar/logout
+      await channelsApi.waha.logoutSession({
+        api_url: config.api_url.trim().replace(/\/$/, ''),
+        api_key: config.api_key.trim(),
+        session_name: config.session_name.trim(),
+      });
+
+      // 2. Deletar sessão no WAHA
+      await channelsApi.waha.deleteSession({
+        api_url: config.api_url.trim().replace(/\/$/, ''),
+        api_key: config.api_key.trim(),
+        session_name: config.session_name.trim(),
+      });
+
+      // 3. Soft delete no banco
+      if (wahaInstance) {
+        const supabase = getSupabaseClient();
+        await (supabase.from('channel_instances') as any)
+          .update({ 
+            deleted_at: new Date().toISOString(),
+            status: 'disconnected',
+            is_enabled: false 
+          })
+          .eq('id', wahaInstance.id);
+      }
+
+      toast.success('✅ Sessão deletada com sucesso');
+      setSessionStatus(null);
+      setQrCode(null);
+      setWahaInstance(null);
+      setWahaEnabled(false);
+      
+    } catch (error: any) {
+      console.error('Erro ao deletar sessão:', error);
+      toast.error(`❌ Erro: ${error.message || 'Falha ao deletar sessão'}`);
     }
   };
 
@@ -1095,6 +1217,18 @@ export default function WhatsAppIntegrationWaha() {
                       >
                         <XCircle className="h-4 w-4 mr-2" />
                         Desconectar
+                      </Button>
+                    )}
+                    
+                    {/* Deletar Sessão */}
+                    {wahaInstance && (
+                      <Button
+                        onClick={handleDeleteSession}
+                        variant="outline"
+                        className="border-red-700 text-red-700 hover:bg-red-100 col-span-2 mt-2"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Deletar Sessão
                       </Button>
                     )}
                   </div>
