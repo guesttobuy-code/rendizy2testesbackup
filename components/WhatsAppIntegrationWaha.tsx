@@ -80,10 +80,12 @@ import {
   Play,
   Square,
   ExternalLink,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { channelsApi, OrganizationChannelConfig } from '../utils/chatApi';
 import { useAuth } from '../src/contexts/AuthContext';
+import WhatsAppInstancesManagerWaha from './WhatsAppInstancesManagerWaha';
 
 // ============================================================================
 // TYPES
@@ -104,6 +106,10 @@ interface WAHASession {
 // MAIN COMPONENT
 // ============================================================================
 
+// Valores padrão das variáveis de ambiente
+const DEFAULT_WAHA_URL = import.meta.env.VITE_WAHA_API_URL || 'http://76.13.82.60:3001';
+const DEFAULT_WAHA_KEY = import.meta.env.VITE_WAHA_API_KEY || '';
+
 export default function WhatsAppIntegrationWaha() {
   const { organization } = useAuth();
   const organizationId = organization?.id || '00000000-0000-0000-0000-000000000001';
@@ -113,10 +119,10 @@ export default function WhatsAppIntegrationWaha() {
   const [config, setConfig] = useState<OrganizationChannelConfig | null>(null);
   const [activeTab, setActiveTab] = useState('config');
   
-  // Formulário WAHA
+  // Formulário WAHA - inicializado com valores do .env
   const [wahaForm, setWahaForm] = useState({
-    api_url: '',
-    api_key: '',
+    api_url: DEFAULT_WAHA_URL,
+    api_key: DEFAULT_WAHA_KEY,
     session_name: 'default',
     engine: 'WEBJS' as 'WEBJS' | 'NOWEB' | 'GOWS',
   });
@@ -134,6 +140,9 @@ export default function WhatsAppIntegrationWaha() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
+  
+  // Modal de múltiplas sessões
+  const [showInstancesManager, setShowInstancesManager] = useState(false);
   
   // Webhook URL para WAHA
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/chat/channels/waha/webhook`;
@@ -982,6 +991,37 @@ export default function WhatsAppIntegrationWaha() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Card: Múltiplas Sessões */}
+          <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-700">
+                <Users className="h-5 w-5" />
+                Múltiplas Sessões (Múltiplos Números)
+              </CardTitle>
+              <CardDescription>
+                Conecte vários números de WhatsApp ao mesmo tempo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  <p>Sessões ativas: <strong className="text-blue-600">{sessions.length}</strong></p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Cada sessão = um número de WhatsApp diferente
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowInstancesManager(true)}
+                  disabled={!wahaForm.api_url || !wahaForm.api_key}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Gerenciar Sessões
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* TAB: WEBHOOKS */}
@@ -1148,6 +1188,16 @@ export default function WhatsAppIntegrationWaha() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal: Gerenciador de Múltiplas Sessões WAHA */}
+      <WhatsAppInstancesManagerWaha
+        open={showInstancesManager}
+        onOpenChange={setShowInstancesManager}
+        wahaConfig={{
+          api_url: wahaForm.api_url,
+          api_key: wahaForm.api_key,
+        }}
+      />
     </div>
   );
 }

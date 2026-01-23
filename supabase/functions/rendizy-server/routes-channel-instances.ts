@@ -785,14 +785,18 @@ export function channelInstancesRoutes(app: Hono) {
         // Hard delete
         await client.from('channel_instances').delete().eq('id', instanceId);
       } else {
-        // Soft delete
-        await client
+        // Soft delete - apenas deleted_at, pois status tem check constraint
+        const { error: updateError } = await client
           .from('channel_instances')
           .update({ 
             deleted_at: new Date().toISOString(),
-            status: 'deleted',
           })
           .eq('id', instanceId);
+        
+        if (updateError) {
+          console.error('[ChannelInstances] ❌ Erro no soft delete:', updateError);
+          throw new Error(`Falha no soft delete: ${updateError.message}`);
+        }
       }
 
       console.log(`[ChannelInstances] 🗑️ Instância removida: ${instance.instance_name}`);
