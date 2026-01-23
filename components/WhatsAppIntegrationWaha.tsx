@@ -43,6 +43,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import {
   Card,
   CardContent,
   CardDescription,
@@ -79,6 +87,9 @@ import {
   Square,
   ExternalLink,
   Users,
+  Smartphone,
+  Edit,
+  Palette,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { channelsApi, OrganizationChannelConfig } from '../utils/chatApi';
@@ -156,6 +167,23 @@ export default function WhatsAppIntegrationWaha() {
   
   // Modal de múltiplas sessões
   const [showInstancesManager, setShowInstancesManager] = useState(false);
+  
+  // Modal de nomeação da sessão (antes de criar)
+  const [showNamingModal, setShowNamingModal] = useState(false);
+  const [sessionDescription, setSessionDescription] = useState('');
+  const [sessionColor, setSessionColor] = useState('#25D366');
+  
+  // Cores pré-definidas para escolha
+  const PRESET_COLORS = [
+    '#25D366', // WhatsApp Green
+    '#10B981', // Emerald
+    '#3B82F6', // Blue
+    '#8B5CF6', // Purple
+    '#F59E0B', // Amber
+    '#EF4444', // Red
+    '#EC4899', // Pink
+    '#6B7280', // Gray
+  ];
   
   // Webhook URL para WAHA
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/chat/channels/waha/webhook`;
@@ -258,9 +286,8 @@ export default function WhatsAppIntegrationWaha() {
    * Verificar status da sessão configurada
    */
   /**
-   * TOGGLE WAHA - Ativar/Desativar WAHA com persistência
-   * Fluxo unificado:
-   * - ATIVAR: Cria sessão no WAHA + Salva no channel_instances + Mostra QR
+   * TOGGLE WAHA - Ativar/Desativar WAHA
+   * - ATIVAR: Abre modal para nomear → Depois cria sessão + salva
    * - DESATIVAR: Para sessão + Soft delete no banco
    */
   const handleToggleWaha = async (enabled: boolean) => {
@@ -269,132 +296,228 @@ export default function WhatsAppIntegrationWaha() {
       return;
     }
     
+    if (enabled) {
+      // ============= ATIVAR WAHA → Abrir modal de nomeação =============
+      // Se já tem instância, apenas reativar
+      if (wahaInstance) {
+        await handleReactivateWaha();
+      } else {
+        // Abrir modal para nomear antes de criar
+        setSessionDescription('');
+        setSessionColor('#25D366');
+        setShowNamingModal(true);
+      }
+    } else {
+      // ============= DESATIVAR WAHA =============
+      await handleDeactivateWaha();
+    }
+  };
+
+  /**
+   * Criar sessão WAHA com nome personalizado
+   * Chamado após confirmar o nome no modal
+   */
+  const handleCreateWahaWithName = async () => {
+    if (!sessionDescription.trim()) {
+      toast.error('Digite um nome para identificar o WhatsApp');
+      return;
+    }
+    
+    setSavingToggle(true);
+    setShowNamingModal(false);
+    
+    const supabase = getSupabaseClient();
+    
+    try {
+      console.log('🟢 [WAHA] Criando sessão com nome:', sessionDescription);
+      
+      // 1. Criar sessão no servidor WAHA (sempre "default" no WAHA Core)
+      const createResult = await channelsApi.waha.createSession({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+        session_name: 'default',
+        webhook_url: webhookUrl,
+      });
+      
+      // Se sessão já existe, tudo bem
+      if (!createResult.success && !createResult.error?.includes('already exists')) {
+        toast.error(createResult.error || 'Erro ao criar sessão no WAHA');
+        setSavingToggle(false);
+        return;
+      }
+      
+      // 2. Salvar no banco channel_instances com o nome personalizado
+      const { data: newInstance, error: insertError } = await (supabase
+        .from('channel_instances') as any)
+        .insert({
+          organization_id: organizationId,
+          channel: 'whatsapp',
+          provider: 'waha',
+          instance_name: 'default', // ID técnico = sempre default
+          api_url: wahaForm.api_url.trim(),
+          api_key: wahaForm.api_key.trim(),
+          description: sessionDescription.trim(), // Nome amigável
+          color: sessionColor,
+          webhook_url: webhookUrl,
+          status: 'connecting',
+          is_enabled: true,
+          is_default: true,
+        })
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('Erro ao criar instância:', insertError);
+        toast.error('Erro ao salvar configuração');
+        setSavingToggle(false);
+        return;
+      }
+      
+      setWahaInstance(newInstance as WahaInstance);
+      
+      // 3. Atualizar estado local
+      setWahaEnabled(true);
+      
+      // 4. Verificar status e mostrar QR
+      await checkSessionStatus();
+      
+      // 5. Mudar para aba de Status automaticamente
+      setActiveTab('status');
+      
+      toast.success(`✅ "${sessionDescription}" criado! Escaneie o QR Code para conectar.`);
+      
+    } catch (error: any) {
+      console.error('Erro ao criar WAHA:', error);
+      toast.error(error.message || 'Erro ao criar sessão');
+    } finally {
+      setSavingToggle(false);
+    }
+  };
+
+  /**
+   * Reativar instância WAHA existente
+   */
+  const handleReactivateWaha = async () => {
     setSavingToggle(true);
     const supabase = getSupabaseClient();
     
     try {
-      if (enabled) {
-        // ============= ATIVAR WAHA =============
-        console.log('🟢 [WAHA] Ativando WAHA...');
-        
-        // 1. Criar sessão no servidor WAHA (sempre "default" no WAHA Core)
-        const createResult = await channelsApi.waha.createSession({
-          api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
-          api_key: wahaForm.api_key.trim(),
-          session_name: 'default',
-          webhook_url: webhookUrl,
-        });
-        
-        // Se sessão já existe, tudo bem
-        if (!createResult.success && !createResult.error?.includes('already exists')) {
-          toast.error(createResult.error || 'Erro ao criar sessão no WAHA');
-          setSavingToggle(false);
-          return;
-        }
-        
-        // 2. Salvar/atualizar no banco channel_instances
-        if (wahaInstance) {
-          // Atualizar existente
-          const { error: updateError } = await (supabase
-            .from('channel_instances') as any)
-            .update({
-              is_enabled: true,
-              status: 'connecting',
-              deleted_at: null, // reativar se estava soft-deleted
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', wahaInstance.id);
-          
-          if (updateError) {
-            console.error('Erro ao atualizar instância:', updateError);
-          }
-        } else {
-          // Criar nova instância
-          const { data: newInstance, error: insertError } = await (supabase
-            .from('channel_instances') as any)
-            .insert({
-              organization_id: organizationId,
-              channel: 'whatsapp',
-              provider: 'waha',
-              instance_name: 'default',
-              api_url: wahaForm.api_url.trim(),
-              api_key: wahaForm.api_key.trim(),
-              description: 'WhatsApp Principal',
-              color: '#25D366',
-              webhook_url: webhookUrl,
-              status: 'connecting',
-              is_enabled: true,
-              is_default: true,
-            })
-            .select()
-            .single();
-          
-          if (insertError) {
-            console.error('Erro ao criar instância:', insertError);
-          } else {
-            setWahaInstance(newInstance as WahaInstance);
-          }
-        }
-        
-        // 3. Atualizar estado local
-        setWahaEnabled(true);
-        
-        // 4. Verificar status e mostrar QR
-        await checkSessionStatus();
-        
-        // 5. Mudar para aba de Status automaticamente
-        setActiveTab('status');
-        
-        toast.success('✅ WAHA ativado! Escaneie o QR Code para conectar.');
-        
-      } else {
-        // ============= DESATIVAR WAHA =============
-        console.log('🔴 [WAHA] Desativando WAHA...');
-        
-        // 1. Parar sessão no WAHA (não deletar, só parar)
-        try {
-          await channelsApi.waha.stopSession({
-            api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
-            api_key: wahaForm.api_key.trim(),
-            session_name: 'default',
-          });
-        } catch (stopErr) {
-          console.warn('Erro ao parar sessão (pode já estar parada):', stopErr);
-        }
-        
-        // 2. Soft delete no banco
-        if (wahaInstance) {
-          const { error: updateError } = await (supabase
-            .from('channel_instances') as any)
-            .update({
-              is_enabled: false,
-              status: 'disconnected',
-              deleted_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', wahaInstance.id);
-          
-          if (updateError) {
-            console.error('Erro ao desativar instância:', updateError);
-          }
-        }
-        
-        // 3. Atualizar estado local
-        setWahaEnabled(false);
-        setSessionStatus(null);
-        setQrCode(null);
-        
-        toast.success('⚪ WAHA desativado');
+      // Atualizar no banco
+      const { error: updateError } = await (supabase
+        .from('channel_instances') as any)
+        .update({
+          is_enabled: true,
+          status: 'connecting',
+          deleted_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', wahaInstance!.id);
+      
+      if (updateError) {
+        console.error('Erro ao reativar:', updateError);
       }
       
-      // Recarregar instância do banco
+      // Iniciar sessão no WAHA (pode já estar rodando)
+      await channelsApi.waha.startSession({
+        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+        api_key: wahaForm.api_key.trim(),
+        session_name: 'default',
+      });
+      
+      setWahaEnabled(true);
+      await checkSessionStatus();
+      setActiveTab('status');
+      
+      toast.success('✅ WAHA reativado!');
       await loadWahaInstance();
       
     } catch (error: any) {
-      console.error('Erro ao toggle WAHA:', error);
-      toast.error(error.message || 'Erro ao atualizar configuração');
+      toast.error(error.message || 'Erro ao reativar');
     } finally {
       setSavingToggle(false);
+    }
+  };
+
+  /**
+   * Desativar WAHA
+   */
+  const handleDeactivateWaha = async () => {
+    setSavingToggle(true);
+    const supabase = getSupabaseClient();
+    
+    try {
+      console.log('🔴 [WAHA] Desativando WAHA...');
+      
+      // 1. Parar sessão no WAHA
+      try {
+        await channelsApi.waha.stopSession({
+          api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+          api_key: wahaForm.api_key.trim(),
+          session_name: 'default',
+        });
+      } catch (stopErr) {
+        console.warn('Erro ao parar sessão:', stopErr);
+      }
+      
+      // 2. Soft delete no banco
+      if (wahaInstance) {
+        const { error: updateError } = await (supabase
+          .from('channel_instances') as any)
+          .update({
+            is_enabled: false,
+            status: 'disconnected',
+            deleted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', wahaInstance.id);
+        
+        if (updateError) {
+          console.error('Erro ao desativar:', updateError);
+        }
+      }
+      
+      setWahaEnabled(false);
+      setSessionStatus(null);
+      setQrCode(null);
+      
+      toast.success('⚪ WAHA desativado');
+      await loadWahaInstance();
+      
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao desativar');
+    } finally {
+      setSavingToggle(false);
+    }
+  };
+
+  /**
+   * Editar nome da sessão
+   */
+  const handleEditSessionName = async (newDescription: string, newColor: string) => {
+    if (!wahaInstance) return;
+    
+    const supabase = getSupabaseClient();
+    
+    try {
+      const { error } = await (supabase
+        .from('channel_instances') as any)
+        .update({
+          description: newDescription.trim(),
+          color: newColor,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', wahaInstance.id);
+      
+      if (error) {
+        toast.error('Erro ao salvar nome');
+        return;
+      }
+      
+      toast.success('✅ Nome atualizado!');
+      await loadWahaInstance();
+      
+    } catch (err) {
+      toast.error('Erro ao atualizar');
     }
   };
 
@@ -890,6 +1013,42 @@ export default function WhatsAppIntegrationWaha() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Card de Identificação da Sessão */}
+                  {wahaInstance && (
+                    <div 
+                      className="p-4 rounded-lg border-l-4 bg-muted/50"
+                      style={{ borderLeftColor: wahaInstance.color || '#25D366' }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-12 h-12 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: (wahaInstance.color || '#25D366') + '20' }}
+                          >
+                            <Smartphone className="w-6 h-6" style={{ color: wahaInstance.color || '#25D366' }} />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-lg">{wahaInstance.description || 'WhatsApp'}</h4>
+                            <p className="text-xs text-muted-foreground">ID técnico: {wahaInstance.instance_name}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSessionDescription(wahaInstance.description || '');
+                            setSessionColor(wahaInstance.color || '#25D366');
+                            setShowNamingModal(true);
+                          }}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Status Atual */}
                   <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                     <div className="flex items-center gap-3">
@@ -1249,6 +1408,127 @@ export default function WhatsAppIntegrationWaha() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal: Nomear Sessão WAHA (criar ou editar) */}
+      <Dialog open={showNamingModal} onOpenChange={setShowNamingModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {wahaInstance ? (
+                <>
+                  <Edit className="h-5 w-5 text-blue-600" />
+                  Editar Nome do WhatsApp
+                </>
+              ) : (
+                <>
+                  <Smartphone className="h-5 w-5 text-green-600" />
+                  Nomear seu WhatsApp
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {wahaInstance 
+                ? 'Altere o nome de identificação deste WhatsApp'
+                : 'Dê um nome para identificar este WhatsApp no sistema'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Nome/Descrição */}
+            <div className="space-y-2">
+              <Label htmlFor="session-name">Nome de identificação *</Label>
+              <Input
+                id="session-name"
+                value={sessionDescription}
+                onChange={(e) => setSessionDescription(e.target.value)}
+                placeholder="Ex: WhatsApp Comercial, Atendimento, etc."
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Este nome será exibido no sistema para identificar este número
+              </p>
+            </div>
+            
+            {/* Cor */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Palette className="h-4 w-4" />
+                Cor de identificação
+              </Label>
+              <div className="flex gap-2 flex-wrap">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setSessionColor(color)}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      sessionColor === color 
+                        ? 'border-gray-900 scale-110' 
+                        : 'border-transparent hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* Preview */}
+            <div className="p-3 rounded-lg bg-muted border-l-4" style={{ borderLeftColor: sessionColor }}>
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: sessionColor + '20' }}
+                >
+                  <Smartphone className="w-5 h-5" style={{ color: sessionColor }} />
+                </div>
+                <div>
+                  <p className="font-medium">{sessionDescription || 'Nome do WhatsApp'}</p>
+                  <p className="text-xs text-muted-foreground">ID técnico: default</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowNamingModal(false)}>
+              Cancelar
+            </Button>
+            {wahaInstance ? (
+              // Modo Edição
+              <Button 
+                onClick={async () => {
+                  await handleEditSessionName(sessionDescription, sessionColor);
+                  setShowNamingModal(false);
+                }}
+                disabled={!sessionDescription.trim() || savingToggle}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {savingToggle ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                )}
+                Salvar Alterações
+              </Button>
+            ) : (
+              // Modo Criação
+              <Button 
+                onClick={handleCreateWahaWithName}
+                disabled={!sessionDescription.trim() || savingToggle}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {savingToggle ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <QrCode className="h-4 w-4 mr-2" />
+                )}
+                Criar e Conectar
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Gerenciador de Múltiplas Sessões WAHA */}
       <WhatsAppInstancesManagerWaha
