@@ -55,8 +55,7 @@ import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Separator } from './ui/separator';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
-import { WhatsAppCredentialsTester } from './WhatsAppCredentialsTester';
+import { projectId } from '../utils/supabase/info';
 import WhatsAppWebhookManager from './WhatsAppWebhookManager';
 import WhatsAppInstancesManager from './WhatsAppInstancesManager';
 import {
@@ -66,25 +65,29 @@ import {
   XCircle,
   Loader2,
   AlertCircle,
-  Eye,
-  EyeOff,
   QrCode,
   Link2,
   Copy,
-  CheckCircle,
   RefreshCw,
   Settings,
-  Phone,
   Zap,
   Webhook,
   Power,
   Smartphone,
+  Lock,
 } from 'lucide-react';
 import { Switch } from './ui/switch';
 import { toast } from 'sonner';
 import { channelsApi, OrganizationChannelConfig } from '../utils/chatApi';
 import { evolutionService, SessionStatus } from '../utils/services/evolutionService';
 import { useAuth } from '../src/contexts/AuthContext';
+
+// ============================================================================
+// CONSTANTES PADRÃO (do .env.local)
+// ============================================================================
+const DEFAULT_EVO_URL = import.meta.env.VITE_EVOLUTION_API_URL || 'http://76.13.82.60:8080';
+const DEFAULT_EVO_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '';
+const DEFAULT_INSTANCE_NAME = 'rendizy-master';
 
 // ============================================================================
 // MAIN COMPONENT
@@ -98,19 +101,17 @@ export default function WhatsAppIntegrationEvolution() {
   
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<OrganizationChannelConfig | null>(null);
+  
+  // Formulário inicializado com valores padrão do .env
   const [whatsappForm, setWhatsappForm] = useState({
-    api_url: '',
-    instance_name: '',
-    api_key: '',
+    api_url: DEFAULT_EVO_URL,
+    instance_name: DEFAULT_INSTANCE_NAME,
+    api_key: DEFAULT_EVO_KEY,
     instance_token: ''
   });
   
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [showInstanceToken, setShowInstanceToken] = useState(false);
   const [connectingWhatsApp, setConnectingWhatsApp] = useState(false);
-  const [savingConfig, setSavingConfig] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [realTimeStatus, setRealTimeStatus] = useState<SessionStatus | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [activeTab, setActiveTab] = useState('config');
@@ -230,22 +231,17 @@ export default function WhatsAppIntegrationEvolution() {
         console.log('✅ [Evolution] Configurações carregadas do banco');
         setConfig(result.data);
         
-        if (result.data.whatsapp) {
-          const formData = {
-            api_url: result.data.whatsapp.api_url || '',
-            instance_name: result.data.whatsapp.instance_name || '',
-            api_key: result.data.whatsapp.api_key || '',
-            instance_token: result.data.whatsapp.instance_token || ''
-          };
-          setWhatsappForm(formData);
+        const whatsappData = result.data.whatsapp;
+        if (whatsappData) {
+          // Usar valores do banco ou manter os padrões do .env
+          setWhatsappForm(prev => ({
+            api_url: whatsappData.api_url || prev.api_url,
+            instance_name: whatsappData.instance_name || prev.instance_name,
+            api_key: whatsappData.api_key || prev.api_key,
+            instance_token: whatsappData.instance_token || ''
+          }));
         }
-      } else {
-        setWhatsappForm({
-          api_url: '',
-          instance_name: '',
-          api_key: '',
-          instance_token: ''
-        });
+        // Se não há dados no banco, mantém os valores padrão do .env
       }
     } catch (error) {
       console.error('❌ [Evolution] Erro ao carregar configurações:', error);
@@ -273,96 +269,6 @@ export default function WhatsAppIntegrationEvolution() {
         toast.error('Não foi possível copiar. Copie manualmente.');
       }
       document.body.removeChild(textArea);
-    }
-  };
-
-  const handleTestConnection = async () => {
-    if (!whatsappForm.api_url || !whatsappForm.instance_name || !whatsappForm.api_key) {
-      toast.error('Preencha todos os campos obrigatórios');
-      return;
-    }
-
-    let cleanUrl = whatsappForm.api_url.trim();
-    
-    if (cleanUrl.endsWith('/manager')) {
-      cleanUrl = cleanUrl.replace(/\/manager\/?$/, '');
-      setWhatsappForm(prev => ({ ...prev, api_url: cleanUrl }));
-      toast.info('✨ URL ajustada: /manager removido', { duration: 3000 });
-    }
-    
-    cleanUrl = cleanUrl.replace(/\/$/, '');
-    
-    if (cleanUrl === 'https://api.evolutionapi.com') {
-      toast.error('⚠️ URL de exemplo detectada! Use a URL REAL da sua Evolution API', { duration: 6000 });
-      setConnectionStatus('error');
-      return;
-    }
-
-    if (!cleanUrl.startsWith('http')) {
-      toast.error('❌ URL inválida! Deve começar com http:// ou https://');
-      setConnectionStatus('error');
-      return;
-    }
-
-    setConnectionStatus('idle');
-    setConnectingWhatsApp(true);
-    
-    try {
-      console.log('🧪 Testando conexão via PROXY backend...');
-      
-      const authToken = typeof localStorage !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/whatsapp/test-connection`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json',
-            ...(authToken ? { 'X-Auth-Token': authToken } : {}),
-          },
-          body: JSON.stringify({
-            api_url: cleanUrl,
-            api_key: whatsappForm.api_key.trim(),
-            instance_name: whatsappForm.instance_name.trim(),
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!result.success) {
-        setConnectionStatus('error');
-        toast.error(`❌ ${result.error}`, { duration: 8000 });
-        return;
-      }
-
-      setConnectionStatus('success');
-      toast.success(result.message || '✅ Conexão OK!', { duration: 5000 });
-      
-      await channelsApi.updateConfig(organizationId, {
-        whatsapp: {
-          enabled: true,
-          api_url: cleanUrl,
-          instance_name: whatsappForm.instance_name.trim(),
-          api_key: whatsappForm.api_key.trim(),
-          instance_token: whatsappForm.instance_token.trim(),
-          connected: false,
-          connection_status: 'disconnected'
-        }
-      });
-      
-    } catch (error: any) {
-      console.error('❌ Erro ao testar conexão:', error);
-      setConnectionStatus('error');
-      
-      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-        toast.error('❌ Não foi possível conectar ao servidor!', { duration: 8000 });
-      } else {
-        toast.error('❌ Erro ao testar conexão: ' + (error.message || 'Erro desconhecido'), { duration: 6000 });
-      }
-    } finally {
-      setConnectingWhatsApp(false);
     }
   };
 
@@ -450,65 +356,11 @@ export default function WhatsAppIntegrationEvolution() {
     }
   };
 
-  const handleSaveConfig = async () => {
-    setSavingConfig(true);
-    
-    try {
-      if (!whatsappForm.api_url || !whatsappForm.instance_name || !whatsappForm.api_key) {
-        toast.error('❌ Preencha todos os campos obrigatórios');
-        return;
-      }
-      
-      let cleanUrl = whatsappForm.api_url.trim();
-      
-      if (cleanUrl.endsWith('/manager')) {
-        cleanUrl = cleanUrl.replace(/\/manager\/?$/, '');
-        toast.info('✨ URL ajustada: /manager removido', { duration: 3000 });
-      }
-      
-      cleanUrl = cleanUrl.replace(/\/$/, '');
-      
-      if (!cleanUrl || cleanUrl === 'https://api.evolutionapi.com') {
-        toast.error('❌ Use a URL REAL da sua Evolution API');
-        return;
-      }
-      
-      if (!cleanUrl.startsWith('http')) {
-        toast.error('❌ URL inválida!');
-        return;
-      }
-      
-      const configToSave = {
-        whatsapp: {
-          ...config?.whatsapp,
-          enabled: true,
-          api_url: cleanUrl,
-          instance_name: whatsappForm.instance_name.trim(),
-          api_key: whatsappForm.api_key.trim(),
-          instance_token: whatsappForm.instance_token.trim(),
-          connected: config?.whatsapp?.connected || false,
-          connection_status: config?.whatsapp?.connection_status || 'disconnected',
-          phone_number: config?.whatsapp?.phone_number,
-          qr_code: config?.whatsapp?.qr_code,
-          last_connected_at: config?.whatsapp?.last_connected_at,
-          error_message: config?.whatsapp?.error_message,
-        }
-      };
-      
-      const result = await channelsApi.updateConfig(organizationId, configToSave);
-      
-      if (result.success) {
-        toast.success('✅ Configurações salvas!', { duration: 5000 });
-        await loadConfig();
-      } else {
-        throw new Error(result.error || 'Backend returned error');
-      }
-    } catch (error: any) {
-      console.error('❌ Error saving config:', error);
-      toast.error('❌ Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
-    } finally {
-      setSavingConfig(false);
-    }
+  /**
+   * Navegar para a aba Status e iniciar conexão
+   */
+  const handleGoToConnect = () => {
+    setActiveTab('status');
   };
 
   if (loading) {
@@ -551,10 +403,6 @@ export default function WhatsAppIntegrationEvolution() {
 
       <Tabs defaultValue="config" className="space-y-6" onValueChange={(value) => setActiveTab(value)}>
         <TabsList className="w-full flex flex-wrap gap-3">
-          <TabsTrigger value="test" className="flex-none justify-center px-4 py-2 min-w-[150px]">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Testar
-          </TabsTrigger>
           <TabsTrigger value="config" className="flex-none justify-center px-4 py-2 min-w-[150px]">
             <Key className="w-4 h-4 mr-2" />
             Configuração
@@ -572,11 +420,6 @@ export default function WhatsAppIntegrationEvolution() {
             Avançado
           </TabsTrigger>
         </TabsList>
-
-        {/* TAB 0: TESTAR CREDENCIAIS */}
-        <TabsContent value="test" className="space-y-6">
-          <WhatsAppCredentialsTester />
-        </TabsContent>
 
         {/* TAB 1: CONFIGURAÇÃO */}
         <TabsContent value="config" className="space-y-6">
@@ -671,139 +514,78 @@ export default function WhatsAppIntegrationEvolution() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Credenciais da Evolution API</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-green-600" />
+                Servidor Evolution API
+              </CardTitle>
               <CardDescription>
-                Configure suas credenciais de acesso à Evolution API para conectar o WhatsApp
+                Configurações do servidor já definidas pelo administrador
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Status da Conexão */}
-              {config?.whatsapp?.enabled && (
-                <Alert className={config?.whatsapp?.connected ? 'bg-green-50 border-green-300' : 'bg-yellow-50 border-yellow-300'}>
-                  {config?.whatsapp?.connected ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-700" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-yellow-700" />
-                  )}
-                  <AlertDescription className={config?.whatsapp?.connected ? 'text-green-900' : 'text-yellow-900'}>
-                    {config?.whatsapp?.connected ? (
-                      <div className="space-y-2">
-                        <p className="text-sm"><strong>✅ WhatsApp Conectado</strong></p>
-                        {config?.whatsapp?.phone_number && (
-                          <p className="text-xs">
-                            Número: <code className="bg-green-100 px-1 rounded">{config.whatsapp.phone_number}</code>
-                          </p>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleDisconnectWhatsApp}
-                          className="mt-2 border-red-500 text-red-500 hover:bg-red-500/10"
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          Desconectar
-                        </Button>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-sm"><strong>⚠️ WhatsApp Desconectado</strong></p>
-                        <p className="text-xs mt-1">Configure abaixo e gere o QR Code para conectar</p>
-                      </div>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              )}
+              {/* Alerta de servidor configurado */}
+              <Alert className="bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-800">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800 dark:text-green-200">
+                  <strong>✅ Servidor Evolution API já configurado!</strong>
+                  <br />
+                  <span className="text-sm">As configurações abaixo estão pré-definidas. Basta conectar seu WhatsApp.</span>
+                </AlertDescription>
+              </Alert>
 
-              <Separator />
-
-              {/* URL da Evolution API */}
+              {/* URL da Evolution API - READONLY */}
               <div className="space-y-2">
-                <Label htmlFor="api_url">URL da Evolution API</Label>
+                <Label htmlFor="api_url" className="flex items-center gap-2">
+                  <Lock className="w-3 h-3 text-muted-foreground" />
+                  URL da Evolution API
+                </Label>
                 <div className="flex gap-2">
                   <Link2 className="w-5 h-5 text-muted-foreground mt-2" />
                   <Input
                     id="api_url"
                     value={whatsappForm.api_url}
-                    onChange={(e) => setWhatsappForm({ ...whatsappForm, api_url: e.target.value })}
-                    placeholder="https://evo.boravendermuito.com.br"
+                    readOnly
+                    disabled
+                    className="bg-muted cursor-not-allowed"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  💡 URL base da sua instância Evolution API (Ex: https://evo.boravendermuito.com.br)
-                </p>
               </div>
 
-              {/* Nome da Instância */}
+              {/* Nome da Instância - READONLY */}
               <div className="space-y-2">
-                <Label htmlFor="instance_name">Nome da Instância</Label>
+                <Label htmlFor="instance_name" className="flex items-center gap-2">
+                  <Lock className="w-3 h-3 text-muted-foreground" />
+                  Nome da Instância
+                </Label>
                 <div className="flex gap-2">
-                  <Phone className="w-5 h-5 text-muted-foreground mt-2" />
+                  <Smartphone className="w-5 h-5 text-muted-foreground mt-2" />
                   <Input
                     id="instance_name"
                     value={whatsappForm.instance_name}
-                    onChange={(e) => setWhatsappForm({ ...whatsappForm, instance_name: e.target.value })}
-                    placeholder="rendizy-admin-master"
+                    readOnly
+                    disabled
+                    className="bg-muted cursor-not-allowed"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  💡 Identificador único da sua instância (Ex: rendizy-admin-master)
-                </p>
               </div>
 
-              {/* API Key */}
+              {/* API Key - READONLY (mascarada) */}
               <div className="space-y-2">
-                <Label htmlFor="api_key">API Key</Label>
+                <Label htmlFor="api_key" className="flex items-center gap-2">
+                  <Lock className="w-3 h-3 text-muted-foreground" />
+                  API Key
+                </Label>
                 <div className="flex gap-2">
                   <Key className="w-5 h-5 text-muted-foreground mt-2" />
-                  <div className="flex-1 relative">
-                    <Input
-                      id="api_key"
-                      type={showApiKey ? 'text' : 'password'}
-                      value={whatsappForm.api_key}
-                      onChange={(e) => setWhatsappForm({ ...whatsappForm, api_key: e.target.value })}
-                      placeholder="sua-api-key-aqui"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                    >
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
+                  <Input
+                    id="api_key"
+                    type="password"
+                    value={whatsappForm.api_key ? '••••••••••••••••' : ''}
+                    readOnly
+                    disabled
+                    className="bg-muted cursor-not-allowed"
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  🔒 Chave de autenticação da Evolution API
-                </p>
-              </div>
-
-              {/* Instance Token */}
-              <div className="space-y-2">
-                <Label htmlFor="instance_token">Instance Token</Label>
-                <div className="flex gap-2">
-                  <Key className="w-5 h-5 text-muted-foreground mt-2" />
-                  <div className="flex-1 relative">
-                    <Input
-                      id="instance_token"
-                      type={showInstanceToken ? 'text' : 'password'}
-                      value={whatsappForm.instance_token}
-                      onChange={(e) => setWhatsappForm({ ...whatsappForm, instance_token: e.target.value })}
-                      placeholder="seu-instance-token-aqui"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowInstanceToken(!showInstanceToken)}
-                    >
-                      {showInstanceToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  🔒 Token de instância da Evolution API
-                </p>
               </div>
 
               <Separator />
@@ -822,67 +604,32 @@ export default function WhatsAppIntegrationEvolution() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  📡 Configure este webhook na Evolution API para receber mensagens automaticamente
+                  📡 Webhook configurado automaticamente para receber mensagens
                 </p>
               </div>
 
               <Separator />
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleTestConnection}
-                  disabled={connectingWhatsApp}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {connectingWhatsApp ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Testando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Testar Conexão
-                    </>
-                  )}
-                </Button>
-                
-                <Button
-                  onClick={handleSaveConfig}
-                  disabled={savingConfig}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
-                >
-                  {savingConfig ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Salvar Configurações
-                    </>
-                  )}
-                </Button>
+              {/* INSTRUÇÕES */}
+              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">📱 Como conectar seu WhatsApp:</h4>
+                <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-decimal list-inside">
+                  <li>Clique no botão verde abaixo para ir para a aba "Status"</li>
+                  <li>Clique em "Gerar QR Code"</li>
+                  <li>Abra o WhatsApp no seu celular</li>
+                  <li>Vá em Menu (⋮) → Aparelhos conectados → Conectar</li>
+                  <li>Escaneie o QR Code com a câmera</li>
+                </ol>
               </div>
 
-              {/* Connection Status */}
-              {connectionStatus !== 'idle' && (
-                <Alert className={connectionStatus === 'success' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}>
-                  {connectionStatus === 'success' ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-700" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-700" />
-                  )}
-                  <AlertDescription className={connectionStatus === 'success' ? 'text-green-900' : 'text-red-900'}>
-                    {connectionStatus === 'success' 
-                      ? '✅ Conexão estabelecida com sucesso!'
-                      : '❌ Falha ao conectar. Verifique as credenciais.'}
-                  </AlertDescription>
-                </Alert>
-              )}
+              {/* BOTÃO GRANDE PARA CONECTAR */}
+              <Button
+                onClick={handleGoToConnect}
+                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+              >
+                <QrCode className="w-6 h-6 mr-3" />
+                Conectar meu WhatsApp
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -977,13 +724,22 @@ export default function WhatsAppIntegrationEvolution() {
                 <Alert className="bg-green-50 border-green-300">
                   <CheckCircle2 className="h-4 w-4 text-green-700" />
                   <AlertDescription className="text-green-900">
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <p className="text-sm"><strong>✅ WhatsApp Conectado com Sucesso!</strong></p>
                       {config?.whatsapp?.phone_number && (
                         <p className="text-xs">
                           Número conectado: <code className="bg-green-100 px-2 py-1 rounded">{config.whatsapp.phone_number}</code>
                         </p>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDisconnectWhatsApp}
+                        className="border-red-300 text-red-600 hover:bg-red-50"
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Desconectar
+                      </Button>
                     </div>
                   </AlertDescription>
                 </Alert>
