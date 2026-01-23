@@ -858,95 +858,87 @@ export default function WhatsAppIntegrationWaha() {
 
         {/* TAB: STATUS & CONEXÃO */}
         <TabsContent value="status" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Conectar WhatsApp</CardTitle>
-              <CardDescription>
-                Gerencie a sessão WAHA e conecte seu WhatsApp
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Status Atual */}
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    sessionStatus === 'WORKING' ? 'bg-green-500' :
-                    sessionStatus === 'SCAN_QR_CODE' ? 'bg-yellow-500 animate-pulse' :
-                    sessionStatus === 'STARTING' ? 'bg-blue-500 animate-pulse' :
-                    'bg-gray-400'
-                  }`} />
-                  <span className="font-medium">
-                    Status: {sessionStatus || 'Desconhecido'}
-                  </span>
+          {/* BLOQUEIO: Só mostra conteúdo se WAHA estiver ativado (salvo no banco) */}
+          {!wahaEnabled ? (
+            <Card className="border-2 border-dashed border-yellow-300 bg-yellow-50/50">
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <AlertCircle className="h-8 w-8 text-yellow-600" />
                 </div>
+                <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                  WAHA não está ativado
+                </h3>
+                <p className="text-sm text-yellow-700 mb-4">
+                  Para conectar seu WhatsApp, primeiro ative o WAHA na aba <strong>"Configuração"</strong>.
+                </p>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={checkSessionStatus}
-                  disabled={checkingStatus}
+                  onClick={() => setActiveTab('config')}
+                  className="bg-yellow-600 hover:bg-yellow-700"
                 >
-                  <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
+                  <Power className="h-4 w-4 mr-2" />
+                  Ir para Configuração
                 </Button>
-              </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Conectar WhatsApp</CardTitle>
+                  <CardDescription>
+                    Gerencie a sessão WAHA e conecte seu WhatsApp
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Status Atual */}
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        sessionStatus === 'WORKING' ? 'bg-green-500' :
+                        sessionStatus === 'SCAN_QR_CODE' ? 'bg-yellow-500 animate-pulse' :
+                        sessionStatus === 'STARTING' ? 'bg-blue-500 animate-pulse' :
+                        'bg-gray-400'
+                      }`} />
+                      <span className="font-medium">
+                        Status: {sessionStatus || 'Desconhecido'}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={checkSessionStatus}
+                      disabled={checkingStatus}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
 
-              {/* Ações de Sessão */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Criar Sessão */}
-                {!sessionStatus || sessionStatus === 'FAILED' ? (
-                  <Button
-                    onClick={handleCreateSession}
-                    disabled={creatingSession || !wahaForm.api_url || !wahaForm.api_key}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    {creatingSession ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Settings className="h-4 w-4 mr-2" />
+                  {/* Ações de Sessão */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Parar Sessão */}
+                    {(sessionStatus === 'WORKING' || sessionStatus === 'SCAN_QR_CODE') && (
+                      <Button
+                        onClick={handleStopSession}
+                        variant="outline"
+                        className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                      >
+                        <Square className="h-4 w-4 mr-2" />
+                        Parar Sessão
+                      </Button>
                     )}
-                    Criar Sessão
-                  </Button>
-                ) : null}
 
-                {/* Iniciar Sessão */}
-                {sessionStatus === 'STOPPED' && (
-                  <Button
-                    onClick={handleStartSession}
-                    disabled={startingSession}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {startingSession ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Play className="h-4 w-4 mr-2" />
+                    {/* Desconectar WhatsApp */}
+                    {sessionStatus === 'WORKING' && (
+                      <Button
+                        onClick={handleLogoutSession}
+                        variant="outline"
+                        className="border-red-500 text-red-600 hover:bg-red-50"
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Desconectar
+                      </Button>
                     )}
-                    Iniciar Sessão
-                  </Button>
-                )}
-
-                {/* Parar Sessão */}
-                {(sessionStatus === 'WORKING' || sessionStatus === 'SCAN_QR_CODE') && (
-                  <Button
-                    onClick={handleStopSession}
-                    variant="outline"
-                    className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
-                  >
-                    <Square className="h-4 w-4 mr-2" />
-                    Parar Sessão
-                  </Button>
-                )}
-
-                {/* Desconectar WhatsApp */}
-                {sessionStatus === 'WORKING' && (
-                  <Button
-                    onClick={handleLogoutSession}
-                    variant="outline"
-                    className="border-red-500 text-red-600 hover:bg-red-50"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Desconectar
-                  </Button>
-                )}
-              </div>
+                  </div>
 
               {/* QR Code Display */}
               {qrCode && sessionStatus === 'SCAN_QR_CODE' && (
@@ -1089,6 +1081,8 @@ export default function WhatsAppIntegrationWaha() {
               </div>
             </CardContent>
           </Card>
+            </>
+          )}
         </TabsContent>
 
         {/* TAB: WEBHOOKS */}
