@@ -65,12 +65,9 @@ import {
   XCircle,
   Loader2,
   AlertCircle,
-  Eye,
-  EyeOff,
   QrCode,
   Link2,
   Copy,
-  CheckCircle,
   RefreshCw,
   Settings,
   Phone,
@@ -126,12 +123,6 @@ export default function WhatsAppIntegrationWaha() {
     session_name: 'default',
     engine: 'WEBJS' as 'WEBJS' | 'NOWEB' | 'GOWS',
   });
-  const [showApiKey, setShowApiKey] = useState(false);
-  
-  // Estados de operação
-  const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
   // Estados de sessão
   const [sessionStatus, setSessionStatus] = useState<WAHAStatus | null>(null);
@@ -187,42 +178,6 @@ export default function WhatsAppIntegrationWaha() {
   // ============================================================================
   // WAHA API FUNCTIONS
   // ============================================================================
-
-  /**
-   * Testar conexão com servidor WAHA
-   */
-  const handleTestConnection = async () => {
-    if (!wahaForm.api_url || !wahaForm.api_key) {
-      toast.error('Preencha URL e API Key');
-      return;
-    }
-
-    setTesting(true);
-    setConnectionStatus('idle');
-    
-    try {
-      const result = await channelsApi.waha.testConnection({
-        api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
-        api_key: wahaForm.api_key.trim(),
-      });
-
-      if (result.success) {
-        setConnectionStatus('success');
-        toast.success('✅ Conexão OK com servidor WAHA!');
-        
-        // Listar sessões existentes
-        await listSessions();
-      } else {
-        setConnectionStatus('error');
-        toast.error(`❌ ${result.error || 'Falha na conexão'}`);
-      }
-    } catch (error: any) {
-      setConnectionStatus('error');
-      toast.error(`❌ Erro: ${error.message || 'Falha na conexão'}`);
-    } finally {
-      setTesting(false);
-    }
-  };
 
   /**
    * Listar sessões no servidor WAHA
@@ -423,44 +378,6 @@ export default function WhatsAppIntegrationWaha() {
   };
 
   /**
-   * Salvar configuração WAHA no banco
-   */
-  const handleSaveConfig = async () => {
-    if (!wahaForm.api_url || !wahaForm.api_key) {
-      toast.error('Preencha URL e API Key');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const configToSave = {
-        waha: {
-          enabled: true,
-          api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
-          api_key: wahaForm.api_key.trim(),
-          session_name: wahaForm.session_name.trim() || 'default',
-          engine: wahaForm.engine,
-          connected: sessionStatus === 'WORKING',
-          connection_status: (sessionStatus === 'WORKING' ? 'connected' : 'disconnected') as 'connected' | 'disconnected',
-        }
-      };
-
-      const result = await channelsApi.updateConfig(organizationId, configToSave);
-
-      if (result.success) {
-        toast.success('✅ Configuração WAHA salva!');
-        await loadConfig();
-      } else {
-        toast.error(`❌ ${result.error || 'Erro ao salvar'}`);
-      }
-    } catch (error: any) {
-      toast.error(`❌ Erro: ${error.message || 'Falha ao salvar'}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  /**
    * Copiar webhook URL
    */
   const handleCopyWebhook = async () => {
@@ -634,11 +551,22 @@ export default function WhatsAppIntegrationWaha() {
             <CardHeader>
               <CardTitle>Credenciais do Servidor WAHA</CardTitle>
               <CardDescription>
-                Configure a conexão com seu servidor WAHA
+                Servidor WAHA pré-configurado pelo administrador
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* URL do Servidor */}
+              {/* Aviso de configuração pronta */}
+              <Alert className="bg-green-50 border-green-300">
+                <CheckCircle2 className="h-4 w-4 text-green-700" />
+                <AlertDescription className="text-green-900">
+                  <strong>✅ Servidor WAHA já configurado!</strong>
+                  <p className="text-sm mt-1">
+                    Você não precisa alterar nada aqui. Vá para <strong>"Status & Conexão"</strong> para criar sua sessão e escanear o QR Code.
+                  </p>
+                </AlertDescription>
+              </Alert>
+
+              {/* URL do Servidor - READONLY */}
               <div className="space-y-2">
                 <Label htmlFor="waha_api_url">URL do Servidor WAHA</Label>
                 <div className="flex gap-2">
@@ -646,16 +574,17 @@ export default function WhatsAppIntegrationWaha() {
                   <Input
                     id="waha_api_url"
                     value={wahaForm.api_url}
-                    onChange={(e) => setWahaForm({ ...wahaForm, api_url: e.target.value })}
-                    placeholder="http://localhost:3000 ou https://waha.seuservidor.com"
+                    readOnly
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  💡 URL base do seu servidor WAHA (porta padrão: 3000)
+                  🔒 Configurado pelo administrador
                 </p>
               </div>
 
-              {/* API Key */}
+              {/* API Key - READONLY */}
               <div className="space-y-2">
                 <Label htmlFor="waha_api_key">API Key (X-Api-Key)</Label>
                 <div className="flex gap-2">
@@ -663,23 +592,16 @@ export default function WhatsAppIntegrationWaha() {
                   <div className="flex-1 relative">
                     <Input
                       id="waha_api_key"
-                      type={showApiKey ? 'text' : 'password'}
-                      value={wahaForm.api_key}
-                      onChange={(e) => setWahaForm({ ...wahaForm, api_key: e.target.value })}
-                      placeholder="sua-api-key-waha"
+                      type="password"
+                      value="••••••••••••••••••••"
+                      readOnly
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed"
                     />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                    >
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  🔒 Chave de autenticação gerada na inicialização do WAHA
+                  🔒 Chave protegida - configurada pelo administrador
                 </p>
               </div>
 
@@ -702,61 +624,28 @@ export default function WhatsAppIntegrationWaha() {
 
               <Separator />
 
-              {/* Botões de Ação */}
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleTestConnection}
-                  disabled={testing || !wahaForm.api_url || !wahaForm.api_key}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {testing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Testando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Testar Conexão
-                    </>
-                  )}
-                </Button>
-                
-                <Button
-                  onClick={handleSaveConfig}
-                  disabled={saving || !wahaForm.api_url || !wahaForm.api_key}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Salvar Configurações
-                    </>
-                  )}
-                </Button>
+              {/* Instrução Principal */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-800 flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5" />
+                  Como conectar seu WhatsApp:
+                </h4>
+                <ol className="text-sm text-blue-700 mt-2 space-y-1 list-decimal list-inside">
+                  <li>Clique em <strong>"Status & Conexão"</strong> acima</li>
+                  <li>Clique em <strong>"Criar Sessão"</strong></li>
+                  <li>Escaneie o <strong>QR Code</strong> com seu WhatsApp</li>
+                  <li>Pronto! Seu WhatsApp está conectado 🎉</li>
+                </ol>
               </div>
 
-              {/* Status do Teste */}
-              {connectionStatus !== 'idle' && (
-                <Alert className={connectionStatus === 'success' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}>
-                  {connectionStatus === 'success' ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-700" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-700" />
-                  )}
-                  <AlertDescription className={connectionStatus === 'success' ? 'text-green-900' : 'text-red-900'}>
-                    {connectionStatus === 'success' 
-                      ? '✅ Conexão estabelecida com servidor WAHA!'
-                      : '❌ Falha na conexão. Verifique URL e API Key.'}
-                  </AlertDescription>
-                </Alert>
-              )}
+              {/* Botão para ir direto para Status */}
+              <Button
+                onClick={() => setActiveTab('status')}
+                className="w-full bg-green-600 hover:bg-green-700 text-lg py-6"
+              >
+                <QrCode className="h-5 w-5 mr-2" />
+                Conectar meu WhatsApp
+              </Button>
 
               {/* Sessões Encontradas */}
               {sessions.length > 0 && (
