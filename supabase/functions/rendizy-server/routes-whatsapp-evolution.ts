@@ -186,6 +186,139 @@ async function getEvolutionConfigForOrganization(organizationId: string): Promis
   }
 }
 
+// ============================================================================
+// @ARCHITECTURE: WHATSAPP-MULTI-PROVIDER
+// @ADR: docs/ADR/ADR-009-WHATSAPP-MULTI-PROVIDER.md
+// @CAPSULE: PROVIDER-DETECT
+// ============================================================================
+// CÁPSULA: DETECÇÃO AUTOMÁTICA DE PROVIDER (WAHA vs Evolution)
+// 
+// ⚠️ REGRAS PARA IAs:
+// 1. SEMPRE usar esta função antes de chamar qualquer API WhatsApp
+// 2. NUNCA chamar Evolution API diretamente sem verificar provider
+// 3. Se provider = 'waha', usar getConversationsFromDatabase()
+// ============================================================================
+
+interface ActiveChannelInstance {
+  id: string;
+  provider: 'evolution' | 'waha';
+  instanceName: string;
+  status: string;
+  wahaBaseUrl?: string;
+  wahaApiKey?: string;
+  evolutionApiUrl?: string;
+  evolutionApiKey?: string;
+}
+
+/**
+ * Detecta qual provider WhatsApp a organização está usando
+ * Prioriza instância conectada, depois a mais recente
+ * 
+ * @param organizationId - UUID da organização
+ * @returns Provider ativo ou null se nenhum configurado
+ */
+async function detectActiveWhatsAppProvider(organizationId: string): Promise<ActiveChannelInstance | null> {
+  try {
+    const client = getSupabaseClient();
+    
+    // Buscar todas as instâncias WhatsApp da org
+    const { data: instances, error } = await client
+      .from('channel_instances')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .eq('channel_type', 'whatsapp')
+      .is('deleted_at', null)
+      .order('status', { ascending: true }) // 'connected' vem primeiro alfabeticamente? Não, vamos ordenar diferente
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error(`❌ [detectActiveWhatsAppProvider] Erro ao buscar instâncias:`, error);
+      return null;
+    }
+    
+    if (!instances || instances.length === 0) {
+      console.log(`ℹ️ [detectActiveWhatsAppProvider] Nenhuma instância WhatsApp para org ${organizationId}`);
+      return null;
+    }
+    
+    // Priorizar instância conectada
+    const connectedInstance = instances.find(i => i.status === 'connected');
+    const activeInstance = connectedInstance || instances[0];
+    
+    const provider = (activeInstance.provider as 'evolution' | 'waha') || 'evolution';
+    
+    console.log(`✅ [detectActiveWhatsAppProvider] Provider detectado: ${provider}, instance: ${activeInstance.instance_name}, status: ${activeInstance.status}`);
+    
+    return {
+      id: activeInstance.id,
+      provider,
+      instanceName: activeInstance.instance_name,
+      status: activeInstance.status,
+      wahaBaseUrl: activeInstance.waha_base_url,
+      wahaApiKey: activeInstance.waha_api_key,
+      evolutionApiUrl: activeInstance.api_url,
+      evolutionApiKey: activeInstance.api_key,
+    };
+  } catch (error) {
+    console.error(`❌ [detectActiveWhatsAppProvider] Erro inesperado:`, error);
+    return null;
+  }
+}
+
+// ============================================================================
+// @CAPSULE: WAHA-DATA
+// Busca conversas do banco de dados (para WAHA - alimentado por webhooks)
+// ⚠️ REGRA: Esta função SÓ deve ser usada quando provider = 'waha'
+// ============================================================================
+async function getConversationsFromDatabase(organizationId: string): Promise<any[]> {
+  try {
+    const client = getSupabaseClient();
+    
+    const { data, error } = await client
+      .from('conversations')
+      .select(`
+        id,
+        external_conversation_id,
+        guest_name,
+        guest_phone,
+        last_message,
+        last_message_at,
+        unread_count,
+        category,
+        is_pinned,
+        instance_id
+      `)
+      .eq('organization_id', organizationId)
+      .order('is_pinned', { ascending: false })
+      .order('last_message_at', { ascending: false });
+    
+    if (error) {
+      console.error(`❌ [getConversationsFromDatabase] Erro:`, error);
+      return [];
+    }
+    
+    // Converter para formato compatível com Evolution API
+    return (data || []).map(conv => ({
+      id: conv.external_conversation_id || conv.id,
+      remoteJid: conv.external_conversation_id,
+      name: conv.guest_name,
+      pushName: conv.guest_name,
+      lastMessageTimestamp: conv.last_message_at ? Math.floor(new Date(conv.last_message_at).getTime() / 1000) : undefined,
+      unreadCount: conv.unread_count,
+      lastMessage: typeof conv.last_message === 'string' 
+        ? { message: conv.last_message, fromMe: false }
+        : conv.last_message,
+      // Campos extras para o frontend
+      _source: 'database',
+      _isPinned: conv.is_pinned,
+      _category: conv.category,
+    }));
+  } catch (error) {
+    console.error(`❌ [getConversationsFromDatabase] Erro inesperado:`, error);
+    return [];
+  }
+}
+
 /**
  * Fallback: Busca credenciais de variáveis de ambiente (para compatibilidade)
  * 
@@ -1136,22 +1269,69 @@ export function whatsappEvolutionRoutes(app: Hono) {
   });
 
   // ==========================================================================
+  // @ARCHITECTURE: WHATSAPP-MULTI-PROVIDER
+  // @ADR: docs/ADR/ADR-009-WHATSAPP-MULTI-PROVIDER.md
+  // @CAPSULE: UNIFIED-CHATS
+  // ==========================================================================
   // GET /rendizy-server/whatsapp/chats - Buscar todas as conversas
-  // ✅ CORREÇÃO 6: Salva conversas no Supabase quando apropriado
+  // ✅ REFATORADO v1.0.104 - CÁPSULA SEPARADA WAHA vs Evolution
+  // 
+  // ⚠️ REGRAS PARA IAs:
+  // 1. Este endpoint detecta AUTOMATICAMENTE o provider
+  // 2. NUNCA modificar para chamar Evolution API diretamente
+  // 3. Se precisar mudar lógica, manter estrutura de cápsulas
   // ==========================================================================
   const handleGetWhatsAppChats = async (c: any) => {
     try {
-      // ✅ ARQUITETURA SQL v1.0.103.950 - Logs detalhados para debug
       console.log(`🔍 [WhatsApp Chats] Iniciando busca de conversas...`);
       
       const organizationId = await getOrganizationIdOrThrow(c);
       console.log(`✅ [WhatsApp Chats] organization_id identificado: ${organizationId}`);
       
+      // ✅ CÁPSULA SEPARADA: Detectar provider primeiro
+      const activeInstance = await detectActiveWhatsAppProvider(organizationId);
+      
+      if (activeInstance && activeInstance.provider === 'waha') {
+        // =====================================================================
+        // @CAPSULE: WAHA-DATA
+        // Buscar do banco de dados (alimentado por webhooks)
+        // =====================================================================
+        console.log(`🟢 [WhatsApp Chats] Provider: WAHA - buscando do banco de dados...`);
+        
+        const chats = await getConversationsFromDatabase(organizationId);
+        console.log(`✅ [WhatsApp Chats] WAHA: ${chats.length} conversas encontradas no banco`);
+        
+        return c.json({ 
+          success: true, 
+          data: chats,
+          provider: 'waha',
+          source: 'database'
+        });
+      }
+      
+      // =====================================================================
+      // @CAPSULE: EVOLUTION-DATA
+      // Buscar da Evolution API
+      // =====================================================================
+      console.log(`🔵 [WhatsApp Chats] Provider: Evolution - buscando da API...`);
+      
       const config = await getEvolutionConfigForOrganization(organizationId) || getEvolutionConfigFromEnv();
       console.log(`🔍 [WhatsApp Chats] Config encontrada:`, config ? 'SIM' : 'NÃO');
       
       if (!config || !config.enabled) {
-        console.warn(`⚠️ [WhatsApp Chats] WhatsApp não configurado para org ${organizationId}`);
+        // Se não tem config Evolution, tentar buscar do banco mesmo assim
+        console.warn(`⚠️ [WhatsApp Chats] Evolution não configurado, tentando banco de dados...`);
+        const fallbackChats = await getConversationsFromDatabase(organizationId);
+        
+        if (fallbackChats.length > 0) {
+          return c.json({ 
+            success: true, 
+            data: fallbackChats,
+            provider: 'database_fallback',
+            source: 'database'
+          });
+        }
+        
         return c.json({ 
           success: true, 
           data: [], 
@@ -1160,7 +1340,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
         });
       }
 
-      console.log(`[WhatsApp] [${organizationId}] 💬 Buscando conversas...`);
+      console.log(`[WhatsApp] [${organizationId}] 💬 Buscando conversas da Evolution API...`);
       console.log(`[WhatsApp] [${organizationId}] 🌐 API URL: ${config.api_url}`);
       console.log(`[WhatsApp] [${organizationId}] 📱 Instance: "${config.instance_name}"`);
 
