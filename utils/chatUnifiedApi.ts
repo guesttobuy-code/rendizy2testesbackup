@@ -169,7 +169,7 @@ export async function detectProvider(): Promise<{ provider: ChannelProvider; ins
       .from('channel_instances')
       .select('*')
       .eq('organization_id', organizationId)
-      .eq('channel_type', 'whatsapp')
+      .eq('channel', 'whatsapp')
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -198,8 +198,8 @@ export async function detectProvider(): Promise<{ provider: ChannelProvider; ins
         provider,
         status: activeInstance.status,
         phoneNumber: activeInstance.phone_number,
-        wahaBaseUrl: activeInstance.waha_base_url,
-        wahaApiKey: activeInstance.waha_api_key,
+        wahaBaseUrl: activeInstance.waha_base_url || activeInstance.api_url || import.meta.env.VITE_WAHA_API_URL,
+        wahaApiKey: activeInstance.waha_api_key || activeInstance.api_key || import.meta.env.VITE_WAHA_API_KEY,
         evolutionBaseUrl: activeInstance.evolution_base_url || activeInstance.api_url,
         evolutionApiKey: activeInstance.evolution_api_key || activeInstance.api_key,
       }
@@ -234,13 +234,19 @@ export async function fetchConversations(): Promise<UnifiedConversation[]> {
       .eq('organization_id', organizationId)
       .order('is_pinned', { ascending: false })
       .order('last_message_at', { ascending: false });
-    
+
+    let conversationsData = data;
     if (error) {
-      console.error('[chatUnifiedApi] ❌ Error fetching conversations:', error);
-      return [];
+      console.warn('[chatUnifiedApi] ⚠️ Query com is_pinned falhou, usando fallback:', error);
+      const fallback = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('last_message_at', { ascending: false });
+      conversationsData = fallback.data;
     }
     
-    const conversations = data as DbConversation[] | null;
+    const conversations = conversationsData as DbConversation[] | null;
     
     if (!conversations || conversations.length === 0) {
       console.log('[chatUnifiedApi] ℹ️ No conversations found');
@@ -353,13 +359,19 @@ async function sendMessageViaWaha(
     
     const chatId = conv.external_conversation_id;
     const wahaUrl = instance.wahaBaseUrl || 'http://76.13.82.60:3001';
+    const apiKey = instance.wahaApiKey || '';
+    if (!apiKey) {
+      return { success: false, error: 'WAHA API key não configurada' };
+    }
     const sessionName = instance.instanceName || 'default';
+
+    console.log('[chatUnifiedApi] 🔑 WAHA key prefix:', `${apiKey.slice(0, 4)}...`);
     
     const response = await fetch(`${wahaUrl}/api/sendText`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Api-Key': instance.wahaApiKey || '',
+        'X-Api-Key': apiKey,
       },
       body: JSON.stringify({ session: sessionName, chatId, text: content }),
     });
@@ -371,7 +383,50 @@ async function sendMessageViaWaha(
     }
     
     const result = await response.json();
-    return { success: true, messageId: result.id };
+
+    // Persistir mensagem no DB para histórico
+    try {
+      const organizationId = getOrganizationId();
+      const now = new Date().toISOString();
+      const externalId = result?.id || result?.messageId || null;
+
+      if (organizationId) {
+        const { error: insertError } = await supabase.from('messages').insert({
+          organization_id: organizationId,
+          conversation_id: conversationId,
+          sender_type: 'staff',
+          sender_name: 'system',
+          sender_id: null,
+          content,
+          channel: 'whatsapp',
+          direction: 'outgoing',
+          external_id: externalId,
+          external_status: 'sent',
+          sent_at: now,
+          metadata: { provider: 'waha' },
+        });
+
+        if (insertError) {
+          console.warn('[chatUnifiedApi] ⚠️ Falha ao inserir mensagem no DB:', insertError);
+        }
+
+        const { error: updateError } = await supabase
+          .from('conversations')
+          .update({
+            last_message: content.substring(0, 500),
+            last_message_at: now,
+          })
+          .eq('id', conversationId);
+
+        if (updateError) {
+          console.warn('[chatUnifiedApi] ⚠️ Falha ao atualizar conversa:', updateError);
+        }
+      }
+    } catch (persistError) {
+      console.warn('[chatUnifiedApi] ⚠️ Falha ao persistir mensagem WAHA:', persistError);
+    }
+
+    return { success: true, messageId: result?.id };
   } catch (error) {
     console.error('[chatUnifiedApi] ❌ WAHA exception:', error);
     return { success: false, error: String(error) };

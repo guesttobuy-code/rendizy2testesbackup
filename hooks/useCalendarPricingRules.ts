@@ -209,7 +209,7 @@ export function useCalendarPricingRules({
       let rulesArray: CalendarPricingRule[] = [];
 
       if (token) {
-        const edgeUrl = new URL(`https://${projectId}.supabase.co/functions/v1/calendar-rules-batch`);
+        const edgeUrl = new URL(`https://${projectId}.supabase.co/functions/v1/rendizy-server/calendar-rules/batch`);
         if (dateRange) {
           const fromStr = formatDateYMD(dateRange.from);
           const toStr = formatDateYMD(dateRange.to);
@@ -523,7 +523,7 @@ export function useCalendarPricingRules({
       // V2.1: Usar Edge Function para batch quando habilitado
       // ======================================================================
       if (USE_EDGE_FUNCTION) {
-        const edgeFunctionUrl = `https://${projectId}.supabase.co/functions/v1/calendar-rules-batch`;
+        const edgeFunctionUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/calendar-rules/batch`;
         
         // Converter operações para formato da Edge Function
         const batchOperations = operations.map(op => ({

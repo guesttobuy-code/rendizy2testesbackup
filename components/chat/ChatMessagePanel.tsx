@@ -41,6 +41,7 @@ import {
   sendWhatsAppMessage,
   extractMessageText
 } from '../../utils/whatsappChatApi';
+import { fetchMessages as fetchUnifiedMessages, sendMessage as sendUnifiedMessage } from '../../utils/chatUnifiedApi';
 import { getSupabaseClient } from '../../utils/supabase/client';
 
 // ============================================
@@ -120,6 +121,21 @@ function getInitials(name: string): string {
   return name.substring(0, 2).toUpperCase();
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getOrganizationIdFromCache(): string | null {
+  try {
+    const userJson = localStorage.getItem('rendizy-user');
+    if (!userJson) return null;
+    const user = JSON.parse(userJson);
+    return user.organizationId || null;
+  } catch {
+    return null;
+  }
+}
+
 // ============================================
 // COMPONENT
 // ============================================
@@ -142,6 +158,7 @@ export function ChatMessagePanel({
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [resolvedConversationId, setResolvedConversationId] = useState<string | null>(null);
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -157,28 +174,79 @@ export function ChatMessagePanel({
     setIsLoading(true);
     
     try {
-      // Extrair phone do conversationId se for JID
-      let phone = conversationId;
-      if (conversationId.includes('@')) {
-        phone = conversationId.split('@')[0];
+      const supabase = getSupabaseClient();
+
+      const resolveConversationId = async (): Promise<string | null> => {
+        if (isUuid(conversationId)) return conversationId;
+
+        const candidates: string[] = [];
+        const clean = conversationId.includes('@') ? conversationId : conversationId.replace(/\D/g, '');
+        if (clean) {
+          candidates.push(clean);
+          candidates.push(`${clean}@c.us`);
+          candidates.push(`${clean}@s.whatsapp.net`);
+        }
+        if (conversationId.includes('@')) candidates.push(conversationId);
+
+        const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
+        if (uniqueCandidates.length === 0) return null;
+
+        const orFilter = uniqueCandidates
+          .map(id => `external_conversation_id.eq.${id}`)
+          .join(',');
+
+        const orgId = getOrganizationIdFromCache();
+        const query = supabase
+          .from('conversations')
+          .select('id')
+          .or(orFilter)
+          .limit(1);
+
+        if (orgId) query.eq('organization_id', orgId);
+
+        const { data } = await query.maybeSingle();
+
+        return data?.id || null;
+      };
+
+      const dbConversationId = await resolveConversationId();
+      setResolvedConversationId(dbConversationId);
+
+      // ✅ Se tiver conversa no banco, usar mensagens persistidas (WAHA/DB)
+      if (dbConversationId) {
+        const unified = await fetchUnifiedMessages(dbConversationId);
+        const converted: ChatMessage[] = unified.map(msg => ({
+          id: msg.id || crypto.randomUUID(),
+          text: msg.content || (msg.mediaType ? '[Mídia]' : ''),
+          fromMe: !!msg.fromMe,
+          timestamp: msg.timestamp || new Date(),
+          status: msg.status || (msg.fromMe ? 'delivered' : undefined)
+        }));
+
+        setMessages(converted);
+      } else {
+        // ✅ JID/phone: usar WAHA/Evolution API direta
+        const chatId = conversationId.includes('@')
+          ? conversationId
+          : conversationId.replace(/\D/g, '') || conversationId;
+
+        console.log('[ChatMessagePanel] 📥 Carregando mensagens para:', chatId);
+
+        const rawMessages = await fetchWhatsAppMessages(chatId);
+
+        const converted: ChatMessage[] = rawMessages.map((msg: any) => ({
+          id: msg.key?.id || msg.id || crypto.randomUUID(),
+          text: extractMessageText(msg) || '[Mídia]',
+          fromMe: msg.key?.fromMe || false,
+          timestamp: new Date((msg.messageTimestamp || Date.now() / 1000) * 1000),
+          status: msg.key?.fromMe ? 'delivered' : undefined
+        }));
+
+        // Ordenar por timestamp
+        converted.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+        setMessages(converted);
       }
-      
-      console.log('[ChatMessagePanel] 📥 Carregando mensagens para:', phone);
-      
-      const rawMessages = await fetchWhatsAppMessages(phone);
-      
-      const converted: ChatMessage[] = rawMessages.map((msg: any) => ({
-        id: msg.key?.id || msg.id || crypto.randomUUID(),
-        text: extractMessageText(msg) || '[Mídia]',
-        fromMe: msg.key?.fromMe || false,
-        timestamp: new Date((msg.messageTimestamp || Date.now() / 1000) * 1000),
-        status: msg.key?.fromMe ? 'delivered' : undefined
-      }));
-      
-      // Ordenar por timestamp
-      converted.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      
-      setMessages(converted);
       
       // Scroll para baixo
       setTimeout(() => {
@@ -221,13 +289,19 @@ export function ChatMessagePanel({
     }, 50);
     
     try {
-      // Extrair phone
-      let phone = contactPhone || conversationId;
-      if (phone.includes('@')) {
-        phone = phone.split('@')[0];
+      // Preferir envio unificado quando temos conversa no banco
+      const dbConversationId = resolvedConversationId || (isUuid(conversationId) ? conversationId : null);
+      if (dbConversationId) {
+        const result = await sendUnifiedMessage(dbConversationId, text);
+        if (!result.success) throw new Error(result.error || 'Falha ao enviar');
+      } else {
+        // Extrair phone
+        let phone = contactPhone || conversationId;
+        if (phone.includes('@')) {
+          phone = phone.split('@')[0];
+        }
+        await sendWhatsAppMessage(phone, text);
       }
-      
-      await sendWhatsAppMessage(phone, text);
       
       // Atualizar status
       setMessages(prev => prev.map(m => 
@@ -268,19 +342,20 @@ export function ChatMessagePanel({
 
   // Realtime subscription
   useEffect(() => {
-    if (!conversationId) return;
+    const dbConversationId = resolvedConversationId || (isUuid(conversationId) ? conversationId : null);
+    if (!dbConversationId) return;
     
     const supabase = getSupabaseClient();
     
     const channel = supabase
-      .channel(`chat-panel-${conversationId}`)
+      .channel(`chat-panel-${dbConversationId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`
+          filter: `conversation_id=eq.${dbConversationId}`
         },
         (payload) => {
           const newMsg = payload.new as any;
@@ -309,7 +384,7 @@ export function ChatMessagePanel({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, resolvedConversationId]);
 
   // ============================================
   // RENDER - Minimized

@@ -258,11 +258,22 @@ export function ChatConversationList({
         fetchWhatsAppChats(),
         (async (): Promise<ConversationRow[]> => {
           const supabase = getSupabaseClient();
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('conversations')
             .select('id, external_conversation_id, guest_name, guest_phone, last_message, last_message_at, unread_count, category, conversation_type, is_pinned, tags, instance_id')
             .eq('organization_id', organizationId)
             .order('last_message_at', { ascending: false });
+
+          if (error) {
+            console.warn('[ChatConversationList] ⚠️ Query com is_pinned/tags falhou, usando fallback:', error);
+            const fallback = await supabase
+              .from('conversations')
+              .select('id, external_conversation_id, guest_name, guest_phone, last_message, last_message_at, unread_count, category, conversation_type, instance_id')
+              .eq('organization_id', organizationId)
+              .order('last_message_at', { ascending: false });
+            return (fallback.data || []) as ConversationRow[];
+          }
+
           return (data || []) as ConversationRow[];
         })()
       ]);

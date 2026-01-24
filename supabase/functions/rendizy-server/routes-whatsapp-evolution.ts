@@ -226,7 +226,7 @@ async function detectActiveWhatsAppProvider(organizationId: string): Promise<Act
       .from('channel_instances')
       .select('*')
       .eq('organization_id', organizationId)
-      .eq('channel_type', 'whatsapp')
+      .eq('channel', 'whatsapp')
       .is('deleted_at', null)
       .order('status', { ascending: true }) // 'connected' vem primeiro alfabeticamente? Não, vamos ordenar diferente
       .order('created_at', { ascending: false });

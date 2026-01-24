@@ -41,7 +41,7 @@
  * @date 2026-01-22
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -117,7 +117,7 @@ interface WahaInstance {
 // TYPES
 // ============================================================================
 
-type WAHAStatus = 'STOPPED' | 'STARTING' | 'SCAN_QR_CODE' | 'WORKING' | 'FAILED';
+type WAHAStatus = 'STOPPED' | 'STARTING' | 'SCAN_QR_CODE' | 'WORKING' | 'FAILED' | 'NOT_FOUND';
 
 interface WAHASession {
   name: string;
@@ -138,7 +138,10 @@ const DEFAULT_WAHA_KEY = import.meta.env.VITE_WAHA_API_KEY || '';
 
 export default function WhatsAppIntegrationWaha() {
   const { organization } = useAuth();
-  const organizationId = organization?.id || '00000000-0000-0000-0000-000000000001';
+  
+  // ⚠️ CRÍTICO: Não usar fallback! organizationId DEVE vir do AuthContext
+  // Se organization não estiver carregado, retornamos null/loading
+  const organizationId = organization?.id;
   
   // Estados principais
   const [loading, setLoading] = useState(true);
@@ -165,6 +168,7 @@ export default function WhatsAppIntegrationWaha() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
+  const autoStartRef = useRef(0);
   
   // Modal de múltiplas sessões
   const [showInstancesManager, setShowInstancesManager] = useState(false);
@@ -359,6 +363,10 @@ export default function WhatsAppIntegrationWaha() {
       toast.error('Digite um nome para identificar o WhatsApp');
       return;
     }
+    if (!organizationId) {
+      toast.error('Organização não encontrada');
+      return;
+    }
     
     setSavingToggle(true);
     setShowNamingModal(false);
@@ -375,19 +383,35 @@ export default function WhatsAppIntegrationWaha() {
         session_name: 'default',
         webhook_url: webhookUrl,
       });
-      
-      // Se sessão já existe, tudo bem
-      if (!createResult.success && !createResult.error?.includes('already exists')) {
-        toast.error(createResult.error || 'Erro ao criar sessão no WAHA');
-        setSavingToggle(false);
-        return;
+
+      // Se sessão já existe, tentar apenas iniciar
+      if (!createResult.success) {
+        const alreadyExists = /already exists|422/i.test(createResult.error || '');
+        if (!alreadyExists) {
+          toast.error(createResult.error || 'Erro ao criar sessão no WAHA');
+          setSavingToggle(false);
+          return;
+        }
+
+        await channelsApi.waha.startSession({
+          api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+          api_key: wahaForm.api_key.trim(),
+          session_name: 'default',
+        });
+
+        await channelsApi.waha.updateSession({
+          api_url: wahaForm.api_url.trim().replace(/\/$/, ''),
+          api_key: wahaForm.api_key.trim(),
+          session_name: 'default',
+          webhook_url: webhookUrl,
+        });
       }
       
       // 2. Salvar no banco channel_instances com o nome personalizado
       // Valores válidos de status: connected, disconnected, qr_pending, error
       const { data: newInstance, error: insertError } = await (supabase
         .from('channel_instances') as any)
-        .insert({
+        .upsert({
           organization_id: organizationId,
           channel: 'whatsapp',
           provider: 'waha',
@@ -400,7 +424,7 @@ export default function WhatsAppIntegrationWaha() {
           status: 'qr_pending', // Aguardando scan do QR Code
           is_enabled: true,
           is_default: true,
-        })
+        }, { onConflict: 'provider,instance_name' })
         .select()
         .single();
       
@@ -441,11 +465,12 @@ export default function WhatsAppIntegrationWaha() {
     
     try {
       // Atualizar no banco
+      // ⚠️ IMPORTANTE: status válidos = connected, disconnected, qr_pending, error
       const { error: updateError } = await (supabase
         .from('channel_instances') as any)
         .update({
           is_enabled: true,
-          status: 'connecting',
+          status: 'qr_pending',  // Aguardando reconexão via QR
           deleted_at: null,
           updated_at: new Date().toISOString(),
         })
@@ -579,13 +604,52 @@ export default function WhatsAppIntegrationWaha() {
       console.log('📡 [WAHA] Status recebido:', result);
 
       if (result.success && result.data) {
-        setSessionStatus(result.data.status as WAHAStatus);
-        
+        const status = result.data.status as WAHAStatus;
+        setSessionStatus(status);
+
         // Se status é SCAN_QR_CODE, buscar QR Code
-        if (result.data.status === 'SCAN_QR_CODE') {
+        if (status === 'SCAN_QR_CODE') {
           await fetchQRCode();
-        } else if (result.data.status === 'WORKING') {
+        } else if (status === 'WORKING') {
           setQrCode(null);
+        }
+
+        // ✅ Auto-start seguro quando a instância WAHA está habilitada
+        const shouldAutoStart =
+          wahaInstance?.is_enabled &&
+          (status === 'STOPPED' || status === 'FAILED' || status === 'NOT_FOUND');
+
+        if (shouldAutoStart) {
+          const now = Date.now();
+          const lastAttempt = autoStartRef.current || 0;
+          const throttleMs = 10_000;
+
+          if (now - lastAttempt > throttleMs) {
+            autoStartRef.current = now;
+
+            try {
+              if (status === 'NOT_FOUND') {
+                await channelsApi.waha.createSession({
+                  api_url: config.api_url.trim().replace(/\/$/, ''),
+                  api_key: config.api_key.trim(),
+                  session_name: config.session_name.trim(),
+                  webhook_url: webhookUrl,
+                });
+              } else {
+                await channelsApi.waha.startSession({
+                  api_url: config.api_url.trim().replace(/\/$/, ''),
+                  api_key: config.api_key.trim(),
+                  session_name: config.session_name.trim(),
+                });
+              }
+
+              setTimeout(() => {
+                void checkSessionStatus(config);
+              }, 2000);
+            } catch (autoErr) {
+              console.error('❌ [WAHA] Auto-start falhou:', autoErr);
+            }
+          }
         }
       }
     } catch (error) {

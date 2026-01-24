@@ -800,6 +800,55 @@ export const channelsApi = {
         return { success: false, error: error instanceof Error ? error.message : 'Erro ao criar sessão' };
       }
     },
+
+    /**
+     * Atualizar sessão WAHA (ex: configurar webhooks)
+     */
+    updateSession: async (config: {
+      api_url: string;
+      api_key: string;
+      session_name: string;
+      webhook_url?: string;
+    }): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+      try {
+        const cleanUrl = config.api_url.replace(/\/$/, '');
+
+        const body: Record<string, unknown> = {};
+        if (config.webhook_url) {
+          body.config = {
+            webhooks: [{
+              url: config.webhook_url,
+              events: ['message', 'message.any', 'session.status'],
+              retries: {
+                policy: 'exponential',
+                delaySeconds: 2,
+                attempts: 5
+              }
+            }]
+          };
+        }
+
+        const response = await fetch(`${cleanUrl}/api/sessions/${config.session_name}`, {
+          method: 'PUT',
+          headers: {
+            'X-Api-Key': config.api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          return { success: false, error: `Failed to update session: ${errorText}` };
+        }
+
+        const data = await response.json();
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Erro ao atualizar sessão' };
+      }
+    },
     
     /**
      * Iniciar sessão (obtém QR Code)
