@@ -252,78 +252,86 @@ export function ChatMessagePanel({
   })();
 
   // 🔄 Hook de Polling UNIFICADO (a cada 2 segundos) - suporta Evolution + WAHA
-  const { isPolling, lastUpdate, refresh: refreshPolling, activeProvider } = useChatPolling({
+  const { messages: polledMessages, isPolling, lastUpdate, refresh: refreshPolling, activeProvider } = useChatPolling({
     chatId: normalizedChatId,
     provider: detectedProvider,
     enabled: !isLoading && !!normalizedChatId && normalizedChatId.length > 10,
     intervalMs: 2000, // 2 segundos - mais responsivo
-    
-    // 📬 Nova mensagem detectada via polling!
-    onNewMessage: (polledMsg) => {
-      console.log(`[ChatPanel-Poll] 📬 Nova mensagem via ${polledMsg.provider}!`, {
-        from: polledMsg.from?.substring(0, 15),
-        body: polledMsg.body?.substring(0, 30),
-        fromMe: polledMsg.fromMe,
-      });
+  });
 
-      // Converter para ChatMessage
-      const newMessage: ChatMessage = {
-        id: polledMsg.id || `poll-${Date.now()}`,
+  // 📬 v2.6.0: Sincronizar mensagens do polling com estado local
+  // Mantém mensagens locais (optimistic updates) e adiciona as do polling
+  useEffect(() => {
+    if (!polledMessages || polledMessages.length === 0) return;
+
+    console.log(`[ChatPanel-Poll] 📬 Sincronizando ${polledMessages.length} mensagens do polling`);
+
+    setMessages(prev => {
+      // IDs das mensagens temp (optimistic updates)
+      const tempMessages = prev.filter(m => m.id.startsWith('temp-'));
+      
+      // Converter mensagens do polling para ChatMessage
+      const converted: ChatMessage[] = polledMessages.map(polledMsg => ({
+        id: polledMsg.id || `poll-${Date.now()}-${Math.random()}`,
         text: polledMsg.body || '',
         fromMe: polledMsg.fromMe ?? false,
         timestamp: new Date((polledMsg.timestamp || Date.now() / 1000) * 1000),
         status: polledMsg.fromMe ? 'delivered' : undefined,
         mediaType: polledMsg.mediaType as MediaType | undefined,
         mediaUrl: polledMsg.mediaUrl,
-      };
+      }));
 
-      // Adicionar à lista (evitando duplicatas)
-      setMessages(prev => {
-        // Verificar duplicata por ID exato
-        if (prev.some(m => m.id === newMessage.id)) {
-          console.log('[ChatPanel-Poll] 🔄 Ignorando - ID duplicado:', newMessage.id);
-          return prev;
-        }
-        
-        // Se é mensagem enviada por nós (fromMe), verificar se é duplicata de optimistic update
-        if (newMessage.fromMe) {
-          // Procurar mensagem temp com mesmo texto (pode estar pending OU sent)
-          const tempIndex = prev.findIndex(m => 
-            m.id.startsWith('temp-') && 
-            m.text === newMessage.text
-          );
-          if (tempIndex >= 0) {
-            console.log('[ChatPanel-Poll] 🔄 Substituindo temp por mensagem real:', {
-              tempId: prev[tempIndex].id,
-              realId: newMessage.id,
-            });
-            const updated = [...prev];
-            updated[tempIndex] = newMessage;
-            return updated;
-          }
-          
-          // Verificar se já existe mensagem com texto igual nos últimos 30s (evitar duplicata)
-          const recentDupe = prev.find(m => 
-            m.fromMe && 
-            m.text === newMessage.text &&
-            Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 30000 // 30s
-          );
-          if (recentDupe) {
-            console.log('[ChatPanel-Poll] 🔄 Ignorando - duplicata recente com texto igual');
-            return prev;
-          }
-        }
-        
-        console.log('[ChatPanel-Poll] ✅ Adicionando nova mensagem à lista');
-        return [...prev, newMessage].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      });
+      // Substituir mensagens temp por reais quando encontrar match
+      const finalMessages: ChatMessage[] = [];
+      const usedTempIds = new Set<string>();
 
-      // Scroll para baixo
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    },
-  });
+      for (const msg of converted) {
+        // Verificar se essa mensagem substitui uma temp
+        const matchingTemp = tempMessages.find(t => 
+          !usedTempIds.has(t.id) &&
+          t.text === msg.text &&
+          t.fromMe === msg.fromMe
+        );
+
+        if (matchingTemp) {
+          console.log('[ChatPanel-Poll] 🔄 Substituindo temp por real:', matchingTemp.id, '->', msg.id);
+          usedTempIds.add(matchingTemp.id);
+        }
+
+        finalMessages.push(msg);
+      }
+
+      // Manter mensagens temp que ainda não foram confirmadas
+      const pendingTemps = tempMessages.filter(t => !usedTempIds.has(t.id));
+      for (const temp of pendingTemps) {
+        // Só manter se não houver duplicata recente
+        const hasDupe = finalMessages.some(m => 
+          m.text === temp.text && 
+          m.fromMe === temp.fromMe &&
+          Math.abs(m.timestamp.getTime() - temp.timestamp.getTime()) < 30000
+        );
+        if (!hasDupe) {
+          finalMessages.push(temp);
+        }
+      }
+
+      // Ordenar por timestamp
+      const sorted = finalMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+      // Só atualizar se realmente mudou
+      if (JSON.stringify(sorted.map(m => m.id)) === JSON.stringify(prev.map(m => m.id))) {
+        return prev;
+      }
+
+      console.log('[ChatPanel-Poll] ✅ Lista atualizada:', sorted.length, 'mensagens');
+      return sorted;
+    });
+
+    // Scroll para baixo quando receber novas
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }, [polledMessages]);
 
   // ============================================
   // LOAD MESSAGES
