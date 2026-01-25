@@ -456,19 +456,13 @@ export function whatsappEvolutionRoutes(app: Hono) {
   // ==========================================================================
   // POST /rendizy-server/whatsapp/send-message - Enviar mensagem de texto
   // ==========================================================================
+  // @ARCHITECTURE v2.0.0: MULTI-PROVIDER (WAHA + Evolution)
+  // Detecta automaticamente qual provider usar baseado em channel_instances
+  // ==========================================================================
   app.post('/rendizy-server/make-server-67caf26a/whatsapp/send-message', async (c) => {
     try {
       // ✅ CORREÇÃO 1: Obter organization_id
       const organizationId = await getOrganizationIdOrThrow(c);
-
-      // ✅ CORREÇÃO 2: Buscar credenciais da organização
-      const config = await getEvolutionConfigForOrganization(organizationId) || getEvolutionConfigFromEnv();
-      
-      if (!config || !config.enabled) {
-        return c.json({ 
-          error: 'WhatsApp não configurado para esta organização. Configure em Settings → WhatsApp.' 
-        }, 400);
-      }
 
       const payload = await c.req.json();
       const { number, text, attachments: attachmentsFromClient, isInternal } = payload;
@@ -477,25 +471,86 @@ export function whatsappEvolutionRoutes(app: Hono) {
         return c.json({ error: 'Número e texto são obrigatórios' }, 400);
       }
 
-      console.log(`[WhatsApp] [${organizationId}] Enviando mensagem:`, { number, text });
-
-      const response = await fetch(
-        `${config.api_url}/message/sendText/${config.instance_name}`,
-        {
-          method: 'POST',
-          headers: getEvolutionMessagesHeaders(config),
-          body: JSON.stringify({ number, text }),
+      // ============================================================================
+      // @MULTI-PROVIDER: Detectar provider ativo (WAHA ou Evolution)
+      // ============================================================================
+      const activeChannel = await detectActiveWhatsAppProvider(organizationId);
+      
+      let response: Response;
+      let providerUsed: 'waha' | 'evolution' = 'evolution';
+      
+      if (activeChannel && activeChannel.provider === 'waha') {
+        // ========== ENVIAR VIA WAHA ==========
+        providerUsed = 'waha';
+        const wahaApiUrl = activeChannel.evolutionApiUrl; // Reutiliza campo api_url
+        const wahaApiKey = activeChannel.evolutionApiKey; // Reutiliza campo api_key
+        
+        // ⚠️ WAHA CORE: Sempre usa session 'default' (limitação da versão gratuita)
+        // WAHA PLUS: Poderia usar o instanceName configurado
+        // Para detectar automaticamente, verificamos se a instância responde
+        // Por ora, forçamos 'default' para compatibilidade com WAHA Core
+        const wahaSession = 'default'; // Força 'default' para WAHA Core
+        
+        if (!wahaApiUrl || !wahaApiKey) {
+          return c.json({ 
+            error: 'WAHA não configurado corretamente. Verifique api_url e api_key.' 
+          }, 400);
         }
-      );
+        
+        // Normalizar número para formato WAHA: 5521999999999@c.us
+        let chatId = number.replace(/\D/g, ''); // Só números
+        if (!chatId.endsWith('@c.us')) {
+          chatId = `${chatId}@c.us`;
+        }
+        
+        console.log(`[WhatsApp] [${organizationId}] 🟢 WAHA: Enviando para ${chatId} via session ${wahaSession}`);
+        
+        response = await fetch(
+          `${wahaApiUrl}/api/sendText`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Api-Key': wahaApiKey,
+            },
+            body: JSON.stringify({
+              session: wahaSession,
+              chatId,
+              text,
+            }),
+          }
+        );
+      } else {
+        // ========== ENVIAR VIA EVOLUTION (fallback) ==========
+        providerUsed = 'evolution';
+        const config = await getEvolutionConfigForOrganization(organizationId) || getEvolutionConfigFromEnv();
+        
+        if (!config || !config.enabled) {
+          return c.json({ 
+            error: 'WhatsApp não configurado para esta organização. Configure em Settings → WhatsApp.' 
+          }, 400);
+        }
+
+        console.log(`[WhatsApp] [${organizationId}] 🔵 Evolution: Enviando para ${number} via instance ${config.instance_name}`);
+
+        response = await fetch(
+          `${config.api_url}/message/sendText/${config.instance_name}`,
+          {
+            method: 'POST',
+            headers: getEvolutionMessagesHeaders(config),
+            body: JSON.stringify({ number, text }),
+          }
+        );
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[WhatsApp] [${organizationId}] Erro ao enviar mensagem:`, errorText);
-        return c.json({ error: 'Erro ao enviar mensagem', details: errorText }, response.status as any);
+        console.error(`[WhatsApp] [${organizationId}] ❌ ${providerUsed.toUpperCase()} Erro ao enviar mensagem:`, errorText);
+        return c.json({ error: 'Erro ao enviar mensagem', details: errorText, provider: providerUsed }, response.status as any);
       }
 
       const data = await response.json();
-      console.log(`[WhatsApp] [${organizationId}] Mensagem enviada com sucesso`);
+      console.log(`[WhatsApp] [${organizationId}] ✅ ${providerUsed.toUpperCase()} Mensagem enviada com sucesso`);
 
       // -------------------------
       // Persistir conversa + mensagem no banco SQL
@@ -503,14 +558,18 @@ export function whatsappEvolutionRoutes(app: Hono) {
       try {
         const client = getSupabaseClient();
 
+        // Normalizar número para busca (remover @c.us se presente)
+        const normalizedNumber = number.replace(/@c\.us$/, '').replace(/@s\.whatsapp\.net$/, '');
+
         // 1) Encontrar ou criar a conversation (external_conversation_id = number)
         let conversationId: string | null = null;
         try {
+          // Buscar por número normalizado OU com sufixo @c.us
           const { data: conv } = await client
             .from('conversations')
             .select('id')
             .eq('organization_id', organizationId)
-            .eq('external_conversation_id', number)
+            .or(`external_conversation_id.eq.${normalizedNumber},external_conversation_id.eq.${normalizedNumber}@c.us`)
             .maybeSingle();
 
           if (conv && (conv as any).id) {
@@ -526,11 +585,11 @@ export function whatsappEvolutionRoutes(app: Hono) {
               .eq('id', conversationId);
             console.log(`[WhatsApp] [${organizationId}] Conversa atualizada com last_message_at: ${conversationId}`);
           } else {
-            // criar conversa mínima
+            // criar conversa mínima - usar número normalizado
             const convInsert: any = {
               organization_id: organizationId,
-              external_conversation_id: number,
-              guest_phone: number.replace(/@.*/, ''),
+              external_conversation_id: providerUsed === 'waha' ? `${normalizedNumber}@c.us` : normalizedNumber,
+              guest_phone: normalizedNumber,
               channel: 'whatsapp',
               last_message: text,
               last_message_at: new Date().toISOString(),
@@ -560,7 +619,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
             external_id: externalId,
             external_status: 'sent',
             sent_at: new Date().toISOString(),
-            metadata: { isInternal: !!isInternal },
+            metadata: { isInternal: !!isInternal, provider: providerUsed },
           };
 
           // Insert message. If table or columns don't exist, catch error and continue.
@@ -575,7 +634,7 @@ export function whatsappEvolutionRoutes(app: Hono) {
         console.warn('[WhatsApp] Erro ao persistir dados no Supabase:', err);
       }
 
-      return c.json({ success: true, data });
+      return c.json({ success: true, data, provider: providerUsed });
     } catch (error) {
       console.error('[WhatsApp] Erro em send-message:', error);
       if (error instanceof Error && error.message.includes('organization')) {
