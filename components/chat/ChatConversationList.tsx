@@ -339,13 +339,18 @@ export function ChatConversationList({
         if (conv.external_conversation_id) conversationsMap.set(conv.external_conversation_id, conv);
       });
       
-      // ✅ v2.2.0: Filtrar apenas chats individuais (não grupos, não status)
+      // ✅ v2.7.0: Filtrar chats - remover grupos, status e leads Meta (@lid)
+      // Leads Meta são contatos antigos do Meta Ads que não são conversas WhatsApp reais
       const individualChats = chats.filter(chat => {
         const jid = chat.id || '';
-        return jid && jid.length > 5 && !jid.includes('@g.us') && !jid.includes('status@');
+        if (!jid || jid.length < 5) return false;
+        if (jid.includes('@g.us')) return false;      // Grupos
+        if (jid.includes('status@')) return false;    // Status
+        if (jid.includes('@lid')) return false;       // Leads Meta (não são WhatsApp real)
+        return true;
       });
       
-      console.log(`[ChatConversationList] 📊 ${chats.length} total chats, ${individualChats.length} individuais`);
+      console.log(`[ChatConversationList] 📊 ${chats.length} total chats, ${individualChats.length} individuais (sem leads Meta)`);
       
       // 🔍 DEBUG: Verificar providers dos primeiros chats
       const first5 = chats.slice(0, 5);

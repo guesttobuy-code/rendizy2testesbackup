@@ -271,6 +271,7 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
   const [sessions, setSessions] = useState<WAHASession[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [wahaTier, setWahaTier] = useState<'CORE' | 'PLUS' | null>(null); // Detectar tier
   
   // Sub-modais
   const [showAddModal, setShowAddModal] = useState(false);
@@ -286,6 +287,10 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
   
   // Webhook URL
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/chat/channels/waha/webhook`;
+  
+  // WAHA Core só suporta 1 sessão "default"
+  const isWahaCore = wahaTier === 'CORE';
+  const canAddMoreSessions = !isWahaCore || sessions.length === 0;
 
   // ============================================================================
   // FETCH QR CODE (definido antes dos useEffects que precisam dele)
@@ -316,6 +321,28 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
   }, [wahaConfig]);
 
   // ============================================================================
+  // DETECT WAHA TIER (Core vs Plus)
+  // ============================================================================
+  const detectWahaTier = useCallback(async () => {
+    if (!wahaConfig.api_url || !wahaConfig.api_key) return;
+    
+    try {
+      const response = await fetch(`${wahaConfig.api_url}/api/version`, {
+        headers: { 'X-Api-Key': wahaConfig.api_key }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const tier = data.tier?.toUpperCase() || 'CORE';
+        setWahaTier(tier === 'PLUS' ? 'PLUS' : 'CORE');
+        console.log('[WAHA Manager] Tier detectado:', tier);
+      }
+    } catch (error) {
+      console.error('Erro ao detectar tier WAHA:', error);
+      setWahaTier('CORE'); // Assume Core se não conseguir detectar
+    }
+  }, [wahaConfig]);
+
+  // ============================================================================
   // LOAD SESSIONS
   // ============================================================================
 
@@ -327,6 +354,9 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
     
     setLoading(true);
     try {
+      // 0. Detectar tier (Core vs Plus)
+      await detectWahaTier();
+      
       // 1. Buscar sessões do servidor WAHA
       const result = await channelsApi.waha.listSessions({
         api_url: wahaConfig.api_url,
@@ -372,7 +402,7 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
     } finally {
       setLoading(false);
     }
-  }, [wahaConfig, organizationId]);
+  }, [wahaConfig, organizationId, detectWahaTier]);
 
   useEffect(() => {
     if (open) {
@@ -412,29 +442,19 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
       return;
     }
     
-    // WAHA Core só suporta sessão "default"
-    const sessionName = 'default';
+    // Gerar nome único baseado na descrição (slug) + timestamp
+    const slug = newDescription.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 20);
+    const sessionName = sessions.length === 0 ? 'default' : `${slug}-${Date.now().toString(36)}`;
     
     setCreating(true);
     try {
-      // 1. Verificar se já existe instância no banco
       const supabase = getSupabaseClient();
-      const { data: existingInstance } = await supabase
-        .from('channel_instances')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('provider', 'waha')
-        .eq('instance_name', sessionName)
-        .is('deleted_at', null)
-        .maybeSingle();
       
-      if (existingInstance) {
-        toast.error('❌ Já existe uma sessão WAHA ativa. Use o botão de atualizar ou exclua a existente.');
-        setCreating(false);
-        return;
-      }
-      
-      // 2. Criar sessão no servidor WAHA (sempre "default" no WAHA Core)
+      // 2. Criar sessão no servidor WAHA
       const result = await channelsApi.waha.createSession({
         api_url: wahaConfig.api_url,
         api_key: wahaConfig.api_key,
@@ -454,6 +474,7 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
       }
       
       // 3. Salvar metadados no banco (channel_instances)
+      const isFirstSession = sessions.length === 0;
       const { error: dbError } = await supabase
         .from('channel_instances')
         .insert({
@@ -468,7 +489,7 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
           webhook_url: webhookUrl,
           status: 'connecting',
           is_enabled: true,
-          is_default: true,
+          is_default: isFirstSession, // Só a primeira é default
         });
       
       if (dbError) {
@@ -677,7 +698,7 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
               Gerenciar Sessões WAHA
             </DialogTitle>
             <DialogDescription>
-              Gerencie múltiplos números de WhatsApp via WAHA
+              Gerencie seu número de WhatsApp via WAHA
             </DialogDescription>
           </DialogHeader>
 
@@ -714,6 +735,17 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
                     onStart={() => handleStartSession(session)}
                   />
                 ))}
+                
+                {/* Aviso sobre limitação do WAHA Core */}
+                {isWahaCore && sessions.length > 0 && (
+                  <Alert className="bg-amber-50 border-amber-200 mt-4">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-amber-800 text-sm">
+                      <strong>WAHA Core</strong> suporta apenas 1 número. 
+                      Upgrade para <a href="https://waha.devlike.pro/" target="_blank" rel="noopener" className="underline font-medium">WAHA Plus</a> para múltiplos números.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             )}
           </div>
@@ -729,9 +761,8 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
             </Button>
             <Button
               onClick={() => setShowAddModal(true)}
-              disabled={!wahaConfig.api_url || !wahaConfig.api_key || sessions.length > 0}
+              disabled={!wahaConfig.api_url || !wahaConfig.api_key}
               className="bg-green-600 hover:bg-green-700"
-              title={sessions.length > 0 ? 'WAHA Core suporta apenas 1 sessão' : ''}
             >
               <Plus className="w-4 h-4 mr-2" />
               Conectar WhatsApp
@@ -751,14 +782,6 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <Alert className="bg-amber-50 border-amber-200">
-              <AlertCircle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800 text-sm">
-                <strong>WAHA Core (gratuito)</strong> suporta apenas 1 número WhatsApp.
-                Para múltiplos números, é necessário o <a href="https://waha.devlike.pro/" target="_blank" rel="noopener" className="underline">WAHA Plus</a>.
-              </AlertDescription>
-            </Alert>
-
             <div>
               <Label htmlFor="description">Nome/Descrição *</Label>
               <Input

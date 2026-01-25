@@ -152,20 +152,63 @@ export class EvolutionAdapter implements IWhatsAppAdapter {
   
   async fetchChats(limit = 50): Promise<NormalizedWhatsAppChat[]> {
     try {
-      // ✅ v2.1.1: Evolution API usa POST para findChats
-      const chats = await this.fetch<any[]>(
-        `/chat/findChats/${this.config.instanceName}`,
-        {
-          method: 'POST',
-          body: JSON.stringify({}),
+      // ✅ v2.6.0: Buscar chats E contatos em paralelo para obter nomes
+      // A API Evolution retorna chats sem pushName, precisamos do endpoint findContacts
+      const [chats, contacts] = await Promise.all([
+        this.fetch<any[]>(
+          `/chat/findChats/${this.config.instanceName}`,
+          {
+            method: 'POST',
+            body: JSON.stringify({}),
+          }
+        ),
+        this.fetchContacts().catch(() => [] as any[]), // Fallback se falhar
+      ]);
+      
+      // Criar mapa de contatos: remoteJid -> { pushName, profilePicUrl }
+      const contactsMap = new Map<string, { pushName?: string; profilePicUrl?: string }>();
+      for (const contact of contacts) {
+        if (contact.remoteJid) {
+          contactsMap.set(contact.remoteJid, {
+            pushName: contact.pushName,
+            profilePicUrl: contact.profilePicUrl,
+          });
         }
-      );
+      }
       
-      console.log(`[EvolutionAdapter] ✅ Fetched ${chats?.length || 0} chats`);
+      // ✅ v2.7.0: Filtrar leads Meta ANTES do limit
+      // Leads (@lid) são contatos do Meta Ads, não conversas WhatsApp reais
+      const whatsappChats = (chats || []).filter(chat => {
+        const jid = chat.remoteJid || chat.id || '';
+        return !jid.includes('@lid'); // Remover leads Meta
+      });
       
-      return (chats || []).slice(0, limit).map(chat => this.normalizeChat(chat));
+      console.log(`[EvolutionAdapter] ✅ Fetched ${chats?.length || 0} chats (${whatsappChats.length} WhatsApp), ${contacts.length} contacts`);
+      
+      // Normalizar chats com dados dos contatos
+      return whatsappChats.slice(0, limit).map(chat => this.normalizeChat(chat, contactsMap));
     } catch (error) {
       console.error('[EvolutionAdapter] ❌ fetchChats failed:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * ✅ v2.6.0: Buscar contatos da Evolution API para obter pushName
+   * O endpoint findChats não retorna nomes, precisamos cruzar com findContacts
+   */
+  private async fetchContacts(): Promise<any[]> {
+    try {
+      const contacts = await this.fetch<any[]>(
+        `/chat/findContacts/${this.config.instanceName}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ where: {} }),
+        }
+      );
+      return contacts || [];
+    } catch (error) {
+      console.warn('[EvolutionAdapter] ⚠️ fetchContacts failed, chats will not have names:', error);
       return [];
     }
   }
@@ -324,16 +367,24 @@ export class EvolutionAdapter implements IWhatsAppAdapter {
   // NORMALIZERS
   // ============================================================
   
-  private normalizeChat(raw: any): NormalizedWhatsAppChat {
-    // ✅ v2.5.1: Evolution API retorna remoteJid como identificador principal do chat
+  private normalizeChat(
+    raw: any,
+    contactsMap?: Map<string, { pushName?: string; profilePicUrl?: string }>
+  ): NormalizedWhatsAppChat {
+    // ✅ v2.6.0: Evolution API retorna remoteJid como identificador principal do chat
     // O campo "id" é um ID interno do banco de dados, não o JID do WhatsApp
     const id = raw.remoteJid || raw.id || '';
     const isGroup = id.endsWith('@g.us');
     
+    // ✅ v2.6.0: Buscar nome do contato no mapa (dados vêm de findContacts)
+    const contactData = contactsMap?.get(id);
+    const name = raw.name || raw.pushName || raw.notify || contactData?.pushName || this.formatPhoneForDisplay(id);
+    const profilePicUrl = raw.profilePictureUrl || raw.profilePicUrl || contactData?.profilePicUrl;
+    
     return {
       id,
-      name: raw.name || raw.pushName || raw.notify || this.extractPhone(id),
-      profilePicUrl: raw.profilePictureUrl || raw.profilePicUrl,
+      name,
+      profilePicUrl,
       lastMessage: raw.lastMessage ? {
         text: this.extractTextFromMessage(raw.lastMessage),
         timestamp: raw.lastMessage.messageTimestamp || Math.floor(Date.now() / 1000),
@@ -343,6 +394,40 @@ export class EvolutionAdapter implements IWhatsAppAdapter {
       isGroup,
       updatedAt: raw.updatedAt ? new Date(raw.updatedAt).getTime() / 1000 : undefined,
     };
+  }
+  
+  /**
+   * ✅ v2.6.0: Formatar número de telefone para exibição amigável
+   * Ex: 5521994414512 -> +55 (21) 99441-4512
+   */
+  private formatPhoneForDisplay(jid: string): string {
+    const phone = this.extractPhone(jid);
+    if (!phone || phone.length < 10) return phone || 'Desconhecido';
+    
+    // Detectar se é lead do Meta (@lid) - não tem formato de telefone
+    if (jid.includes('@lid')) {
+      return 'Lead Meta';
+    }
+    
+    // Formato brasileiro: DDI + DDD + número
+    // 55 21 99441-4512
+    if (phone.startsWith('55') && phone.length >= 12) {
+      const ddi = phone.slice(0, 2);
+      const ddd = phone.slice(2, 4);
+      let number = phone.slice(4);
+      
+      // Formatar número (ex: 994414512 -> 99441-4512)
+      if (number.length === 9) {
+        number = `${number.slice(0, 5)}-${number.slice(5)}`;
+      } else if (number.length === 8) {
+        number = `${number.slice(0, 4)}-${number.slice(4)}`;
+      }
+      
+      return `+${ddi} (${ddd}) ${number}`;
+    }
+    
+    // Formato genérico para outros países
+    return `+${phone}`;
   }
   
   private normalizeMessage(raw: any, chatId: string): NormalizedWhatsAppMessage {

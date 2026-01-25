@@ -41,6 +41,7 @@
  */
 
 import { projectId, publicAnonKey } from './supabase/info';
+import { fetchChatMessages as fetchEvolutionMessages } from './chat/unifiedChatService';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/rendizy-server`;
 
@@ -280,6 +281,7 @@ async function fetchWhatsAppChatsDirect(): Promise<WhatsAppChat[]> {
 /**
  * Buscar mensagens de uma conversa específica
  * v2.0.5: Fallback direto para WAHA quando backend offline ou retorna 0 mensagens
+ * v2.6.0: Suporte a Evolution API via unifiedChatService
  */
 export async function fetchWhatsAppMessages(chatId: string, limit: number = 50): Promise<WhatsAppMessage[]> {
   try {
@@ -290,15 +292,46 @@ export async function fetchWhatsAppMessages(chatId: string, limit: number = 50):
       return [];
     }
     
+    // ✅ v2.6.0: Detectar provider pelo formato do JID
+    const isEvolution = chatId.includes('@s.whatsapp.net');
+    const isWaha = chatId.includes('@c.us') || chatId.includes('@lid');
+    
+    // ✅ v2.6.0: Se for Evolution, usar o adapter diretamente
+    if (isEvolution) {
+      console.log('[WhatsApp Chat API] 📥 Detectado Evolution, usando unifiedChatService para:', chatId);
+      try {
+        const messages = await fetchEvolutionMessages(chatId, limit);
+        console.log('[WhatsApp Chat API] ✅ Mensagens via Evolution:', messages.length);
+        if (messages.length > 0) {
+          console.log('[WhatsApp Chat API] 📦 Primeira msg Evolution:', messages[0]?.id, messages[0]?.text?.substring(0, 30));
+        }
+        // Converter para formato WhatsAppMessage
+        return messages.map((msg: any) => ({
+          key: { id: msg.id, fromMe: msg.fromMe, remoteJid: msg.remoteJid },
+          id: msg.id,
+          body: msg.text,
+          message: { conversation: msg.text },
+          messageTimestamp: msg.timestamp,
+          fromMe: msg.fromMe,
+          hasMedia: msg.mediaType && msg.mediaType !== 'text',
+          type: msg.mediaType || 'text',
+          media: msg.mediaUrl ? { url: msg.mediaUrl, mimetype: msg.mediaMimetype } : undefined,
+        }));
+      } catch (evoError) {
+        console.error('[WhatsApp Chat API] ❌ Erro Evolution:', evoError);
+        return [];
+      }
+    }
+    
     // ✅ v2.0.5: Garantir formato correto do chatId para WAHA
     let wahaChatId = chatId;
     if (!chatId.includes('@')) {
-      // Se for apenas número, adicionar sufixo
+      // Se for apenas número, adicionar sufixo WAHA
       const cleanNumber = chatId.replace(/\D/g, '');
       wahaChatId = `${cleanNumber}@c.us`;
     }
     
-    console.log('[WhatsApp Chat API] 📥 Buscando mensagens do chat:', wahaChatId);
+    console.log('[WhatsApp Chat API] 📥 Buscando mensagens WAHA:', wahaChatId);
     
     // Tentar backend primeiro
     try {

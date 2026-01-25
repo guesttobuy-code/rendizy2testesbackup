@@ -21,7 +21,7 @@ import { fetchMessagesForChat, type NormalizedMessage } from '../utils/chat/unif
 // CONSTANTS
 // ============================================
 
-const DEFAULT_POLL_INTERVAL_MS = 3000; // 3 segundos
+const DEFAULT_POLL_INTERVAL_MS = 5000; // 5 segundos (era 3, causava muitos requests)
 
 // ============================================
 // TYPES
@@ -248,6 +248,12 @@ export function useChatPolling(options: UseChatPollingOptions): UseChatPollingRe
     console.log('[ChatPolling] ⏹️ Polling parado');
   }, []);
 
+  // Ref para fetchMessages (evita recrear start a cada render)
+  const fetchMessagesRef = useRef(fetchMessages);
+  useEffect(() => {
+    fetchMessagesRef.current = fetchMessages;
+  }, [fetchMessages]);
+
   const start = useCallback(() => {
     if (isActiveRef.current) return;
     
@@ -255,12 +261,14 @@ export function useChatPolling(options: UseChatPollingOptions): UseChatPollingRe
     setIsPolling(true);
     
     // Buscar imediatamente
-    fetchMessages();
+    fetchMessagesRef.current();
     
     // Iniciar intervalo
-    intervalRef.current = setInterval(fetchMessages, intervalMs);
+    intervalRef.current = setInterval(() => {
+      fetchMessagesRef.current();
+    }, intervalMs);
     console.log(`[ChatPolling] ▶️ Polling iniciado (${intervalMs}ms)`);
-  }, [fetchMessages, intervalMs]);
+  }, [intervalMs]); // Apenas intervalMs como dependência!
 
   const refresh = useCallback(async () => {
     console.log('[ChatPolling] 🔄 Refresh manual');
@@ -271,16 +279,43 @@ export function useChatPolling(options: UseChatPollingOptions): UseChatPollingRe
   // EFFECTS
   // ============================================
 
-  // Iniciar/parar baseado em enabled
+  // Iniciar/parar baseado em enabled e chatId
   useEffect(() => {
+    // Limpar polling anterior
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    isActiveRef.current = false;
+    
     if (enabled && chatId && chatId.length > 5) {
-      start();
+      // Iniciar novo polling
+      isActiveRef.current = true;
+      setIsPolling(true);
+      
+      // Buscar imediatamente
+      fetchMessagesRef.current();
+      
+      // Iniciar intervalo
+      intervalRef.current = setInterval(() => {
+        if (isActiveRef.current) {
+          fetchMessagesRef.current();
+        }
+      }, intervalMs);
+      
+      console.log(`[ChatPolling] ▶️ Polling iniciado para ${chatId} (${intervalMs}ms)`);
     } else {
-      stop();
+      setIsPolling(false);
     }
     
-    return () => stop();
-  }, [enabled, chatId, start, stop]);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      isActiveRef.current = false;
+    };
+  }, [enabled, chatId, intervalMs]); // Apenas valores primitivos!
 
   // Limpar ao desmontar
   useEffect(() => {
