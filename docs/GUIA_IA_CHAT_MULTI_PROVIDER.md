@@ -1,6 +1,38 @@
-# 🤖 GUIA RÁPIDO IA - Chat Multi-Provider v2.0
+# 🤖 GUIA RÁPIDO IA - Chat Multi-Provider v2.1
 
 > **LEIA ANTES DE MODIFICAR QUALQUER CÓDIGO DE CHAT**
+> **Última atualização**: 2026-01-24 17:30
+
+---
+
+## 🔥 CORREÇÕES CRÍTICAS v2.1 (DEVE SABER)
+
+### Evolution API Quirks (descoberto 2026-01-24)
+
+**1. Chat ID usa `remoteJid`, NÃO `id`:**
+```typescript
+// ❌ ERRADO - raw.id é ID interno do banco
+const jid = raw.id || raw.remoteJid;
+
+// ✅ CORRETO - raw.remoteJid é o WhatsApp JID
+const jid = raw.remoteJid || raw.id;
+```
+
+**2. Messages vem em nested object:**
+```typescript
+// ❌ ERRADO - não existe response.messages como array
+const msgs = response.messages || [];
+
+// ✅ CORRETO - Evolution retorna { messages: { records: [...] } }
+const msgs = response.messages?.records || response.messages || [];
+```
+
+**3. JID Detection por formato:**
+```typescript
+// Detectar provider pelo JID
+if (jid.includes('@s.whatsapp.net')) return 'evolution';
+if (jid.includes('@c.us') || jid.includes('@lid')) return 'waha';
+```
 
 ---
 
@@ -38,26 +70,47 @@ const jid = await normalizeJidForCurrentProvider(phone);
 ## 📁 Estrutura de Arquivos
 
 ```
-utils/chat/
-├── index.ts                    # ✅ Entry point - USE ESTE
-├── unifiedChatService.ts       # ✅ Serviço unificado (auto-detecta provider)
-├── adapters/
-│   ├── index.ts                # Factory com getWhatsAppAdapter()
-│   ├── types.ts                # IWhatsAppAdapter, NormalizedWhatsAppMessage
-│   ├── evolutionAdapter.ts     # Adapter Evolution API (@s.whatsapp.net)
-│   └── wahaAdapter.ts          # Adapter WAHA (@c.us)
-├── providers/
-│   ├── whatsapp.ts             # Provider alto nível (usa adapters)
-│   ├── airbnb.ts               # Stub - implementar
-│   └── booking.ts              # Stub - implementar
-└── registry.ts                 # Registry de providers
+src/
+├── components/chat/
+│   ├── ChatConversationList.tsx  # Lista + filtro por provider
+│   ├── ChatMessagePanel.tsx      # Painel com useChatPolling
+│   └── ChatInbox.tsx             # Inbox principal
+├── hooks/
+│   ├── useChatPolling.ts         # ✅ NOVO - Hook unificado Evolution+WAHA
+│   └── useWahaPolling.ts         # Legacy - ainda funciona
+└── utils/chat/
+    ├── index.ts                   # ✅ Entry point - USE ESTE
+    ├── unifiedChatService.ts      # ✅ Serviço unificado (auto-detecta provider)
+    ├── instanceCleanupService.ts  # ✅ NOVO - Cleanup ghost instances
+    ├── adapters/
+    │   ├── index.ts               # Factory com getWhatsAppAdapter()
+    │   ├── types.ts               # IWhatsAppAdapter, NormalizedWhatsAppMessage
+    │   ├── evolutionAdapter.ts    # Adapter Evolution API (@s.whatsapp.net) - CORRIGIDO
+    │   └── wahaAdapter.ts         # Adapter WAHA (@c.us)
+    ├── providers/
+    │   ├── whatsapp.ts            # Provider alto nível (usa adapters)
+    │   ├── airbnb.ts              # Stub - implementar
+    │   └── booking.ts             # Stub - implementar
+    └── registry.ts                # Registry de providers
 ```
 
 ---
 
 ## 🔌 Como Usar
 
-### Buscar Mensagens
+### Polling de Mensagens (Recomendado v2.1)
+```typescript
+import { useChatPolling } from '../hooks/useChatPolling';
+
+// Hook unificado - auto-detecta Evolution vs WAHA pelo JID
+const { messages, loading, error } = useChatPolling({
+  conversationId: '5521999887766@s.whatsapp.net', // ou @c.us
+  isEnabled: true,
+  pollingInterval: 2000,
+});
+```
+
+### Buscar Mensagens (API direta)
 ```typescript
 import { fetchChatMessages } from '../utils/chat';
 

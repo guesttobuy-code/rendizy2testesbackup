@@ -1,14 +1,70 @@
-# CHANGELOG - Chat Multi-Provider Architecture v2.0.0
+# CHANGELOG - Chat Multi-Provider Architecture v2.1.0
 
-**Data**: 2026-01-24  
-**Versão**: 2.0.0  
-**ADR**: [ADR-010-CHAT-MULTI-PROVIDER-ARCHITECTURE.md](./ADR/ADR-010-CHAT-MULTI-PROVIDER-ARCHITECTURE.md)
+**Data**: 2026-01-24 (atualizado 2026-01-24 17:30)  
+**Versão**: 2.1.0  
+**ADR**: [ADR-010-CHAT-MULTI-PROVIDER-ARCHITECTURE.md](./ADR/ADR-010-CHAT-MULTI-PROVIDER-ARCHITECTURE.md)  
+**Commit**: `b683b66` (21 files changed, 4268 insertions)
 
 ---
 
 ## 🎯 Resumo
 
 Implementação de arquitetura escalável para suportar múltiplos providers de chat (WhatsApp Evolution, WhatsApp WAHA, Airbnb, Booking, SMS) com detecção automática de provider e normalização de JIDs.
+
+---
+
+## 🔥 Correções v2.1.0 (Latest)
+
+### Evolution API Response Structure Fixes
+
+**Problema**: Evolution estava mostrando "offline" e não carregava mensagens.
+
+**Causa raiz descoberta**:
+1. Evolution API retorna `remoteJid` (não `id`) como identificador WhatsApp JID
+2. Evolution API retorna `{ messages: { records: [...] } }` (não `{ messages: [...] }`)
+
+**Arquivos corrigidos**:
+
+| Arquivo | Correção |
+|---------|----------|
+| `evolutionAdapter.ts` | `normalizeChat()`: Usar `raw.remoteJid \|\| raw.id` |
+| `evolutionAdapter.ts` | `fetchMessages()`: Parse `response.messages.records` |
+| `useChatPolling.ts` | **NOVO** - Hook unificado Evolution + WAHA |
+| `ChatMessagePanel.tsx` | Usa `useChatPolling` em vez de `useWahaPolling` |
+| `ChatConversationList.tsx` | UI de filtro por provider + botão testar |
+| `instanceCleanupService.ts` | **NOVO** - Auto-cleanup ghost instances |
+
+### Detalhes Técnicos
+
+```typescript
+// ANTES (errado) - evolutionAdapter.ts normalizeChat()
+const jid = raw.id || raw.remoteJid;
+
+// DEPOIS (correto)
+const jid = raw.remoteJid || raw.id;
+// Evolution retorna 'id' como ID interno do banco, 'remoteJid' é o WhatsApp JID
+
+// ANTES (errado) - evolutionAdapter.ts fetchMessages()
+const msgs = response.messages || [];
+
+// DEPOIS (correto)
+const msgs = response.messages?.records || response.messages || [];
+// Evolution API v2 retorna { messages: { records: [...] } }
+```
+
+### Novo Hook `useChatPolling`
+
+```typescript
+// Suporta AMBOS os providers automaticamente
+const { messages, loading, error } = useChatPolling({
+  conversationId: '5521999887766@s.whatsapp.net',
+  isEnabled: true,
+  pollingInterval: 2000,
+});
+// Auto-detecta provider pelo formato do JID:
+// - @s.whatsapp.net → Evolution
+// - @c.us ou @lid → WAHA
+```
 
 ---
 
@@ -19,15 +75,22 @@ Implementação de arquitetura escalável para suportar múltiplos providers de 
 | Arquivo | Descrição |
 |---------|-----------|
 | `types.ts` | Interfaces `IWhatsAppAdapter`, `NormalizedWhatsAppMessage`, `NormalizedWhatsAppChat` |
-| `evolutionAdapter.ts` | Adapter para Evolution API v2 (JID: `@s.whatsapp.net`) |
+| `evolutionAdapter.ts` | Adapter para Evolution API v2 (JID: `@s.whatsapp.net`) - **corrigido v2.1** |
 | `wahaAdapter.ts` | Adapter para WAHA (JID: `@c.us`) |
 | `index.ts` | Factory com `getWhatsAppAdapter()` e cache de adapters |
 
-### Serviço Unificado
+### Hooks (`hooks/`)
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `unifiedChatService.ts` | Camada de abstração que auto-detecta provider |
+| `useChatPolling.ts` | **NOVO v2.1** - Hook unificado para polling de mensagens Evolution + WAHA |
+
+### Serviços (`utils/chat/`)
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `unifiedChatService.ts` | Camada de abstração que auto-detecta provider + `fetchMessagesForChat()` |
+| `instanceCleanupService.ts` | **NOVO v2.1** - Auto-cleanup de ghost/orphan instances |
 
 ### Documentação
 
@@ -35,25 +98,39 @@ Implementação de arquitetura escalável para suportar múltiplos providers de 
 |---------|-----------|
 | `docs/ADR/ADR-010-CHAT-MULTI-PROVIDER-ARCHITECTURE.md` | ADR completo da arquitetura |
 | `docs/CHANGELOG-2026-01-24-CHAT-MULTI-PROVIDER.md` | Este arquivo |
+| `docs/GUIA_IA_CHAT_MULTI_PROVIDER.md` | Guia rápido para IA |
 
 ---
 
 ## 📝 Arquivos Modificados
 
-### `components/WhatsAppConversation.tsx`
-- **Versão**: 1.0.104.001 → 2.0.0
+### `components/chat/ChatConversationList.tsx`
+- **Versão**: v2.1.0
 - **Mudanças**:
-  - Importa `fetchChatMessages` e `sendChatMessage` do `unifiedChatService`
-  - Função `loadMessages()` simplificada - adapter normaliza JID automaticamente
-  - Função `handleSendMessage()` usa `sendChatMessage()` unificado
-  - Suporte a mídia Base64 (WAHA) e URL (Evolution)
+  - Adicionado filtro `🧪 Testar Provider` (Evolution/WAHA/Todos)
+  - Botão "Aplicar Filtro / Recarregar" para testar providers isoladamente
+  - Indicadores visuais de provider nos botões de instância (🟢 E / 🟢 W)
+  - Cores distintas: Evolution `#128C7E` (verde escuro), WAHA `#25D366` (verde claro)
 
-### `utils/chat/index.ts`
-- **Versão**: 1.0.0 → 2.0.0
+### `components/chat/ChatMessagePanel.tsx`
+- **Versão**: v2.1.0
 - **Mudanças**:
-  - Novos exports: `fetchChatMessages`, `sendChatMessage`, `getWhatsAppAdapter`, etc.
-  - Header atualizado com diagrama da arquitetura
-  - Re-export de tipos dos adapters
+  - Usa novo hook `useChatPolling` em vez de `useWahaPolling`
+  - Auto-detecção de provider pelo formato do JID
+  - Suporte a polling unificado para ambos providers
+
+### `utils/chat/adapters/evolutionAdapter.ts`
+- **Versão**: v2.1.0
+- **Correções críticas**:
+  - `normalizeChat()`: Usa `raw.remoteJid || raw.id` (antes era invertido)
+  - `fetchMessages()`: Parse correto de `response.messages.records`
+
+### `utils/chat/unifiedChatService.ts`
+- **Versão**: v2.1.0
+- **Adições**:
+  - Interface `NormalizedMessage`
+  - Função `fetchMessagesForChat()`
+  - Suporte a multi-instância com mapeamento de providers
 
 ---
 

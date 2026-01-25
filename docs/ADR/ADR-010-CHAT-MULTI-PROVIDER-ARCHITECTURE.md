@@ -1,7 +1,7 @@
 # ADR-010: Chat Multi-Provider Architecture
 
 ## Status
-**ACCEPTED** - 2026-01-24
+**IMPLEMENTED** - 2026-01-24 (commit b683b66)
 
 ## Context
 
@@ -106,6 +106,26 @@ Cada adapter normaliza JIDs para seu formato esperado:
 | WAHA       | `5521999@c.us`           | `123456@g.us`     |
 | Cloud API  | `5521999`                | `group_id`        |
 
+**⚠️ IMPORTANTE - Quirks da Evolution API descobertos em 2026-01-24:**
+
+1. **Chat IDs**: Evolution retorna `remoteJid` (não `id`) como o WhatsApp JID:
+   ```typescript
+   // Errado: raw.id → retorna ID interno do banco
+   // Correto: raw.remoteJid → retorna o JID do WhatsApp
+   const jid = raw.remoteJid || raw.id;
+   ```
+
+2. **Messages Response**: Evolution retorna nested object:
+   ```typescript
+   // Response structure:
+   { messages: { records: [...] } }
+   // NÃO:
+   { messages: [...] }
+   
+   // Parse correto:
+   const msgs = response.messages?.records || response.messages || [];
+   ```
+
 ```typescript
 interface WhatsAppAdapter {
   normalizeJid(input: string): string;
@@ -165,12 +185,18 @@ CREATE TABLE conversations (
 
 ## Implementation Plan
 
-### Fase 1 (Atual - 2026-01-24)
+### Fase 1 (Concluída - 2026-01-24)
 - [x] Criar ADR-010
 - [x] Implementar `EvolutionAdapter` com JID correto
 - [x] Implementar `WahaAdapter` mantendo código atual
 - [x] Criar `WhatsAppProviderFactory` com detecção automática
-- [ ] Atualizar `WhatsAppConversation.tsx` para usar factory
+- [x] Corrigir `normalizeChat()` para usar `remoteJid`
+- [x] Corrigir `fetchMessages()` para parse de `messages.records`
+- [x] Criar `useChatPolling` hook unificado
+- [x] Criar `instanceCleanupService` para ghost instances
+- [x] Atualizar `ChatMessagePanel` para usar polling unificado
+- [x] Adicionar UI de filtro por provider em `ChatConversationList`
+- [x] Commit & push (b683b66)
 
 ### Fase 2 (Próxima)
 - [ ] Implementar Airbnb Provider (API webhook)
@@ -189,25 +215,34 @@ CREATE TABLE conversations (
 ## Code References
 
 ```
-utils/chat/
-├── index.ts                    # Entry point e exports
-├── types.ts                    # Interfaces e tipos
-├── registry.ts                 # Provider registry
-├── unifiedChatService.ts       # Serviço unificado (NOVO)
-├── providers/
-│   ├── index.ts
-│   ├── whatsapp.ts             # WhatsApp provider
-│   ├── airbnb.ts               # Airbnb provider (stub)
-│   └── booking.ts              # Booking provider (stub)
-└── adapters/
-    ├── index.ts                # Adapter exports (NOVO)
-    ├── evolutionAdapter.ts     # Evolution API adapter (NOVO)
-    ├── wahaAdapter.ts          # WAHA adapter (NOVO)
-    └── types.ts                # Adapter interfaces (NOVO)
+src/
+├── components/chat/
+│   ├── ChatConversationList.tsx   # Lista + filtro provider (ATUALIZADO)
+│   ├── ChatMessagePanel.tsx       # Painel mensagens + useChatPolling (ATUALIZADO)
+│   └── ChatInbox.tsx              # Inbox principal
+├── hooks/
+│   ├── useChatPolling.ts          # NOVO - Hook unificado Evolution+WAHA
+│   └── useWahaPolling.ts          # Legacy - ainda funciona
+└── utils/chat/
+    ├── index.ts                    # Entry point e exports
+    ├── types.ts                    # Interfaces e tipos
+    ├── registry.ts                 # Provider registry
+    ├── unifiedChatService.ts       # Serviço unificado (ATUALIZADO)
+    ├── instanceCleanupService.ts   # NOVO - Cleanup ghost instances
+    ├── providers/
+    │   ├── index.ts
+    │   ├── whatsapp.ts             # WhatsApp provider
+    │   ├── airbnb.ts               # Airbnb provider (stub)
+    │   └── booking.ts              # Booking provider (stub)
+    └── adapters/
+        ├── index.ts                # Adapter exports + factory
+        ├── evolutionAdapter.ts     # Evolution API adapter (CORRIGIDO)
+        ├── wahaAdapter.ts          # WAHA adapter
+        └── types.ts                # Adapter interfaces
 ```
 
 ---
 
 **Author**: GitHub Copilot  
 **Reviewers**: Equipe Rendizy  
-**Last Updated**: 2026-01-24
+**Last Updated**: 2026-01-24 17:30
