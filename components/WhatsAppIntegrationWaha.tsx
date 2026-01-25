@@ -446,6 +446,12 @@ export default function WhatsAppIntegrationWaha() {
       // 5. Mudar para aba de Status automaticamente
       setActiveTab('status');
       
+      // 6. Abrir modal de gerenciamento de números para mostrar QR Code
+      // Pequeno delay para garantir que a sessão foi criada
+      setTimeout(() => {
+        setShowInstancesManager(true);
+      }, 500);
+      
       toast.success(`✅ "${sessionDescription}" criado! Escaneie o QR Code para conectar.`);
       
     } catch (error: any) {

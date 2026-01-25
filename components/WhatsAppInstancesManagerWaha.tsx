@@ -288,6 +288,34 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
   const webhookUrl = `https://${projectId}.supabase.co/functions/v1/rendizy-server/chat/channels/waha/webhook`;
 
   // ============================================================================
+  // FETCH QR CODE (definido antes dos useEffects que precisam dele)
+  // ============================================================================
+  const fetchQrCode = useCallback(async (sessionName: string) => {
+    setQrLoading(true);
+    try {
+      const result = await channelsApi.waha.getQRCode({
+        api_url: wahaConfig.api_url,
+        api_key: wahaConfig.api_key,
+        session_name: sessionName,
+      });
+      
+      if (result.success && result.data) {
+        const qrData = result.data.data || result.data.value || '';
+        if (qrData && typeof qrData === 'string') {
+          const finalQr = qrData.startsWith('data:image') ? qrData : `data:image/png;base64,${qrData}`;
+          setQrCode(finalQr);
+        } else {
+          setQrCode(null);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar QR Code:', error);
+    } finally {
+      setQrLoading(false);
+    }
+  }, [wahaConfig]);
+
+  // ============================================================================
   // LOAD SESSIONS
   // ============================================================================
 
@@ -351,6 +379,23 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
       loadSessions();
     }
   }, [open, loadSessions]);
+
+  // ============================================================================
+  // AUTO-SHOW QR CODE
+  // Se o modal abre e há uma sessão aguardando QR, mostrar automaticamente
+  // ============================================================================
+  useEffect(() => {
+    if (open && sessions.length > 0 && !showQrModal && !showAddModal) {
+      // Procurar sessão que precisa de QR Code
+      const sessionNeedingQr = sessions.find(s => s.status === 'SCAN_QR_CODE');
+      if (sessionNeedingQr) {
+        console.log('[WAHA Manager] Auto-abrindo QR para sessão:', sessionNeedingQr.name);
+        setSelectedSession(sessionNeedingQr);
+        setShowQrModal(true);
+        fetchQrCode(sessionNeedingQr.name);
+      }
+    }
+  }, [open, sessions, showQrModal, showAddModal, fetchQrCode]);
 
   // ============================================================================
   // HANDLERS
@@ -452,31 +497,6 @@ export default function WhatsAppInstancesManagerWaha({ open, onOpenChange, wahaC
       toast.error(error.message || 'Erro ao criar sessão');
     } finally {
       setCreating(false);
-    }
-  };
-
-  const fetchQrCode = async (sessionName: string) => {
-    setQrLoading(true);
-    try {
-      const result = await channelsApi.waha.getQRCode({
-        api_url: wahaConfig.api_url,
-        api_key: wahaConfig.api_key,
-        session_name: sessionName,
-      });
-      
-      if (result.success && result.data) {
-        const qrData = result.data.data || result.data.value || '';
-        if (qrData && typeof qrData === 'string') {
-          const finalQr = qrData.startsWith('data:image') ? qrData : `data:image/png;base64,${qrData}`;
-          setQrCode(finalQr);
-        } else {
-          setQrCode(null);
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao buscar QR Code:', error);
-    } finally {
-      setQrLoading(false);
     }
   };
 

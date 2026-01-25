@@ -35,12 +35,14 @@
  * - ChatDetailsSidebar.tsx → Detalhes do contato + observações
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageCircle, PanelRightClose, PanelRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ChatConversationList, ChatContact } from './ChatConversationList';
 import { ChatMessagePanel } from './ChatMessagePanel';
 import { ChatDetailsSidebar, ChatContactDetails } from './ChatDetailsSidebar';
+import { cleanupGhostInstances } from '../../utils/chat/instanceCleanupService';
+import { invalidateAdapterCache } from '../../utils/chat/adapters';
 
 // ============================================
 // COMPONENT
@@ -49,6 +51,49 @@ import { ChatDetailsSidebar, ChatContactDetails } from './ChatDetailsSidebar';
 export function SimpleChatInbox() {
   const [selectedContact, setSelectedContact] = useState<ChatContact | null>(null);
   const [showDetails, setShowDetails] = useState(true);
+  const [cleanupDone, setCleanupDone] = useState(false);
+
+  // ═══════════════════════════════════════════════════════
+  // 🧹 LIMPEZA AUTOMÁTICA DE INSTÂNCIAS FANTASMAS
+  // Roda uma vez ao montar o componente
+  // ═══════════════════════════════════════════════════════
+  useEffect(() => {
+    const runCleanup = async () => {
+      try {
+        // Obter organizationId do localStorage
+        const userJson = localStorage.getItem('rendizy-user');
+        if (!userJson) return;
+        
+        const user = JSON.parse(userJson);
+        const orgId = user.organizationId;
+        
+        if (!orgId) return;
+
+        console.log('[SimpleChatInbox] 🧹 Iniciando limpeza automática de instâncias...');
+        
+        const result = await cleanupGhostInstances(orgId);
+        
+        if (result.hardDeleted > 0 || result.orphansMarked > 0) {
+          console.log('[SimpleChatInbox] ✅ Limpeza executada:', {
+            hardDeleted: result.hardDeleted,
+            orphansMarked: result.orphansMarked,
+          });
+          
+          // Invalidar cache de adapters para forçar re-fetch
+          invalidateAdapterCache(orgId);
+        }
+        
+        setCleanupDone(true);
+      } catch (error) {
+        console.error('[SimpleChatInbox] ❌ Erro na limpeza automática:', error);
+        setCleanupDone(true); // Continua mesmo com erro
+      }
+    };
+
+    if (!cleanupDone) {
+      runCleanup();
+    }
+  }, [cleanupDone]);
 
   const handleSelectConversation = (contact: ChatContact) => {
     // ✅ v2.0.6: Debug log para verificar dados do contato

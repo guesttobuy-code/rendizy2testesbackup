@@ -155,13 +155,30 @@ export default function WhatsAppIntegrationEvolution() {
         if (wasConnected !== isConnected) {
           console.log(`🔄 [Evolution] Status mudou: ${wasConnected ? 'Online' : 'Offline'} → ${isConnected ? 'Online' : 'Offline'}`);
           
+          // ✅ Se conectou, buscar informações detalhadas da instância (incluindo phone_number)
+          let phoneNumber = config.whatsapp?.phone_number;
+          if (isConnected) {
+            try {
+              console.log('📱 [Evolution] Buscando informações da instância...');
+              const instanceInfo = await evolutionService.getInstanceInfo();
+              if (instanceInfo?.phone) {
+                // Limpar o formato @s.whatsapp.net se presente
+                phoneNumber = instanceInfo.phone.replace('@s.whatsapp.net', '');
+                console.log('📱 [Evolution] Phone number obtido:', phoneNumber);
+              }
+            } catch (infoError) {
+              console.warn('⚠️ [Evolution] Não foi possível obter informações da instância:', infoError);
+            }
+          }
+          
           const updatedConfig = {
             ...config,
             whatsapp: {
               ...config.whatsapp,
               connected: isConnected,
               connection_status: isConnected ? 'connected' as const : 'disconnected' as const,
-              last_connected_at: isConnected ? new Date().toISOString() : config.whatsapp?.last_connected_at
+              last_connected_at: isConnected ? new Date().toISOString() : config.whatsapp?.last_connected_at,
+              phone_number: isConnected ? phoneNumber : undefined
             }
           };
           
@@ -175,6 +192,7 @@ export default function WhatsAppIntegrationEvolution() {
                 api_url: updatedConfig.whatsapp?.api_url || '',
                 instance_name: updatedConfig.whatsapp?.instance_name || '',
                 api_key: updatedConfig.whatsapp?.api_key || '',
+                phone_number: phoneNumber
               }
             });
             console.log('✅ [Evolution] Status salvo no banco de dados');

@@ -1,10 +1,19 @@
 /**
- * RENDIZY - WhatsApp Conversation Component
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║                    RENDIZY - WhatsApp Conversation                         ║
+ * ║                                                                            ║
+ * ║  Componente para exibir e enviar mensagens do WhatsApp                    ║
+ * ║  Usa arquitetura multi-provider (Evolution/WAHA)                          ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * Componente melhorado para exibir e enviar mensagens do WhatsApp
+ * @version v2.0.0
+ * @date 2026-01-24
+ * @see ADR-010-CHAT-MULTI-PROVIDER-ARCHITECTURE.md
  * 
- * @version v1.0.104.001
- * @date 2025-11-21
+ * MUDANÇAS v2.0.0:
+ * - Usa unifiedChatService em vez de whatsappChatApi direto
+ * - Auto-detecta provider (Evolution vs WAHA)
+ * - JID normalizado automaticamente pelo adapter
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -27,9 +36,15 @@ import { Label } from './ui/label';
 import { ScrollArea } from './ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { toast } from 'sonner';
+// ✅ v2.0.0: Usar serviço unificado que detecta provider automaticamente
 import { 
-  fetchWhatsAppMessages, 
-  sendWhatsAppMessage,
+  fetchChatMessages, 
+  sendChatMessage,
+  extractPhoneFromJid,
+  type NormalizedWhatsAppMessage,
+} from '../utils/chat';
+// Legacy imports (ainda usados para upload e formatação)
+import { 
   extractMessageText,
   formatPhoneDisplay,
   formatWhatsAppNumber
@@ -171,13 +186,15 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   /**
-   * Buscar mensagens do chat
+   * ✅ v2.0.0: Buscar mensagens usando serviço unificado
+   * O adapter detecta automaticamente se deve usar Evolution ou WAHA
+   * e normaliza o JID para o formato correto
    */
   const loadMessages = async () => {
-    // ✅ CORREÇÃO v1.0.104.005: Detectar grupos (@g.us) e usar ID diretamente
     const idStr = contact?.id || '';
     const isGroup = idStr.includes('@g.us');
     
+    // ✅ v2.0.0: Simplificado - o adapter normaliza o JID automaticamente
     let chatIdToUse = '';
     
     if (isGroup) {
@@ -185,52 +202,45 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
       chatIdToUse = idStr.replace('whatsapp-', '');
       console.log('[WhatsAppConversation] 👥 Conversa de GRUPO detectada:', chatIdToUse);
     } else {
-      // Para contatos individuais, extrair phone
-      let phoneToUse = contact?.phone;
-      if (!phoneToUse || phoneToUse.length < 10) {
-        const extracted = idStr
-          .replace('whatsapp-', '')
-          .replace('@s.whatsapp.net', '')
-          .replace('@c.us', '')
-          .replace('@g.us', '')
-          .replace(/\D/g, '');
-        if (extracted.length >= 10 && extracted.length <= 15) {
-          phoneToUse = extracted;
+      // Para contatos individuais, extrair phone ou usar ID diretamente
+      // O adapter vai normalizar para o formato correto do provider
+      chatIdToUse = idStr.replace('whatsapp-', '');
+      
+      // Se não parece ser um JID válido, tentar extrair número
+      if (!chatIdToUse.includes('@')) {
+        const phoneToUse = contact?.phone || extractPhoneFromJid(idStr);
+        if (!phoneToUse || phoneToUse.length < 10) {
+          console.warn('[WhatsAppConversation] ⚠️ Contato sem telefone válido:', { phone: contact?.phone, id: contact?.id });
+          setIsLoadingMessages(false);
+          return;
         }
+        chatIdToUse = phoneToUse;
       }
-      
-      if (!phoneToUse || phoneToUse.length < 10) {
-        console.warn('[WhatsAppConversation] ⚠️ Contato sem telefone válido - phone:', contact?.phone, 'id:', contact?.id);
-        setIsLoadingMessages(false);
-        return;
-      }
-      
-      chatIdToUse = formatWhatsAppNumber(phoneToUse);
     }
     
     setIsLoadingMessages(true);
     try {
-      // Formatar chatId do contato
-      console.log('[WhatsAppConversation] 📥 Buscando mensagens do chat:', chatIdToUse);
+      console.log('[WhatsAppConversation] 📥 Buscando mensagens (unified service):', chatIdToUse);
       
-      const whatsappMessages = await fetchWhatsAppMessages(chatIdToUse, 100);
+      // ✅ v2.0.0: Usa fetchChatMessages que auto-detecta provider
+      const normalizedMessages = await fetchChatMessages(chatIdToUse, 100);
       
-      // Converter mensagens do WhatsApp para formato de exibição
-      const formattedMessages: MessageDisplay[] = whatsappMessages.map((msg) => ({
-        id: msg.key.id || `${msg.messageTimestamp}-${Math.random()}`,
-        text: extractMessageText(msg),
-        fromMe: msg.key.fromMe || false,
-        timestamp: new Date(msg.messageTimestamp * 1000),
-        status: msg.status as any || 'sent',
-        type: msg.message?.imageMessage ? 'image' : 
-              msg.message?.videoMessage ? 'video' :
-              msg.message?.audioMessage ? 'audio' :
-              msg.message?.documentMessage ? 'document' : 'text'
+      // Converter para formato de exibição
+      const formattedMessages: MessageDisplay[] = normalizedMessages.map((msg: NormalizedWhatsAppMessage) => ({
+        id: msg.id,
+        text: msg.text,
+        fromMe: msg.fromMe,
+        timestamp: new Date(msg.timestamp * 1000),
+        status: msg.status,
+        type: msg.mediaType || 'text',
+        // ✅ v2.0.0: Suporte a mídia Base64 (WAHA) e URL (Evolution)
+        mediaUrl: msg.mediaBase64 || msg.mediaUrl,
       }));
 
       // Ordenar por timestamp (mais antigas primeiro)
       formattedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      // Filtrar mensagens de mock/boas-vindas fixas (ex.: 'Bem-vindo', 'Mensagem Fixa')
+      
+      // Filtrar mensagens de mock/boas-vindas
       const filtered = formattedMessages.filter(m => {
         const t = (m.text || '').toLowerCase();
         if (!t) return true;
@@ -239,7 +249,7 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
       });
 
       setMessages(filtered);
-      console.log('[WhatsAppConversation] ✅', formattedMessages.length, 'mensagens carregadas');
+      console.log('[WhatsAppConversation] ✅', filtered.length, 'mensagens carregadas via unified service');
     } catch (error) {
       console.error('[WhatsAppConversation] ❌ Erro ao carregar mensagens:', error);
       toast.error('Erro ao carregar mensagens');
@@ -281,44 +291,16 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
       setMessages((prev: MessageDisplay[]) => [...prev, optimisticMessage]);
 
     try {
-      // ✅ CORREÇÃO v1.0.104.021: Detectar tipos de contato e usar ID correto
+      // ✅ v2.0.0: Simplificado - o adapter normaliza o JID automaticamente
       const idStr = contact.id || '';
-      const isGroup = idStr.includes('@g.us');
-      const isLid = idStr.includes('@lid'); // Link ID criptografado do WhatsApp
+      let chatIdToSend = idStr.replace('whatsapp-', '');
       
-      let chatIdToSend = '';
-      
-      if (isGroup) {
-        // Para grupos, usar o ID do grupo diretamente
-        chatIdToSend = idStr.replace('whatsapp-', '');
-        console.log('[WhatsAppConversation] 👥 Enviando para GRUPO:', chatIdToSend);
-      } else if (isLid) {
-        // ✅ CORREÇÃO: @lid é Link ID interno do WhatsApp - usar diretamente
-        chatIdToSend = idStr.replace('whatsapp-', '');
-        console.log('[WhatsAppConversation] 🔗 Enviando para LID (Link ID):', chatIdToSend);
-      } else {
-        // Para contatos individuais com número real, extrair phone
-        let phoneToUse = contact.phone;
-        
-        // Se phone está vazio ou inválido, tentar extrair do id
-        if (!phoneToUse || phoneToUse.length < 10) {
-          // Limpar formato WhatsApp: 5511999999999@s.whatsapp.net
-          const extracted = idStr
-            .replace('whatsapp-', '')
-            .replace('@s.whatsapp.net', '')
-            .replace('@c.us', '')
-            .replace('@g.us', '')
-            .replace(/\D/g, '');
-          if (extracted.length >= 10 && extracted.length <= 15) {
-            phoneToUse = extracted;
-            console.log('[WhatsAppConversation] 📱 Phone extraído do ID:', phoneToUse);
-          }
-        }
-        
-        chatIdToSend = formatWhatsAppNumber(phoneToUse);
+      // Se não parece ser um JID válido, usar phone
+      if (!chatIdToSend.includes('@') && contact.phone) {
+        chatIdToSend = contact.phone;
       }
       
-      console.log('[WhatsAppConversation] 📤 Enviando mensagem para:', chatIdToSend, '(original phone:', contact.phone, ', id:', contact.id, ', isGroup:', isGroup, ', isLid:', isLid, ')');
+      console.log('[WhatsAppConversation] 📤 Enviando mensagem (unified service) para:', chatIdToSend);
       
       // If there are attachments, upload them first and collect URLs
       let attachmentUrls: string[] = [];
@@ -379,15 +361,17 @@ export function WhatsAppConversation({ contact }: WhatsAppConversationProps) {
         setIsUploading(false);
       }
 
-      const result = await sendWhatsAppMessage(chatIdToSend, messageText, {
-        isInternal: isInternalNote,
-        attachments: attachmentUrls,
-      });
+      // ✅ v2.0.0: Usar sendChatMessage unificado (auto-detecta provider)
+      const result = await sendChatMessage(chatIdToSend, messageText);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao enviar mensagem');
+      }
       
       // Atualizar mensagem otimista com dados reais
       setMessages((prev: MessageDisplay[]) => prev.map((msg: MessageDisplay) => 
         msg.id === optimisticMessage.id 
-          ? { ...msg, id: result.id || msg.id, status: 'sent' as const }
+          ? { ...msg, id: result.messageId || msg.id, status: 'sent' as const }
           : msg
       ));
       

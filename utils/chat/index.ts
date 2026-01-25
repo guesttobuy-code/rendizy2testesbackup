@@ -1,34 +1,65 @@
 /**
- * CHAT MULTI-CHANNEL - Entry Point
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║                    CHAT MULTI-CHANNEL - Entry Point                        ║
+ * ║                                                                            ║
+ * ║  Sistema unificado de chat multi-canal com arquitetura 1:N                ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * Sistema unificado de chat multi-canal
+ * @version 2.0.0
+ * @date 2026-01-24
+ * @see ADR-010-CHAT-MULTI-PROVIDER-ARCHITECTURE.md
  * 
- * @version 1.0.0
- * @date 2026-01-22
- * @see ADR-007
+ * CANAIS SUPORTADOS:
+ * - ✅ WhatsApp Evolution API
+ * - ✅ WhatsApp WAHA
+ * - 🔲 Airbnb (stub)
+ * - 🔲 Booking.com (stub)
+ * - 🔲 SMS (futuro)
  * 
- * Canais suportados:
- * - ✅ WhatsApp (via Evolution API)
- * - 🔲 Airbnb (stub - implementar)
- * - 🔲 Booking.com (stub - implementar)
+ * ARQUITETURA:
+ * 
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │                    FRONTEND COMPONENTS                       │
+ * │                 (ChatInbox, WhatsAppConversation)           │
+ * └────────────────────────────┬────────────────────────────────┘
+ *                              │
+ *                              ▼
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │              UNIFIED CHAT SERVICE (NEW!)                     │
+ * │           (utils/chat/unifiedChatService.ts)                │
+ * │                                                              │
+ * │  fetchChatMessages() • sendChatMessage() • markAsRead()     │
+ * └────────────────────────────┬────────────────────────────────┘
+ *                              │
+ *                              ▼
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │                   ADAPTER FACTORY                            │
+ * │              (utils/chat/adapters/index.ts)                  │
+ * │                                                              │
+ * │  getWhatsAppAdapter() → detecta Evolution vs WAHA           │
+ * └────────────────────────────┬────────────────────────────────┘
+ *                              │
+ *          ┌───────────────────┼───────────────────┐
+ *          ▼                                       ▼
+ * ┌─────────────────┐                   ┌─────────────────┐
+ * │ Evolution       │                   │ WAHA            │
+ * │ Adapter         │                   │ Adapter         │
+ * │                 │                   │                 │
+ * │ @s.whatsapp.net │                   │ @c.us           │
+ * └─────────────────┘                   └─────────────────┘
  * 
  * @example
  * ```typescript
- * import { 
- *   getChatRegistry, 
- *   getAllChatConversations,
- *   getChatProvider 
- * } from './utils/chat';
+ * // ✅ NOVO - Usar serviço unificado (recomendado)
+ * import { fetchChatMessages, sendChatMessage } from './utils/chat';
  * 
- * // Buscar conversas de TODOS os canais
+ * const messages = await fetchChatMessages('5521999887766');
+ * await sendChatMessage('5521999887766', 'Olá!');
+ * 
+ * // ✅ Ainda funciona - Registry para multi-canal
+ * import { getChatRegistry, getAllChatConversations } from './utils/chat';
+ * 
  * const conversations = await getAllChatConversations(orgId);
- * 
- * // Buscar só de WhatsApp
- * const whatsapp = getChatProvider('whatsapp');
- * const waConversations = await whatsapp?.getConversations(orgId);
- * 
- * // Enviar mensagem
- * await whatsapp?.sendTextMessage(conversationId, 'Olá!');
  * ```
  */
 
@@ -63,7 +94,60 @@ export type {
 } from './types';
 
 // ============================================================
-// REGISTRY & HELPERS
+// UNIFIED CHAT SERVICE (v2.0.0 - RECOMMENDED)
+// ============================================================
+
+export {
+  // Single-instance functions
+  fetchChatMessages,
+  fetchChatList,
+  sendChatMessage,
+  sendChatMedia,
+  markChatAsRead,
+  isWhatsAppConnected,
+  getActiveProvider,
+  normalizeJidForCurrentProvider,
+  extractPhoneFromJid,
+  // Multi-instance functions (v2.1.0)
+  fetchAllChatsFromAllInstances,
+  getActiveInstances,
+  getAllConnectionStatus,
+} from './unifiedChatService';
+
+// Re-export types from unified service
+export type {
+  NormalizedWhatsAppMessage,
+  NormalizedWhatsAppChat,
+  SendMessageResult,
+  ChatWithInstance,
+} from './unifiedChatService';
+
+// ============================================================
+// ADAPTERS (v2.0.0 - For direct access when needed)
+// ============================================================
+
+export {
+  getWhatsAppAdapter,
+  detectWhatsAppProvider,
+  invalidateAdapterCache,
+  getCachedAdapter,
+  EvolutionAdapter,
+  WahaAdapter,
+  // Multi-instance exports (v2.1.0)
+  getAllWhatsAppAdapters,
+  getAdapterByInstanceId,
+  getAdapterByProvider,
+} from './adapters';
+
+export type {
+  IWhatsAppAdapter,
+  WhatsAppAdapterConfig,
+  DetectedProvider,
+  ActiveInstance,
+} from './adapters';
+
+// ============================================================
+// REGISTRY & HELPERS (Legacy - Still works)
 // ============================================================
 
 export {

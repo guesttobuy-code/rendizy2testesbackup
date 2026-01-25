@@ -440,6 +440,48 @@ export default function WhatsAppInstancesManager({ open, onOpenChange }: Props) 
     return () => clearInterval(interval);
   }, [open, loadInstances]);
   
+  // ✅ Polling rápido quando QR Code está visível (detectar conexão)
+  useEffect(() => {
+    if (!showQrModal || !selectedInstance || !qrCode) return;
+    
+    console.log('🔄 [QR Polling] Iniciando polling de conexão...');
+    
+    const checkConnection = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/${selectedInstance.id}`, {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'apikey': publicAnonKey,
+            'x-organization-id': organizationId,
+          },
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('🔍 [QR Polling] Status:', result.data?.status);
+          
+          if (result.data?.status === 'connected') {
+            console.log('✅ [QR Polling] Conectado! Phone:', result.data?.phoneNumber);
+            toast.success(`✅ WhatsApp conectado: ${result.data?.phoneNumber || 'sucesso!'}`);
+            setShowQrModal(false);
+            setQrCode(null);
+            loadInstances();
+          }
+        }
+      } catch (error) {
+        console.error('❌ [QR Polling] Erro:', error);
+      }
+    };
+    
+    // Verificar a cada 3 segundos
+    const interval = setInterval(checkConnection, 3000);
+    
+    // Verificar imediatamente também
+    checkConnection();
+    
+    return () => clearInterval(interval);
+  }, [showQrModal, selectedInstance, qrCode, organizationId, loadInstances]);
+  
   // ========== HANDLERS ==========
   
   const handleAddNew = async () => {

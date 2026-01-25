@@ -172,6 +172,7 @@ async function createEvolutionInstance(instanceName: string, webhookUrl: string)
 
 /**
  * Busca status da instância na Evolution API
+ * ✅ CORREÇÃO: Usa fetchInstances para obter ownerJid (connectionState não retorna)
  */
 async function getEvolutionInstanceStatus(instanceName: string): Promise<{
   status: string;
@@ -180,19 +181,35 @@ async function getEvolutionInstanceStatus(instanceName: string): Promise<{
   profilePictureUrl?: string;
 }> {
   try {
-    const response = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
+    // ✅ Usar fetchInstances ao invés de connectionState para obter ownerJid
+    const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
       method: 'GET',
       headers: getEvolutionHeaders(),
     });
 
     if (!response.ok) {
+      console.error(`[ChannelInstances] ❌ Erro ao buscar instâncias: ${response.status}`);
       return { status: 'disconnected' };
     }
 
-    const data = await response.json();
+    const instances = await response.json();
+    const instance = Array.isArray(instances) 
+      ? instances.find((i: any) => i.name === instanceName)
+      : null;
+    
+    if (!instance) {
+      console.log(`[ChannelInstances] ⚠️ Instância ${instanceName} não encontrada`);
+      return { status: 'disconnected' };
+    }
+    
+    console.log(`[ChannelInstances] 📊 Instância ${instanceName}:`, {
+      connectionStatus: instance.connectionStatus,
+      ownerJid: instance.ownerJid,
+      profileName: instance.profileName
+    });
     
     // Mapear status
-    const state = data.state || data.instance?.state || 'close';
+    const state = instance.connectionStatus || 'close';
     let status = 'disconnected';
     
     if (state === 'open' || state === 'OPEN') {
@@ -201,11 +218,19 @@ async function getEvolutionInstanceStatus(instanceName: string): Promise<{
       status = 'connecting';
     }
 
+    // ✅ Extrair phoneNumber do ownerJid (formato: 5521994414512@s.whatsapp.net)
+    let phoneNumber = instance.ownerJid || instance.number;
+    if (phoneNumber && phoneNumber.includes('@')) {
+      phoneNumber = phoneNumber.split('@')[0];
+    }
+    
+    console.log(`[ChannelInstances] ✅ Status: ${status}, Phone: ${phoneNumber || 'N/A'}`);
+
     return {
       status,
-      phoneNumber: data.instance?.owner || data.instance?.phone,
-      profileName: data.instance?.profileName,
-      profilePictureUrl: data.instance?.profilePictureUrl,
+      phoneNumber,
+      profileName: instance.profileName,
+      profilePictureUrl: instance.profilePicUrl,
     };
   } catch (error) {
     console.error(`[ChannelInstances] Erro ao buscar status:`, error);
@@ -233,12 +258,22 @@ async function getEvolutionQrCode(instanceName: string): Promise<{
     }
 
     const data = await response.json();
+    console.log('[ChannelInstances] 📱 QR Code response:', Object.keys(data), data.count || 0);
+    
     let qrCode = data.base64 || data.code || data.qrcode?.base64;
     
-    // Remover prefixo data:image se já vier com ele (o frontend adiciona)
+    // ✅ CORREÇÃO: Remover prefixo data:image se já vier com ele (o frontend adiciona)
     if (qrCode && qrCode.startsWith('data:image/png;base64,')) {
       qrCode = qrCode.replace('data:image/png;base64,', '');
+      console.log('[ChannelInstances] ✅ Prefixo removido do QR Code');
     }
+    
+    if (!qrCode) {
+      console.log('[ChannelInstances] ⚠️ QR Code não encontrado na resposta');
+      return { error: 'QR Code não disponível. Tente novamente.' };
+    }
+    
+    console.log('[ChannelInstances] ✅ QR Code obtido, tamanho base64:', qrCode?.length);
     
     return { 
       qrCode,

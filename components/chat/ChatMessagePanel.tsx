@@ -89,6 +89,8 @@ import {
 } from '../../utils/chatUnifiedApi';
 import { getSupabaseClient } from '../../utils/supabase/client';
 import { useWahaPolling, type PolledMessage } from '../../hooks/useWahaPolling';
+// ✅ v2.5.0: Também importar hook unificado para suporte multi-provider
+import { useChatPolling } from '../../hooks/useChatPolling';
 
 // ============================================
 // TYPES
@@ -216,8 +218,20 @@ export function ChatMessagePanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ============================================
-  // 🚀 POLLING - REALTIME MESSAGES (WAHA CORE)
+  // 🚀 POLLING - REALTIME MESSAGES (MULTI-PROVIDER)
   // ============================================
+  
+  // ✅ v2.5.0: Detectar provider pelo formato do JID
+  const detectedProvider = (() => {
+    if (!conversationId) return undefined;
+    const safe = typeof conversationId === 'string' 
+      ? conversationId 
+      : (conversationId as any)?.id || String(conversationId);
+    // @s.whatsapp.net = Evolution, @c.us ou @lid = WAHA
+    if (safe.includes('@s.whatsapp.net')) return 'evolution' as const;
+    if (safe.includes('@c.us') || safe.includes('@lid')) return 'waha' as const;
+    return undefined; // Auto-detect
+  })();
   
   // Extrair chatId normalizado para polling
   const normalizedChatId = (() => {
@@ -225,21 +239,28 @@ export function ChatMessagePanel({
     const safe = typeof conversationId === 'string' 
       ? conversationId 
       : (conversationId as any)?.id || String(conversationId);
-    // Normalizar para JID
+    // Se já tem formato JID, manter
     if (safe.includes('@')) return safe;
+    // Normalizar para JID baseado no provider detectado ou WAHA como default
     const phone = safe.replace(/\D/g, '');
-    return phone.length >= 10 ? `${phone}@c.us` : '';
+    if (phone.length >= 10) {
+      // Se tiver Evolution ativo, usar @s.whatsapp.net
+      if (detectedProvider === 'evolution') return `${phone}@s.whatsapp.net`;
+      return `${phone}@c.us`;
+    }
+    return '';
   })();
 
-  // 🔄 Hook de Polling WAHA (a cada 2 segundos)
-  const { isPolling, lastUpdate, refresh: refreshPolling } = useWahaPolling({
+  // 🔄 Hook de Polling UNIFICADO (a cada 2 segundos) - suporta Evolution + WAHA
+  const { isPolling, lastUpdate, refresh: refreshPolling, activeProvider } = useChatPolling({
     chatId: normalizedChatId,
+    provider: detectedProvider,
     enabled: !isLoading && !!normalizedChatId && normalizedChatId.length > 10,
     intervalMs: 2000, // 2 segundos - mais responsivo
     
     // 📬 Nova mensagem detectada via polling!
-    onNewMessage: (polledMsg: PolledMessage) => {
-      console.log('[ChatPanel-Poll] 📬 Nova mensagem detectada!', {
+    onNewMessage: (polledMsg) => {
+      console.log(`[ChatPanel-Poll] 📬 Nova mensagem via ${polledMsg.provider}!`, {
         from: polledMsg.from?.substring(0, 15),
         body: polledMsg.body?.substring(0, 30),
         fromMe: polledMsg.fromMe,

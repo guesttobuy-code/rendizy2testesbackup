@@ -66,7 +66,7 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { fetchWhatsAppChats } from '../../utils/whatsappChatApi';
+import { fetchAllChatsFromAllInstances, type ChatWithInstance } from '../../utils/chat/unifiedChatService';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getSupabaseClient } from '../../utils/supabase/client';
@@ -86,6 +86,7 @@ export interface WhatsAppInstance {
   description: string | null;
   color: string | null;
   status: string;
+  provider?: 'evolution' | 'waha'; // ✅ v2.5.0: Provider para exibir indicador
 }
 
 export interface ChatTag {
@@ -110,6 +111,8 @@ export interface ChatContact {
   reservationCode?: string;
   propertyName?: string;
   instanceId?: string;
+  /** ✅ v2.3.0: Provider WhatsApp (evolution ou waha) do ChatWithInstance */
+  provider?: 'evolution' | 'waha';
 }
 
 interface ConversationRow {
@@ -223,6 +226,8 @@ export function ChatConversationList({
   const [filterType, setFilterType] = useState<ConversationType | 'all'>('all');
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [filterInstance, setFilterInstance] = useState<string>('all');
+  // ✅ v2.5.0: Novo filtro por Provider para testar cada um separadamente
+  const [filterProvider, setFilterProvider] = useState<'all' | 'evolution' | 'waha'>('all');
 
   // ============================================
   // ACTIONS
@@ -249,6 +254,9 @@ export function ChatConversationList({
   // LOAD WHATSAPP INSTANCES
   // ============================================
   
+  // Mapa de instance_id -> provider para inferir provider de conversas do DB
+  const [instanceProviderMap, setInstanceProviderMap] = useState<Map<string, 'evolution' | 'waha'>>(new Map());
+  
   const loadInstances = useCallback(async () => {
     if (!organizationId) return;
     
@@ -256,14 +264,34 @@ export function ChatConversationList({
       const supabase = getSupabaseClient();
       const { data } = await supabase
         .from('channel_instances')
-        .select('id, instance_name, description, color, status')
+        .select('id, instance_name, description, color, status, provider')
         .eq('organization_id', organizationId)
         .eq('channel', 'whatsapp')
         .is('deleted_at', null)
         .order('is_default', { ascending: false });
       
       if (data) {
-        setWhatsappInstances(data as WhatsAppInstance[]);
+        // Cast para o tipo correto
+        const instances = data as Array<{
+          id: string;
+          instance_name: string;
+          description?: string;
+          color?: string;
+          status: string;
+          provider: string;
+        }>;
+        
+        setWhatsappInstances(instances as WhatsAppInstance[]);
+        
+        // ✅ v2.4.0: Criar mapa de instance_id -> provider
+        const providerMap = new Map<string, 'evolution' | 'waha'>();
+        for (const inst of instances) {
+          if (inst.provider === 'evolution' || inst.provider === 'waha') {
+            providerMap.set(inst.id, inst.provider);
+          }
+        }
+        setInstanceProviderMap(providerMap);
+        console.log('[ChatConversationList] 🗺️ Instance provider map:', Object.fromEntries(providerMap));
       }
     } catch (error) {
       console.error('[ChatConversationList] Erro ao carregar instâncias:', error);
@@ -281,8 +309,9 @@ export function ChatConversationList({
     else setIsRefreshing(true);
     
     try {
+      // ✅ v2.2.0: Usar fetchAllChatsFromAllInstances para agregar conversas de Evolution + WAHA
       const [chats, conversationsResult] = await Promise.all([
-        fetchWhatsAppChats(),
+        fetchAllChatsFromAllInstances(100),
         (async (): Promise<ConversationRow[]> => {
           const supabase = getSupabaseClient();
           const { data, error } = await supabase
@@ -310,66 +339,64 @@ export function ChatConversationList({
         if (conv.external_conversation_id) conversationsMap.set(conv.external_conversation_id, conv);
       });
       
+      // ✅ v2.2.0: Filtrar apenas chats individuais (não grupos, não status)
       const individualChats = chats.filter(chat => {
-        // ✅ v2.0.6: Extração robusta do JID - garantir sempre string
-        const chatAny = chat as Record<string, unknown>;
-        let rawJid = chatAny.remoteJid || chatAny.id || '';
-        
-        // Se rawJid for objeto, tentar extrair id dele
-        if (typeof rawJid === 'object' && rawJid !== null) {
-          const objJid = rawJid as Record<string, unknown>;
-          rawJid = objJid.id || objJid._serialized || objJid.remoteJid || '';
-        }
-        
-        const jid = typeof rawJid === 'string' ? rawJid : '';
+        const jid = chat.id || '';
         return jid && jid.length > 5 && !jid.includes('@g.us') && !jid.includes('status@');
       });
       
-      const converted: ChatContact[] = individualChats.map(chat => {
-        // ✅ v2.0.6: Extração robusta do JID - garantir sempre string
-        const chatAny = chat as Record<string, unknown>;
-        let rawJid = chatAny.remoteJid || chatAny.id || '';
-        
-        // Se rawJid for objeto, tentar extrair id dele
-        if (typeof rawJid === 'object' && rawJid !== null) {
-          const objJid = rawJid as Record<string, unknown>;
-          rawJid = objJid.id || objJid._serialized || objJid.remoteJid || '';
-        }
-        
-        const jid = typeof rawJid === 'string' ? rawJid : '';
+      console.log(`[ChatConversationList] 📊 ${chats.length} total chats, ${individualChats.length} individuais`);
+      
+      // 🔍 DEBUG: Verificar providers dos primeiros chats
+      const first5 = chats.slice(0, 5);
+      console.log('[ChatConversationList] 🔍 DEBUG - Primeiros 5 chats:', first5.map(c => ({
+        id: c.id?.substring(0, 20),
+        provider: c.provider,
+        instanceId: c.instanceId
+      })));
+      
+      // 🔍 DEBUG: Procurar especificamente os números 4512 e 5999
+      const chat4512 = chats.find(c => c.id?.includes('4512'));
+      const chat5999 = chats.find(c => c.id?.includes('5999'));
+      console.log('[ChatConversationList] 🔍 DEBUG - Chat 4512:', chat4512 ? { id: chat4512.id, provider: chat4512.provider } : 'NÃO ENCONTRADO');
+      console.log('[ChatConversationList] 🔍 DEBUG - Chat 5999:', chat5999 ? { id: chat5999.id, provider: chat5999.provider } : 'NÃO ENCONTRADO');
+      
+      // ✅ v2.2.0: Converter ChatWithInstance para ChatContact
+      const converted: ChatContact[] = individualChats.map((chat: ChatWithInstance) => {
+        const jid = chat.id || '';
         const phone = extractPhoneFromJid(jid);
         const formattedPhone = formatPhone(phone);
         const dbConv = conversationsMap.get(jid);
         const isLead = jid.includes('@lid');
         
-        let displayName = (chat as Record<string, unknown>).pushName as string || chat.name || dbConv?.guest_name;
+        // Nome: preferência para pushName, depois name do chat, depois banco
+        let displayName = chat.name || dbConv?.guest_name;
         if (!displayName || displayName === 'Desconhecido') {
           displayName = isLead ? 'Lead Meta' : (formattedPhone || 'Contato');
         }
         
+        // Última mensagem
         let lastMessageText = '';
         if (dbConv?.last_message) {
           if (typeof dbConv.last_message === 'string') lastMessageText = dbConv.last_message;
-          else lastMessageText = (dbConv.last_message as Record<string, unknown>)?.message as string || (chat.lastMessage as Record<string, unknown>)?.message as string || '';
-        } else {
-          lastMessageText = (chat.lastMessage as Record<string, unknown>)?.message as string || '';
+          else lastMessageText = (dbConv.last_message as Record<string, unknown>)?.message as string || '';
+        } else if (chat.lastMessage) {
+          lastMessageText = chat.lastMessage.text || '';
         }
         
+        // Timestamp da última mensagem
         let lastMessageAt: Date | undefined;
         if (dbConv?.last_message_at) lastMessageAt = new Date(dbConv.last_message_at);
-        else if (chat.lastMessageTimestamp) lastMessageAt = new Date(chat.lastMessageTimestamp * 1000);
+        else if (chat.lastMessage?.timestamp) lastMessageAt = new Date(chat.lastMessage.timestamp * 1000);
         
         const isPinned = dbConv?.is_pinned || false;
         const category = isPinned ? 'pinned' as const : (dbConv?.category as ConversationCategory || 'normal');
         
-        // ✅ v2.0.6: Garantir ID único e válido - nunca usar objeto como key
-        const uniqueId = jid && jid.length > 5 ? jid : `unknown-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        
         return {
-          id: uniqueId,
+          id: jid,
           name: displayName || 'Contato',
-          phone: formattedPhone || phone, // Usar telefone formatado com DDD
-          avatar: chatAny.profilePictureUrl as string || chatAny.profilePicUrl as string || undefined,
+          phone: formattedPhone || phone,
+          avatar: chat.profilePicUrl || undefined,
           lastMessage: lastMessageText,
           lastMessageAt,
           unreadCount: dbConv?.unread_count || chat.unreadCount || 0,
@@ -378,7 +405,10 @@ export function ChatConversationList({
           type: isLead ? 'lead' as const : 'guest' as const,
           isPinned,
           tags: dbConv?.tags || [],
-          instanceId: dbConv?.instance_id || undefined,
+          // ✅ v2.2.0: Usar instanceId e provider do ChatWithInstance
+          instanceId: chat.instanceId || dbConv?.instance_id || undefined,
+          // ✅ v2.3.0: Usar provider do ChatWithInstance para identificar origem
+          provider: chat.provider,
         };
       });
       
@@ -395,6 +425,10 @@ export function ChatConversationList({
             if (!displayName) displayName = formatPhone(phone) || phone;
           } else if (isLead) {
             if (!displayName) displayName = 'Lead Meta';
+          } else if (extId.includes('@c.us')) {
+            // ✅ v2.4.0: Extrair telefone de JID WAHA
+            phone = extId.replace('@c.us', '');
+            if (!displayName) displayName = formatPhone(phone) || phone;
           } else if (!extId.includes('@g.us')) {
             phone = dbConv.guest_phone || '';
             if (!displayName) displayName = phone ? formatPhone(phone) : 'Contato';
@@ -407,6 +441,20 @@ export function ChatConversationList({
           }
           
           const isPinned = dbConv.is_pinned || false;
+          
+          // ✅ v2.4.0: Inferir provider do banco ou pelo JID
+          let inferredProvider: 'evolution' | 'waha' | undefined;
+          if (dbConv.instance_id && instanceProviderMap.has(dbConv.instance_id)) {
+            inferredProvider = instanceProviderMap.get(dbConv.instance_id);
+          } else {
+            // Fallback: inferir pelo formato do JID
+            if (extId.includes('@s.whatsapp.net')) {
+              inferredProvider = 'evolution';
+            } else if (extId.includes('@c.us') || extId.includes('@lid')) {
+              inferredProvider = 'waha';
+            }
+          }
+          
           converted.push({
             id: extId,
             name: displayName,
@@ -420,6 +468,7 @@ export function ChatConversationList({
             isPinned,
             tags: dbConv.tags || [],
             instanceId: dbConv.instance_id || undefined,
+            provider: inferredProvider,
           });
         }
       });
@@ -431,9 +480,15 @@ export function ChatConversationList({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [organizationId]);
+  }, [organizationId, instanceProviderMap]);
 
-  useEffect(() => { loadContacts(); loadInstances(); }, [loadContacts, loadInstances]);
+  // ✅ v2.4.0: Carregar instâncias primeiro, depois contatos
+  useEffect(() => { loadInstances(); }, [loadInstances]);
+  useEffect(() => { 
+    if (instanceProviderMap.size > 0 || whatsappInstances.length === 0) {
+      loadContacts(); 
+    }
+  }, [loadContacts, instanceProviderMap, whatsappInstances.length]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -455,6 +510,8 @@ export function ChatConversationList({
     if (filterType !== 'all' && c.type !== filterType) return false;
     if (filterTags.length > 0 && !filterTags.some(t => c.tags.includes(t))) return false;
     if (filterInstance !== 'all' && c.instanceId !== filterInstance) return false;
+    // ✅ v2.5.0: Filtro por Provider (Evolution / WAHA)
+    if (filterProvider !== 'all' && c.provider !== filterProvider) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return c.name?.toLowerCase().includes(q) || c.phone?.includes(q) || c.lastMessage?.toLowerCase().includes(q);
@@ -473,7 +530,7 @@ export function ChatConversationList({
   normalContacts.sort(sortByDate);
   resolvedContacts.sort(sortByDate);
 
-  const hasActiveFilters = filterChannel !== 'all' || filterCategory !== 'all' || filterType !== 'all' || filterTags.length > 0 || filterInstance !== 'all';
+  const hasActiveFilters = filterChannel !== 'all' || filterCategory !== 'all' || filterType !== 'all' || filterTags.length > 0 || filterInstance !== 'all' || filterProvider !== 'all';
 
   // ============================================
   // RENDER CONTACT ITEM
@@ -481,7 +538,37 @@ export function ChatConversationList({
   
   const renderContact = (contact: ChatContact) => {
     const ChannelIcon = CHANNEL_CONFIG[contact.channel]?.icon || MessageCircle;
-    const channelColor = CHANNEL_CONFIG[contact.channel]?.color || 'text-gray-500';
+    
+    // 🔍 DEBUG: Log provider para os números de teste
+    if (contact.phone?.includes('4512') || contact.phone?.includes('5999') || 
+        contact.id?.includes('4512') || contact.id?.includes('5999')) {
+      console.log(`[renderContact] 🔍 DEBUG ${contact.name}:`, {
+        id: contact.id?.substring(0, 25),
+        provider: contact.provider,
+        phone: contact.phone
+      });
+    }
+    
+    // ✅ v2.3.0: Usar provider do ChatWithInstance (fonte confiável)
+    // Fallback para detecção por JID apenas se provider não disponível
+    const isEvolution = contact.provider === 'evolution' || 
+      (!contact.provider && contact.id.includes('@s.whatsapp.net'));
+    const isWaha = contact.provider === 'waha' || 
+      (!contact.provider && (contact.id.includes('@c.us') || contact.id.includes('@lid')));
+    
+    // Cores diferenciadas por provider
+    let providerColor = CHANNEL_CONFIG[contact.channel]?.color || 'text-gray-500';
+    let providerLetter = '';
+    
+    if (contact.channel === 'whatsapp') {
+      if (isEvolution) {
+        providerColor = 'text-[#128C7E]'; // Verde escuro Evolution
+        providerLetter = 'E';
+      } else if (isWaha) {
+        providerColor = 'text-[#25D366]'; // Verde claro WAHA
+        providerLetter = 'W';
+      }
+    }
     
     return (
       <div
@@ -501,9 +588,12 @@ export function ChatConversationList({
                 {getInitials(contact.name)}
               </AvatarFallback>
             </Avatar>
-            {/* Channel badge */}
-            <div className={`absolute -bottom-0.5 -right-0.5 ${channelColor}`}>
+            {/* Channel badge with provider indicator */}
+            <div className={`absolute -bottom-0.5 -right-0.5 flex items-center gap-px ${providerColor}`}>
               <ChannelIcon className="h-3 w-3" />
+              {providerLetter && (
+                <span className="text-[8px] font-bold leading-none">{providerLetter}</span>
+              )}
             </div>
           </div>
           
@@ -654,6 +744,42 @@ export function ChatConversationList({
             </div>
           </div>
           
+          {/* ✅ v2.5.0: Filtro por PROVIDER (Evolution / WAHA) - Para teste isolado */}
+          <div className="p-2 border border-purple-200 rounded-lg bg-purple-50/50">
+            <label className="text-xs font-medium text-purple-700 mb-2 block flex items-center gap-1">
+              🧪 Testar Provider (isolado)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button 
+                onClick={() => setFilterProvider('all')} 
+                className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${filterProvider === 'all' ? 'bg-purple-600 text-white shadow-md' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+              >
+                Todos
+              </button>
+              <button 
+                onClick={() => setFilterProvider('evolution')} 
+                className={`px-3 py-1.5 text-xs rounded-lg font-medium flex items-center gap-1.5 transition-all ${filterProvider === 'evolution' ? 'text-white shadow-md' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                style={{ backgroundColor: filterProvider === 'evolution' ? '#128C7E' : undefined }}
+              >
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: filterProvider === 'evolution' ? 'rgba(255,255,255,0.3)' : '#128C7E', color: filterProvider === 'evolution' ? 'white' : 'white' }}>E</span>
+                Evolution
+              </button>
+              <button 
+                onClick={() => setFilterProvider('waha')} 
+                className={`px-3 py-1.5 text-xs rounded-lg font-medium flex items-center gap-1.5 transition-all ${filterProvider === 'waha' ? 'text-white shadow-md' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                style={{ backgroundColor: filterProvider === 'waha' ? '#25D366' : undefined }}
+              >
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: filterProvider === 'waha' ? 'rgba(255,255,255,0.3)' : '#25D366', color: filterProvider === 'waha' ? 'white' : 'white' }}>W</span>
+                WAHA
+              </button>
+            </div>
+            {filterProvider !== 'all' && (
+              <p className="text-[10px] text-purple-600 mt-1.5">
+                Mostrando apenas conversas do <strong>{filterProvider === 'evolution' ? 'Evolution API' : 'WAHA'}</strong>
+              </p>
+            )}
+          </div>
+          
           {/* Número WhatsApp (Instância) */}
           {whatsappInstances.length > 0 && (
             <div>
@@ -678,7 +804,7 @@ export function ChatConversationList({
                       className="w-2 h-2 rounded-full" 
                       style={{ backgroundColor: inst.status === 'connected' ? '#10B981' : '#EF4444' }}
                     />
-                    {inst.description || inst.instance_name}
+                    {inst.provider === 'evolution' ? '🟢 E' : '🟢 W'} {inst.description || inst.instance_name}
                   </button>
                 ))}
               </div>
@@ -726,12 +852,24 @@ export function ChatConversationList({
             </div>
           </div>
           
-          {/* Limpar filtros */}
-          {hasActiveFilters && (
-            <button onClick={() => { setFilterChannel('all'); setFilterCategory('all'); setFilterType('all'); setFilterTags([]); setFilterInstance('all'); }} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
-              <X className="h-3 w-3" /> Limpar filtros
+          {/* ✅ v2.5.0: Botão Aplicar Filtro + Limpar */}
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+            <button 
+              onClick={() => { loadContacts(true); }} 
+              className="flex-1 px-3 py-2 text-xs rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-1.5 transition-all"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Aplicar Filtro / Recarregar
             </button>
-          )}
+            {hasActiveFilters && (
+              <button 
+                onClick={() => { setFilterChannel('all'); setFilterCategory('all'); setFilterType('all'); setFilterTags([]); setFilterInstance('all'); setFilterProvider('all'); }} 
+                className="px-3 py-2 text-xs rounded-lg font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center gap-1 transition-all"
+              >
+                <X className="h-3.5 w-3.5" /> Limpar
+              </button>
+            )}
+          </div>
         </div>
       )}
       
