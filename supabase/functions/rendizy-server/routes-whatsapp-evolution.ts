@@ -1603,16 +1603,10 @@ export function whatsappEvolutionRoutes(app: Hono) {
   // ==========================================================================
 
   // Handler para send-message (extraído para reuso)
+  // @ARCHITECTURE v2.0.0: MULTI-PROVIDER (WAHA + Evolution)
   const handleSendMessage = async (c: any) => {
     try {
       const organizationId = await getOrganizationIdOrThrow(c);
-      const config = await getEvolutionConfigForOrganization(organizationId) || getEvolutionConfigFromEnv();
-      
-      if (!config || !config.enabled) {
-        return c.json({ 
-          error: 'WhatsApp não configurado para esta organização. Configure em Settings → WhatsApp.' 
-        }, 400);
-      }
 
       const payload = await c.req.json();
       const { number, text, attachments: attachmentsFromClient, isInternal } = payload;
@@ -1621,54 +1615,87 @@ export function whatsappEvolutionRoutes(app: Hono) {
         return c.json({ error: 'Número e texto são obrigatórios' }, 400);
       }
 
-      console.log(`[WhatsApp] [${organizationId}] Enviando mensagem:`, { number, text });
+      // ============================================================================
+      // @MULTI-PROVIDER: Detectar provider ativo (WAHA ou Evolution)
+      // ============================================================================
+      const activeChannel = await detectActiveWhatsAppProvider(organizationId);
+      
+      let response: Response;
+      let providerUsed: 'waha' | 'evolution' = 'evolution';
+      
+      if (activeChannel && activeChannel.provider === 'waha') {
+        // ========== ENVIAR VIA WAHA ==========
+        providerUsed = 'waha';
+        const wahaApiUrl = activeChannel.evolutionApiUrl;
+        const wahaApiKey = activeChannel.evolutionApiKey;
+        const wahaSession = 'default'; // WAHA Core sempre usa 'default'
+        
+        if (!wahaApiUrl || !wahaApiKey) {
+          return c.json({ error: 'WAHA não configurado corretamente.' }, 400);
+        }
+        
+        let chatId = number.replace(/\D/g, '');
+        if (!chatId.endsWith('@c.us')) {
+          chatId = `${chatId}@c.us`;
+        }
+        
+        console.log(`[WhatsApp] [${organizationId}] 🟢 WAHA: Enviando para ${chatId}`);
+        
+        response = await fetch(`${wahaApiUrl}/api/sendText`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Api-Key': wahaApiKey },
+          body: JSON.stringify({ session: wahaSession, chatId, text }),
+        });
+      } else {
+        // ========== ENVIAR VIA EVOLUTION ==========
+        providerUsed = 'evolution';
+        const config = await getEvolutionConfigForOrganization(organizationId) || getEvolutionConfigFromEnv();
+        
+        if (!config || !config.enabled) {
+          return c.json({ error: 'WhatsApp não configurado para esta organização.' }, 400);
+        }
 
-      const response = await fetch(
-        `${config.api_url}/message/sendText/${config.instance_name}`,
-        {
+        console.log(`[WhatsApp] [${organizationId}] 🔵 Evolution: Enviando para ${number}`);
+
+        response = await fetch(`${config.api_url}/message/sendText/${config.instance_name}`, {
           method: 'POST',
           headers: getEvolutionMessagesHeaders(config),
           body: JSON.stringify({ number, text }),
-        }
-      );
+        });
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[WhatsApp] [${organizationId}] Erro ao enviar mensagem:`, errorText);
-        return c.json({ error: 'Erro ao enviar mensagem', details: errorText }, response.status as any);
+        console.error(`[WhatsApp] [${organizationId}] ❌ ${providerUsed} Erro:`, errorText);
+        return c.json({ error: 'Erro ao enviar mensagem', details: errorText, provider: providerUsed }, response.status as any);
       }
 
       const data = await response.json();
-      console.log(`[WhatsApp] [${organizationId}] Mensagem enviada com sucesso`);
+      console.log(`[WhatsApp] [${organizationId}] ✅ ${providerUsed} Mensagem enviada`);
 
-      // Persistir no banco (simplificado)
+      // Persistir no banco
       try {
         const client = getSupabaseClient();
+        const normalizedNumber = number.replace(/@c\.us$/, '').replace(/@s\.whatsapp\.net$/, '').replace(/\D/g, '');
         
-        // Encontrar ou criar conversation
         const { data: conv } = await client
           .from('conversations')
           .select('id')
           .eq('organization_id', organizationId)
-          .eq('external_conversation_id', number)
+          .or(`external_conversation_id.eq.${normalizedNumber},external_conversation_id.eq.${normalizedNumber}@c.us`)
           .maybeSingle();
 
-        const conversationId = conv?.id || null;
-
-        if (conversationId) {
-          await client
-            .from('conversations')
-            .update({
-              last_message: text.substring(0, 500),
-              last_message_at: new Date().toISOString(),
-            })
-            .eq('id', conversationId);
+        if (conv?.id) {
+          await client.from('conversations').update({
+            last_message: text.substring(0, 500),
+            last_message_at: new Date().toISOString(),
+          }).eq('id', conv.id);
         }
       } catch (err) {
         console.warn('[WhatsApp] Erro ao persistir:', err);
       }
 
-      return c.json({ success: true, data });
+      return c.json({ success: true, data, provider: providerUsed });
     } catch (error) {
       console.error('[WhatsApp] Erro em send-message:', error);
       if (error instanceof Error && error.message.includes('organization')) {
