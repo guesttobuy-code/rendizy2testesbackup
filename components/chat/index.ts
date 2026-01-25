@@ -3,10 +3,11 @@
  * 
  * Exporta todos os componentes de chat disponíveis
  * 
- * @version 4.0.0
+ * @version 4.1.0
  * @date 2026-01-25
  * 
  * CHANGELOG:
+ * - v4.1.0: Phase 3.4/3.5 components (edit, delete)
  * - v4.0.0: Phase 3 components (reactions, reply, forward, audio, search)
  * - v3.1.0: Phase 2 components (typing, quick replies, message queue)
  * - v3.0.0: Initial module index
@@ -69,3 +70,21 @@ export type { AudioRecorderProps, UseAudioRecorderReturn } from './AudioRecorder
 // Message Search
 export { MessageSearch, useMessageSearch, highlightSearchMatch } from './MessageSearch';
 export type { SearchableMessage, MessageSearchProps, UseMessageSearchOptions, UseMessageSearchReturn } from './MessageSearch';
+
+// ============================================
+// PHASE 3.4 & 3.5 - EDIT & DELETE
+// ============================================
+
+// Edit Message (3.4)
+export { EditMessageDialog, EditButton, canEditMessage } from './EditMessage';
+export type { EditMessageDialogProps, EditButtonProps } from './EditMessage';
+// Hook in separate file
+export { useEditMessage } from '../../hooks/useEditMessage';
+export type { UseEditMessageOptions, UseEditMessageReturn } from '../../hooks/useEditMessage';
+
+// Delete Message (3.5)
+export { DeleteMessageDialog, DeleteButton, canDeleteForEveryone } from './DeleteMessage';
+export type { DeleteMessageDialogProps, DeleteButtonProps } from './DeleteMessage';
+// Hook in separate file  
+export { useDeleteMessage } from '../../hooks/useDeleteMessage';
+export type { UseDeleteMessageOptions, UseDeleteMessageReturn } from '../../hooks/useDeleteMessage';

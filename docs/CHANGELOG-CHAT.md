@@ -6,6 +6,83 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 
 ---
 
+## [4.1.0] - 2026-01-25 ✏️
+
+### 🎉 PHASE 3 COMPLETA (100%): Editar & Deletar Mensagens
+
+Finalização das funcionalidades restantes da Phase 3. **Código pronto**, aguardando WAHA Plus.
+
+### ✨ Adicionado
+
+#### 3.4 Editar Mensagens Enviadas ⏳ (Aguardando WAHA Plus)
+- **EditMessageDialog**: Dialog para edição de texto de mensagens
+  - Preview da mensagem original em citação
+  - Contador de caracteres (máx 4096)
+  - Atalho Ctrl+Enter para salvar
+  - Validação: apenas mensagens de texto (sem mídia)
+  
+- **EditButton**: Botão "Editar" no menu de contexto da mensagem
+  - Exibido apenas para mensagens próprias
+  - Limite de 15 minutos após envio
+  
+- **useEditMessage**: Hook para `PUT /api/{session}/chats/{chatId}/messages/{msgId}`
+  - Tratamento de erros 404/403/400
+  - Estado de loading
+
+- **canEditMessage()**: Helper para validar se mensagem pode ser editada
+  - Verifica `fromMe === true`
+  - Verifica `hasMedia === false`
+  - Verifica timestamp (< 15 minutos)
+
+#### 3.5 Deletar Mensagens ⏳ (Aguardando WAHA Plus)
+- **DeleteMessageDialog**: Dialog de confirmação para exclusão
+  - Opção "Apagar só para mim"
+  - Opção "Apagar para todos" (com limite de 60min)
+  - Aviso de irreversibilidade
+  
+- **DeleteButton**: Botão "Deletar" (lixeira) no menu de contexto
+  - Sempre visível para mensagens próprias
+  - Para mensagens recebidas: apenas "Apagar para mim"
+  
+- **useDeleteMessage**: Hook para `DELETE /api/{session}/chats/{chatId}/messages/{msgId}`
+  - `deleteForMe()`: Apaga apenas localmente
+  - `deleteForEveryone()`: Apaga para o destinatário (60min)
+  
+- **canDeleteForEveryone()**: Helper para validar exclusão universal
+  - Verifica `fromMe === true`
+  - Verifica timestamp (< 60 minutos)
+
+### ⚠️ Dependência: WAHA Plus
+> Os endpoints de Edit/Delete requerem **WAHA Plus** (versão paga).
+> WAHA Core retorna 501 Not Implemented para esses endpoints.
+> **Código pronto para ativar** assim que WAHA Plus for contratado.
+
+### 📁 Arquivos Criados
+- `components/chat/EditMessage.tsx`
+- `components/chat/DeleteMessage.tsx`
+- `hooks/useEditMessage.ts`
+- `hooks/useDeleteMessage.ts`
+
+### 📁 Arquivos Atualizados
+- `components/chat/index.ts` → v4.1.0 com exports Edit/Delete
+
+### 📊 Status Final Phase 3
+| Item | Status |
+|------|--------|
+| 3.1 Reações | ✅ |
+| 3.2 Responder/Quote | ✅ |
+| 3.3 Encaminhar | ✅ |
+| 3.4 Editar | ⏳ WAHA Plus |
+| 3.5 Deletar | ⏳ WAHA Plus |
+| 3.6 Envio imagem | ✅ |
+| 3.7 Envio documento | ✅ |
+| 3.8 Envio áudio | ✅ |
+| 3.9 Busca | ✅ |
+
+**Phase 3: 78% funcional (7/9) - 100% código pronto** 🎯
+
+---
+
 ## [4.0.0] - 2026-01-25 🎯
 
 ### 🎉 PHASE 3 COMPLETA: Funcionalidades Avançadas!

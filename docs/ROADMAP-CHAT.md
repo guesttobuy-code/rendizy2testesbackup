@@ -82,136 +82,36 @@
 | 3.1 | Reagir a mensagens (👍❤️😂) | 2026-01-25 | ✅ |
 | 3.2 | Responder mensagem específica (quote) | 2026-01-25 | ✅ |
 | 3.3 | Encaminhar mensagem | 2026-01-25 | ✅ |
+| 3.4 | Editar mensagem enviada | 2026-01-25 | ⏳ WAHA Plus* |
+| 3.5 | Deletar mensagem ("apagar para todos") | 2026-01-25 | ⏳ WAHA Plus* |
 | 3.6 | Envio de imagens | 2026-01-25 | ✅ |
 | 3.7 | Envio de arquivos/documentos | 2026-01-25 | ✅ |
 | 3.8 | Envio de áudio (gravar) | 2026-01-25 | ✅ |
 | 3.9 | Busca de mensagens | 2026-01-25 | ✅ |
+
+> **\*Nota**: 3.4 (Edit) e 3.5 (Delete) têm código pronto mas dependem do **WAHA Plus** (pago).
+> WAHA Core não suporta esses endpoints. Componentes criados, aguardando upgrade.
 
 ### Arquivos Criados
 - `components/chat/MessageReactions.tsx` - Reações a mensagens
 - `hooks/useReactions.ts` - Hook para enviar reações via WAHA
 - `components/chat/ReplyMessage.tsx` - Quote/Reply UI
 - `components/chat/ForwardMessage.tsx` - Encaminhar mensagens
+- `components/chat/EditMessage.tsx` - Editar mensagens enviadas
+- `hooks/useEditMessage.ts` - Hook para editar via WAHA
+- `components/chat/DeleteMessage.tsx` - Deletar mensagens
+- `hooks/useDeleteMessage.ts` - Hook para deletar via WAHA
 - `hooks/useSendMedia.ts` - Envio de mídia (imagem/doc/áudio)
 - `components/chat/AudioRecorder.tsx` - Gravação de voz
 - `components/chat/MessageSearch.tsx` - Busca em mensagens
 
-### Funcionalidades Pendentes (menor prioridade)
-- [ ] 3.4 Editar mensagem enviada
-- [ ] 3.5 Deletar mensagem ("apagar para todos")
-
----
-
-## ⏳ FASE 4 - DIFERENCIAIS
-
-**Período Estimado**: 2026-02-01 a 2026-02-28
-
-**Arquivos a modificar**:
-- [ ] `components/chat/MessageBubble.tsx`
-- [ ] `types/chat.ts` (adicionar ack)
-
----
-
-### 2.3 Indicador "Digitando..."
-**Prioridade**: 🔴 Crítica  
-**Estimativa**: 2 dias  
-**Data Alvo**: 2026-01-30
-
-**Descrição**:
-- Mostrar "Fulano está digitando..." quando outro usuário digita
-- Enviar typing indicator quando usuário local digita
-- Auto-timeout após 5 segundos sem atividade
-
-**API WAHA utilizada**:
-```
-POST /api/{session}/presence
-Body: { chatId: "123@c.us", presence: "typing" }
-
-Webhook: presence.update
-{ event: "presence.update", payload: { presences: [{ lastKnownPresence: "typing" }] } }
-```
-
-**Arquivos a modificar**:
-- [ ] `hooks/useTypingIndicator.ts` (novo)
-- [ ] `components/chat/ChatMessagePanel.tsx`
-- [ ] `components/chat/TypingIndicator.tsx` (novo)
-
----
-
-### 2.4 Respostas Rápidas / Templates
-**Prioridade**: 🔴 Crítica  
-**Estimativa**: 3 dias  
-**Data Alvo**: 2026-02-02
-
-**Descrição**:
-- Atalho `/` para abrir menu de templates
-- Templates pré-definidos por organização
-- Variáveis dinâmicas: `{nome}`, `{propriedade}`, `{checkin}`
-- CRUD de templates no painel admin
-
-**Templates padrão**:
-```
-/boas-vindas → "Olá {nome}! Seja bem-vindo(a) ao {propriedade}. 🏠"
-/checkin → "Seu check-in está confirmado para {checkin}. Endereço: {endereco}"
-/checkout → "Esperamos que tenha tido uma ótima estadia! ⭐"
-/wifi → "Rede: {wifi_nome} | Senha: {wifi_senha}"
-/urgente → "Recebemos sua mensagem e vamos responder em breve! 🚨"
-```
-
-**Arquivos a criar**:
-- [ ] `components/chat/QuickReplies.tsx`
-- [ ] `utils/chat/templateParser.ts`
-- [ ] Tabela `quick_reply_templates` no Supabase
-
----
-
-### 2.5 Marcar como Lido (Send Seen)
-**Prioridade**: 🔴 Crítica  
-**Estimativa**: 1 dia  
-**Data Alvo**: 2026-02-03
-
-**Descrição**:
-- Marcar mensagens como lidas ao abrir conversa
-- Atualizar contador de não-lidas na lista
-- Enviar double-check azul para o remetente
-
-**API WAHA utilizada**:
-```
-POST /api/sendSeen
-Body: { session: "default", chatId: "123@c.us" }
-
-POST /api/{session}/chats/{chatId}/messages/read
-```
-
-**Arquivos a modificar**:
-- [ ] `hooks/useChatPolling.ts`
-- [ ] `components/chat/ChatConversationList.tsx`
-
----
-
-## ⏳ FASE 3 - FUNCIONALIDADES IMPORTANTES
-
-**Período Estimado**: 2026-02-06 a 2026-02-20
-
-| # | Funcionalidade | Estimativa | Data Alvo | Prioridade |
-|---|----------------|------------|-----------|------------|
-| 3.1 | Reagir a mensagens (👍❤️😂) | 1 dia | 2026-02-06 | 🟡 |
-| 3.2 | Responder mensagem específica (quote) | 2 dias | 2026-02-08 | 🟡 |
-| 3.3 | Encaminhar mensagem | 1 dia | 2026-02-09 | 🟡 |
-| 3.4 | Editar mensagem enviada | 1 dia | 2026-02-10 | 🟡 |
-| 3.5 | Deletar mensagem ("apagar para todos") | 1 dia | 2026-02-11 | 🟡 |
-| 3.6 | Envio de imagens | 2 dias | 2026-02-13 | 🟡 |
-| 3.7 | Envio de arquivos/documentos | 2 dias | 2026-02-15 | 🟡 |
-| 3.8 | Envio de áudio (gravar) | 3 dias | 2026-02-18 | 🟡 |
-| 3.9 | Busca de mensagens | 2 dias | 2026-02-20 | 🟡 |
-
-### APIs WAHA correspondentes:
+### APIs WAHA utilizadas:
 ```
 PUT  /api/reaction                    → Reagir
 POST /api/sendText + reply_to         → Responder
 POST /api/forwardMessage              → Encaminhar
 PUT  /api/{session}/chats/{id}/messages/{msgId} → Editar
-DELETE /api/{session}/chats/{id}/messages/{msgId} → Deletar
+DELETE /api/{session}/chats/{id}/messages/{msgId}?forEveryone=true → Deletar
 POST /api/sendImage                   → Enviar imagem
 POST /api/sendFile                    → Enviar arquivo
 POST /api/sendVoice                   → Enviar áudio
@@ -221,7 +121,7 @@ POST /api/sendVoice                   → Enviar áudio
 
 ## ⏳ FASE 4 - DIFERENCIAIS
 
-**Período Estimado**: 2026-02-21 a 2026-03-15
+**Período Estimado**: 2026-02-01 a 2026-03-15
 
 | # | Funcionalidade | Estimativa | Data Alvo | Prioridade |
 |---|----------------|------------|-----------|------------|
@@ -279,6 +179,8 @@ POST /api/sendVoice                   → Enviar áudio
 | 2026-01-25 | Criação inicial do roadmap |
 | 2026-01-25 | Fase 1 marcada como completa |
 | 2026-01-25 | Adicionadas estimativas Fase 2-4 |
+| 2026-01-25 | Fase 2 completa (Queue, ACK, Typing, Templates, SendSeen) |
+| 2026-01-25 | Fase 3 completa (Reactions, Reply, Forward, Edit, Delete, Media, Search) |
 
 ---
 
