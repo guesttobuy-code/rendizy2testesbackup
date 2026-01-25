@@ -22,6 +22,7 @@ interface AuthContextType {
   loginWithGoogle: (credential: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   logout: () => Promise<void>;
   switchOrganization: (organizationId: string) => Promise<void>;
+  refreshUser: () => Promise<void>; // ✅ v1.0.105.001: Atualizar dados do usuário (ex: após mudar avatar)
   
   // Permission checks
   hasPermission: (check: PermissionCheck) => boolean;
@@ -222,6 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: backendUser.email,
           name: backendUser.name,
           username: backendUser.username,
+          avatar: backendUser.avatar || backendUser.avatar_url, // ✅ v1.0.105.001: Suporta avatar
           role: backendUser.type === 'superadmin' ? 'super_admin' : (backendUser.type === 'imobiliaria' ? 'admin' : 'staff'),
           status: backendUser.status || 'active',
           emailVerified: true,
@@ -706,6 +708,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('Switching to organization:', organizationId);
   };
 
+  // ✅ v1.0.105.001: Função para atualizar dados do usuário (ex: após mudar avatar)
+  const refreshUser = async () => {
+    const token = localStorage.getItem('rendizy-token');
+    if (!token || !user?.id) return;
+
+    try {
+      console.log('🔄 [AuthContext] Atualizando dados do usuário...');
+      const supabase = getSupabaseClient();
+      
+      const { data: userData, error } = await (supabase
+        .from('users') as any)
+        .select('id, name, email, avatar_url, type, status')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.warn('⚠️ [AuthContext] Erro ao buscar dados atualizados:', error);
+        return;
+      }
+
+      if (userData) {
+        const updatedUser: User = {
+          ...user,
+          name: userData.name || user.name,
+          avatar: userData.avatar_url || user.avatar,
+        };
+        
+        setUser(updatedUser);
+        
+        // Atualiza cache local
+        try {
+          localStorage.setItem('rendizy-user', JSON.stringify(updatedUser));
+        } catch {}
+        
+        console.log('✅ [AuthContext] Dados do usuário atualizados');
+      }
+    } catch (error) {
+      console.warn('⚠️ [AuthContext] Erro ao atualizar usuário:', error);
+    }
+  };
+
   const getUserPermissions = (): Permission[] => {
     if (!user) return [];
     if (user.customPermissions && user.customPermissions.length > 0) {
@@ -757,6 +800,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loginWithGoogle,
     logout,
     switchOrganization,
+    refreshUser,
     hasPermission,
     canCreate,
     canRead,
@@ -799,8 +843,13 @@ export function useAuth() {
         success: false,
         error: 'AuthProvider não encontrado. Verifique se a aplicação está envolvida pelo <AuthProvider />.'
       }),
+      loginWithGoogle: async () => ({
+        success: false,
+        error: 'AuthProvider não encontrado.'
+      }),
       logout: async () => {},
       switchOrganization: async () => {},
+      refreshUser: async () => {},
       hasPermission: () => false,
       canCreate: () => false,
       canRead: () => false,

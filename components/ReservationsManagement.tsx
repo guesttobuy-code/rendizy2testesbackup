@@ -1269,7 +1269,11 @@ export function ReservationsManagement({
   };
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col">
+      {/* ✅ v1.0.105.001: Espaço para TopBar */}
+      <div className="h-14 flex-shrink-0" />
+      
+      <div className="flex gap-6">
       {/* Sidebar com Filtros */}
       <div 
         className={`
@@ -2007,6 +2011,7 @@ export function ReservationsManagement({
         onClose={() => setShowCreateModal(false)}
         onComplete={handleCreateSuccess}
       />
+    </div>
     </div>
   );
 }

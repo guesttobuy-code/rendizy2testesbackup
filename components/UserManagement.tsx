@@ -463,6 +463,9 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
 
       {/* Conteúdo principal */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Spacer para TopBar */}
+        <div className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
+        
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-8 py-6">
           <div className="flex items-center justify-between">

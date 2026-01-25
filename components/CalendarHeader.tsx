@@ -71,7 +71,8 @@ export function CalendarHeader({
 
   return (
     <div className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between">
+      {/* ✅ v1.0.105.001: pr-52 para espaço do TopBar */}
+      <div className="flex items-center justify-between pr-52">
         {/* Left side - Navigation */}
         <div className="flex items-center gap-4">
           <h1 className="text-gray-900">Calendário Geral</h1>

@@ -383,9 +383,13 @@ export function ClientSitesManager() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full">
+      {/* Spacer para TopBar */}
+      <div className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
+      
+      <div className="flex-1 overflow-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 pr-52">
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-900">Sites dos Clientes</h1>
           <p className="text-gray-600 mt-1">
@@ -634,6 +638,7 @@ export function ClientSitesManager() {
         }}
         organizations={organizations}
       />
+      </div>
     </div>
   );
 }

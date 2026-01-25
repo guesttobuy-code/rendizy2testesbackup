@@ -672,6 +672,9 @@ export function ProprietariosManagement() {
 
       {/* Conteúdo Principal */}
       <div className="flex-1 overflow-y-auto">
+        {/* Spacer para TopBar */}
+        <div className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
+        
         <div className="p-6 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">

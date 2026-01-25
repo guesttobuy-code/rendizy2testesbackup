@@ -887,7 +887,8 @@ export const ListaAnuncios = () => {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-8 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
+        {/* ✅ v1.0.105.001: pr-52 para espaço do TopBar */}
+        <div className="flex items-center justify-between pr-52">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               Lista de Anúncios Ultimate

@@ -102,7 +102,11 @@ export function ClientSitesInternalAreaPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full">
+      {/* Spacer para TopBar */}
+      <div className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
+      
+      <div className="flex-1 overflow-auto p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-900">Área interna do cliente</h1>
@@ -226,7 +230,6 @@ export function ClientSitesInternalAreaPage() {
           <div>2) Criar um endpoint mínimo: “me” (perfil) + “minhas solicitações”.</div>
           <div>3) Criar 1 componente privado inicial: “Status da solicitação / cotação”.</div>
         </CardContent>
-      </Card>
-    </div>
+      </Card>      </div>    </div>
   );
 }

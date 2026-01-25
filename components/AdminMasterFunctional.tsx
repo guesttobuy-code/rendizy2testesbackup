@@ -337,24 +337,22 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-8 py-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-white/20 rounded-lg">
-                <Crown className="h-8 w-8" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold">Admin Master</h1>
-                <p className="text-purple-100 mt-1">
-                  Painel de Controle RENDIZY
-                </p>
-              </div>
-            </div>
+        {/* ✅ v1.0.105.001: Espaço para TopBar no canto direito */}
+        <div className="flex items-start gap-3 mb-2">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <Crown className="h-8 w-8" />
           </div>
-          
-          <Badge className="bg-white text-purple-700 text-sm px-4 py-2">
-            Usuário Master
-          </Badge>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold">Admin Master</h1>
+              <Badge className="bg-white text-purple-700 text-sm px-4 py-1">
+                Usuário Master
+              </Badge>
+            </div>
+            <p className="text-purple-100 mt-1">
+              Painel de Controle RENDIZY
+            </p>
+          </div>
         </div>
       </div>
 

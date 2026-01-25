@@ -98,7 +98,8 @@ import { toast } from 'sonner';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
-import { TopUserMenu } from './components/TopUserMenu';
+import { TopBar } from './components/TopBar';
+import { AutomationCreatorModal } from './components/automations/AutomationCreatorModal';
 
 import { initAutoRecovery } from './utils/autoRecovery';
 import { DealsModule } from './components/crm/DealsModule';
@@ -402,6 +403,9 @@ function App() {
   const [databaseInitModal, setDatabaseInitModal] = useState(false);
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [showConflictAlert, setShowConflictAlert] = useState(true);
+
+  // 🎯 TopBar - Modal de Automações (v1.0.103+)
+  const [showAutomationCreator, setShowAutomationCreator] = useState(false);
 
   // ⚠️ FUNÇÃO REMOVIDA v1.0.103.308 - Não há mais "force load" com mock
   // Sistema carrega apenas dados reais do Supabase
@@ -1363,7 +1367,22 @@ function App() {
             {/* Componentes globais - sempre presentes */}
             <BuildLogger />
             <Toaster />
-            <TopUserMenu />
+            
+            {/* 🎯 TOP BAR - Barra superior com botões organizados (v1.0.103+) */}
+            <TopBar 
+              onOpenQuickActions={() => setQuickActionsModal({ 
+                open: true, 
+                startDate: new Date(), 
+                endDate: new Date() 
+              })}
+              onOpenAutomations={() => setShowAutomationCreator(true)}
+            />
+
+            {/* 🤖 Modal de Criação de Automação (v1.0.103+) */}
+            <AutomationCreatorModal
+              open={showAutomationCreator}
+              onClose={() => setShowAutomationCreator(false)}
+            />
 
             <Suspense fallback={<LoadingProgress isLoading={true} />}>
               <Routes>

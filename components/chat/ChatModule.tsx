@@ -53,8 +53,11 @@ export function ChatModule({
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72',
         )}
       >
+        {/* ✅ v1.0.105.001: Espaço para TopBar com linha divisória */}
+        <div className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
+        
         {/* ✅ v2.0.0: Chat simplificado e funcional */}
-        <div className="flex-1 overflow-hidden h-[calc(100vh-0px)]">
+        <div className="flex-1 overflow-hidden h-[calc(100vh-56px)]">
           <SimpleChatInbox />
         </div>
       </div>

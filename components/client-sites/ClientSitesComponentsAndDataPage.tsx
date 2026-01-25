@@ -8,7 +8,11 @@ export const CATALOG_VERSION_DATE = CATALOG_UPDATED_AT.split('T')[0]; // "2026-0
 
 export function ClientSitesComponentsAndDataPage() {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full">
+      {/* Spacer para TopBar */}
+      <div className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
+      
+      <div className="flex-1 overflow-auto p-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-3">
@@ -30,6 +34,7 @@ export function ClientSitesComponentsAndDataPage() {
       </div>
 
       <ComponentsAndDataTab />
+      </div>
     </div>
   );
 }

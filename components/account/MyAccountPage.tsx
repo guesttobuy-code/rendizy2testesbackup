@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
+import { AvatarUpload } from './AvatarUpload';
 
 function maskToken(token: string) {
   if (!token) return '';
@@ -83,7 +84,24 @@ export function MyAccountPage() {
             <CardHeader>
               <CardTitle>Usuário logado</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-6">
+              {/* Seção de Avatar */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 pb-4 border-b">
+                <AvatarUpload 
+                  currentAvatarUrl={user?.avatar} 
+                  size="xl"
+                />
+                <div className="space-y-1">
+                  <h3 className="text-lg font-medium">{user?.name || 'Usuário'}</h3>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Clique na foto para alterar sua imagem de perfil
+                  </p>
+                </div>
+              </div>
+
+              {/* Informações do usuário */}
+              <div className="space-y-2">
               <div className="text-sm">
                 <span className="text-muted-foreground">Nome:</span> {user?.name || '—'}
               </div>
@@ -98,6 +116,7 @@ export function MyAccountPage() {
               </div>
               <div className="text-sm">
                 <span className="text-muted-foreground">User ID:</span> {user?.id || '—'}
+              </div>
               </div>
             </CardContent>
           </Card>
