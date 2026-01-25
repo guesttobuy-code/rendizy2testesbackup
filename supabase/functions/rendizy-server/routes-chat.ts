@@ -4,6 +4,8 @@ import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { getSupabaseClient } from './kv_store.tsx';
 // ✅ RESTAURADO DO BACKUP - Monitoramento automático de conexão WhatsApp
 import { setupWebhooks, monitorWhatsAppConnection } from './services/whatsapp-monitor.ts';
+// ✅ V2.2: Integração com Automações - Trigger de mensagens
+import { triggerAutomationEvent } from './automation-engine.ts';
 
 const app = new Hono();
 
@@ -522,6 +524,41 @@ const processWhatsAppWebhook = async (c: any, payload: any) => {
       } catch (msgErr) {
         console.error('❌ [Chat] Erro ao inserir mensagem:', msgErr);
       }
+    }
+
+    // =========================================================================
+    // FASE 2: TRIGGER DE AUTOMAÇÕES (V2.2)
+    // Disparar automações configuradas para "message_received"
+    // =========================================================================
+    try {
+      console.log('🤖 [Chat] Verificando automações para message_received...');
+      const automationResults = await triggerAutomationEvent('message_received', organizationId, {
+        contactId: conversationId,
+        phone: senderPhone,
+        messageContent: messageText,
+        messageType: 'text',
+        conversationId,
+        senderName,
+        messageId: savedMessageId,
+        metadata: {
+          remoteJid: senderJid,
+          instanceName,
+          channelInstanceId,
+        },
+      });
+      
+      if (automationResults.length > 0) {
+        console.log(`🤖 [Chat] ${automationResults.length} automação(ões) executada(s):`, 
+          automationResults.map(r => ({
+            automationId: r.automationId,
+            success: r.success,
+            actionsExecuted: r.actionsExecuted,
+          }))
+        );
+      }
+    } catch (autoErr) {
+      // Erro de automação não deve bloquear o processamento da mensagem
+      console.error('⚠️ [Chat] Erro ao processar automações (não-crítico):', autoErr);
     }
 
     console.log('✅ [Chat] WhatsApp message processed:', {
