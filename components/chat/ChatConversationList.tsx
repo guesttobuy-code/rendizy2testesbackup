@@ -1,10 +1,37 @@
 /**
- * CHAT CONVERSATION LIST v2.0
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║                       CHAT CONVERSATION LIST                               ║
+ * ║                                                                            ║
+ * ║  🔒 ZONA_CRITICA_CHAT - NÃO MODIFICAR SEM REVISAR ADR-007                 ║
+ * ║  📱 WHATSAPP_JID - Extração de JID deve ser robusta                       ║
+ * ║  🔄 WAHA_CHATS - Carrega lista de conversas do WAHA                       ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * Componente com Kanban visual (sem drag), Filtros laterais e Tags
+ * Lista de conversas WhatsApp com categorização visual.
  * 
- * @version 2.0.0
- * @date 2026-01-22
+ * @version 2.0.6
+ * @date 2026-01-24
+ * @see /docs/adr/ADR-007-CHAT-MODULE-WAHA-INTEGRATION.md
+ * 
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ FLUXO DE DADOS:                                                 │
+ * │ 1. fetchWhatsAppChats() → WAHA /api/{session}/chats             │
+ * │ 2. Extrai JID de cada chat (ATENÇÃO: pode ser objeto!)          │
+ * │ 3. Cruza com conversations do Supabase (guest_name, etc)        │
+ * │ 4. Renderiza lista com categorias visuais                       │
+ * └─────────────────────────────────────────────────────────────────┘
+ * 
+ * ⚠️ ATENÇÃO - EXTRAÇÃO DE JID:
+ * O WAHA pode retornar JID como string OU como objeto:
+ * - String: "5521999999999@c.us"
+ * - Objeto: { id: "5521999999999@c.us", _serialized: "..." }
+ * 
+ * SEMPRE verificar tipo antes de usar como key React!
+ * 
+ * CHANGELOG:
+ * - v2.0.6 (2026-01-24): Extração robusta de JID (evita [object Object])
+ * - v2.0.5 (2026-01-24): Formatação de telefone com DDD
+ * - v2.0.0 (2026-01-22): Categorias visuais, filtros, tags
  * 
  * FUNCIONALIDADES:
  * - Categorias visuais: Fixadas, Urgentes, Normais, Resolvidas
@@ -284,12 +311,32 @@ export function ChatConversationList({
       });
       
       const individualChats = chats.filter(chat => {
-        const jid = (chat as Record<string, unknown>).remoteJid as string || chat.id || '';
-        return !jid.includes('@g.us') && !jid.includes('status@');
+        // ✅ v2.0.6: Extração robusta do JID - garantir sempre string
+        const chatAny = chat as Record<string, unknown>;
+        let rawJid = chatAny.remoteJid || chatAny.id || '';
+        
+        // Se rawJid for objeto, tentar extrair id dele
+        if (typeof rawJid === 'object' && rawJid !== null) {
+          const objJid = rawJid as Record<string, unknown>;
+          rawJid = objJid.id || objJid._serialized || objJid.remoteJid || '';
+        }
+        
+        const jid = typeof rawJid === 'string' ? rawJid : '';
+        return jid && jid.length > 5 && !jid.includes('@g.us') && !jid.includes('status@');
       });
       
       const converted: ChatContact[] = individualChats.map(chat => {
-        const jid = (chat as Record<string, unknown>).remoteJid as string || chat.id || '';
+        // ✅ v2.0.6: Extração robusta do JID - garantir sempre string
+        const chatAny = chat as Record<string, unknown>;
+        let rawJid = chatAny.remoteJid || chatAny.id || '';
+        
+        // Se rawJid for objeto, tentar extrair id dele
+        if (typeof rawJid === 'object' && rawJid !== null) {
+          const objJid = rawJid as Record<string, unknown>;
+          rawJid = objJid.id || objJid._serialized || objJid.remoteJid || '';
+        }
+        
+        const jid = typeof rawJid === 'string' ? rawJid : '';
         const phone = extractPhoneFromJid(jid);
         const formattedPhone = formatPhone(phone);
         const dbConv = conversationsMap.get(jid);
@@ -315,11 +362,14 @@ export function ChatConversationList({
         const isPinned = dbConv?.is_pinned || false;
         const category = isPinned ? 'pinned' as const : (dbConv?.category as ConversationCategory || 'normal');
         
+        // ✅ v2.0.6: Garantir ID único e válido - nunca usar objeto como key
+        const uniqueId = jid && jid.length > 5 ? jid : `unknown-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        
         return {
-          id: jid,
+          id: uniqueId,
           name: displayName || 'Contato',
-          phone,
-          avatar: chat.profilePictureUrl || (chat as Record<string, unknown>).profilePicUrl as string,
+          phone: formattedPhone || phone, // Usar telefone formatado com DDD
+          avatar: chatAny.profilePictureUrl as string || chatAny.profilePicUrl as string || undefined,
           lastMessage: lastMessageText,
           lastMessageAt,
           unreadCount: dbConv?.unread_count || chat.unreadCount || 0,
@@ -473,6 +523,13 @@ export function ChatConversationList({
                 </span>
               )}
             </div>
+            
+            {/* ✅ v2.0.6: Mostrar telefone formatado com DDD */}
+            {contact.phone && contact.name !== contact.phone && (
+              <p className="text-[10px] text-gray-400 truncate">
+                {contact.phone}
+              </p>
+            )}
             
             {/* Tags */}
             {contact.tags.length > 0 && (

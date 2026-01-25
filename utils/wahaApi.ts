@@ -4,19 +4,161 @@
  * API alternativa à Evolution API - mais estável e open-source
  * Docs: https://waha.devlike.pro/docs/
  * 
- * Deploy: whatsapp.suacasaavenda.com.br
+ * @version 2.0.0
+ * @date 2026-01-24
+ * 
+ * REFATORAÇÃO:
+ * - ✅ Usa variáveis de ambiente (VITE_WAHA_API_URL, VITE_WAHA_API_KEY)
+ * - ✅ Fallback para configuração do banco (channel_instances)
+ * - ✅ Suporte a envio de vídeo e áudio
+ * - ✅ Busca mensagens históricas
  */
 
-// Configuração da API WAHA
-const WAHA_BASE_URL = 'https://whatsapp.suacasaavenda.com.br';
-const WAHA_API_KEY = 'rendizy_waha_2025_super_secret_key_change_this'; // ALTERE ISSO!
-const DEFAULT_SESSION = 'rendizy-default';
+import { getSupabaseClient } from './supabase/client';
 
-// Headers padrão para todas as requisições
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'X-Api-Key': WAHA_API_KEY,
-});
+// ============================================================
+// CONFIGURAÇÃO - Hierarquia de fallback
+// ============================================================
+// 1. Configuração dinâmica (setWahaConfig)
+// 2. Variáveis de ambiente (VITE_WAHA_*)
+// 3. Configuração do banco (channel_instances)
+// 4. Valores padrão de desenvolvimento
+// ============================================================
+
+interface WahaConfig {
+  baseUrl: string;
+  apiKey: string;
+  sessionName: string;
+}
+
+// Configuração dinâmica (sobrescreve tudo)
+let dynamicConfig: Partial<WahaConfig> = {};
+
+/**
+ * Obtém configuração WAHA da hierarquia de fallback
+ */
+async function getWahaConfig(): Promise<WahaConfig> {
+  // 1. Configuração dinâmica tem prioridade
+  if (dynamicConfig.baseUrl && dynamicConfig.apiKey) {
+    return {
+      baseUrl: dynamicConfig.baseUrl,
+      apiKey: dynamicConfig.apiKey,
+      sessionName: dynamicConfig.sessionName || 'default',
+    };
+  }
+
+  // 2. Variáveis de ambiente
+  const envUrl = import.meta.env.VITE_WAHA_API_URL;
+  const envKey = import.meta.env.VITE_WAHA_API_KEY;
+  
+  if (envUrl && envKey) {
+    return {
+      baseUrl: envUrl,
+      apiKey: envKey,
+      sessionName: import.meta.env.VITE_WAHA_SESSION || 'default',
+    };
+  }
+
+  // 3. Buscar do banco de dados
+  const dbConfig = await getWahaConfigFromDatabase();
+  if (dbConfig) {
+    return dbConfig;
+  }
+
+  // 4. Fallback de desenvolvimento (VPS padrão Rendizy)
+  console.warn('[WAHA] ⚠️ Usando configuração de fallback. Configure VITE_WAHA_API_URL e VITE_WAHA_API_KEY');
+  return {
+    baseUrl: 'http://76.13.82.60:3001',
+    apiKey: '', // Sem key = vai falhar
+    sessionName: 'default',
+  };
+}
+
+/**
+ * Busca configuração WAHA do banco (channel_instances)
+ */
+async function getWahaConfigFromDatabase(): Promise<WahaConfig | null> {
+  try {
+    // Obter organizationId do localStorage
+    const userJson = localStorage.getItem('rendizy-user');
+    if (!userJson) return null;
+    
+    const user = JSON.parse(userJson);
+    const organizationId = user.organizationId;
+    if (!organizationId) return null;
+
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('channel_instances')
+      .select('waha_base_url, waha_api_key, api_url, api_key, instance_name')
+      .eq('organization_id', organizationId)
+      .eq('channel', 'whatsapp')
+      .eq('provider', 'waha')
+      .eq('is_enabled', true)
+      .is('deleted_at', null)
+      .order('is_default', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      const baseUrl = data.waha_base_url || data.api_url;
+      const apiKey = data.waha_api_key || data.api_key;
+      
+      if (baseUrl && apiKey) {
+        console.log('[WAHA] ✅ Configuração carregada do banco');
+        return {
+          baseUrl: baseUrl.replace(/\/+$/, ''),
+          apiKey,
+          sessionName: data.instance_name || 'default',
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[WAHA] Erro ao buscar config do banco:', error);
+    return null;
+  }
+}
+
+/**
+ * Configura WAHA dinamicamente (prioridade máxima)
+ */
+export function setWahaConfig(config: Partial<WahaConfig>) {
+  dynamicConfig = { ...dynamicConfig, ...config };
+  console.log('[WAHA] Configuração atualizada:', { 
+    baseUrl: config.baseUrl, 
+    hasApiKey: !!config.apiKey,
+    sessionName: config.sessionName,
+  });
+}
+
+/**
+ * Headers padrão para requisições WAHA
+ */
+async function getHeaders(): Promise<HeadersInit> {
+  const config = await getWahaConfig();
+  return {
+    'Content-Type': 'application/json',
+    'X-Api-Key': config.apiKey,
+  };
+}
+
+/**
+ * Obtém URL base da API
+ */
+async function getBaseUrl(): Promise<string> {
+  const config = await getWahaConfig();
+  return config.baseUrl;
+}
+
+/**
+ * Obtém nome da sessão padrão
+ */
+async function getDefaultSession(): Promise<string> {
+  const config = await getWahaConfig();
+  return config.sessionName;
+}
 
 // ============================================================
 // 1. SESSÕES (CONEXÕES WHATSAPP)
@@ -26,8 +168,11 @@ const getHeaders = () => ({
  * Listar todas as sessões ativas
  */
 export async function listSessions() {
-  const response = await fetch(`${WAHA_BASE_URL}/api/sessions`, {
-    headers: getHeaders(),
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
+  const response = await fetch(`${baseUrl}/api/sessions`, {
+    headers,
   });
 
   if (!response.ok) {
@@ -40,24 +185,29 @@ export async function listSessions() {
 /**
  * Criar ou obter sessão do WhatsApp
  */
-export async function getOrCreateSession(sessionName: string = DEFAULT_SESSION) {
+export async function getOrCreateSession(sessionName?: string) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   try {
     // Tentar obter sessão existente
     const sessions = await listSessions();
-    const existingSession = sessions.find((s: any) => s.name === sessionName);
+    const existingSession = sessions.find((s: any) => s.name === session);
 
     if (existingSession) {
-      console.log('[WAHA] Sessão já existe:', sessionName);
+      console.log('[WAHA] Sessão já existe:', session);
       return existingSession;
     }
 
     // Criar nova sessão
-    console.log('[WAHA] Criando nova sessão:', sessionName);
-    const response = await fetch(`${WAHA_BASE_URL}/api/sessions`, {
+    console.log('[WAHA] Criando nova sessão:', session);
+    const response = await fetch(`${baseUrl}/api/sessions`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers,
       body: JSON.stringify({
-        name: sessionName,
+        name: session,
         config: {
           webhooks: [
             {
@@ -83,16 +233,21 @@ export async function getOrCreateSession(sessionName: string = DEFAULT_SESSION) 
 /**
  * Obter QR Code para conectar WhatsApp
  */
-export async function getQRCode(sessionName: string = DEFAULT_SESSION) {
+export async function getQRCode(sessionName?: string) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   try {
     // Garantir que sessão existe
-    await getOrCreateSession(sessionName);
+    await getOrCreateSession(session);
 
     // Obter QR Code
     const response = await fetch(
-      `${WAHA_BASE_URL}/api/sessions/${sessionName}/auth/qr`,
+      `${baseUrl}/api/sessions/${session}/auth/qr`,
       {
-        headers: getHeaders(),
+        headers,
       }
     );
 
@@ -111,12 +266,17 @@ export async function getQRCode(sessionName: string = DEFAULT_SESSION) {
 /**
  * Verificar status da sessão
  */
-export async function getSessionStatus(sessionName: string = DEFAULT_SESSION) {
+export async function getSessionStatus(sessionName?: string) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   try {
     const response = await fetch(
-      `${WAHA_BASE_URL}/api/sessions/${sessionName}`,
+      `${baseUrl}/api/sessions/${session}`,
       {
-        headers: getHeaders(),
+        headers,
       }
     );
 
@@ -138,12 +298,17 @@ export async function getSessionStatus(sessionName: string = DEFAULT_SESSION) {
 /**
  * Desconectar sessão
  */
-export async function disconnectSession(sessionName: string = DEFAULT_SESSION) {
+export async function disconnectSession(sessionName?: string) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   const response = await fetch(
-    `${WAHA_BASE_URL}/api/sessions/${sessionName}/stop`,
+    `${baseUrl}/api/sessions/${session}/stop`,
     {
       method: 'POST',
-      headers: getHeaders(),
+      headers,
     }
   );
 
@@ -159,27 +324,47 @@ export async function disconnectSession(sessionName: string = DEFAULT_SESSION) {
 // ============================================================
 
 /**
+ * Formata chatId para o padrão WhatsApp
+ * - Contato individual: numero@c.us
+ * - Grupo: id@g.us
+ */
+function formatChatId(to: string): string {
+  // Se já tem @, está formatado
+  if (to.includes('@')) return to;
+  // Remove caracteres não numéricos
+  const cleaned = to.replace(/\D/g, '');
+  return `${cleaned}@c.us`;
+}
+
+/**
  * Enviar mensagem de texto
  */
 export async function sendTextMessage(
   to: string, // Número com código do país: 5511999999999
   message: string,
-  sessionName: string = DEFAULT_SESSION
+  sessionName?: string
 ) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   const response = await fetch(
-    `${WAHA_BASE_URL}/api/sendText`,
+    `${baseUrl}/api/sendText`,
     {
       method: 'POST',
-      headers: getHeaders(),
+      headers,
       body: JSON.stringify({
-        session: sessionName,
-        chatId: `${to}@c.us`, // Formato WhatsApp
+        session,
+        chatId: formatChatId(to),
         text: message,
       }),
     }
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[WAHA] Erro ao enviar mensagem:', errorText);
     throw new Error(`Erro ao enviar mensagem: ${response.statusText}`);
   }
 
@@ -193,16 +378,21 @@ export async function sendImage(
   to: string,
   imageUrl: string,
   caption?: string,
-  sessionName: string = DEFAULT_SESSION
+  sessionName?: string
 ) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   const response = await fetch(
-    `${WAHA_BASE_URL}/api/sendImage`,
+    `${baseUrl}/api/sendImage`,
     {
       method: 'POST',
-      headers: getHeaders(),
+      headers,
       body: JSON.stringify({
-        session: sessionName,
-        chatId: `${to}@c.us`,
+        session,
+        chatId: formatChatId(to),
         file: {
           url: imageUrl,
         },
@@ -219,22 +409,99 @@ export async function sendImage(
 }
 
 /**
- * Enviar arquivo
+ * Enviar vídeo
+ */
+export async function sendVideo(
+  to: string,
+  videoUrl: string,
+  caption?: string,
+  sessionName?: string
+) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
+  const response = await fetch(
+    `${baseUrl}/api/sendVideo`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        session,
+        chatId: formatChatId(to),
+        file: {
+          url: videoUrl,
+        },
+        caption: caption || '',
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Erro ao enviar vídeo: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Enviar áudio/voz
+ */
+export async function sendVoice(
+  to: string,
+  audioUrl: string,
+  sessionName?: string
+) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
+  const response = await fetch(
+    `${baseUrl}/api/sendVoice`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        session,
+        chatId: formatChatId(to),
+        file: {
+          url: audioUrl,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Erro ao enviar áudio: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Enviar arquivo/documento
  */
 export async function sendFile(
   to: string,
   fileUrl: string,
   caption?: string,
-  sessionName: string = DEFAULT_SESSION
+  sessionName?: string
 ) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   const response = await fetch(
-    `${WAHA_BASE_URL}/api/sendFile`,
+    `${baseUrl}/api/sendFile`,
     {
       method: 'POST',
-      headers: getHeaders(),
+      headers,
       body: JSON.stringify({
-        session: sessionName,
-        chatId: `${to}@c.us`,
+        session,
+        chatId: formatChatId(to),
         file: {
           url: fileUrl,
         },
@@ -250,18 +517,46 @@ export async function sendFile(
   return response.json();
 }
 
+/**
+ * Enviar mídia genérica (detecta tipo automaticamente)
+ */
+export async function sendMedia(
+  to: string,
+  mediaUrl: string,
+  mediaType: 'image' | 'video' | 'audio' | 'document',
+  caption?: string,
+  sessionName?: string
+) {
+  switch (mediaType) {
+    case 'image':
+      return sendImage(to, mediaUrl, caption, sessionName);
+    case 'video':
+      return sendVideo(to, mediaUrl, caption, sessionName);
+    case 'audio':
+      return sendVoice(to, mediaUrl, sessionName);
+    case 'document':
+    default:
+      return sendFile(to, mediaUrl, caption, sessionName);
+  }
+}
+
 // ============================================================
-// 3. RECEBER MENSAGENS
+// 3. RECEBER MENSAGENS E HISTÓRICO
 // ============================================================
 
 /**
- * Listar chats
+ * Listar todos os chats
  */
-export async function getChats(sessionName: string = DEFAULT_SESSION) {
+export async function getChats(sessionName?: string) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   const response = await fetch(
-    `${WAHA_BASE_URL}/api/sessions/${sessionName}/chats`,
+    `${baseUrl}/api/sessions/${session}/chats`,
     {
-      headers: getHeaders(),
+      headers,
     }
   );
 
@@ -273,25 +568,114 @@ export async function getChats(sessionName: string = DEFAULT_SESSION) {
 }
 
 /**
- * Obter mensagens de um chat
+ * Obter mensagens de um chat (histórico)
+ * @param chatId - ID do chat (ex: 5511999999999@c.us)
+ * @param limit - Número máximo de mensagens (padrão: 100)
+ * @param downloadMedia - Se deve baixar mídia (padrão: true)
  */
 export async function getChatMessages(
   chatId: string,
   limit: number = 100,
-  sessionName: string = DEFAULT_SESSION
+  sessionName?: string,
+  downloadMedia: boolean = true
 ) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
+  // Formatar chatId se necessário
+  const formattedChatId = chatId.includes('@') ? chatId : formatChatId(chatId);
+  
   const response = await fetch(
-    `${WAHA_BASE_URL}/api/sessions/${sessionName}/chats/${chatId}/messages?limit=${limit}`,
+    `${baseUrl}/api/sessions/${session}/chats/${encodeURIComponent(formattedChatId)}/messages?limit=${limit}&downloadMedia=${downloadMedia}`,
     {
-      headers: getHeaders(),
+      headers,
     }
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[WAHA] Erro ao obter mensagens:', errorText);
     throw new Error(`Erro ao obter mensagens: ${response.statusText}`);
   }
 
   return response.json();
+}
+
+/**
+ * Sincronizar mensagens antigas para o banco de dados
+ * Útil para popular o histórico de conversas
+ */
+export async function syncChatHistory(
+  chatId: string,
+  organizationId: string,
+  conversationId: string,
+  limit: number = 50,
+  sessionName?: string
+): Promise<{ synced: number; errors: number }> {
+  const supabase = getSupabaseClient();
+  let synced = 0;
+  let errors = 0;
+
+  try {
+    const messages = await getChatMessages(chatId, limit, sessionName);
+    
+    if (!Array.isArray(messages)) {
+      console.warn('[WAHA] Resposta de mensagens não é array:', messages);
+      return { synced: 0, errors: 0 };
+    }
+
+    for (const msg of messages) {
+      try {
+        // Verificar se mensagem já existe
+        const { data: existing } = await supabase
+          .from('messages')
+          .select('id')
+          .eq('external_id', msg.id)
+          .maybeSingle();
+
+        if (existing) continue; // Já existe
+
+        // Inserir nova mensagem
+        const { error } = await supabase.from('messages').insert({
+          organization_id: organizationId,
+          conversation_id: conversationId,
+          external_id: msg.id,
+          content: msg.body || msg.caption || '',
+          direction: msg.fromMe ? 'outbound' : 'inbound',
+          sender_type: msg.fromMe ? 'staff' : 'guest',
+          sender_name: msg._data?.notifyName || msg._data?.pushname || 'Contato',
+          channel: 'whatsapp',
+          media_type: msg.hasMedia ? (msg.type || 'document') : 'text',
+          media_url: msg.mediaUrl || null,
+          sent_at: msg.timestamp ? new Date(msg.timestamp * 1000).toISOString() : new Date().toISOString(),
+          status: 'delivered',
+          metadata: {
+            from: msg.from,
+            to: msg.to,
+            ack: msg.ack,
+          },
+        });
+
+        if (error) {
+          console.warn('[WAHA] Erro ao inserir mensagem:', error);
+          errors++;
+        } else {
+          synced++;
+        }
+      } catch (e) {
+        console.warn('[WAHA] Erro ao processar mensagem:', e);
+        errors++;
+      }
+    }
+
+    console.log(`[WAHA] Sincronização concluída: ${synced} mensagens, ${errors} erros`);
+  } catch (error) {
+    console.error('[WAHA] Erro ao sincronizar histórico:', error);
+  }
+
+  return { synced, errors };
 }
 
 // ============================================================
@@ -303,15 +687,20 @@ export async function getChatMessages(
  */
 export async function checkNumber(
   phoneNumber: string,
-  sessionName: string = DEFAULT_SESSION
+  sessionName?: string
 ) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
   const response = await fetch(
-    `${WAHA_BASE_URL}/api/contacts/check-exists`,
+    `${baseUrl}/api/contacts/check-exists`,
     {
       method: 'POST',
-      headers: getHeaders(),
+      headers,
       body: JSON.stringify({
-        session: sessionName,
+        session,
         phone: phoneNumber,
       }),
     }
@@ -329,12 +718,19 @@ export async function checkNumber(
  */
 export async function getContactInfo(
   phoneNumber: string,
-  sessionName: string = DEFAULT_SESSION
+  sessionName?: string
 ) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
+  const formattedId = formatChatId(phoneNumber);
+  
   const response = await fetch(
-    `${WAHA_BASE_URL}/api/contacts/${phoneNumber}@c.us`,
+    `${baseUrl}/api/contacts/${encodeURIComponent(formattedId)}`,
     {
-      headers: getHeaders(),
+      headers,
       method: 'GET',
     }
   );
@@ -347,15 +743,78 @@ export async function getContactInfo(
 }
 
 /**
+ * Obter foto de perfil do contato
+ */
+export async function getContactProfilePic(
+  phoneNumber: string,
+  sessionName?: string
+) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
+  const formattedId = formatChatId(phoneNumber);
+  
+  const response = await fetch(
+    `${baseUrl}/api/contacts/${encodeURIComponent(formattedId)}/profile-picture`,
+    {
+      headers,
+    }
+  );
+
+  if (!response.ok) {
+    return null; // Foto não disponível
+  }
+
+  const data = await response.json();
+  return data.profilePictureUrl || null;
+}
+
+/**
  * Health check da API
  */
 export async function healthCheck() {
   try {
-    const response = await fetch(`${WAHA_BASE_URL}/health`);
+    const baseUrl = await getBaseUrl();
+    const response = await fetch(`${baseUrl}/health`);
     return response.ok;
   } catch {
     return false;
   }
+}
+
+/**
+ * Marcar mensagens como lidas
+ */
+export async function markAsRead(
+  chatId: string,
+  sessionName?: string
+) {
+  const defaultSession = await getDefaultSession();
+  const session = sessionName || defaultSession;
+  const baseUrl = await getBaseUrl();
+  const headers = await getHeaders();
+  
+  const formattedChatId = chatId.includes('@') ? chatId : formatChatId(chatId);
+  
+  const response = await fetch(
+    `${baseUrl}/api/sendSeen`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        session,
+        chatId: formattedChatId,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    console.warn('[WAHA] Erro ao marcar como lido:', response.statusText);
+  }
+
+  return response.ok;
 }
 
 // ============================================================
@@ -377,8 +836,15 @@ export interface WAHAMessage {
   from: string;
   to: string;
   body: string;
+  caption?: string;
   hasMedia: boolean;
+  mediaUrl?: string;
+  type?: 'text' | 'image' | 'video' | 'audio' | 'document' | 'sticker';
   ack: number; // 0=Erro, 1=Pendente, 2=Enviado, 3=Entregue, 4=Lido
+  _data?: {
+    notifyName?: string;
+    pushname?: string;
+  };
 }
 
 export interface WAHAChat {
@@ -389,30 +855,31 @@ export interface WAHAChat {
   timestamp: number;
 }
 
+export interface WAHASendResult {
+  id: string;
+  timestamp: number;
+  ack: number;
+}
+
 // ============================================================
-// 6. CONFIGURAÇÃO
+// 6. CONFIGURAÇÃO LEGADA (compatibilidade)
 // ============================================================
 
 /**
- * Atualizar configuração (use antes de iniciar)
+ * @deprecated Use setWahaConfig() ao invés
  */
 export function configureWAHA(config: {
   baseUrl?: string;
   apiKey?: string;
   sessionName?: string;
 }) {
-  if (config.baseUrl) {
-    (WAHA_BASE_URL as any) = config.baseUrl;
-  }
-  if (config.apiKey) {
-    (WAHA_API_KEY as any) = config.apiKey;
-  }
-  if (config.sessionName) {
-    (DEFAULT_SESSION as any) = config.sessionName;
-  }
+  setWahaConfig({
+    baseUrl: config.baseUrl,
+    apiKey: config.apiKey,
+    sessionName: config.sessionName,
+  });
 }
 
 // Log de inicialização
-console.log('[WAHA] Cliente inicializado');
-console.log('[WAHA] Base URL:', WAHA_BASE_URL);
-console.log('[WAHA] Session:', DEFAULT_SESSION);
+console.log('[WAHA] Cliente v2.0 inicializado');
+console.log('[WAHA] Configuração será carregada dinamicamente do banco ou variáveis de ambiente');

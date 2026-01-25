@@ -1,19 +1,38 @@
 /**
- * RENDIZY - Simple Chat Inbox
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║                         SIMPLE CHAT INBOX                                  ║
+ * ║                                                                            ║
+ * ║  🔒 ZONA_CRITICA_CHAT - NÃO MODIFICAR SEM REVISAR ADR-007                 ║
+ * ║  📐 LAYOUT_3_COLUNAS - Estrutura visual principal do Chat                 ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * Layout de 3 COLUNAS componentizado:
- * - Coluna 1: Lista de Conversas (ChatConversationList)
- * - Coluna 2: Área de Mensagens (ChatMessagePanel)
- * - Coluna 3: Detalhes + Observações (ChatDetailsSidebar)
+ * Layout de 3 COLUNAS componentizado para o módulo de Chat.
  * 
- * @version v4.0.0
- * @date 2026-01-22
+ * @version v4.0.1
+ * @date 2026-01-24
+ * @see /docs/adr/ADR-007-CHAT-MODULE-WAHA-INTEGRATION.md
  * 
- * CHANGELOG v4.0.0:
- * - ✅ Layout 3 colunas
- * - ✅ Painel de detalhes com observações
- * - ✅ Componentes 100% isolados e reutilizáveis
- * - ✅ Ações Rápidas preparadas (desativadas por enquanto)
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ ESTRUTURA DO LAYOUT:                                            │
+ * │                                                                 │
+ * │ ┌──────────────┬────────────────────────────┬─────────────────┐ │
+ * │ │ COLUNA 1     │ COLUNA 2                   │ COLUNA 3        │ │
+ * │ │ (320px)      │ (flex-1)                   │ (280px)         │ │
+ * │ │              │                            │                 │ │
+ * │ │ Conversation │ ChatMessagePanel           │ ChatDetails     │ │
+ * │ │ List         │ ⭐ CRÍTICO                 │ Sidebar         │ │
+ * │ │              │                            │                 │ │
+ * │ └──────────────┴────────────────────────────┴─────────────────┘ │
+ * └─────────────────────────────────────────────────────────────────┘
+ * 
+ * CHANGELOG:
+ * - v4.0.1 (2026-01-24): Adicionadas TAGS de proteção e documentação
+ * - v4.0.0 (2026-01-22): Layout 3 colunas, componentes isolados
+ * 
+ * COMPONENTES FILHOS:
+ * - ChatConversationList.tsx → Lista de conversas WhatsApp
+ * - ChatMessagePanel.tsx → ⭐ Exibe mensagens (CRÍTICO)
+ * - ChatDetailsSidebar.tsx → Detalhes do contato + observações
  */
 
 import { useState } from 'react';
@@ -32,6 +51,14 @@ export function SimpleChatInbox() {
   const [showDetails, setShowDetails] = useState(true);
 
   const handleSelectConversation = (contact: ChatContact) => {
+    // ✅ v2.0.6: Debug log para verificar dados do contato
+    console.log('[SimpleChatInbox] 📱 Conversa selecionada:', {
+      id: contact.id,
+      name: contact.name,
+      phone: contact.phone,
+      idType: typeof contact.id,
+    });
+    
     setSelectedContact(contact);
     // Abrir painel de detalhes automaticamente ao selecionar
     setShowDetails(true);

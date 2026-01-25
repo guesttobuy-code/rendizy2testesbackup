@@ -77,6 +77,7 @@ import { SettingsManager } from './components/SettingsManager';
 import { BulkPricingManager } from './components/BulkPricingManager';
 import { ChatInbox } from './components/ChatInbox';
 import { ChatInboxWithEvolution } from './components/ChatInboxWithEvolution';
+import { ChatScopeTest } from './components/chat/ChatScopeTest'; // v1.0.103.500 - Teste biblioteca Chatscope
 import { GuestsManager } from './components/GuestsManager';
 import { NotFoundPage } from './components/NotFoundPage';
 import { EmergencyRouter } from './components/EmergencyRouter';
@@ -1480,6 +1481,13 @@ function App() {
                       onSearchReservation={handleSearchReservation}
                       onAdvancedSearch={handleAdvancedSearch}
                     />
+                  </ProtectedRoute>
+                } />
+
+                {/* 🧪 TESTE CHATSCOPE - v1.0.103.500 - Biblioteca gratuita */}
+                <Route path="/chat-test" element={
+                  <ProtectedRoute>
+                    <ChatScopeTest />
                   </ProtectedRoute>
                 } />
 

@@ -316,10 +316,18 @@ export async function fetchMessages(conversationId: string): Promise<UnifiedMess
 // CÁPSULA 4: SEND MESSAGE
 // ===================================================
 
+export type MediaType = 'text' | 'image' | 'video' | 'audio' | 'document';
+
+export interface SendMessageOptions {
+  mediaUrl?: string;
+  mediaType?: MediaType;
+  caption?: string;
+}
+
 export async function sendMessage(
   conversationId: string,
   content: string,
-  options?: { mediaUrl?: string; mediaType?: string }
+  options?: SendMessageOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const { provider, instance } = await detectProvider();
   
@@ -327,7 +335,10 @@ export async function sendMessage(
     return { success: false, error: 'No WhatsApp instance configured' };
   }
   
-  console.log(`[chatUnifiedApi] 📤 Sending message via ${provider}`);
+  console.log(`[chatUnifiedApi] 📤 Sending message via ${provider}`, {
+    hasMedia: !!options?.mediaUrl,
+    mediaType: options?.mediaType,
+  });
   
   if (provider === 'waha') {
     return await sendMessageViaWaha(instance, conversationId, content, options);
@@ -342,7 +353,7 @@ async function sendMessageViaWaha(
   instance: ProviderInstance,
   conversationId: string,
   content: string,
-  _options?: { mediaUrl?: string; mediaType?: string }
+  options?: SendMessageOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const supabase = getSupabaseClient();
@@ -361,25 +372,51 @@ async function sendMessageViaWaha(
     const wahaUrl = instance.wahaBaseUrl || 'http://76.13.82.60:3001';
     const apiKey = instance.wahaApiKey || '';
     if (!apiKey) {
-      return { success: false, error: 'WAHA API key não configurada' };
+      return { success: false, error: 'WAHA API key não configurada. Configure em Configurações > WhatsApp' };
     }
     const sessionName = instance.instanceName || 'default';
 
-    console.log('[chatUnifiedApi] 🔑 WAHA key prefix:', `${apiKey.slice(0, 4)}...`);
+    console.log('[chatUnifiedApi] 🔑 WAHA session:', sessionName, 'url:', wahaUrl);
     
-    const response = await fetch(`${wahaUrl}/api/sendText`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
-      },
-      body: JSON.stringify({ session: sessionName, chatId, text: content }),
-    });
+    let response: Response;
+    let messageContent = content;
+
+    // Determinar endpoint baseado no tipo de mídia
+    if (options?.mediaUrl && options?.mediaType && options.mediaType !== 'text') {
+      const endpoint = getWahaMediaEndpoint(options.mediaType);
+      console.log(`[chatUnifiedApi] 📎 Enviando mídia: ${options.mediaType} via ${endpoint}`);
+      
+      response = await fetch(`${wahaUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': apiKey,
+        },
+        body: JSON.stringify({
+          session: sessionName,
+          chatId,
+          file: { url: options.mediaUrl },
+          caption: options.caption || content || '',
+        }),
+      });
+      
+      messageContent = options.caption || content || `[${options.mediaType}]`;
+    } else {
+      // Mensagem de texto simples
+      response = await fetch(`${wahaUrl}/api/sendText`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': apiKey,
+        },
+        body: JSON.stringify({ session: sessionName, chatId, text: content }),
+      });
+    }
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[chatUnifiedApi] ❌ WAHA send error:', errorText);
-      return { success: false, error: `WAHA error: ${response.status}` };
+      return { success: false, error: `WAHA error: ${response.status} - ${errorText}` };
     }
     
     const result = await response.json();
@@ -397,12 +434,14 @@ async function sendMessageViaWaha(
           sender_type: 'staff',
           sender_name: 'system',
           sender_id: null,
-          content,
+          content: messageContent,
           channel: 'whatsapp',
           direction: 'outgoing',
           external_id: externalId,
           external_status: 'sent',
           sent_at: now,
+          media_type: options?.mediaType || 'text',
+          media_url: options?.mediaUrl || null,
           metadata: { provider: 'waha' },
         });
 
@@ -413,7 +452,7 @@ async function sendMessageViaWaha(
         const { error: updateError } = await supabase
           .from('conversations')
           .update({
-            last_message: content.substring(0, 500),
+            last_message: messageContent.substring(0, 500),
             last_message_at: now,
           })
           .eq('id', conversationId);
@@ -433,11 +472,28 @@ async function sendMessageViaWaha(
   }
 }
 
+/**
+ * Retorna o endpoint WAHA correto para cada tipo de mídia
+ */
+function getWahaMediaEndpoint(mediaType: MediaType): string {
+  switch (mediaType) {
+    case 'image':
+      return '/api/sendImage';
+    case 'video':
+      return '/api/sendVideo';
+    case 'audio':
+      return '/api/sendVoice';
+    case 'document':
+    default:
+      return '/api/sendFile';
+  }
+}
+
 async function sendMessageViaEvolution(
   instance: ProviderInstance,
   conversationId: string,
   content: string,
-  _options?: { mediaUrl?: string; mediaType?: string }
+  options?: SendMessageOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const supabase = getSupabaseClient();
@@ -456,14 +512,36 @@ async function sendMessageViaEvolution(
     const evolutionUrl = instance.evolutionBaseUrl || 'http://76.13.82.60:8080';
     const instanceName = instance.instanceName;
     
-    const response = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': instance.evolutionApiKey || '',
-      },
-      body: JSON.stringify({ number: remoteJid, text: content }),
-    });
+    let response: Response;
+    
+    // Determinar endpoint baseado no tipo de mídia
+    if (options?.mediaUrl && options?.mediaType && options.mediaType !== 'text') {
+      const endpoint = getEvolutionMediaEndpoint(options.mediaType);
+      console.log(`[chatUnifiedApi] 📎 Enviando mídia via Evolution: ${options.mediaType}`);
+      
+      response = await fetch(`${evolutionUrl}${endpoint}/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': instance.evolutionApiKey || '',
+        },
+        body: JSON.stringify({
+          number: remoteJid,
+          mediatype: options.mediaType,
+          media: options.mediaUrl,
+          caption: options.caption || content || '',
+        }),
+      });
+    } else {
+      response = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': instance.evolutionApiKey || '',
+        },
+        body: JSON.stringify({ number: remoteJid, text: content }),
+      });
+    }
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -479,8 +557,344 @@ async function sendMessageViaEvolution(
   }
 }
 
+/**
+ * Retorna o endpoint Evolution correto para cada tipo de mídia
+ */
+function getEvolutionMediaEndpoint(mediaType: MediaType): string {
+  switch (mediaType) {
+    case 'image':
+      return '/message/sendMedia';
+    case 'video':
+      return '/message/sendMedia';
+    case 'audio':
+      return '/message/sendWhatsAppAudio';
+    case 'document':
+    default:
+      return '/message/sendMedia';
+  }
+}
+
+// ===================================================
+// CÁPSULA 5: SYNC HISTORY (NOVO)
+// ===================================================
+
+/**
+ * Sincroniza mensagens antigas do WAHA para o banco de dados
+ * Aceita tanto conversationId (UUID) quanto telefone/chatId
+ */
+export async function syncConversationHistory(
+  phoneOrConversationId: string,
+  limit: number = 50
+): Promise<{ success: boolean; syncedCount: number; error?: string }> {
+  const { provider, instance } = await detectProvider();
+  
+  if (provider !== 'waha' || !instance) {
+    return { success: false, syncedCount: 0, error: 'Sync only available for WAHA provider' };
+  }
+  
+  const supabase = getSupabaseClient();
+  const organizationId = getOrganizationId();
+  
+  if (!organizationId) {
+    return { success: false, syncedCount: 0, error: 'Organization not found' };
+  }
+  
+  // Determinar chatId e conversationId
+  let chatId: string;
+  let conversationId: string | null = null;
+  
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(phoneOrConversationId);
+  
+  if (isUuid) {
+    // É um UUID - buscar external_conversation_id
+    conversationId = phoneOrConversationId;
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('external_conversation_id')
+      .eq('id', conversationId)
+      .single();
+    
+    if (!conv?.external_conversation_id) {
+      return { success: false, syncedCount: 0, error: 'Conversation not found' };
+    }
+    chatId = conv.external_conversation_id;
+  } else {
+    // É telefone/chatId
+    const cleanPhone = phoneOrConversationId.replace(/\D/g, '');
+    chatId = phoneOrConversationId.includes('@') ? phoneOrConversationId : `${cleanPhone}@c.us`;
+    
+    // Tentar encontrar conversationId existente
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .or(`external_conversation_id.eq.${chatId},external_conversation_id.eq.${cleanPhone}`)
+      .maybeSingle();
+    
+    conversationId = conv?.id || null;
+  }
+  const wahaUrl = instance.wahaBaseUrl || 'http://76.13.82.60:3001';
+  const apiKey = instance.wahaApiKey || '';
+  const sessionName = instance.instanceName || 'default';
+  
+  if (!apiKey) {
+    return { success: false, syncedCount: 0, error: 'WAHA API key not configured' };
+  }
+  
+  try {
+    // Buscar mensagens do WAHA
+    const response = await fetch(
+      `${wahaUrl}/api/sessions/${sessionName}/chats/${encodeURIComponent(chatId)}/messages?limit=${limit}&downloadMedia=true`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': apiKey,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[chatUnifiedApi] ❌ WAHA fetch messages error:', errorText);
+      return { success: false, syncedCount: 0, error: `Failed to fetch messages: ${response.status}` };
+    }
+    
+    const messages = await response.json();
+    
+    if (!Array.isArray(messages)) {
+      return { success: false, syncedCount: 0, error: 'Invalid response from WAHA' };
+    }
+    
+    console.log(`[chatUnifiedApi] 📥 Sincronizando ${messages.length} mensagens`);
+    
+    // Se não temos conversationId, criar conversa
+    if (!conversationId && messages.length > 0) {
+      const firstMsg = messages[0];
+      const contactPhone = chatId.includes('@') ? chatId.split('@')[0] : chatId;
+      const contactName = firstMsg._data?.notifyName || firstMsg._data?.pushname || contactPhone;
+      
+      const { data: newConv, error: createError } = await supabase
+        .from('conversations')
+        .insert({
+          organization_id: organizationId,
+          external_conversation_id: chatId,
+          guest_phone: contactPhone,
+          guest_name: contactName,
+          channel: 'whatsapp',
+          status: 'active',
+        })
+        .select('id')
+        .single();
+      
+      if (createError) {
+        console.error('[chatUnifiedApi] ❌ Error creating conversation:', createError);
+        return { success: false, syncedCount: 0, error: 'Failed to create conversation' };
+      }
+      
+      conversationId = newConv?.id || null;
+    }
+    
+    if (!conversationId) {
+      return { success: false, syncedCount: 0, error: 'Could not resolve conversation' };
+    }
+    
+    let synced = 0;
+    
+    for (const msg of messages) {
+      // Verificar se já existe
+      const { data: existing } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('external_id', msg.id)
+        .maybeSingle();
+      
+      if (existing) continue;
+      
+      // Inserir mensagem
+      const { error } = await supabase.from('messages').insert({
+        organization_id: organizationId,
+        conversation_id: conversationId,
+        external_id: msg.id,
+        content: msg.body || msg.caption || '',
+        direction: msg.fromMe ? 'outbound' : 'inbound',
+        sender_type: msg.fromMe ? 'staff' : 'guest',
+        sender_name: msg._data?.notifyName || msg._data?.pushname || 'Contato',
+        channel: 'whatsapp',
+        media_type: msg.hasMedia ? (msg.type || 'document') : 'text',
+        media_url: msg.mediaUrl || null,
+        sent_at: msg.timestamp ? new Date(msg.timestamp * 1000).toISOString() : new Date().toISOString(),
+        status: 'delivered',
+        metadata: { provider: 'waha', from: msg.from, to: msg.to },
+      });
+      
+      if (!error) synced++;
+    }
+    
+    console.log(`[chatUnifiedApi] ✅ Sincronizado ${synced} mensagens`);
+    return { success: true, syncedCount: synced };
+  } catch (error) {
+    console.error('[chatUnifiedApi] ❌ Sync exception:', error);
+    return { success: false, syncedCount: 0, error: String(error) };
+  }
+}
+
 // ===================================================
 // RE-EXPORTS
 // ===================================================
 
 export { getOrganizationId };
+
+// ===================================================
+// CÁPSULA 6: SEND MEDIA (NOVO)
+// ===================================================
+
+export interface SendMediaOptions {
+  type: MediaType;
+  base64: string;
+  filename: string;
+  mimetype: string;
+  caption?: string;
+}
+
+/**
+ * Envia mídia (imagem, video, audio, documento) via WhatsApp
+ * Suporta envio por telefone (sem precisar de conversationId do banco)
+ */
+export async function sendUnifiedMedia(
+  phoneOrConversationId: string,
+  options: SendMediaOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const { provider, instance } = await detectProvider();
+  
+  if (!instance) {
+    return { success: false, error: 'No WhatsApp instance configured' };
+  }
+  
+  console.log(`[chatUnifiedApi] 📤 Sending media via ${provider}`, {
+    type: options.type,
+    filename: options.filename,
+    hasCaption: !!options.caption,
+  });
+  
+  // Determinar chatId
+  let chatId = phoneOrConversationId;
+  
+  // Se for UUID, buscar external_conversation_id
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(phoneOrConversationId);
+  if (isUuid) {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('conversations')
+      .select('external_conversation_id')
+      .eq('id', phoneOrConversationId)
+      .single();
+    
+    const conv = data as { external_conversation_id: string } | null;
+    if (!conv?.external_conversation_id) {
+      return { success: false, error: 'Conversation not found' };
+    }
+    chatId = conv.external_conversation_id;
+  } else {
+    // É telefone - formatar como chatId
+    const cleanPhone = phoneOrConversationId.replace(/\D/g, '');
+    chatId = chatId.includes('@') ? chatId : `${cleanPhone}@c.us`;
+  }
+  
+  if (provider === 'waha') {
+    return await sendMediaViaWaha(instance, chatId, options);
+  } else if (provider === 'evolution') {
+    return await sendMediaViaEvolution(instance, chatId, options);
+  }
+  
+  return { success: false, error: 'Unknown provider' };
+}
+
+async function sendMediaViaWaha(
+  instance: ProviderInstance,
+  chatId: string,
+  options: SendMediaOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const wahaUrl = instance.wahaBaseUrl || 'http://76.13.82.60:3001';
+  const apiKey = instance.wahaApiKey || '';
+  const sessionName = instance.instanceName || 'default';
+  
+  if (!apiKey) {
+    return { success: false, error: 'WAHA API key not configured' };
+  }
+  
+  const endpoint = getWahaMediaEndpoint(options.type);
+  
+  try {
+    const response = await fetch(`${wahaUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': apiKey,
+      },
+      body: JSON.stringify({
+        session: sessionName,
+        chatId,
+        file: {
+          mimetype: options.mimetype,
+          filename: options.filename,
+          data: options.base64,
+        },
+        caption: options.caption || '',
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[chatUnifiedApi] ❌ WAHA media error:', errorText);
+      return { success: false, error: `WAHA error: ${response.status}` };
+    }
+    
+    const result = await response.json();
+    return { success: true, messageId: result?.id };
+  } catch (error) {
+    console.error('[chatUnifiedApi] ❌ WAHA media exception:', error);
+    return { success: false, error: String(error) };
+  }
+}
+
+async function sendMediaViaEvolution(
+  instance: ProviderInstance,
+  chatId: string,
+  options: SendMediaOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const evolutionUrl = instance.evolutionBaseUrl || 'http://76.13.82.60:8080';
+  const instanceName = instance.instanceName;
+  
+  // Evolution precisa do número sem @c.us
+  const number = chatId.includes('@') ? chatId.split('@')[0] : chatId;
+  
+  try {
+    const response = await fetch(`${evolutionUrl}/message/sendMedia/${instanceName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': instance.evolutionApiKey || '',
+      },
+      body: JSON.stringify({
+        number,
+        mediatype: options.type,
+        mimetype: options.mimetype,
+        media: `data:${options.mimetype};base64,${options.base64}`,
+        fileName: options.filename,
+        caption: options.caption || '',
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[chatUnifiedApi] ❌ Evolution media error:', errorText);
+      return { success: false, error: `Evolution error: ${response.status}` };
+    }
+    
+    const result = await response.json();
+    return { success: true, messageId: result.key?.id };
+  } catch (error) {
+    console.error('[chatUnifiedApi] ❌ Evolution media exception:', error);
+    return { success: false, error: String(error) };
+  }
+}

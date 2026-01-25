@@ -1,22 +1,49 @@
 /**
- * CHAT MESSAGE PANEL
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║                         CHAT MESSAGE PANEL                                 ║
+ * ║                                                                            ║
+ * ║  🔒 ZONA_CRITICA_CHAT - NÃO MODIFICAR SEM REVISAR ADR-007                 ║
+ * ║  ⚠️  WAHA_INTEGRATION - Mudanças afetam carregamento de mensagens         ║
+ * ║  📱 WHATSAPP_JID - Lógica de identificação de conversas                   ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * Componente ISOLADO para exibir mensagens de UMA conversa
- * Pode ser usado standalone (ex: dentro de um Card do CRM)
+ * Componente ISOLADO para exibir mensagens de UMA conversa.
+ * Pode ser usado standalone (ex: dentro de um Card do CRM).
  * 
- * @version 1.0.0
- * @date 2026-01-22
+ * @version 2.0.9
+ * @date 2026-01-24
+ * @see /docs/adr/ADR-007-CHAT-MODULE-WAHA-INTEGRATION.md
  * 
- * Uso:
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ FLUXO DE DADOS:                                                 │
+ * │ 1. Recebe conversationId (JID ou UUID)                          │
+ * │ 2. Detecta tipo: WhatsApp JID (@c.us) ou UUID (banco)           │
+ * │ 3. JID → fetchWhatsAppMessages() → WAHA API                     │
+ * │ 4. UUID → fetchUnifiedMessages() → Supabase                     │
+ * │ 5. Converte para ChatMessage[] → setMessages() → render         │
+ * └─────────────────────────────────────────────────────────────────┘
+ * 
+ * CHANGELOG:
+ * - v2.0.9 (2026-01-24): SEMPRE buscar do WAHA para JIDs WhatsApp
+ * - v2.0.8 (2026-01-24): Suporte a Base64 thumbnails do WAHA CORE
+ * - v2.0.7 (2026-01-24): Detecção robusta de tipo de mídia
+ * - v2.0.6 (2026-01-24): Extração robusta de JID (evita [object Object])
+ * - v2.0.0 (2026-01-24): Refatoração completa com suporte a mídia
+ * 
+ * USO:
  * ```tsx
- * // Dentro de um Card do CRM
  * <ChatMessagePanel 
- *   conversationId="5521999999999@s.whatsapp.net"
+ *   conversationId="5521999999999@c.us"  // JID WhatsApp
  *   contactName="João Silva"
- *   contactPhone="5521999999999"
+ *   contactPhone="+55 21 99999-9999"
  *   compact={true}
  * />
  * ```
+ * 
+ * DEPENDÊNCIAS CRÍTICAS:
+ * - whatsappChatApi.ts (fetchWhatsAppMessages, sendWhatsAppMessage)
+ * - chatUnifiedApi.ts (fetchUnifiedMessages - fallback para UUID)
+ * - WAHA API em http://76.13.82.60:3001
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -29,7 +56,13 @@ import {
   AlertCircle,
   Phone,
   Minimize2,
-  Maximize2
+  Maximize2,
+  Image as ImageIcon,
+  Paperclip,
+  RefreshCw,
+  Play,
+  FileText,
+  Download
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -41,7 +74,12 @@ import {
   sendWhatsAppMessage,
   extractMessageText
 } from '../../utils/whatsappChatApi';
-import { fetchMessages as fetchUnifiedMessages, sendMessage as sendUnifiedMessage } from '../../utils/chatUnifiedApi';
+import { 
+  fetchMessages as fetchUnifiedMessages, 
+  sendMessage as sendUnifiedMessage,
+  syncConversationHistory,
+  type MediaType 
+} from '../../utils/chatUnifiedApi';
 import { getSupabaseClient } from '../../utils/supabase/client';
 
 // ============================================
@@ -86,6 +124,8 @@ interface ChatMessage {
   fromMe: boolean;
   timestamp: Date;
   status?: 'pending' | 'sent' | 'delivered' | 'read' | 'error';
+  mediaType?: MediaType;
+  mediaUrl?: string;
 }
 
 // ============================================
@@ -159,17 +199,40 @@ export function ChatMessagePanel({
   const [isSending, setIsSending] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [resolvedConversationId, setResolvedConversationId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<{ file: File; type: MediaType; preview: string } | null>(null);
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ============================================
   // LOAD MESSAGES
   // ============================================
   
   const loadMessages = useCallback(async () => {
-    if (!conversationId) return;
+    // ✅ v2.0.9: Log detalhado do início do carregamento
+    console.log('[ChatMessagePanel] 🚀 loadMessages CHAMADO com conversationId:', conversationId, 'tipo:', typeof conversationId);
+    
+    // ✅ v2.0.6: Validação robusta do conversationId
+    if (!conversationId) {
+      console.warn('[ChatMessagePanel] ⚠️ conversationId está vazio');
+      return;
+    }
+    
+    // ✅ v2.0.6: Garantir que conversationId seja string
+    const safeConversationId = typeof conversationId === 'string' 
+      ? conversationId 
+      : (conversationId as any)?.id || (conversationId as any)?._serialized || String(conversationId);
+    
+    // ✅ v2.0.6: Validar que temos um ID válido (não apenas "@c.us")
+    if (!safeConversationId || safeConversationId === '@c.us' || safeConversationId.length < 5) {
+      console.error('[ChatMessagePanel] ❌ conversationId inválido:', conversationId);
+      return;
+    }
+    
+    console.log('[ChatMessagePanel] 🔍 Iniciando carregamento para:', safeConversationId);
     
     setIsLoading(true);
     
@@ -177,16 +240,16 @@ export function ChatMessagePanel({
       const supabase = getSupabaseClient();
 
       const resolveConversationId = async (): Promise<string | null> => {
-        if (isUuid(conversationId)) return conversationId;
+        if (isUuid(safeConversationId)) return safeConversationId;
 
         const candidates: string[] = [];
-        const clean = conversationId.includes('@') ? conversationId : conversationId.replace(/\D/g, '');
-        if (clean) {
+        const clean = safeConversationId.includes('@') ? safeConversationId : safeConversationId.replace(/\D/g, '');
+        if (clean && clean.length >= 8) { // ✅ v2.0.6: Mínimo 8 dígitos para ser número válido
           candidates.push(clean);
           candidates.push(`${clean}@c.us`);
           candidates.push(`${clean}@s.whatsapp.net`);
         }
-        if (conversationId.includes('@')) candidates.push(conversationId);
+        if (safeConversationId.includes('@') && safeConversationId.length > 10) candidates.push(safeConversationId);
 
         const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
         if (uniqueCandidates.length === 0) return null;
@@ -212,40 +275,129 @@ export function ChatMessagePanel({
       const dbConversationId = await resolveConversationId();
       setResolvedConversationId(dbConversationId);
 
-      // ✅ Se tiver conversa no banco, usar mensagens persistidas (WAHA/DB)
-      if (dbConversationId) {
-        const unified = await fetchUnifiedMessages(dbConversationId);
-        const converted: ChatMessage[] = unified.map(msg => ({
-          id: msg.id || crypto.randomUUID(),
-          text: msg.content || (msg.mediaType ? '[Mídia]' : ''),
-          fromMe: !!msg.fromMe,
-          timestamp: msg.timestamp || new Date(),
-          status: msg.status || (msg.fromMe ? 'delivered' : undefined)
-        }));
+      // ✅ v2.0.9: SEMPRE usar WAHA direto quando for JID do WhatsApp
+      // Não depender do banco para mensagens - banco pode estar desatualizado
+      const isWhatsAppJid = safeConversationId.includes('@c.us') || 
+                           safeConversationId.includes('@s.whatsapp.net') ||
+                           safeConversationId.includes('@broadcast') ||
+                           /^\d{10,}$/.test(safeConversationId.replace(/\D/g, ''));
+      
+      if (isWhatsAppJid) {
+        // ✅ v2.0.9: JID/phone: usar WAHA/Evolution API direta SEMPRE
+        const chatId = safeConversationId.includes('@')
+          ? safeConversationId
+          : `${safeConversationId.replace(/\D/g, '')}@c.us`;
 
-        setMessages(converted);
-      } else {
-        // ✅ JID/phone: usar WAHA/Evolution API direta
-        const chatId = conversationId.includes('@')
-          ? conversationId
-          : conversationId.replace(/\D/g, '') || conversationId;
-
-        console.log('[ChatMessagePanel] 📥 Carregando mensagens para:', chatId);
+        console.log('[ChatMessagePanel] 📥 Carregando mensagens WAHA para:', chatId);
 
         const rawMessages = await fetchWhatsAppMessages(chatId);
+        
+        // ✅ v2.0.6: Debug detalhado das mensagens raw
+        console.log('[ChatMessagePanel] 📦 Raw messages count:', rawMessages?.length || 0);
+        if (rawMessages?.length > 0) {
+          console.log('[ChatMessagePanel] 📦 Primeira msg raw:', JSON.stringify(rawMessages[0], null, 2).substring(0, 500));
+        }
 
-        const converted: ChatMessage[] = rawMessages.map((msg: any) => ({
-          id: msg.key?.id || msg.id || crypto.randomUUID(),
-          text: extractMessageText(msg) || '[Mídia]',
-          fromMe: msg.key?.fromMe || false,
-          timestamp: new Date((msg.messageTimestamp || Date.now() / 1000) * 1000),
-          status: msg.key?.fromMe ? 'delivered' : undefined
-        }));
+        const converted: ChatMessage[] = rawMessages.map((msg: any) => {
+          // ✅ v2.0.8: Extrair tipo de mídia do WAHA - versão robusta
+          let mediaType: MediaType | undefined;
+          let mediaUrl: string | undefined;
+          
+          // ✅ v2.0.8: Pegar mediaUrl já processado (Base64 do whatsappChatApi)
+          // A API já converte para data:mimetype;base64,... que funciona no browser
+          mediaUrl = msg.mediaUrl || 
+                     msg.media?.url ||
+                     msg.message?.imageMessage?.url || 
+                     msg.message?.videoMessage?.url ||
+                     msg.message?.audioMessage?.url ||
+                     msg.message?.documentMessage?.url ||
+                     undefined;
+          
+          // ✅ v2.0.8: Debug para ver se está chegando com mídia
+          if (msg.hasMedia) {
+            console.log('[ChatMessagePanel] 📦 Msg com mídia:', {
+              id: (msg.key?.id || msg.id || '').substring(0, 30),
+              hasMedia: msg.hasMedia,
+              type: msg.type,
+              mediaUrl: mediaUrl ? `${mediaUrl.substring(0, 50)}...` : 'NULL',
+            });
+          }
+          
+          // ✅ v2.0.7: Determinar tipo de mídia - múltiplas fontes
+          const msgType = msg.type || '';
+          const mimetype = msg.media?.mimetype || msg.message?.imageMessage?.mimetype || 
+                           msg.message?.videoMessage?.mimetype || msg.message?.audioMessage?.mimetype || '';
+          
+          if (msg.hasMedia || msg.media || mediaUrl || msg.message?.imageMessage || msg.message?.videoMessage) {
+            if (msgType === 'image' || mimetype.startsWith('image/') || msg.message?.imageMessage || 
+                (mediaUrl && (mediaUrl.includes('image/') || mediaUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)))) {
+              mediaType = 'image';
+            } else if (msgType === 'video' || mimetype.startsWith('video/') || msg.message?.videoMessage ||
+                       (mediaUrl && (mediaUrl.includes('video/') || mediaUrl.match(/\.(mp4|webm|mov)/i)))) {
+              mediaType = 'video';
+            } else if (msgType === 'audio' || msgType === 'ptt' || mimetype.startsWith('audio/') || msg.message?.audioMessage) {
+              mediaType = 'audio';
+            } else if (msgType === 'document' || mimetype.startsWith('application/') || msg.message?.documentMessage) {
+              mediaType = 'document';
+            } else if (msg.hasMedia && mediaUrl) {
+              // Fallback: tentar detectar pelo data URL
+              if (mediaUrl.startsWith('data:image/')) mediaType = 'image';
+              else if (mediaUrl.startsWith('data:video/')) mediaType = 'video';
+              else if (mediaUrl.startsWith('data:audio/')) mediaType = 'audio';
+              else mediaType = 'document';
+            }
+          }
+          
+          // Debug log para mídia
+          if (msg.hasMedia || mediaUrl) {
+            console.log('[ChatMessagePanel] 📎 Mídia detectada:', {
+              id: msg.key?.id || msg.id,
+              hasMedia: msg.hasMedia,
+              type: msg.type,
+              mediaType,
+              mediaUrl,
+              mimetype: msg.media?.mimetype
+            });
+          }
+          
+          return {
+            id: msg.key?.id || msg.id || crypto.randomUUID(),
+            text: extractMessageText(msg) || '',
+            fromMe: msg.key?.fromMe || msg.fromMe || false,
+            timestamp: new Date((msg.messageTimestamp || msg.timestamp || Date.now() / 1000) * 1000),
+            status: (msg.key?.fromMe || msg.fromMe) ? 'delivered' : undefined,
+            mediaType,
+            mediaUrl,
+          };
+        });
 
         // Ordenar por timestamp
         converted.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
+        // ✅ v2.0.9: Log antes de setMessages
+        console.log('[ChatMessagePanel] ✅ Definindo messages:', converted.length, 'mensagens');
+        if (converted.length > 0) {
+          console.log('[ChatMessagePanel] 📨 Última mensagem:', converted[converted.length - 1].text?.substring(0, 50));
+        }
+        
         setMessages(converted);
+      } else if (dbConversationId) {
+        // ✅ v2.0.9: Fallback para conversas UUID (não-WhatsApp) - usar banco
+        console.log('[ChatMessagePanel] 📥 Carregando do banco para UUID:', dbConversationId);
+        const unified = await fetchUnifiedMessages(dbConversationId);
+        const converted: ChatMessage[] = unified.map(msg => ({
+          id: msg.id || crypto.randomUUID(),
+          text: msg.content || '',
+          fromMe: !!msg.fromMe,
+          timestamp: msg.timestamp || new Date(),
+          status: msg.status || (msg.fromMe ? 'delivered' : undefined),
+          mediaType: msg.mediaType && msg.mediaType !== 'text' ? msg.mediaType as MediaType : undefined,
+          mediaUrl: msg.mediaUrl || undefined,
+        }));
+        console.log('[ChatMessagePanel] ✅ Mensagens do banco:', converted.length);
+        setMessages(converted);
+      } else {
+        console.warn('[ChatMessagePanel] ⚠️ Não foi possível identificar fonte de mensagens para:', safeConversationId);
       }
       
       // Scroll para baixo
@@ -333,6 +485,147 @@ export function ChatMessagePanel({
   };
 
   // ============================================
+  // SYNC HISTORY FROM WAHA
+  // ============================================
+  
+  const handleSyncHistory = async () => {
+    if (isSyncing || !conversationId) return;
+    
+    setIsSyncing(true);
+    try {
+      // Tentar determinar phone do chat
+      let phone = contactPhone || conversationId;
+      if (phone.includes('@')) {
+        phone = phone.split('@')[0];
+      }
+      
+      const result = await syncConversationHistory(phone, 50);
+      
+      if (result.success) {
+        toast.success(`${result.syncedCount || 0} mensagens sincronizadas`);
+        // Recarregar mensagens
+        await loadMessages();
+      } else {
+        toast.error(result.error || 'Falha ao sincronizar');
+      }
+    } catch (error) {
+      console.error('[ChatMessagePanel] ❌ Erro ao sincronizar:', error);
+      toast.error('Erro ao sincronizar histórico');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // ============================================
+  // MEDIA HANDLING
+  // ============================================
+  
+  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Determinar tipo de mídia
+    let mediaType: MediaType = 'document';
+    if (file.type.startsWith('image/')) mediaType = 'image';
+    else if (file.type.startsWith('video/')) mediaType = 'video';
+    else if (file.type.startsWith('audio/')) mediaType = 'audio';
+    
+    // Criar preview para imagens/videos
+    const preview = file.type.startsWith('image/') || file.type.startsWith('video/')
+      ? URL.createObjectURL(file)
+      : '';
+    
+    setSelectedMedia({ file, type: mediaType, preview });
+    
+    // Limpar input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+  
+  const handleCancelMedia = () => {
+    if (selectedMedia?.preview) {
+      URL.revokeObjectURL(selectedMedia.preview);
+    }
+    setSelectedMedia(null);
+  };
+  
+  const handleSendMedia = async () => {
+    if (!selectedMedia || isSending) return;
+    
+    setIsSending(true);
+    
+    // Mensagem otimista
+    const tempId = `temp-media-${Date.now()}`;
+    const optimisticMessage: ChatMessage = {
+      id: tempId,
+      text: `[${selectedMedia.type === 'image' ? 'Imagem' : selectedMedia.type === 'video' ? 'Vídeo' : 'Arquivo'}]`,
+      fromMe: true,
+      timestamp: new Date(),
+      status: 'pending',
+      mediaType: selectedMedia.type,
+      mediaUrl: selectedMedia.preview
+    };
+    
+    setMessages(prev => [...prev, optimisticMessage]);
+    
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+    
+    try {
+      // Converter arquivo para base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remover prefixo data:xxx/xxx;base64,
+          const base64Data = result.split(',')[1] || result;
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedMedia.file);
+      });
+      
+      // Preparar envio
+      let phone = contactPhone || conversationId;
+      if (phone.includes('@')) {
+        phone = phone.split('@')[0];
+      }
+      
+      // Import sendUnifiedMedia dinamicamente
+      const { sendUnifiedMedia } = await import('../../utils/chatUnifiedApi');
+      
+      const result = await sendUnifiedMedia(phone, {
+        type: selectedMedia.type,
+        base64,
+        filename: selectedMedia.file.name,
+        mimetype: selectedMedia.file.type,
+        caption: inputText.trim() || undefined
+      });
+      
+      if (!result.success) throw new Error(result.error || 'Falha ao enviar mídia');
+      
+      // Atualizar status
+      setMessages(prev => prev.map(m => 
+        m.id === tempId ? { ...m, status: 'sent' } : m
+      ));
+      
+      setInputText('');
+      handleCancelMedia();
+      
+    } catch (error) {
+      console.error('[ChatMessagePanel] ❌ Erro ao enviar mídia:', error);
+      
+      setMessages(prev => prev.map(m => 
+        m.id === tempId ? { ...m, status: 'error' } : m
+      ));
+      
+      toast.error('Erro ao enviar mídia');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // ============================================
   // EFFECTS
   // ============================================
   
@@ -359,17 +652,43 @@ export function ChatMessagePanel({
         },
         (payload) => {
           const newMsg = payload.new as any;
-          if (newMsg && !newMsg.is_from_me) {
+          // Aceitar mensagens de entrada (não enviadas por nós)
+          // Também aceitar mensagens enviadas se não estiverem na lista (confirmação do servidor)
+          if (newMsg) {
+            const isFromMe = newMsg.direction === 'outbound' || newMsg.is_from_me;
+            
+            // Determinar tipo de mídia
+            let msgMediaType: MediaType | undefined;
+            if (newMsg.media_type && newMsg.media_type !== 'text') {
+              msgMediaType = newMsg.media_type as MediaType;
+            }
+            
             const chatMessage: ChatMessage = {
               id: newMsg.id,
-              text: newMsg.content || '[Mídia]',
-              fromMe: false,
-              timestamp: new Date(newMsg.created_at || Date.now()),
-              status: 'delivered'
+              text: newMsg.content || '',
+              fromMe: isFromMe,
+              timestamp: new Date(newMsg.sent_at || newMsg.created_at || Date.now()),
+              status: isFromMe ? 'delivered' : undefined,
+              mediaType: msgMediaType,
+              mediaUrl: newMsg.media_url || undefined,
             };
             
             setMessages(prev => {
+              // Se já existe, não duplicar
               if (prev.some(m => m.id === chatMessage.id)) return prev;
+              // Se é mensagem nossa e já temos uma temp com mesmo texto, substituir
+              if (isFromMe) {
+                const tempIndex = prev.findIndex(m => 
+                  m.id.startsWith('temp-') && 
+                  m.text === chatMessage.text &&
+                  m.status === 'pending'
+                );
+                if (tempIndex >= 0) {
+                  const newMessages = [...prev];
+                  newMessages[tempIndex] = chatMessage;
+                  return newMessages;
+                }
+              }
               return [...prev, chatMessage];
             });
             
@@ -444,6 +763,16 @@ export function ChatMessagePanel({
               variant="ghost" 
               size="icon" 
               className="h-7 w-7"
+              onClick={handleSyncHistory}
+              disabled={isSyncing}
+              title="Sincronizar histórico do WhatsApp"
+            >
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-7 w-7"
               onClick={() => setIsMinimized(true)}
             >
               <Minimize2 className="h-4 w-4" />
@@ -483,16 +812,63 @@ export function ChatMessagePanel({
               >
                 <div
                   className={`
-                    max-w-[85%] rounded-lg px-3 py-1.5 shadow-sm text-sm
+                    max-w-[85%] rounded-lg px-3 py-1.5 shadow-sm text-sm overflow-hidden
                     ${msg.fromMe 
                       ? 'bg-green-500 text-white' 
                       : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
                     }
                   `}
                 >
-                  <p className="whitespace-pre-wrap break-words">
-                    {msg.text}
-                  </p>
+                  {/* Media Content */}
+                  {msg.mediaType && msg.mediaUrl && (
+                    <div className="mb-1 -mx-3 -mt-1.5">
+                      {msg.mediaType === 'image' && (
+                        <img 
+                          src={msg.mediaUrl} 
+                          alt="Imagem" 
+                          className="max-w-full max-h-[200px] object-contain cursor-pointer rounded-t-lg"
+                          onClick={() => window.open(msg.mediaUrl, '_blank')}
+                        />
+                      )}
+                      {msg.mediaType === 'video' && (
+                        <div className="relative">
+                          <video 
+                            src={msg.mediaUrl} 
+                            controls 
+                            className="max-w-full max-h-[200px] rounded-t-lg"
+                          />
+                        </div>
+                      )}
+                      {msg.mediaType === 'audio' && (
+                        <audio 
+                          src={msg.mediaUrl} 
+                          controls 
+                          className="w-full px-3 pt-2"
+                        />
+                      )}
+                      {msg.mediaType === 'document' && (
+                        <a 
+                          href={msg.mediaUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={`flex items-center gap-2 p-2 mx-3 mt-2 rounded ${
+                            msg.fromMe ? 'bg-green-600' : 'bg-gray-100 dark:bg-gray-700'
+                          }`}
+                        >
+                          <FileText className="h-5 w-5" />
+                          <span className="text-xs truncate">Documento</span>
+                          <Download className="h-4 w-4 ml-auto" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Text Content */}
+                  {msg.text && msg.text !== '[Mídia]' && !msg.text.startsWith('[') && (
+                    <p className="whitespace-pre-wrap break-words">
+                      {msg.text}
+                    </p>
+                  )}
                   
                   <div className={`
                     flex items-center justify-end gap-1 mt-0.5
@@ -524,23 +900,72 @@ export function ChatMessagePanel({
         </ScrollArea>
       </div>
       
+      {/* Media Preview - Se tiver mídia selecionada */}
+      {selectedMedia && (
+        <div className="flex-shrink-0 p-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+          <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-700 rounded-lg">
+            {selectedMedia.type === 'image' && selectedMedia.preview ? (
+              <img src={selectedMedia.preview} alt="Preview" className="h-16 w-16 object-cover rounded" />
+            ) : selectedMedia.type === 'video' && selectedMedia.preview ? (
+              <div className="relative h-16 w-16 bg-black rounded flex items-center justify-center">
+                <Play className="h-6 w-6 text-white" />
+              </div>
+            ) : (
+              <div className="h-16 w-16 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center">
+                <FileText className="h-6 w-6 text-gray-500" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{selectedMedia.file.name}</p>
+              <p className="text-xs text-gray-500">
+                {(selectedMedia.file.size / 1024).toFixed(1)} KB
+              </p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8"
+              onClick={handleCancelMedia}
+            >
+              ×
+            </Button>
+          </div>
+        </div>
+      )}
+      
       {/* Input Area - FIXO NA PARTE INFERIOR */}
       <div className="flex-shrink-0 p-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <div className="flex gap-2">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleMediaSelect}
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+          className="hidden"
+        />
+        <div className="flex gap-2 items-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 flex-shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+            title="Anexar arquivo"
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <Textarea
             ref={textareaRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Digite uma mensagem..."
-            className="min-h-[36px] max-h-[100px] resize-none text-sm"
+            placeholder={selectedMedia ? "Adicione uma legenda..." : "Digite uma mensagem..."}
+            className="min-h-[36px] max-h-[100px] resize-none text-sm flex-1"
             rows={1}
           />
           <Button 
             size="icon"
-            onClick={handleSend}
-            disabled={!inputText.trim() || isSending}
-            className="h-9 w-9 bg-green-500 hover:bg-green-600"
+            onClick={selectedMedia ? handleSendMedia : handleSend}
+            disabled={selectedMedia ? isSending : (!inputText.trim() || isSending)}
+            className="h-9 w-9 bg-green-500 hover:bg-green-600 flex-shrink-0"
           >
             {isSending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

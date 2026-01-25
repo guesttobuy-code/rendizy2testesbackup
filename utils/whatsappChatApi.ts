@@ -1,17 +1,53 @@
 /**
- * WhatsApp Chat API - Integração com Evolution API
- * Busca conversas e mensagens do WhatsApp para exibir no Chat
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║                       WHATSAPP CHAT API                                    ║
+ * ║                                                                            ║
+ * ║  🔒 ZONA_CRITICA_CHAT - NÃO MODIFICAR SEM REVISAR ADR-007                 ║
+ * ║  ⚠️  WAHA_INTEGRATION - Comunicação direta com WAHA API                   ║
+ * ║  🔑 API_KEY_REQUIRED - Todas as chamadas precisam de X-Api-Key            ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * @version 2.0.2
- * @date 2026-01-22
+ * Camada de API para comunicação com WAHA (WhatsApp HTTP API).
  * 
- * Changelog:
- * - v2.0.2: Adicionado header x-organization-id para fallback de autenticação
+ * @version 2.0.8
+ * @date 2026-01-24
+ * @see /docs/adr/ADR-007-CHAT-MODULE-WAHA-INTEGRATION.md
+ * 
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ ENDPOINTS WAHA UTILIZADOS:                                      │
+ * │                                                                 │
+ * │ GET  /api/{session}/chats                    → Lista conversas  │
+ * │ GET  /api/{session}/chats/{chatId}/messages  → Lista mensagens  │
+ * │ POST /api/sendText                           → Envia texto      │
+ * │ POST /api/sendImage                          → Envia imagem     │
+ * └─────────────────────────────────────────────────────────────────┘
+ * 
+ * ⚠️ LIMITAÇÕES DO WAHA CORE (versão gratuita):
+ * - Mídia: Só retorna thumbnails Base64 (~700-800 bytes)
+ * - URLs de mídia requerem API Key no header
+ * - Browsers não conseguem enviar headers em <img src>
+ * 
+ * SOLUÇÃO: Usar Base64 thumbnail quando disponível em _data.body
+ * 
+ * CHANGELOG:
+ * - v2.0.8 (2026-01-24): Base64 thumbnails como solução para mídia
+ * - v2.0.5 (2026-01-24): Formato correto do chatId para WAHA
+ * - v2.0.3 (2026-01-24): Fallback direto para WAHA quando backend offline
+ * 
+ * CONFIGURAÇÃO:
+ * - WAHA_API_URL: http://76.13.82.60:3001
+ * - WAHA_API_KEY: rendizy-waha-secret-2026
+ * - WAHA_SESSION: default
  */
 
 import { projectId, publicAnonKey } from './supabase/info';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/rendizy-server`;
+
+// ✅ v2.0.3: WAHA Direct API Config (fallback quando backend offline)
+const WAHA_API_URL = import.meta.env.VITE_WAHA_API_URL || 'http://76.13.82.60:3001';
+const WAHA_API_KEY = import.meta.env.VITE_WAHA_API_KEY || 'rendizy-waha-secret-2026';
+const WAHA_SESSION = 'default';
 
 /**
  * Obtém o organizationId do localStorage (cache do AuthContext)
@@ -150,10 +186,10 @@ interface WhatsAppMessage {
 
 /**
  * Buscar todas as conversas do WhatsApp
+ * v2.0.3: Fallback direto para WAHA quando backend offline
  */
 export async function fetchWhatsAppChats(): Promise<WhatsAppChat[]> {
   try {
-    // ✅ ARQUITETURA SQL v1.0.103.950 - Usar token do usuário autenticado
     const token = localStorage.getItem('rendizy-token');
     
     if (!token) {
@@ -162,80 +198,230 @@ export async function fetchWhatsAppChats(): Promise<WhatsAppChat[]> {
     }
     
     console.log('[WhatsApp Chat API] 📥 Buscando conversas...');
-    console.log('[WhatsApp Chat API] 🌐 URL:', `${BASE_URL}/whatsapp/chats`);
-    console.log('[WhatsApp Chat API] 🔑 Token:', token ? `${token.substring(0, 20)}...` : 'NONE');
     
-    const response = await fetch(`${BASE_URL}/whatsapp/chats`, {
-      method: 'GET',
-      headers: getApiHeaders(), // ✅ v2.0.2: Headers centralizados com x-organization-id
-    });
+    // Tentar backend primeiro
+    try {
+      const response = await fetch(`${BASE_URL}/whatsapp/chats`, {
+        method: 'GET',
+        headers: getApiHeaders(),
+      });
 
-    console.log('[WhatsApp Chat API] 📡 Status:', response.status);
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('[WhatsApp Chat API] ❌ Erro ao buscar conversas:', error);
-      console.error('[WhatsApp Chat API] ❌ Status:', response.status);
-      
-      // Se o backend não está disponível, retorna array vazio
-      if (response.status === 404 || response.status === 500) {
-        console.warn('[WhatsApp Chat API] ⚠️ Backend não disponível, retornando array vazio');
-        return [];
+      if (response.ok) {
+        const result = await response.json();
+        const backendChats = result.data || [];
+        console.log('[WhatsApp Chat API] ✅ Conversas via backend:', backendChats.length);
+        
+        // ✅ v2.0.5: Se backend retornou 0 conversas, usar WAHA direto
+        if (backendChats.length === 0) {
+          console.warn('[WhatsApp Chat API] ⚠️ Backend retornou 0 conversas, usando WAHA direto...');
+          return await fetchWhatsAppChatsDirect();
+        }
+        
+        return backendChats;
       }
       
-      throw new Error(`Erro ao buscar conversas: ${response.status} - ${error}`);
+      // Se backend falhou, tentar WAHA direto
+      console.warn('[WhatsApp Chat API] ⚠️ Backend offline, tentando WAHA direto...');
+    } catch (backendError) {
+      console.warn('[WhatsApp Chat API] ⚠️ Backend não disponível:', backendError);
     }
-
-    const result = await response.json();
-    console.log('[WhatsApp Chat API] ✅ Conversas recebidas:', result.data?.length || 0);
     
-    return result.data || [];
+    // ✅ v2.0.3: FALLBACK - Buscar direto do WAHA
+    return await fetchWhatsAppChatsDirect();
   } catch (error) {
     console.error('[WhatsApp Chat API] ❌ Erro:', error);
-    // Retorna array vazio em caso de erro para não quebrar a UI
+    return [];
+  }
+}
+
+/**
+ * v2.0.3: Busca DIRETA do WAHA (sem passar pelo backend)
+ */
+async function fetchWhatsAppChatsDirect(): Promise<WhatsAppChat[]> {
+  try {
+    console.log('[WhatsApp Chat API] 🔄 Buscando direto do WAHA:', WAHA_API_URL);
+    
+    const response = await fetch(`${WAHA_API_URL}/api/${WAHA_SESSION}/chats`, {
+      method: 'GET',
+      headers: {
+        'X-Api-Key': WAHA_API_KEY,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('[WhatsApp Chat API] ❌ WAHA retornou erro:', response.status);
+      return [];
+    }
+
+    const chats = await response.json();
+    console.log('[WhatsApp Chat API] ✅ Chats WAHA direto:', chats?.length || 0);
+    
+    // Converter formato WAHA para o formato esperado
+    return (chats || []).map((chat: any) => ({
+      id: chat.id,
+      remoteJid: chat.id,
+      name: chat.name || chat.pushName,
+      pushName: chat.pushName,
+      profilePictureUrl: chat.picture,
+      lastMessageTimestamp: chat.timestamp,
+      unreadCount: chat.unreadCount || 0,
+      lastMessage: chat.lastMessage ? {
+        fromMe: chat.lastMessage.fromMe || false,
+        message: chat.lastMessage.body || chat.lastMessage.text || '',
+      } : undefined,
+    }));
+  } catch (error) {
+    console.error('[WhatsApp Chat API] ❌ Erro ao buscar do WAHA direto:', error);
     return [];
   }
 }
 
 /**
  * Buscar mensagens de uma conversa específica
+ * v2.0.5: Fallback direto para WAHA quando backend offline ou retorna 0 mensagens
  */
 export async function fetchWhatsAppMessages(chatId: string, limit: number = 50): Promise<WhatsAppMessage[]> {
   try {
-    // ✅ ARQUITETURA SQL v1.0.103.950 - Usar token do usuário autenticado
     const token = localStorage.getItem('rendizy-token');
     
     if (!token) {
       console.error('[WhatsApp Chat API] ❌ Token não encontrado - usuário não autenticado');
-      throw new Error('Usuário não autenticado');
-    }
-    
-    console.log('[WhatsApp Chat API] 📥 Buscando mensagens do chat:', chatId);
-    
-    const response = await fetch(`${BASE_URL}/whatsapp/messages/${encodeURIComponent(chatId)}?limit=${limit}`, {
-      method: 'GET',
-      headers: getApiHeaders(), // ✅ v2.0.2: Headers centralizados com x-organization-id
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('[WhatsApp Chat API] ❌ Erro ao buscar mensagens:', error);
-      throw new Error('Erro ao buscar mensagens do WhatsApp');
-    }
-
-    const result = await response.json();
-    console.log('[WhatsApp Chat API] ✅ Mensagens recebidas:', result.data?.length || 0);
-    
-    // ✅ CORREÇÃO: Garantir que sempre retorna um array
-    if (!result.data || !Array.isArray(result.data)) {
-      console.warn('[WhatsApp Chat API] ⚠️ Resposta não é um array, retornando array vazio');
       return [];
     }
     
-    return result.data;
+    // ✅ v2.0.5: Garantir formato correto do chatId para WAHA
+    let wahaChatId = chatId;
+    if (!chatId.includes('@')) {
+      // Se for apenas número, adicionar sufixo
+      const cleanNumber = chatId.replace(/\D/g, '');
+      wahaChatId = `${cleanNumber}@c.us`;
+    }
+    
+    console.log('[WhatsApp Chat API] 📥 Buscando mensagens do chat:', wahaChatId);
+    
+    // Tentar backend primeiro
+    try {
+      const response = await fetch(`${BASE_URL}/whatsapp/messages/${encodeURIComponent(wahaChatId)}?limit=${limit}`, {
+        method: 'GET',
+        headers: getApiHeaders(),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const backendMessages = result.data || [];
+        console.log('[WhatsApp Chat API] ✅ Mensagens via backend:', backendMessages.length);
+        
+        // ✅ v2.0.5: Se backend retornou 0 mensagens, usar WAHA direto
+        if (backendMessages.length === 0) {
+          console.warn('[WhatsApp Chat API] ⚠️ Backend retornou 0 mensagens, usando WAHA direto...');
+          return await fetchWhatsAppMessagesDirect(wahaChatId, limit);
+        }
+        
+        return backendMessages;
+      }
+      
+      console.warn('[WhatsApp Chat API] ⚠️ Backend offline para mensagens, tentando WAHA direto...');
+    } catch (backendError) {
+      console.warn('[WhatsApp Chat API] ⚠️ Backend não disponível:', backendError);
+    }
+    
+    // ✅ v2.0.3: FALLBACK - Buscar direto do WAHA
+    return await fetchWhatsAppMessagesDirect(wahaChatId, limit);
   } catch (error) {
     console.error('[WhatsApp Chat API] ❌ Erro:', error);
-    // ✅ CORREÇÃO: Retornar array vazio ao invés de lançar erro
+    return [];
+  }
+}
+
+/**
+ * v2.0.7: Busca mensagens DIRETA do WAHA (sem passar pelo backend)
+ * SOLUÇÃO: Usa Base64 thumbnail que vem em _data.body (funciona imediatamente no navegador)
+ * O WAHA exige API Key para baixar arquivos, então URLs diretas não funcionam no browser
+ */
+async function fetchWhatsAppMessagesDirect(chatId: string, limit: number = 50): Promise<WhatsAppMessage[]> {
+  try {
+    console.log('[WhatsApp Chat API] 🔄 Buscando mensagens direto do WAHA:', chatId);
+    
+    const response = await fetch(`${WAHA_API_URL}/api/${WAHA_SESSION}/chats/${encodeURIComponent(chatId)}/messages?limit=${limit}&downloadMedia=true`, {
+      method: 'GET',
+      headers: {
+        'X-Api-Key': WAHA_API_KEY,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('[WhatsApp Chat API] ❌ WAHA mensagens retornou erro:', response.status);
+      return [];
+    }
+
+    const messages = await response.json();
+    console.log('[WhatsApp Chat API] ✅ Mensagens WAHA direto:', messages?.length || 0);
+    
+    // Converter formato WAHA para o formato esperado
+    return (messages || []).map((msg: any) => {
+      // ✅ v2.0.8: Usar Base64 thumbnail como ÚNICA solução confiável
+      // URLs do WAHA requerem API Key no header, browsers não conseguem enviar isso em <img src>
+      // Base64 funciona diretamente no navegador sem necessidade de proxy
+      let mediaUrl: string | null = null;
+      
+      const mimetype = msg.media?.mimetype || msg._data?.mimetype || '';
+      const base64Body = msg._data?.body || null;
+      const dataType = msg._data?.type || '';
+      
+      // ✅ v2.0.8: Sempre usar Base64 - é o único método que funciona sem backend proxy
+      if (msg.hasMedia && base64Body && typeof base64Body === 'string' && base64Body.length > 50) {
+        let mimeForDataUrl = mimetype;
+        if (!mimeForDataUrl) {
+          if (dataType === 'image' || msg.type === 'image') mimeForDataUrl = 'image/jpeg';
+          else if (dataType === 'video' || msg.type === 'video') mimeForDataUrl = 'video/mp4';
+          else if (dataType === 'audio' || dataType === 'ptt' || msg.type === 'audio' || msg.type === 'ptt') mimeForDataUrl = 'audio/ogg';
+          else mimeForDataUrl = 'application/octet-stream';
+        }
+        mediaUrl = `data:${mimeForDataUrl};base64,${base64Body}`;
+        console.log('[WhatsApp Chat API] 📎 Mídia Base64:', msg.id?.substring(0, 30), mimeForDataUrl, `${base64Body.length} chars`);
+      }
+      
+      // Determinar tipo de mídia
+      let mediaType: string | undefined;
+      if (msg.hasMedia || msg.media) {
+        if (mimetype.startsWith('image/') || dataType === 'image') mediaType = 'image';
+        else if (mimetype.startsWith('video/') || dataType === 'video') mediaType = 'video';
+        else if (mimetype.startsWith('audio/') || dataType === 'audio' || dataType === 'ptt') mediaType = 'audio';
+        else if (dataType === 'document') mediaType = 'document';
+        else if (msg.hasMedia) mediaType = 'document';
+      }
+      
+      return {
+        key: {
+          remoteJid: msg.from || chatId,
+          fromMe: msg.fromMe || false,
+          id: msg.id,
+        },
+        message: {
+          conversation: msg.body || msg.text,
+          extendedTextMessage: msg.body ? { text: msg.body } : undefined,
+          imageMessage: mediaType === 'image' ? { url: mediaUrl } : undefined,
+          videoMessage: mediaType === 'video' ? { url: mediaUrl } : undefined,
+          audioMessage: mediaType === 'audio' ? { url: mediaUrl } : undefined,
+          documentMessage: mediaType === 'document' ? { url: mediaUrl } : undefined,
+        },
+        messageTimestamp: msg.timestamp || Math.floor(Date.now() / 1000),
+        pushName: msg.pushName,
+        status: msg.ack ? String(msg.ack) : undefined,
+        // ✅ v2.0.7: Campos de mídia
+        hasMedia: msg.hasMedia || !!msg.media,
+        type: mediaType || 'chat',
+        mediaUrl,
+        media: mediaUrl ? {
+          url: mediaUrl,
+          mimetype: mimetype,
+        } : undefined,
+      };
+    });
+  } catch (error) {
+    console.error('[WhatsApp Chat API] ❌ Erro ao buscar mensagens do WAHA direto:', error);
     return [];
   }
 }

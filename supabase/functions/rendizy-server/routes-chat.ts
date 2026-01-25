@@ -1306,6 +1306,37 @@ const processWahaWebhook = async (c: any, payload: any) => {
     const senderPhone = senderJid.split('@')[0] || '';
     const senderName = messageData._data?.notifyName || messageData._data?.pushname || `+${senderPhone}`;
     
+    // ✅ v2.0.4: Extrair mídia do WAHA
+    let mediaUrl: string | null = null;
+    let mediaType: string | null = null;
+    let mediaMimetype: string | null = null;
+    
+    if (messageData.hasMedia && messageData.media) {
+      // URL da mídia - WAHA retorna localhost:3000, precisamos converter para o IP do VPS
+      mediaUrl = messageData.media.url || null;
+      mediaMimetype = messageData.media.mimetype || null;
+      
+      // Converter URL de localhost para IP do VPS
+      if (mediaUrl && mediaUrl.includes('localhost:3000')) {
+        // Usar env var ou fallback para IP do VPS
+        const wahaHost = Deno.env.get('WAHA_API_URL') || 'http://76.13.82.60:3001';
+        mediaUrl = mediaUrl.replace('http://localhost:3000', wahaHost);
+        console.log(`🔄 [Chat/WAHA] Media URL converted: ${mediaUrl}`);
+      }
+      
+      // Determinar tipo de mídia
+      if (mediaMimetype) {
+        if (mediaMimetype.startsWith('image/')) mediaType = 'image';
+        else if (mediaMimetype.startsWith('video/')) mediaType = 'video';
+        else if (mediaMimetype.startsWith('audio/')) mediaType = 'audio';
+        else mediaType = 'document';
+      } else {
+        mediaType = messageData.type || messageData._data?.type || 'document';
+      }
+      
+      console.log(`📎 [Chat/WAHA] Media detected: type=${mediaType}, mimetype=${mediaMimetype}, url=${mediaUrl?.substring(0, 50)}...`);
+    }
+    
     // Extrair texto da mensagem
     let messageText = '';
     if (messageData.body) {
@@ -1315,13 +1346,13 @@ const processWahaWebhook = async (c: any, payload: any) => {
     } else if (messageData.caption) {
       messageText = messageData.caption;
     } else if (messageData.hasMedia) {
-      const mediaType = messageData.type || 'media';
-      messageText = `[${mediaType}]`;
+      // Se tem mídia mas sem texto, usar placeholder
+      messageText = mediaType ? `[${mediaType}]` : '[media]';
     }
 
-    if (!messageText) {
-      console.log('⚠️ [Chat/WAHA] Could not extract message text');
-      return c.json({ success: true, message: 'No text found' });
+    if (!messageText && !mediaUrl) {
+      console.log('⚠️ [Chat/WAHA] Could not extract message text or media');
+      return c.json({ success: true, message: 'No text or media found' });
     }
 
     // Buscar organização pela sessão
@@ -1478,20 +1509,26 @@ const processWahaWebhook = async (c: any, payload: any) => {
             external_id: messageId,
             external_status: 'delivered',
             sent_at: new Date().toISOString(),
+            // ✅ v2.0.4: Salvar mídia
+            media_url: mediaUrl,
+            media_type: mediaType,
+            message_type: mediaType || 'text',
             metadata: {
               remoteJid: senderJid,
               pushName: senderName,
               provider: 'waha',
               session: sessionName,
               hasMedia: messageData.hasMedia,
-              mediaType: messageData.type,
+              mediaType: mediaType,
+              mediaMimetype: mediaMimetype,
+              mediaUrl: mediaUrl,
             },
           });
 
         if (msgError) {
           console.error('❌ [Chat/WAHA] Erro ao salvar mensagem:', msgError);
         } else {
-          console.log(`✅ [Chat/WAHA] Message saved for conversation ${conversationId}`);
+          console.log(`✅ [Chat/WAHA] Message saved for conversation ${conversationId}${mediaUrl ? ' [with media]' : ''}`);
         }
       } catch (msgErr) {
         console.error('❌ [Chat/WAHA] Erro ao processar mensagem:', msgErr);
