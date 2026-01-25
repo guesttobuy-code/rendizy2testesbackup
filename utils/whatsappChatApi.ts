@@ -282,8 +282,9 @@ async function fetchWhatsAppChatsDirect(): Promise<WhatsAppChat[]> {
  * Buscar mensagens de uma conversa específica
  * v2.0.5: Fallback direto para WAHA quando backend offline ou retorna 0 mensagens
  * v2.6.0: Suporte a Evolution API via unifiedChatService
+ * v2.8.0: Aumentar limit default para 100 (WAHA suporta até ~155 mensagens)
  */
-export async function fetchWhatsAppMessages(chatId: string, limit: number = 50): Promise<WhatsAppMessage[]> {
+export async function fetchWhatsAppMessages(chatId: string, limit: number = 100): Promise<WhatsAppMessage[]> {
   try {
     const token = localStorage.getItem('rendizy-token');
     

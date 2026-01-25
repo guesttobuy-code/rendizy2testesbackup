@@ -478,6 +478,16 @@ export function ChatConversationList({
         }
       });
       
+      // ✅ v2.8.0: ORDENAR por lastMessageAt DESC antes de definir state
+      // Isso garante que conversas com mensagens mais recentes aparecem no topo
+      converted.sort((a, b) => {
+        const timeA = a.lastMessageAt?.getTime() || 0;
+        const timeB = b.lastMessageAt?.getTime() || 0;
+        return timeB - timeA; // DESC - mais recente primeiro
+      });
+      
+      console.log('[ChatConversationList] ✅ Conversas ordenadas por lastMessageAt DESC');
+      
       setContacts(converted);
     } catch (error) {
       console.error('[ChatConversationList] Erro:', error);
@@ -503,6 +513,19 @@ export function ChatConversationList({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations', filter: `organization_id=eq.${organizationId}` }, () => loadContacts(false))
       .subscribe((status: string) => setIsRealtimeConnected(status === 'SUBSCRIBED'));
     return () => { supabase.removeChannel(channel); };
+  }, [organizationId, loadContacts]);
+
+  // ✅ v2.8.0: AUTO-REFRESH a cada 10 segundos para atualizar lista dinamicamente
+  // Quando alguém envia mensagem ou recebe, a conversa sobe automaticamente
+  useEffect(() => {
+    if (!organizationId) return;
+    
+    const intervalId = setInterval(() => {
+      console.log('[ChatConversationList] 🔄 Auto-refresh (10s interval)');
+      loadContacts(false); // false = não mostrar loader, apenas refresh silencioso
+    }, 10000); // 10 segundos
+    
+    return () => clearInterval(intervalId);
   }, [organizationId, loadContacts]);
 
   // ============================================
