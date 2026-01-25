@@ -11,10 +11,11 @@
  * Componente ISOLADO para exibir mensagens de UMA conversa.
  * Pode ser usado standalone (ex: dentro de um Card do CRM).
  * 
- * @version 3.0.0
- * @date 2026-01-18
+ * @version 3.1.0
+ * @date 2026-01-25
  * @see /docs/adr/ADR-007-CHAT-MODULE-WAHA-INTEGRATION.md
  * @see /docs/REALTIME-CHAT-IMPLEMENTATION-GUIDE.md
+ * @see /docs/ROADMAP-CHAT.md
  * 
  * ┌─────────────────────────────────────────────────────────────────┐
  * │ FLUXO DE DADOS:                                                 │
@@ -27,6 +28,12 @@
  * └─────────────────────────────────────────────────────────────────┘
  * 
  * CHANGELOG:
+ * - v3.1.0 (2026-01-25): 🎯 PHASE 2 FEATURES!
+ *   - TypingIndicator (digitando...)
+ *   - QuickReplies (respostas rápidas)
+ *   - MessageQueue (offline support)
+ *   - Send Seen (marcar como lido)
+ *   - Offline status bar
  * - v3.0.0 (2026-01-18): 🚀 REALTIME via WebSocket WAHA!
  * - v2.0.9 (2026-01-24): SEMPRE buscar do WAHA para JIDs WhatsApp
  * - v2.0.8 (2026-01-24): Suporte a Base64 thumbnails do WAHA CORE
@@ -48,6 +55,10 @@
  * - whatsappChatApi.ts (fetchWhatsAppMessages, sendWhatsAppMessage)
  * - chatUnifiedApi.ts (fetchUnifiedMessages - fallback para UUID)
  * - useWahaWebSocket.ts (WebSocket para tempo real)
+ * - TypingIndicator.tsx (indicador "digitando...")
+ * - QuickReplies.tsx (respostas rápidas)
+ * - useMessageQueue.ts (fila offline)
+ * - useSendSeen.ts (marcar como lido)
  * - WAHA API em http://76.13.82.60:3001
  */
 
@@ -69,7 +80,9 @@ import {
   FileText,
   Download,
   Wifi,
-  WifiOff
+  WifiOff,
+  Zap,
+  X
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -91,6 +104,13 @@ import { getSupabaseClient } from '../../utils/supabase/client';
 import { useWahaPolling, type PolledMessage } from '../../hooks/useWahaPolling';
 // ✅ v2.5.0: Também importar hook unificado para suporte multi-provider
 import { useChatPolling } from '../../hooks/useChatPolling';
+// ✅ v3.1.0: Novos componentes Phase 2
+import { TypingIndicator } from './TypingIndicator';
+import { MessageStatusIndicator, ackToStatus } from './MessageStatusIndicator';
+import { QuickReplies, QuickReplyTrigger, DEFAULT_QUICK_REPLIES, replaceVariables } from './QuickReplies';
+import { useTypingIndicator } from '../../hooks/useTypingIndicator';
+import { useAutoMarkAsRead } from '../../hooks/useSendSeen';
+import { useMessageQueue } from '../../hooks/useMessageQueue';
 
 // ============================================
 // TYPES
@@ -211,6 +231,8 @@ export function ChatMessagePanel({
   const [resolvedConversationId, setResolvedConversationId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<{ file: File; type: MediaType; preview: string } | null>(null);
+  // ✅ v3.1.0: Estado para Quick Replies
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -332,6 +354,57 @@ export function ChatMessagePanel({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
   }, [polledMessages]);
+
+  // ============================================
+  // ✅ v3.1.0: TYPING INDICATOR HOOK
+  // ============================================
+  
+  const { 
+    isContactTyping, 
+    notifyTyping, 
+    notifyStoppedTyping 
+  } = useTypingIndicator({
+    chatId: normalizedChatId,
+    enableSendTyping: true,
+  });
+  
+  // ============================================
+  // ✅ v3.1.0: SEND SEEN (AUTO MARK AS READ)
+  // ============================================
+  
+  const { markAsRead } = useAutoMarkAsRead({
+    chatId: normalizedChatId,
+    isVisible: !isMinimized && !isLoading,
+    autoMark: true,
+  });
+  
+  // ============================================
+  // ✅ v3.1.0: MESSAGE QUEUE (OFFLINE SUPPORT)
+  // ============================================
+  
+  const sendMessageForQueue = useCallback(async (
+    chatId: string,
+    text: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const result = await sendWhatsAppMessage(chatId, text);
+      return { success: result.success, error: result.error };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }, []);
+  
+  const { 
+    pendingMessages: queuedMessages, 
+    isProcessing: isQueueProcessing,
+    isOnline,
+    enqueue: enqueueMessage,
+    process: processQueue 
+  } = useMessageQueue({
+    sendMessage: sendMessageForQueue,
+    chatId: normalizedChatId,
+    autoProcess: true,
+  });
 
   // ============================================
   // LOAD MESSAGES
@@ -606,8 +679,33 @@ export function ChatMessagePanel({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      notifyStoppedTyping();
       handleSend();
     }
+  };
+  
+  // ✅ v3.1.0: Handler para input change (com typing notification)
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputText(e.target.value);
+    if (e.target.value.trim()) {
+      notifyTyping();
+    }
+  };
+  
+  // ✅ v3.1.0: Handler para Quick Replies
+  const handleQuickReplySelect = (reply: { text: string }) => {
+    // Substituir variáveis comuns
+    const variables = {
+      propriedade: contactName || 'nossa propriedade',
+      nome: contactName?.split(' ')[0] || 'visitante',
+      endereco: '', // TODO: puxar do contexto da reserva
+      wifi_nome: '', // TODO: puxar do contexto da propriedade
+      wifi_senha: '', // TODO: puxar do contexto da propriedade
+    };
+    const text = replaceVariables(reply.text, variables);
+    setInputText(text);
+    setShowQuickReplies(false);
+    textareaRef.current?.focus();
   };
 
   // ============================================
@@ -1044,6 +1142,13 @@ export function ChatMessagePanel({
                 </div>
               </div>
             ))}
+            {/* ✅ v3.1.0: Typing Indicator */}
+            <TypingIndicator 
+              isTyping={isContactTyping} 
+              contactName={contactName}
+              variant="bubble"
+              className="mt-2"
+            />
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -1083,6 +1188,45 @@ export function ChatMessagePanel({
         </div>
       )}
       
+      {/* ✅ v3.1.0: Quick Replies Dropdown */}
+      {showQuickReplies && (
+        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700">
+          <QuickReplies
+            replies={DEFAULT_QUICK_REPLIES}
+            onSelect={handleQuickReplySelect}
+            variant="dropdown"
+            className="rounded-none border-0 shadow-none w-full"
+          />
+        </div>
+      )}
+      
+      {/* ✅ v3.1.0: Offline/Queue Status Bar */}
+      {(!isOnline || queuedMessages.length > 0) && (
+        <div className={`flex-shrink-0 px-3 py-1.5 text-xs flex items-center gap-2 ${
+          !isOnline ? 'bg-yellow-50 text-yellow-700' : 'bg-blue-50 text-blue-700'
+        }`}>
+          {!isOnline ? (
+            <>
+              <WifiOff className="h-3 w-3" />
+              <span>Offline - Mensagens serão enviadas quando reconectar</span>
+            </>
+          ) : isQueueProcessing ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Enviando {queuedMessages.length} mensagem(ns) pendente(s)...</span>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="h-3 w-3" />
+              <span>{queuedMessages.length} mensagem(ns) na fila</span>
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => processQueue()}>
+                Reenviar
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      
       {/* Input Area - FIXO NA PARTE INFERIOR */}
       <div className="flex-shrink-0 p-2 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <input
@@ -1093,6 +1237,11 @@ export function ChatMessagePanel({
           className="hidden"
         />
         <div className="flex gap-2 items-end">
+          {/* ✅ v3.1.0: Quick Replies Button */}
+          <QuickReplyTrigger
+            isOpen={showQuickReplies}
+            onClick={() => setShowQuickReplies(!showQuickReplies)}
+          />
           <Button
             variant="ghost"
             size="icon"
@@ -1105,7 +1254,7 @@ export function ChatMessagePanel({
           <Textarea
             ref={textareaRef}
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={selectedMedia ? "Adicione uma legenda..." : "Digite uma mensagem..."}
             className="min-h-[36px] max-h-[100px] resize-none text-sm flex-1"
