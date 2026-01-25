@@ -38,7 +38,12 @@ export interface UseTypingIndicatorOptions {
   debounceMs?: number;
   /** Timeout para "parou de digitar" (ms) - default 5000 */
   timeoutMs?: number;
-  /** Habilitar envio de "digitando" */
+  /** 
+   * Habilitar envio de "digitando" para o contato.
+   * ⚠️ NOTA: WAHA Core não suporta presence API (501 Not Implemented)
+   * Deixe false para WAHA Core, true apenas para WAHA Plus/Pro
+   * @default false
+   */
   enableSendTyping?: boolean;
 }
 
@@ -75,7 +80,8 @@ export function useTypingIndicator(
     session = DEFAULT_SESSION,
     debounceMs = 1000,
     timeoutMs = 5000,
-    enableSendTyping = true,
+    // ⚠️ Default false porque WAHA Core não suporta presence API
+    enableSendTyping = false,
   } = options;
   
   // State

@@ -6,6 +6,84 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 
 ---
 
+## [4.0.0] - 2026-01-25 🎯
+
+### 🎉 PHASE 3 COMPLETA: Funcionalidades Avançadas!
+
+Implementação completa de recursos avançados de chat comparáveis ao WhatsApp Business.
+
+### ✨ Adicionado
+
+#### 3.1 Reações a Mensagens
+- **MessageReactions**: Componente para reagir com 👍❤️😂😮😢🙏
+- **ReactionPicker**: Picker flutuante com emojis do WhatsApp
+- **useReactions**: Hook para enviar reações via WAHA API `PUT /api/reaction`
+- **QuickReactionButton**: Botão de reação rápida no hover da mensagem
+
+#### 3.2 Responder/Citar Mensagens
+- **ReplyPreview**: Preview da mensagem sendo respondida no input
+- **QuotedMessageDisplay**: Exibe citação dentro da bolha de mensagem
+- **ReplyButton**: Botão "Responder" no menu de contexto
+
+#### 3.3 Encaminhar Mensagens
+- **ForwardDialog**: Dialog para selecionar múltiplos destinatários
+- **ForwardButton**: Botão "Encaminhar" no menu de contexto
+- **useForwardMessage**: Hook para `POST /api/forwardMessage`
+
+#### 3.6/3.7/3.8 Envio de Mídia
+- **useSendMedia**: Hook unificado para imagem/documento/áudio
+  - `sendImage()`: POST /api/sendImage com caption
+  - `sendDocument()`: POST /api/sendFile com caption
+  - `sendVoice()`: POST /api/sendVoice (áudio OGG/Opus)
+  - Progress tracking (0-100%)
+  - Limite de 16MB (WhatsApp)
+  
+- **AudioRecorder**: Componente para gravar mensagens de voz
+  - Gravação via MediaRecorder API
+  - Preview com playback antes de enviar
+  - Waveform visual (placeholder)
+  - Timer de duração
+  - Cancelar/Enviar
+
+#### 3.9 Busca de Mensagens
+- **MessageSearch**: Barra de busca com Ctrl+F
+- **useMessageSearch**: Hook para busca local em mensagens
+- **highlightSearchMatch**: Helper para destacar texto encontrado
+- Navegação entre resultados (Enter/Shift+Enter)
+- Contador de resultados "3/10"
+
+### 📁 Arquivos Criados
+- `components/chat/MessageReactions.tsx`
+- `components/chat/ReplyMessage.tsx`
+- `components/chat/ForwardMessage.tsx`
+- `components/chat/AudioRecorder.tsx`
+- `components/chat/MessageSearch.tsx`
+- `hooks/useReactions.ts`
+- `hooks/useSendMedia.ts`
+
+### 📁 Arquivos Atualizados
+- `components/chat/index.ts` → v4.0.0 com todos os exports
+
+---
+
+## [3.1.0] - 2026-01-25
+
+### 🎉 PHASE 2 COMPLETA: Funcionalidades Críticas
+
+### ✨ Adicionado
+- **Fila de Mensagens Offline**: `messageQueue.ts` + `useMessageQueue.ts`
+- **Status ACK Visual**: `MessageStatusIndicator.tsx` (✓ ✓✓ 🔵✓✓)
+- **Indicador Digitando**: `TypingIndicator.tsx` + `useTypingIndicator.ts`
+- **Respostas Rápidas**: `QuickReplies.tsx` com 8 templates padrão
+- **Marcar como Lido**: `useSendSeen.ts` via WAHA API
+
+### ⚠️ Limitação Descoberta
+- WAHA Core (gratuito) NÃO suporta **enviar** presence/typing
+- Retorna 501 Not Implemented para `POST /api/{session}/presence`
+- Funcionalidade de "mostrar que estou digitando" desabilitada por padrão
+
+---
+
 ## [3.0.0] - 2026-01-18 🚀
 
 ### 🎉 GRANDE NOVIDADE: Tempo Real via WebSocket!
