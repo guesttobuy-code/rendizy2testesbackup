@@ -42,6 +42,7 @@ import { Separator } from './ui/separator';
 import StaysNetIntegration from './StaysNetIntegration'; // Nova arquitetura refatorada
 import { BookingComIntegration } from './BookingComIntegration';
 import WhatsAppIntegration from './WhatsAppIntegration';
+import WhatsAppMetaCloudIntegration from './WhatsAppMetaCloudIntegration';
 import { AirbnbIntegration } from './AirbnbIntegration';
 import { AIIntegration } from './AIIntegration';
 import { useAuth } from '../src/contexts/AuthContext';
@@ -129,8 +130,27 @@ const CHANNELS: IntegrationChannel[] = [
       inactive: 0
     },
     badge: {
-      text: 'NOVO',
+      text: 'WAHA',
       variant: 'warning'
+    }
+  },
+  {
+    id: 'whatsapp-meta',
+    name: 'WhatsApp Cloud API (Meta)',
+    description: 'API oficial do WhatsApp Business via Meta - sem intermediários',
+    icon: Globe,
+    iconColor: 'text-white',
+    gradientFrom: 'from-blue-500',
+    gradientTo: 'to-indigo-600',
+    status: 'active',
+    stats: {
+      connected: 0,
+      active: 0,
+      inactive: 0
+    },
+    badge: {
+      text: 'OFICIAL',
+      variant: 'success'
     }
   },
   {
@@ -499,6 +519,7 @@ export function IntegrationsManager() {
             {selectedChannel === 'staysnet' && <StaysNetIntegration />}
             {selectedChannel === 'whatsapp-evolution' && <WhatsAppIntegration provider="evolution" />}
             {selectedChannel === 'whatsapp-waha' && <WhatsAppIntegration provider="waha" />}
+            {selectedChannel === 'whatsapp-meta' && <WhatsAppMetaCloudIntegration />}
             {selectedChannel === 'bookingcom' && <BookingComIntegration />}
             {selectedChannel === 'airbnb' && <AirbnbIntegration />}
             {selectedChannel === 'ai-provider' && <AIIntegration />}
