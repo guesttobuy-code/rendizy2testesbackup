@@ -6,6 +6,34 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 
 ---
 
+## [3.0.0] - 2026-01-18 🚀
+
+### 🎉 GRANDE NOVIDADE: Tempo Real via WebSocket!
+
+Agora o chat funciona **em tempo real**! Mensagens aparecem instantaneamente sem precisar atualizar.
+
+### ✨ Adicionado
+- **🚀 useWahaWebSocket**: Novo hook para WebSocket WAHA
+  - Reconexão automática (até 10 tentativas)
+  - Eventos: `message`, `message.any`, `message.ack`, `presence.update`
+  - Status de conexão em tempo real
+  
+- **⌨️ Indicador "digitando..."**: Aparece quando contato está digitando
+- **📶 Indicador de conexão**: Ícone Wifi verde/cinza no header
+- **📖 Confirmação de leitura**: Atualização automática de ✓✓ azul
+
+### 🔧 Corrigido
+- Mensagens do celular não apareciam sem refresh manual
+
+### 📁 Arquivos Modificados
+- `components/chat/ChatMessagePanel.tsx` → v3.0.0
+- `hooks/useWahaWebSocket.ts` → NOVO
+
+### 📚 Documentação
+- `docs/REALTIME-CHAT-IMPLEMENTATION-GUIDE.md` → Guia completo de implementação
+
+---
+
 ## [2.0.9] - 2026-01-24
 
 ### 🎉 Funcionalidades Completas

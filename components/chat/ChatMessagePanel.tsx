@@ -5,14 +5,16 @@
  * ║  🔒 ZONA_CRITICA_CHAT - NÃO MODIFICAR SEM REVISAR ADR-007                 ║
  * ║  ⚠️  WAHA_INTEGRATION - Mudanças afetam carregamento de mensagens         ║
  * ║  📱 WHATSAPP_JID - Lógica de identificação de conversas                   ║
+ * ║  🚀 REALTIME - WebSocket para mensagens em tempo real                     ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
  * Componente ISOLADO para exibir mensagens de UMA conversa.
  * Pode ser usado standalone (ex: dentro de um Card do CRM).
  * 
- * @version 2.0.9
- * @date 2026-01-24
+ * @version 3.0.0
+ * @date 2026-01-18
  * @see /docs/adr/ADR-007-CHAT-MODULE-WAHA-INTEGRATION.md
+ * @see /docs/REALTIME-CHAT-IMPLEMENTATION-GUIDE.md
  * 
  * ┌─────────────────────────────────────────────────────────────────┐
  * │ FLUXO DE DADOS:                                                 │
@@ -21,9 +23,11 @@
  * │ 3. JID → fetchWhatsAppMessages() → WAHA API                     │
  * │ 4. UUID → fetchUnifiedMessages() → Supabase                     │
  * │ 5. Converte para ChatMessage[] → setMessages() → render         │
+ * │ 6. 🚀 WebSocket → Recebe mensagens em tempo real                │
  * └─────────────────────────────────────────────────────────────────┘
  * 
  * CHANGELOG:
+ * - v3.0.0 (2026-01-18): 🚀 REALTIME via WebSocket WAHA!
  * - v2.0.9 (2026-01-24): SEMPRE buscar do WAHA para JIDs WhatsApp
  * - v2.0.8 (2026-01-24): Suporte a Base64 thumbnails do WAHA CORE
  * - v2.0.7 (2026-01-24): Detecção robusta de tipo de mídia
@@ -43,6 +47,7 @@
  * DEPENDÊNCIAS CRÍTICAS:
  * - whatsappChatApi.ts (fetchWhatsAppMessages, sendWhatsAppMessage)
  * - chatUnifiedApi.ts (fetchUnifiedMessages - fallback para UUID)
+ * - useWahaWebSocket.ts (WebSocket para tempo real)
  * - WAHA API em http://76.13.82.60:3001
  */
 
@@ -62,7 +67,9 @@ import {
   RefreshCw,
   Play,
   FileText,
-  Download
+  Download,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -81,6 +88,7 @@ import {
   type MediaType 
 } from '../../utils/chatUnifiedApi';
 import { getSupabaseClient } from '../../utils/supabase/client';
+import { useWahaPolling, type PolledMessage } from '../../hooks/useWahaPolling';
 
 // ============================================
 // TYPES
@@ -206,6 +214,95 @@ export function ChatMessagePanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ============================================
+  // 🚀 POLLING - REALTIME MESSAGES (WAHA CORE)
+  // ============================================
+  
+  // Extrair chatId normalizado para polling
+  const normalizedChatId = (() => {
+    if (!conversationId) return '';
+    const safe = typeof conversationId === 'string' 
+      ? conversationId 
+      : (conversationId as any)?.id || String(conversationId);
+    // Normalizar para JID
+    if (safe.includes('@')) return safe;
+    const phone = safe.replace(/\D/g, '');
+    return phone.length >= 10 ? `${phone}@c.us` : '';
+  })();
+
+  // 🔄 Hook de Polling WAHA (a cada 2 segundos)
+  const { isPolling, lastUpdate, refresh: refreshPolling } = useWahaPolling({
+    chatId: normalizedChatId,
+    enabled: !isLoading && !!normalizedChatId && normalizedChatId.length > 10,
+    intervalMs: 2000, // 2 segundos - mais responsivo
+    
+    // 📬 Nova mensagem detectada via polling!
+    onNewMessage: (polledMsg: PolledMessage) => {
+      console.log('[ChatPanel-Poll] 📬 Nova mensagem detectada!', {
+        from: polledMsg.from?.substring(0, 15),
+        body: polledMsg.body?.substring(0, 30),
+        fromMe: polledMsg.fromMe,
+      });
+
+      // Converter para ChatMessage
+      const newMessage: ChatMessage = {
+        id: polledMsg.id || `poll-${Date.now()}`,
+        text: polledMsg.body || '',
+        fromMe: polledMsg.fromMe ?? false,
+        timestamp: new Date((polledMsg.timestamp || Date.now() / 1000) * 1000),
+        status: polledMsg.fromMe ? 'delivered' : undefined,
+        mediaType: polledMsg.mediaType as MediaType | undefined,
+        mediaUrl: polledMsg.mediaUrl,
+      };
+
+      // Adicionar à lista (evitando duplicatas)
+      setMessages(prev => {
+        // Verificar duplicata por ID exato
+        if (prev.some(m => m.id === newMessage.id)) {
+          console.log('[ChatPanel-Poll] 🔄 Ignorando - ID duplicado:', newMessage.id);
+          return prev;
+        }
+        
+        // Se é mensagem enviada por nós (fromMe), verificar se é duplicata de optimistic update
+        if (newMessage.fromMe) {
+          // Procurar mensagem temp com mesmo texto (pode estar pending OU sent)
+          const tempIndex = prev.findIndex(m => 
+            m.id.startsWith('temp-') && 
+            m.text === newMessage.text
+          );
+          if (tempIndex >= 0) {
+            console.log('[ChatPanel-Poll] 🔄 Substituindo temp por mensagem real:', {
+              tempId: prev[tempIndex].id,
+              realId: newMessage.id,
+            });
+            const updated = [...prev];
+            updated[tempIndex] = newMessage;
+            return updated;
+          }
+          
+          // Verificar se já existe mensagem com texto igual nos últimos 30s (evitar duplicata)
+          const recentDupe = prev.find(m => 
+            m.fromMe && 
+            m.text === newMessage.text &&
+            Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 30000 // 30s
+          );
+          if (recentDupe) {
+            console.log('[ChatPanel-Poll] 🔄 Ignorando - duplicata recente com texto igual');
+            return prev;
+          }
+        }
+        
+        console.log('[ChatPanel-Poll] ✅ Adicionando nova mensagem à lista');
+        return [...prev, newMessage].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      });
+
+      // Scroll para baixo
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    },
+  });
 
   // ============================================
   // LOAD MESSAGES
@@ -619,7 +716,15 @@ export function ChatMessagePanel({
         m.id === tempId ? { ...m, status: 'error' } : m
       ));
       
-      toast.error('Erro ao enviar mídia');
+      // Verificar se é limitação do WAHA CORE
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('422') || errorMsg.includes('Plus version') || errorMsg.includes('WAHA')) {
+        toast.error('Envio de mídia não disponível no WAHA gratuito. Upgrade para WAHA Plus necessário.', {
+          duration: 5000,
+        });
+      } else {
+        toast.error('Erro ao enviar mídia');
+      }
     } finally {
       setIsSending(false);
     }
@@ -750,12 +855,28 @@ export function ChatMessagePanel({
             <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate">
               {contactName}
             </h4>
-            {contactPhone && (
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <Phone className="h-3 w-3" />
-                {formatPhone(contactPhone)}
-              </p>
-            )}
+            <div className="flex items-center gap-2">
+              {contactPhone && (
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  {formatPhone(contactPhone)}
+                </p>
+              )}
+              {/* 🚀 v3.0.0: Indicador de tempo real (polling) */}
+              <span className={`text-xs flex items-center gap-1 ${isPolling ? 'text-green-500' : 'text-gray-400'}`}>
+                {isPolling ? (
+                  <>
+                    <Wifi className="h-3 w-3" />
+                    <span className="hidden sm:inline">auto-sync</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-3 w-3" />
+                    <span className="hidden sm:inline">offline</span>
+                  </>
+                )}
+              </span>
+            </div>
           </div>
           
           <div className="flex gap-1">
