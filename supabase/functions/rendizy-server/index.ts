@@ -77,6 +77,9 @@ import * as cronStaysnetRoutes from "./routes-cron-staysnet.ts"; // ✅ CRON: St
 import * as authSocialRoutes from "./routes-auth-social.ts"; // ✅ OAuth: Login Google/Apple
 import * as calendarRulesBatchRoutes from "./routes-calendar-rules-batch.ts"; // ✅ Batch rules (migrado ADR)
 import { guestAreaApp } from "./routes-guest-area.ts"; // 🏠 CÁPSULA: Área do Hóspede
+import * as automationsRoutes from "./routes-automations.ts"; // ✅ Automações: CRUD
+import * as automationsAiRoutes from "./routes-automations-ai.ts"; // ✅ Automações: AI (linguagem natural)
+import * as automationsTriggerRoutes from "./routes-automations-trigger.ts"; // ✅ Automações: Trigger/Execução
 
 const app = new Hono();
 
@@ -996,6 +999,43 @@ app.get("/rendizy-server/calendar-rules/batch", calendarRulesBatchRoutes.calenda
 app.get("/calendar-rules/batch", calendarRulesBatchRoutes.calendarRulesBatchGet);
 app.post("/rendizy-server/calendar-rules/batch", calendarRulesBatchRoutes.calendarRulesBatchPost);
 app.post("/calendar-rules/batch", calendarRulesBatchRoutes.calendarRulesBatchPost);
+
+// ============================================================================
+// AUTOMATIONS - Módulo de Automações com IA
+// ============================================================================
+// CRUD básico de automações
+app.get("/rendizy-server/automations", tenancyMiddleware, automationsRoutes.listAutomations);
+app.get("/rendizy-server/automations/:id", tenancyMiddleware, automationsRoutes.getAutomation);
+app.post("/rendizy-server/automations", tenancyMiddleware, automationsRoutes.createAutomation);
+app.put("/rendizy-server/automations/:id", tenancyMiddleware, automationsRoutes.updateAutomation);
+app.patch("/rendizy-server/automations/:id/status", tenancyMiddleware, automationsRoutes.updateAutomationStatus);
+app.delete("/rendizy-server/automations/:id", tenancyMiddleware, automationsRoutes.deleteAutomation);
+app.get("/rendizy-server/automations/:id/executions", tenancyMiddleware, automationsRoutes.getAutomationExecutions);
+
+// Alias sem prefixo /rendizy-server
+app.get("/automations", tenancyMiddleware, automationsRoutes.listAutomations);
+app.get("/automations/:id", tenancyMiddleware, automationsRoutes.getAutomation);
+app.post("/automations", tenancyMiddleware, automationsRoutes.createAutomation);
+app.put("/automations/:id", tenancyMiddleware, automationsRoutes.updateAutomation);
+app.patch("/automations/:id/status", tenancyMiddleware, automationsRoutes.updateAutomationStatus);
+app.delete("/automations/:id", tenancyMiddleware, automationsRoutes.deleteAutomation);
+app.get("/automations/:id/executions", tenancyMiddleware, automationsRoutes.getAutomationExecutions);
+
+// AI - Linguagem natural para automações
+app.post("/rendizy-server/automations/ai/interpret", tenancyMiddleware, automationsAiRoutes.interpretAutomationNaturalLanguage);
+app.post("/automations/ai/interpret", tenancyMiddleware, automationsAiRoutes.interpretAutomationNaturalLanguage);
+
+// Trigger - Execução de automações
+app.post("/rendizy-server/automations/trigger", tenancyMiddleware, automationsTriggerRoutes.triggerAutomation);
+app.post("/rendizy-server/automations/trigger/message", tenancyMiddleware, automationsTriggerRoutes.triggerMessageAutomation);
+app.post("/rendizy-server/automations/trigger/reservation", tenancyMiddleware, automationsTriggerRoutes.triggerReservationAutomation);
+app.get("/rendizy-server/automations/test-trigger", automationsTriggerRoutes.testTrigger);
+
+// Alias sem prefixo /rendizy-server
+app.post("/automations/trigger", tenancyMiddleware, automationsTriggerRoutes.triggerAutomation);
+app.post("/automations/trigger/message", tenancyMiddleware, automationsTriggerRoutes.triggerMessageAutomation);
+app.post("/automations/trigger/reservation", tenancyMiddleware, automationsTriggerRoutes.triggerReservationAutomation);
+app.get("/automations/test-trigger", automationsTriggerRoutes.testTrigger);
 
 // ============================================================================
 // DEFAULT HANDLERS

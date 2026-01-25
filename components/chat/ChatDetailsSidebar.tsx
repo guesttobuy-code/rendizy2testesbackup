@@ -32,13 +32,15 @@ import {
   Building2,
   Clock,
   MessageSquare,
-  Users
+  Users,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { toast } from 'sonner';
+import { ChatAutomationButton } from '../automations/AutomationTriggerButton';
 // import { getSupabaseClient } from '../../utils/supabase/client'; // TODO: Habilitar quando coluna 'notes' existir
 
 // ============================================
@@ -418,6 +420,20 @@ export function ChatDetailsSidebar({
 
       {/* Footer: Ações */}
       <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-2">
+        {/* 🤖 Botão de Automação - NOVO */}
+        <ChatAutomationButton 
+          contactId={contact.id}
+          prefillInput={`Quando receber mensagem de ${contact.name}, `}
+          onAutomationCreated={(automation) => {
+            toast.success(`Automação "${automation.name}" criada!`);
+          }}
+          variant="default"
+          size="sm"
+          className="w-full justify-between bg-purple-600 hover:bg-purple-700 text-white"
+          label="Criar Automação"
+          icon={<Sparkles className="h-4 w-4" />}
+        />
+        
         <Button 
           variant="outline" 
           size="sm" 

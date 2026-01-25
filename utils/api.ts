@@ -2165,6 +2165,55 @@ export const automationsApi = {
       method: 'GET',
     });
   },
+  // Trigger de Automações
+  trigger: {
+    // Disparar automação manualmente com evento genérico
+    event: async (eventType: string, payload: Record<string, unknown> = {}): Promise<ApiResponse<{
+      message: string;
+      summary: { totalProcessed: number; successful: number; failed: number; totalActionsExecuted: number };
+      results: Array<{ automationId: string; success: boolean; actionsExecuted: number; error?: string }>;
+    }>> => {
+      return apiRequest('/automations/trigger', {
+        method: 'POST',
+        body: JSON.stringify({ eventType, payload }),
+      });
+    },
+    // Disparar automação para nova mensagem no chat
+    message: async (payload: {
+      contactId?: string;
+      phone?: string;
+      messageContent?: string;
+      messageType?: 'text' | 'audio' | 'image' | 'document';
+      conversationId?: string;
+      metadata?: Record<string, unknown>;
+    }): Promise<ApiResponse<{
+      message: string;
+      summary: { totalProcessed: number; successful: number; failed: number };
+      results: Array<{ automationId: string; success: boolean; actionsExecuted: number; error?: string }>;
+    }>> => {
+      return apiRequest('/automations/trigger/message', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    // Disparar automação para evento de reserva
+    reservation: async (payload: {
+      reservationId?: string;
+      eventType: 'reservation_created' | 'reservation_confirmed' | 'reservation_cancelled' | 'checkin_approaching' | 'checkout_approaching' | 'custom';
+      propertyId?: string;
+      guestId?: string;
+      metadata?: Record<string, unknown>;
+    }): Promise<ApiResponse<{
+      message: string;
+      summary: { totalProcessed: number; successful: number; failed: number };
+      results: Array<{ automationId: string; success: boolean; actionsExecuted: number; error?: string }>;
+    }>> => {
+      return apiRequest('/automations/trigger/reservation', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+  },
 };
 
 // ============================================================================

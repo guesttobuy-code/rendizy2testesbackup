@@ -106,11 +106,7 @@ export async function createAutomation(c: Context) {
         description: body.description || null,
         definition: body.definition,
         status: body.status || 'draft',
-        module: body.module || null, // Mantido para compatibilidade
-        modules: body.modules || null, // NOVO: Array de módulos
-        properties: body.properties || null, // NOVO: Array de IDs de imóveis
-        ai_interpretation_summary: body.ai_interpretation_summary || null, // NOVO: Resumo da IA
-        impact_description: body.impact_description || null, // NOVO: Descrição do impacto
+        module: body.module || null,
         channel: body.channel || null,
         priority: body.priority || 'media',
         created_by: createdBy,
