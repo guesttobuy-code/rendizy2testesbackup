@@ -168,8 +168,29 @@ VITE_WAHA_API_KEY=rendizy-waha-secret-2026
 - Status: Conectado
 - Número: +55 21 ...
 
+---
+
+## 🗺️ Roadmap de Funcionalidades
+
+O módulo de Chat está em desenvolvimento ativo. Consulte o roadmap completo para acompanhar o progresso:
+
+### Status Atual (2026-01-25)
+
+| Fase | Status | Funcionalidades |
+|------|--------|-----------------|
+| **Fase 1** | ✅ Completo | WAHA, envio/recebimento, multi-provider, ordenação dinâmica |
+| **Fase 2** | 🔄 Em progresso | Fila offline, ACK, typing, templates, send seen |
+| **Fase 3** | ⏳ Pendente | Reações, quote, forward, editar, deletar, mídia |
+| **Fase 4** | ⏳ Pendente | Agendamento, AI, Airbnb, Booking |
+
+**➡️ Ver roadmap completo: [ROADMAP-CHAT.md](./ROADMAP-CHAT.md)**
+
+---
+
 ## Referências
 
 - [ADR-007: Chat Module WAHA Integration](./adr/ADR-007-CHAT-MODULE-WAHA-INTEGRATION.md)
+- [ADR-009: WhatsApp Multi-Provider](./adr/ADR-009-WHATSAPP-MULTI-PROVIDER.md)
+- [ROADMAP-CHAT.md](./ROADMAP-CHAT.md) - Roadmap de funcionalidades
 - [CHANGELOG-CHAT.md](./CHANGELOG-CHAT.md)
 - [WAHA Documentation](https://waha.devlike.pro/docs/)
