@@ -211,7 +211,14 @@ export function useChatPolling(options: UseChatPollingOptions): UseChatPollingRe
       }
 
       // Mesclar mensagens (evitar duplicatas)
+      // v2.6.1: Se não há mensagens anteriores, usar converted diretamente
       setMessages(prev => {
+        // Se prev está vazio (primeira carga ou após reset), usar converted diretamente
+        if (prev.length === 0) {
+          console.log(`[ChatPolling] 📥 Carregando ${converted.length} mensagens (primeira carga)`);
+          return converted;
+        }
+        
         const existingIds = new Set(prev.map(m => m.id));
         const truly_new = converted.filter(m => !existingIds.has(m.id));
         
@@ -219,6 +226,7 @@ export function useChatPolling(options: UseChatPollingOptions): UseChatPollingRe
         
         // Adicionar novas e ordenar por timestamp
         const merged = [...prev, ...truly_new].sort((a, b) => a.timestamp - b.timestamp);
+        console.log(`[ChatPolling] 📥 Mesclando: ${prev.length} existentes + ${truly_new.length} novas = ${merged.length} total`);
         return merged;
       });
 
@@ -288,12 +296,20 @@ export function useChatPolling(options: UseChatPollingOptions): UseChatPollingRe
     }
     isActiveRef.current = false;
     
+    // v2.6.1: Reset estado ANTES de iniciar novo polling (evita race condition)
+    setMessages([]);
+    lastMessageIdRef.current = null;
+    setLastUpdate(null);
+    setLastError(null);
+    messagesRef.current = [];
+    
     if (enabled && chatId && chatId.length > 5) {
       // Iniciar novo polling
       isActiveRef.current = true;
       setIsPolling(true);
       
-      // Buscar imediatamente
+      // Buscar imediatamente (após o reset)
+      console.log(`[ChatPolling] ▶️ Iniciando polling para ${chatId}`);
       fetchMessagesRef.current();
       
       // Iniciar intervalo
@@ -303,7 +319,7 @@ export function useChatPolling(options: UseChatPollingOptions): UseChatPollingRe
         }
       }, intervalMs);
       
-      console.log(`[ChatPolling] ▶️ Polling iniciado para ${chatId} (${intervalMs}ms)`);
+      console.log(`[ChatPolling] ⏱️ Intervalo configurado: ${intervalMs}ms`);
     } else {
       setIsPolling(false);
     }
@@ -325,14 +341,6 @@ export function useChatPolling(options: UseChatPollingOptions): UseChatPollingRe
       }
     };
   }, []);
-
-  // Reset quando chatId muda
-  useEffect(() => {
-    setMessages([]);
-    lastMessageIdRef.current = null;
-    setLastUpdate(null);
-    setLastError(null);
-  }, [chatId]);
 
   return {
     messages,
