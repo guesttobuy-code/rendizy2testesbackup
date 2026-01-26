@@ -65,6 +65,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { cn } from '../ui/utils';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { fetchAllChatsFromAllInstances, type ChatWithInstance } from '../../utils/chat/unifiedChatService';
 import { formatDistanceToNow } from 'date-fns';
@@ -726,7 +727,15 @@ export function ChatConversationList({
   // ============================================
   
   return (
-    <div className={`flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden ${className}`} style={{ maxHeight }}>
+    <div 
+      className={cn(
+        'flex flex-col h-full bg-white dark:bg-gray-900 overflow-hidden',
+        // Aplicar border/rounded apenas se não tiver border-0 na className
+        !className.includes('border-0') && 'border border-gray-200 dark:border-gray-700 rounded-lg',
+        className
+      )} 
+      style={maxHeight ? { maxHeight } : undefined}
+    >
       {/* Header */}
       {showHeader && (
         <div className="flex-shrink-0 p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -901,8 +910,8 @@ export function ChatConversationList({
         </div>
       )}
       
-      {/* Lista */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Lista - min-h-0 é essencial para overflow funcionar em flex */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />

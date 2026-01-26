@@ -35,7 +35,7 @@ export function ChatModule({
   onAdvancedSearch,
 }: ChatModuleProps) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors">
       <LoadingProgress isLoading={initialLoading} />
 
       <MainSidebar
@@ -49,7 +49,7 @@ export function ChatModule({
 
       <div
         className={cn(
-          'flex flex-col min-h-screen transition-all duration-300',
+          'flex flex-col h-full transition-all duration-300',
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72',
         )}
       >
@@ -57,7 +57,8 @@ export function ChatModule({
         <div className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
         
         {/* ✅ v2.0.0: Chat simplificado e funcional */}
-        <div className="flex-1 overflow-hidden h-[calc(100vh-56px)]">
+        {/* ⚠️ overflow-hidden impede scroll global - cada coluna tem scroll próprio */}
+        <div className="flex-1 min-h-0 overflow-hidden">
           <SimpleChatInbox />
         </div>
       </div>

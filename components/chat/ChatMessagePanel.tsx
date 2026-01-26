@@ -73,21 +73,19 @@ import {
   Phone,
   Minimize2,
   Maximize2,
-  Image as ImageIcon,
   Paperclip,
   RefreshCw,
   Play,
   FileText,
   Download,
   Wifi,
-  WifiOff,
-  Zap,
-  X
+  WifiOff
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { ScrollArea } from '../ui/scroll-area';
+// ScrollArea removido - usando overflow-y-auto nativo para rolagem independente
 import { Textarea } from '../ui/textarea';
+import { cn } from '../ui/utils';
 import { toast } from 'sonner';
 import { 
   fetchWhatsAppMessages, 
@@ -101,12 +99,10 @@ import {
   type MediaType 
 } from '../../utils/chatUnifiedApi';
 import { getSupabaseClient } from '../../utils/supabase/client';
-import { useWahaPolling, type PolledMessage } from '../../hooks/useWahaPolling';
 // ✅ v2.5.0: Também importar hook unificado para suporte multi-provider
 import { useChatPolling } from '../../hooks/useChatPolling';
 // ✅ v3.1.0: Novos componentes Phase 2
 import { TypingIndicator } from './TypingIndicator';
-import { MessageStatusIndicator, ackToStatus } from './MessageStatusIndicator';
 import { QuickReplies, QuickReplyTrigger, DEFAULT_QUICK_REPLIES, replaceVariables } from './QuickReplies';
 import { useTypingIndicator } from '../../hooks/useTypingIndicator';
 import { useAutoMarkAsRead } from '../../hooks/useSendSeen';
@@ -215,8 +211,7 @@ export function ChatMessagePanel({
   contactName = 'Contato',
   contactPhone,
   contactAvatar,
-  compact = false,
-  maxHeight = '400px',
+  maxHeight,
   onMessageSent,
   onClose,
   showHeader = true,
@@ -274,7 +269,7 @@ export function ChatMessagePanel({
   })();
 
   // 🔄 Hook de Polling UNIFICADO (a cada 2 segundos) - suporta Evolution + WAHA
-  const { messages: polledMessages, isPolling, lastUpdate, refresh: refreshPolling, activeProvider } = useChatPolling({
+  const { messages: polledMessages, isPolling } = useChatPolling({
     chatId: normalizedChatId,
     provider: detectedProvider,
     enabled: !isLoading && !!normalizedChatId && normalizedChatId.length > 10,
@@ -372,7 +367,7 @@ export function ChatMessagePanel({
   // ✅ v3.1.0: SEND SEEN (AUTO MARK AS READ)
   // ============================================
   
-  const { markAsRead } = useAutoMarkAsRead({
+  useAutoMarkAsRead({
     chatId: normalizedChatId,
     isVisible: !isMinimized && !isLoading,
     autoMark: true,
@@ -398,7 +393,6 @@ export function ChatMessagePanel({
     pendingMessages: queuedMessages, 
     isProcessing: isQueueProcessing,
     isOnline,
-    enqueue: enqueueMessage,
     process: processQueue 
   } = useMessageQueue({
     sendMessage: sendMessageForQueue,
@@ -466,7 +460,7 @@ export function ChatMessagePanel({
 
         if (orgId) query.eq('organization_id', orgId);
 
-        const { data } = await query.maybeSingle();
+        const { data } = await query.maybeSingle() as { data: { id: string } | null };
 
         return data?.id || null;
       };
@@ -584,15 +578,18 @@ export function ChatMessagePanel({
         // ✅ v2.0.9: Fallback para conversas UUID (não-WhatsApp) - usar banco
         console.log('[ChatMessagePanel] 📥 Carregando do banco para UUID:', dbConversationId);
         const unified = await fetchUnifiedMessages(dbConversationId);
-        const converted: ChatMessage[] = unified.map(msg => ({
+        const converted: ChatMessage[] = unified.map(msg => {
+          const normalizedStatus = msg.status === 'failed' ? 'error' : msg.status;
+          return ({
           id: msg.id || crypto.randomUUID(),
           text: msg.content || '',
           fromMe: !!msg.fromMe,
           timestamp: msg.timestamp || new Date(),
-          status: msg.status || (msg.fromMe ? 'delivered' : undefined),
+          status: normalizedStatus || (msg.fromMe ? 'delivered' : undefined),
           mediaType: msg.mediaType && msg.mediaType !== 'text' ? msg.mediaType as MediaType : undefined,
           mediaUrl: msg.mediaUrl || undefined,
-        }));
+          });
+        });
         console.log('[ChatMessagePanel] ✅ Mensagens do banco:', converted.length);
         setMessages(converted);
       } else {
@@ -965,8 +962,13 @@ export function ChatMessagePanel({
   
   return (
     <div 
-      className={`flex flex-col h-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden ${className}`}
-      style={{ maxHeight, minHeight: '100%' }}
+      className={cn(
+        'flex flex-col h-full bg-white dark:bg-gray-900 overflow-hidden',
+        // Aplicar border/shadow apenas se não tiver border-0 na className
+        !className.includes('border-0') && 'border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg',
+        className
+      )}
+      style={maxHeight ? { maxHeight } : undefined}
     >
       {/* Header - FIXO NO TOPO */}
       {showHeader && (
@@ -1040,8 +1042,8 @@ export function ChatMessagePanel({
       )}
       
       {/* Messages Area - ÁREA FLEXÍVEL QUE OCUPA O ESPAÇO DISPONÍVEL */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <ScrollArea className="h-full p-3 bg-gray-50 dark:bg-gray-900">
+      {/* ⚠️ Usando overflow-y-auto nativo em vez de ScrollArea para rolagem independente */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900">
           {isLoading ? (
             <div className="flex items-center justify-center h-full py-8">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -1152,9 +1154,9 @@ export function ChatMessagePanel({
             <div ref={messagesEndRef} />
           </div>
         )}
-        </ScrollArea>
       </div>
-      
+      {/* Fim da área de mensagens */}
+
       {/* Media Preview - Se tiver mídia selecionada */}
       {selectedMedia && (
         <div className="flex-shrink-0 p-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
