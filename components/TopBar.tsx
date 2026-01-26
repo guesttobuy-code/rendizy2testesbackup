@@ -1,12 +1,14 @@
 /**
  * 🎯 TOP BAR - Barra Superior Fixa do Sistema Rendizy
- * v1.0.0 - 2026-01-25
+ * v1.1.0 - 2026-01-25
  * 
  * Componente responsável por organizar botões de ação rápida no canto superior direito:
  * - Automações: Abre modal de criação de automação
- * - Notificações: Mostra painel de notificações com badge de contagem
+ * - Notificações: Mostra modal overlay de notificações com badge de contagem
  * - Ações Rápidas: Abre modal de ações rápidas (reservas, cotações, etc.)
  * - Menu do Usuário: Login/Logout e configurações
+ * 
+ * @changelog v1.1.0: Substituído dropdown de notificações por modal overlay (NotificationsModal)
  */
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -31,6 +33,7 @@ import {
   TooltipTrigger,
 } from './ui/tooltip';
 import { getSupabaseClient } from '../utils/supabase/client';
+import { NotificationsModal } from './notifications/NotificationsModal';
 
 interface TopBarProps {
   onOpenQuickActions?: () => void;
@@ -118,20 +121,6 @@ export function TopBar({
     }
   };
 
-  const handleMarkAllRead = async () => {
-    try {
-      const supabase = getSupabaseClient();
-      await (supabase
-        .from('notifications') as any)
-        .update({ read: true })
-        .eq('read', false);
-      setUnreadNotifications(0);
-      setNotifications([]);
-    } catch (err) {
-      console.error('Erro ao marcar notificações como lidas:', err);
-    }
-  };
-
   const initials = getInitials(userName);
 
   return (
@@ -163,77 +152,19 @@ export function TopBar({
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="relative">
-              <DropdownMenu open={showNotificationsPanel} onOpenChange={setShowNotificationsPanel}>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className={cn(
-                      "h-9 w-9 rounded-full bg-gradient-to-br from-amber-500 to-orange-600",
-                      "flex items-center justify-center",
-                      "ring-2 ring-white dark:ring-gray-700",
-                      "transition-all duration-200 hover:scale-105 active:scale-95",
-                      "shadow-md hover:shadow-lg"
-                    )}
-                    aria-label="Notificações"
-                  >
-                    <Bell className="h-4 w-4 text-white" />
-                  </button>
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent
-                  align="end"
-                  side="bottom"
-                  className="w-80 bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700"
-                >
-                  <DropdownMenuLabel className="flex items-center justify-between">
-                    <span className="text-gray-900 dark:text-gray-100">Notificações</span>
-                    {unreadNotifications > 0 && (
-                      <button
-                        onClick={handleMarkAllRead}
-                        className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                      >
-                        Marcar todas como lidas
-                      </button>
-                    )}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-
-                  {notifications.length === 0 ? (
-                    <div className="px-4 py-6 text-center">
-                      <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Nenhuma notificação
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="max-h-64 overflow-y-auto">
-                      {notifications.map((notification) => (
-                        <DropdownMenuItem
-                          key={notification.id}
-                          className="flex flex-col items-start gap-1 py-3"
-                        >
-                          <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                            {notification.title}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {new Date(notification.created_at).toLocaleString('pt-BR')}
-                          </p>
-                        </DropdownMenuItem>
-                      ))}
-                    </div>
-                  )}
-
-                  <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-                  <DropdownMenuItem
-                    className="justify-center text-blue-600 dark:text-blue-400"
-                    onSelect={() => navigate('/notificacoes')}
-                  >
-                    Ver todas as notificações
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <button
+                onClick={() => setShowNotificationsPanel(true)}
+                className={cn(
+                  "h-9 w-9 rounded-full bg-gradient-to-br from-amber-500 to-orange-600",
+                  "flex items-center justify-center",
+                  "ring-2 ring-white dark:ring-gray-700",
+                  "transition-all duration-200 hover:scale-105 active:scale-95",
+                  "shadow-md hover:shadow-lg"
+                )}
+                aria-label="Notificações"
+              >
+                <Bell className="h-4 w-4 text-white" />
+              </button>
 
               {/* Badge de contagem */}
               {unreadNotifications > 0 && (
@@ -247,6 +178,16 @@ export function TopBar({
             <p>Notificações {unreadNotifications > 0 ? `(${unreadNotifications})` : ''}</p>
           </TooltipContent>
         </Tooltip>
+
+        {/* Modal Overlay de Notificações */}
+        <NotificationsModal
+          isOpen={showNotificationsPanel}
+          onClose={() => setShowNotificationsPanel(false)}
+          onNavigateToPage={() => {
+            setShowNotificationsPanel(false);
+            navigate('/notificacoes');
+          }}
+        />
 
         {/* Botão Ações Rápidas */}
         <Tooltip>

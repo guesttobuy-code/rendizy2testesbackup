@@ -61,7 +61,7 @@ export function DealAIAgent({
               <div>
                 <p className="text-sm font-semibold text-white">Rendizy AI Agent</p>
                 <Badge variant="secondary" className="text-xs bg-white/20 text-white border-0">
-                  Automations Active
+                  Automações Ativas
                 </Badge>
               </div>
             </div>
@@ -89,7 +89,7 @@ export function DealAIAgent({
             <div>
               <p className="text-sm font-semibold text-white">Rendizy AI Agent</p>
               <Badge variant="secondary" className="text-xs bg-white/20 text-white border-0">
-                Automations Active
+                Automações Ativas
               </Badge>
             </div>
           </div>
@@ -106,9 +106,9 @@ export function DealAIAgent({
                   <Bot className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold mb-1">AI ASSISTANT</p>
+                  <p className="text-sm font-semibold mb-1">ASSISTENTE IA</p>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Hi! I can help you update this deal, schedule follow-ups, or summarize the conversation. What would you like to do?
+                    Olá! Posso ajudar você a atualizar este deal, agendar follow-ups ou resumir a conversa. O que você gostaria de fazer?
                   </p>
                 </div>
               </div>
@@ -123,7 +123,7 @@ export function DealAIAgent({
                 className="bg-white dark:bg-gray-800"
               >
                 <Calendar className="w-4 h-4 mr-2" />
-                Schedule Call
+                Agendar Ligação
               </Button>
               <Button
                 variant="outline"
@@ -132,7 +132,7 @@ export function DealAIAgent({
                 className="bg-white dark:bg-gray-800"
               >
                 <Mail className="w-4 h-4 mr-2" />
-                Draft Email
+                Rascunho E-mail
               </Button>
               <Button
                 variant="outline"
@@ -141,7 +141,7 @@ export function DealAIAgent({
                 className="bg-white dark:bg-gray-800"
               >
                 <CheckCircle2 className="w-4 h-4 mr-2" />
-                Mark Qualified
+                Marcar Qualificado
               </Button>
             </div>
 
@@ -153,7 +153,7 @@ export function DealAIAgent({
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
-                <span>AI is thinking...</span>
+                <span>IA processando...</span>
               </div>
             )}
           </div>
@@ -163,7 +163,7 @@ export function DealAIAgent({
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <Input
-              placeholder="Ask AI to automate tasks..."
+              placeholder="Peça à IA para automatizar tarefas..."
               value={aiQuery}
               onChange={(e) => setAiQuery(e.target.value)}
               onKeyPress={(e) => {

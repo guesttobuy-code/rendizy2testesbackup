@@ -52,13 +52,15 @@ export function DealsModule() {
   const getMockDeals = (): Deal[] => [
     {
       id: '1',
-      title: 'Rafael Teste Deal',
-      value: 12000,
+      title: 'Negociação Rafa Claro',
+      value: 3500,
       currency: 'BRL',
       stage: 'QUALIFIED',
       source: 'WHATSAPP',
-      probability: 75,
-      contactName: 'Rafael Milfont',
+      probability: 85,
+      contactName: 'Rafa Claro 21',
+      contactPhone: '+55 21 99441-4512',
+      contactWhatsAppJid: '5521994414512@c.us',
       ownerName: 'Rafael Milfont',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -147,7 +149,7 @@ export function DealsModule() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 pt-14">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
@@ -173,7 +175,7 @@ export function DealsModule() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search Pipedrive"
+              placeholder="Buscar deals..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -186,9 +188,9 @@ export function DealsModule() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as categorias</SelectItem>
-              <SelectItem value="consulting">Consulting and agencies</SelectItem>
-              <SelectItem value="real-estate">Real Estate</SelectItem>
-              <SelectItem value="hospitality">Hospitality</SelectItem>
+              <SelectItem value="consulting">Consultoria e agências</SelectItem>
+              <SelectItem value="real-estate">Imóveis</SelectItem>
+              <SelectItem value="hospitality">Hospitalidade</SelectItem>
             </SelectContent>
           </Select>
 

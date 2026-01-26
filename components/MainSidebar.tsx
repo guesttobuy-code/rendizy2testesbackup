@@ -411,6 +411,8 @@ export function MainSidebar({
     'usuarios-clientes': '/clientes-hospedes',
     'usuarios-proprietarios': '/proprietarios',
     'usuarios-documentos-listas': '/documentos-listas',
+    // ✅ ROTA NOTIFICAÇÕES - v1.0.0
+    'notificacoes': '/notificacoes',
   };
 
   const handleMenuClick = (menuId: string, hasSubmenu: boolean, item?: MenuItem) => {

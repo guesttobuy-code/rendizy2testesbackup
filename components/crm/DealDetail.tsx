@@ -28,11 +28,11 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
   };
 
   const stages: Array<{ id: Deal['stage']; label: string }> = [
-    { id: 'QUALIFIED', label: 'Qualified' },
-    { id: 'CONTACT_MADE', label: 'Contact Made' },
-    { id: 'MEETING_ARRANGED', label: 'Meeting Arranged' },
-    { id: 'PROPOSAL_MADE', label: 'Proposal Made' },
-    { id: 'NEGOTIATIONS', label: 'Negotiations' },
+    { id: 'QUALIFIED', label: 'Qualificado' },
+    { id: 'CONTACT_MADE', label: 'Contato Feito' },
+    { id: 'MEETING_ARRANGED', label: 'Reunião Agendada' },
+    { id: 'PROPOSAL_MADE', label: 'Proposta Enviada' },
+    { id: 'NEGOTIATIONS', label: 'Negociação' },
   ];
 
   const currentStageIndex = stages.findIndex(s => s.id === currentDeal.stage);
@@ -55,9 +55,9 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
   });
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 pt-14">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -75,7 +75,7 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
               onClick={() => handleStageChange('WON')}
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              Won
+              Ganho
             </Button>
             <Button
               variant="outline"
@@ -84,7 +84,7 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
               onClick={() => handleStageChange('LOST')}
             >
               <XCircle className="w-4 h-4 mr-2" />
-              Lost
+              Perdido
             </Button>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="w-4 h-4" />
@@ -116,7 +116,7 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">
-              {stages[currentStageIndex]?.label} • {currentDeal.probability}% probability
+              {stages[currentStageIndex]?.label} • {currentDeal.probability}% probabilidade
             </span>
           </div>
         </div>
@@ -151,15 +151,15 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
         {...swipeNav.mouseHandlers}
         className="flex-1 relative overflow-hidden"
       >
-        {/* Desktop: Layout - Detalhes ocupa resto, Chat fixo à direita */}
-        <div className="hidden lg:flex lg:flex-1 lg:overflow-hidden lg:min-h-0">
-          {/* Left Column - CRM Details - Ocupa todo espaço restante */}
+        {/* Desktop: Layout - Detalhes ocupa mais espaço, Chat como sidebar direita estilo mobile */}
+        <div className="hidden lg:flex lg:flex-row lg:flex-1 lg:overflow-hidden lg:min-h-0 h-full">
+          {/* Left Column - CRM Details - Ocupa espaço restante */}
           <div className="flex-1 min-w-0 border-r border-gray-200 dark:border-gray-700 overflow-y-auto min-h-0">
             <DealDetailLeft deal={currentDeal} onUpdate={handleUpdate} />
           </div>
 
-          {/* Right Column - Chat + IA - Fixo colado na borda direita, largura fixa */}
-          <div className="w-[400px] min-w-[400px] flex flex-col overflow-hidden min-h-0 flex-shrink-0 bg-white dark:bg-gray-800">
+          {/* Right Column - Chat + IA - Largura generosa para chat confortável */}
+          <div className="w-[420px] min-w-[420px] max-w-[420px] flex flex-col overflow-hidden min-h-0 flex-shrink-0 bg-white dark:bg-gray-800">
             <DealDetailRight deal={currentDeal} onUpdate={handleUpdate} />
           </div>
         </div>

@@ -29,11 +29,6 @@ export default function ProtectedRoute({
   const location = useLocation();
   const path = location.pathname;
 
-  // 1. Rotas públicas → liberado imediatamente
-  if (PUBLIC_ROUTES.some(route => path.startsWith(route))) {
-    return <>{children}</>;
-  }
-
   // 2. Ainda carregando → mostrar loading por no máximo 2 segundos
   // Usar timeout local para evitar loading infinito
   const [forceShow, setForceShow] = React.useState(false);
@@ -42,6 +37,11 @@ export default function ProtectedRoute({
     const timer = setTimeout(() => setForceShow(true), 2000);
     return () => clearTimeout(timer);
   }, []);
+
+  // 1. Rotas públicas → liberado imediatamente
+  if (PUBLIC_ROUTES.some(route => path.startsWith(route))) {
+    return <>{children}</>;
+  }
 
   if (isLoading && !forceShow) {
     return (

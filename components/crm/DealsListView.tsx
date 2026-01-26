@@ -23,13 +23,13 @@ const SOURCE_CONFIG: Record<Deal['source'], { icon: string; color: string; bgCol
 };
 
 const STAGE_LABELS: Record<Deal['stage'], string> = {
-  QUALIFIED: 'Qualified',
-  CONTACT_MADE: 'Contact Made',
-  MEETING_ARRANGED: 'Meeting Arranged',
-  PROPOSAL_MADE: 'Proposal Made',
-  NEGOTIATIONS: 'Negotiations',
-  WON: 'Won',
-  LOST: 'Lost',
+  QUALIFIED: 'Qualificado',
+  CONTACT_MADE: 'Contato Feito',
+  MEETING_ARRANGED: 'Reunião Agendada',
+  PROPOSAL_MADE: 'Proposta Enviada',
+  NEGOTIATIONS: 'Negociação',
+  WON: 'Ganho',
+  LOST: 'Perdido',
 };
 
 export function DealsListView({ deals, onDealClick, onDealUpdate }: DealsListViewProps) {
@@ -117,12 +117,12 @@ export function DealsListView({ deals, onDealClick, onDealUpdate }: DealsListVie
                         {deal.contactName}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Owner: {deal.ownerName}
+                        Responsável: {deal.ownerName}
                       </p>
                     </div>
                     {deal.expectedCloseDate && (
                       <div className="text-right">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Expected close</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Previsão fechamento</p>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
                           {new Date(deal.expectedCloseDate).toLocaleDateString('pt-BR')}
                         </p>

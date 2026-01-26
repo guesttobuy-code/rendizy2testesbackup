@@ -15,32 +15,32 @@ interface DealChatInterfaceProps {
 
 const SOURCE_CONFIG: Record<DealSource, { label: string; color: string; bgColor: string }> = {
   WHATSAPP: {
-    label: 'WhatsApp Integration',
+    label: 'Integração WhatsApp',
     color: 'text-green-600',
     bgColor: 'bg-green-50 dark:bg-green-900/20',
   },
   EMAIL: {
-    label: 'Email Integration',
+    label: 'Integração E-mail',
     color: 'text-blue-600',
     bgColor: 'bg-blue-50 dark:bg-blue-900/20',
   },
   AIRBNB: {
-    label: 'Airbnb Integration',
+    label: 'Integração Airbnb',
     color: 'text-pink-600',
     bgColor: 'bg-pink-50 dark:bg-pink-900/20',
   },
   PHONE: {
-    label: 'Phone Integration',
+    label: 'Integração Telefone',
     color: 'text-purple-600',
     bgColor: 'bg-purple-50 dark:bg-purple-900/20',
   },
   WEBSITE: {
-    label: 'Website Integration',
+    label: 'Integração Website',
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
   },
   OTHER: {
-    label: 'Other Integration',
+    label: 'Outra Integração',
     color: 'text-gray-600',
     bgColor: 'bg-gray-50 dark:bg-gray-900/20',
   },
@@ -207,7 +207,7 @@ export function DealChatInterface({ deal }: DealChatInterfaceProps) {
             <Smile className="w-5 h-5" />
           </Button>
           <Input
-            placeholder="Type a message"
+            placeholder="Digite uma mensagem"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => {

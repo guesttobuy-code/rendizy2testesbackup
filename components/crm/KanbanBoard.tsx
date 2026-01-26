@@ -24,13 +24,13 @@ interface KanbanBoardProps {
 }
 
 const STAGE_CONFIG: Record<DealStage, { label: string; color: string }> = {
-  QUALIFIED: { label: 'QUALIFIED', color: 'bg-blue-500' },
-  CONTACT_MADE: { label: 'CONTACT MADE', color: 'bg-green-500' },
-  MEETING_ARRANGED: { label: 'MEETING ARRANGED', color: 'bg-yellow-500' },
-  PROPOSAL_MADE: { label: 'PROPOSAL MADE', color: 'bg-orange-500' },
-  NEGOTIATIONS: { label: 'NEGOTIATIONS', color: 'bg-purple-500' },
-  WON: { label: 'WON', color: 'bg-emerald-500' },
-  LOST: { label: 'LOST', color: 'bg-red-500' },
+  QUALIFIED: { label: 'QUALIFICADO', color: 'bg-blue-500' },
+  CONTACT_MADE: { label: 'CONTATO FEITO', color: 'bg-green-500' },
+  MEETING_ARRANGED: { label: 'REUNIÃO AGENDADA', color: 'bg-yellow-500' },
+  PROPOSAL_MADE: { label: 'PROPOSTA ENVIADA', color: 'bg-orange-500' },
+  NEGOTIATIONS: { label: 'NEGOCIAÇÃO', color: 'bg-purple-500' },
+  WON: { label: 'GANHO', color: 'bg-emerald-500' },
+  LOST: { label: 'PERDIDO', color: 'bg-red-500' },
 };
 
 const STAGE_ORDER: DealStage[] = [

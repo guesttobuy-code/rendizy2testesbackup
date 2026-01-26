@@ -152,6 +152,11 @@ const SettingsModule = React.lazy(() =>
   import('./components/settings/SettingsModule').then((m) => ({ default: m.SettingsModule }))
 );
 
+// 🔔 CÁPSULA NOTIFICAÇÕES - v1.0.0 - Módulo de Notificações
+const NotificationsModule = React.lazy(() =>
+  import('./components/notifications/NotificationsModule').then((m) => ({ default: m.NotificationsModule }))
+);
+
 // 🏠 CÁPSULA GUEST AREA - v1.0.0 - Área do Hóspede servida centralmente
 const GuestAreaPage = React.lazy(() =>
   import('./src/capsules/GuestArea/GuestAreaPage').then((m) => ({ default: m.GuestAreaPage }))
@@ -1493,6 +1498,20 @@ function App() {
                 <Route path="/chat" element={
                   <ProtectedRoute>
                     <ChatModule
+                      sidebarCollapsed={sidebarCollapsed}
+                      setSidebarCollapsed={setSidebarCollapsed}
+                      initialLoading={initialLoading}
+                      onModuleChange={setActiveModule}
+                      onSearchReservation={handleSearchReservation}
+                      onAdvancedSearch={handleAdvancedSearch}
+                    />
+                  </ProtectedRoute>
+                } />
+
+                {/* 🔔 ROTA NOTIFICAÇÕES - v1.0.0 - PROTEGIDA (ENCAPSULADA) */}
+                <Route path="/notificacoes" element={
+                  <ProtectedRoute>
+                    <NotificationsModule
                       sidebarCollapsed={sidebarCollapsed}
                       setSidebarCollapsed={setSidebarCollapsed}
                       initialLoading={initialLoading}

@@ -249,8 +249,8 @@ export function ChatDetailsSidebar({
         </div>
       </div>
 
-      {/* Conteúdo Scrollável */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Conteúdo Scrollável - min-h-0 é essencial para flex overflow funcionar */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Seção: Contato */}
         <div className="p-4 border-b border-gray-100 dark:border-gray-800">
           <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Contato</h4>

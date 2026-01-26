@@ -16,7 +16,7 @@ const mockActivities: DealActivity[] = [
     id: '1',
     dealId: '1',
     type: 'STAGE_CHANGE',
-    title: 'Deal created',
+    title: 'Deal criado',
     userId: '1',
     userName: 'Rafael Milfont',
     createdAt: new Date().toISOString(),
@@ -25,8 +25,8 @@ const mockActivities: DealActivity[] = [
     id: '2',
     dealId: '1',
     type: 'EMAIL',
-    title: 'Email Sent: Proposal',
-    description: 'Proposal sent via Gmail integration',
+    title: 'E-mail Enviado: Proposta',
+    description: 'Proposta enviada via integração Gmail',
     userId: '1',
     userName: 'Rafael Milfont',
     createdAt: new Date(Date.now() - 3600000).toISOString(),
@@ -36,8 +36,8 @@ const mockActivities: DealActivity[] = [
     id: '3',
     dealId: '1',
     type: 'STAGE_CHANGE',
-    title: 'Stage Changed',
-    description: 'Changed to Contact Made',
+    title: 'Estágio Alterado',
+    description: 'Alterado para Contato Feito',
     userId: '1',
     userName: 'Rafael Milfont',
     createdAt: new Date(Date.now() - 86400000).toISOString(),
@@ -46,8 +46,8 @@ const mockActivities: DealActivity[] = [
     id: '4',
     dealId: '1',
     type: 'CALL',
-    title: 'Call Logged',
-    description: 'Left voicemail regarding new features.',
+    title: 'Ligação Registrada',
+    description: 'Deixou recado sobre novas funcionalidades.',
     userId: '1',
     userName: 'Rafael Milfont',
     createdAt: new Date(Date.now() - 172800000).toISOString(),
@@ -110,8 +110,8 @@ export function DealActivityTimeline({ dealId, onRefresh }: DealActivityTimeline
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    if (diffDays === 1) return 'Yesterday ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (diffDays === 0) return 'Hoje ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (diffDays === 1) return 'Ontem ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
 
@@ -159,7 +159,7 @@ export function DealActivityTimeline({ dealId, onRefresh }: DealActivityTimeline
                   )}
                   {activity.metadata?.integration && (
                     <span className="inline-block mt-1 text-xs text-blue-600 dark:text-blue-400">
-                      View
+                      Ver
                     </span>
                   )}
                 </div>
