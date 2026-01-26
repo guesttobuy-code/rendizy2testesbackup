@@ -10,6 +10,7 @@ interface ServicesTicketColumnProps {
   tickets: ServiceTicket[];
   totalCount: number;
   onTicketClick: (ticket: ServiceTicket) => void;
+  onCopyTicketLink?: (ticketId: string) => void; // ✅ Copiar link do ticket
 }
 
 export function ServicesTicketColumn({
@@ -17,6 +18,7 @@ export function ServicesTicketColumn({
   tickets,
   totalCount,
   onTicketClick,
+  onCopyTicketLink,
 }: ServicesTicketColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
@@ -59,6 +61,7 @@ export function ServicesTicketColumn({
                 key={ticket.id}
                 ticket={ticket}
                 onClick={() => onTicketClick(ticket)}
+                onCopyLink={onCopyTicketLink ? () => onCopyTicketLink(ticket.id) : undefined}
               />
             ))}
           </SortableContext>

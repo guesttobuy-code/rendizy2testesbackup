@@ -1011,6 +1011,7 @@ app.get('/me', async (c) => {
         email: user.email,
         type: user.type,
         status: user.status,
+        avatar_url: user.avatar_url || null, // ✅ v1.0.106: Incluir avatar_url para persistência
         organizationId: user.organization_id || undefined,
         organization: organization
           ? { id: organization.id, name: organization.name, slug: organization.slug }

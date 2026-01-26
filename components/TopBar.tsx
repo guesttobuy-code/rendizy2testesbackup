@@ -52,10 +52,6 @@ export function TopBar({
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
 
-  // Não mostrar TopBar na página de login
-  const shouldHide = !isAuthenticated || location.pathname === '/login';
-  if (shouldHide) return null;
-
   const userName = user?.name || 'Usuário';
   const userEmail = user?.email || (user as any)?.username || '';
   const userAvatar = user?.avatar; // ✅ v1.0.105.001: Suporta avatar do usuário
@@ -123,6 +119,10 @@ export function TopBar({
 
   const initials = getInitials(userName);
 
+  // ✅ Early return DEPOIS de todos os hooks (regras do React)
+  const shouldHide = !isAuthenticated || location.pathname === '/login';
+  if (shouldHide) return null;
+
   return (
     <TooltipProvider>
       <div className="fixed top-3 right-4 z-50 flex items-center gap-2">
@@ -132,11 +132,11 @@ export function TopBar({
             <button
               onClick={onOpenAutomations}
               className={cn(
-                "h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-600",
+                "h-9 w-9 rounded-full bg-[#1a1a1a] dark:bg-[#0f0f0f]",
                 "flex items-center justify-center",
-                "ring-2 ring-white dark:ring-gray-700",
+                "ring-2 ring-white/20 dark:ring-gray-600",
                 "transition-all duration-200 hover:scale-105 active:scale-95",
-                "shadow-md hover:shadow-lg"
+                "shadow-md hover:shadow-lg hover:bg-[#2a2a2a]"
               )}
               aria-label="Automações"
             >
@@ -155,11 +155,11 @@ export function TopBar({
               <button
                 onClick={() => setShowNotificationsPanel(true)}
                 className={cn(
-                  "h-9 w-9 rounded-full bg-gradient-to-br from-amber-500 to-orange-600",
+                  "h-9 w-9 rounded-full bg-[#1a1a1a] dark:bg-[#0f0f0f]",
                   "flex items-center justify-center",
-                  "ring-2 ring-white dark:ring-gray-700",
+                  "ring-2 ring-white/20 dark:ring-gray-600",
                   "transition-all duration-200 hover:scale-105 active:scale-95",
-                  "shadow-md hover:shadow-lg"
+                  "shadow-md hover:shadow-lg hover:bg-[#2a2a2a]"
                 )}
                 aria-label="Notificações"
               >
@@ -195,11 +195,11 @@ export function TopBar({
             <button
               onClick={onOpenQuickActions}
               className={cn(
-                "h-9 w-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600",
+                "h-9 w-9 rounded-full bg-[#1a1a1a] dark:bg-[#0f0f0f]",
                 "flex items-center justify-center",
-                "ring-2 ring-white dark:ring-gray-700",
+                "ring-2 ring-white/20 dark:ring-gray-600",
                 "transition-all duration-200 hover:scale-105 active:scale-95",
-                "shadow-md hover:shadow-lg"
+                "shadow-md hover:shadow-lg hover:bg-[#2a2a2a]"
               )}
               aria-label="Ações Rápidas"
             >
@@ -221,10 +221,9 @@ export function TopBar({
                   className={cn(
                     'h-9 w-9 rounded-full flex items-center justify-center overflow-hidden',
                     'ring-2 transition-all duration-200 hover:scale-105 active:scale-95',
-                    'shadow-md hover:shadow-lg',
-                    !userAvatar && 'bg-gradient-to-br',
-                    !userAvatar && (isSuperAdmin ? 'from-purple-500 to-pink-600' : 'from-blue-500 to-indigo-600'),
-                    'ring-white dark:ring-gray-700'
+                    'shadow-md hover:shadow-lg hover:bg-[#2a2a2a]',
+                    !userAvatar && 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
+                    'ring-white/20 dark:ring-gray-600'
                   )}
                   aria-label="Menu do usuário"
                 >

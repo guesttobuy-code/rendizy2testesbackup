@@ -4,13 +4,20 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Button } from '../ui/button';
-import { MoreVertical, MessageSquare, AlertCircle } from 'lucide-react';
+import { MoreVertical, MessageSquare, AlertCircle, Link2 } from 'lucide-react';
 import { cn } from '../ui/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 interface DealsListViewProps {
   deals: Deal[];
   onDealClick: (deal: Deal) => void;
   onDealUpdate?: (deal: Deal) => void;
+  onCopyDealLink?: (dealId: string) => void; // ✅ Copiar link do deal
 }
 
 const SOURCE_CONFIG: Record<Deal['source'], { icon: string; color: string; bgColor: string }> = {
@@ -32,7 +39,7 @@ const STAGE_LABELS: Record<Deal['stage'], string> = {
   LOST: 'Perdido',
 };
 
-export function DealsListView({ deals, onDealClick, onDealUpdate }: DealsListViewProps) {
+export function DealsListView({ deals, onDealClick, onDealUpdate, onCopyDealLink }: DealsListViewProps) {
   const formatCurrency = (value: number, currency: string) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -133,6 +140,23 @@ export function DealsListView({ deals, onDealClick, onDealUpdate }: DealsListVie
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {onCopyDealLink && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={(e) => {
+                            e.stopPropagation();
+                            onCopyDealLink(deal.id);
+                          }}>
+                            <Link2 className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Copiar link do deal</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   <Button variant="ghost" size="icon" onClick={(e) => {
                     e.stopPropagation();
                     // TODO: Abrir menu de ações

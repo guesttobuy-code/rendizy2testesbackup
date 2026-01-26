@@ -20,6 +20,7 @@ interface ServicesKanbanBoardProps {
   tickets: ServiceTicket[];
   onTicketClick: (ticket: ServiceTicket) => void;
   onTicketUpdate?: (ticket: ServiceTicket) => void;
+  onCopyTicketLink?: (ticketId: string) => void; // ✅ Copiar link do ticket
   searchQuery?: string;
 }
 
@@ -28,6 +29,7 @@ export function ServicesKanbanBoard({
   tickets,
   onTicketClick,
   onTicketUpdate,
+  onCopyTicketLink,
   searchQuery = '',
 }: ServicesKanbanBoardProps) {
   const [activeTicket, setActiveTicket] = useState<ServiceTicket | null>(null);
@@ -153,6 +155,7 @@ export function ServicesKanbanBoard({
                     tickets={stageTickets}
                     totalCount={total.count}
                     onTicketClick={onTicketClick}
+                    onCopyTicketLink={onCopyTicketLink}
                   />
                 </SortableContext>
               );

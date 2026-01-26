@@ -178,21 +178,21 @@ export function MainSidebar({
           label: 'Admin Master',
           icon: Crown,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         }] : []),
         {
           id: 'painel-inicial',
           label: 'Dashboard',
           icon: LayoutDashboard,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         },
         {
           id: 'calendario',
           label: 'Calendário',
           icon: Calendar,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           badge: '12'
         },
         {
@@ -200,15 +200,33 @@ export function MainSidebar({
           label: 'Reservas',
           icon: ClipboardList,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         },
         {
           id: 'central-mensagens',
           label: 'Chat',
           icon: Mail,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           badge: '8'
+        },
+        {
+          id: 'modulo-crm-tasks',
+          label: 'CRM & Tasks',
+          icon: UsersIcon,
+          iconColor: 'text-white',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
+          badge: 'BETA',
+          isExternalModule: true,
+          externalPath: '/crm'
+        },
+        {
+          id: 'financeiro',
+          label: 'Finanças',
+          icon: Wallet,
+          iconColor: 'text-white',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
+          badge: 'BETA'
         },
         // ❌ DEPRECADO v1.0.103.406 - Wizard antigo removido, usar apenas Anúncios Ultimate
         // {
@@ -216,21 +234,21 @@ export function MainSidebar({
         //   label: 'Locais e Anúncios',
         //   icon: Building2,
         //   iconColor: 'text-white',
-        //   iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+        //   iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         // },
         {
           id: 'anuncio-ultimate',
           label: 'Propriedades e anúncios',
           icon: Plus,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         },
         {
           id: 'motor-reservas',
           label: 'Edição de site',
           icon: Zap,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           submenu: [
             { id: 'motor-reservas-sites', label: 'Sites', icon: Home },
             { id: 'motor-reservas-componentes-dados', label: 'Componentes & Dados', icon: Database },
@@ -242,7 +260,7 @@ export function MainSidebar({
           label: 'Preços em Lote',
           icon: TrendingUp,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           badge: 'NEW'
         },
         {
@@ -250,15 +268,7 @@ export function MainSidebar({
           label: 'Promoções',
           icon: Star,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
-        },
-        {
-          id: 'financeiro',
-          label: 'Finanças',
-          icon: Wallet,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
-          badge: 'BETA'
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         }
       ]
     },
@@ -270,7 +280,7 @@ export function MainSidebar({
           label: 'Usuários e Clientes',
           icon: Users,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           submenu: [
             { id: 'usuarios-usuarios', label: 'Usuários', icon: UserCircle },
             { id: 'usuarios-clientes', label: 'Clientes e Hóspedes', icon: Users },
@@ -283,7 +293,7 @@ export function MainSidebar({
           label: 'Notificações',
           icon: Bell,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           badge: '14'
         },
         {
@@ -291,7 +301,7 @@ export function MainSidebar({
           label: 'Catálogo',
           icon: FolderKanban,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           submenu: [
             { id: 'catalogo-grupos', label: 'Grupos', icon: FolderOpen },
             { id: 'catalogo-restricoes', label: 'Restrições dos Proprietários', icon: Ban },
@@ -307,21 +317,11 @@ export function MainSidebar({
       title: '⚡ MÓDULOS AVANÇADOS',
       items: [
         {
-          id: 'modulo-crm-tasks',
-          label: 'CRM & Tasks',
-          icon: UsersIcon,
-          iconColor: 'text-white',
-          iconBg: 'bg-gradient-to-br from-purple-500 to-violet-600',
-          badge: 'BETA',
-          isExternalModule: true,
-          externalPath: '/crm'
-        },
-        {
           id: 'modulo-automacoes',
           label: 'Automações',
           icon: Zap,
           iconColor: 'text-white',
-          iconBg: 'bg-gradient-to-br from-pink-500 to-orange-500',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           badge: 'BETA',
           isExternalModule: true,
           externalPath: '/crm/automacoes-chat'
@@ -331,7 +331,7 @@ export function MainSidebar({
           label: 'BI & Relatórios',
           icon: BarChart3,
           iconColor: 'text-white',
-          iconBg: 'bg-gradient-to-br from-indigo-500 to-blue-600',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           badge: 'BETA',
           isExternalModule: true,
           externalPath: '/bi'
@@ -346,21 +346,21 @@ export function MainSidebar({
           label: 'Loja de apps',
           icon: Grid3x3,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         },
         {
           id: 'configuracoes',
           label: 'Configurações',
           icon: Settings,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]'
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         },
         {
           id: 'assistentes',
           label: 'Suporte',
           icon: LifeBuoy,
           iconColor: 'text-white',
-          iconBg: 'bg-[#3d4451] dark:bg-[#4a5568]',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           submenu: [
             { id: 'assistentes-duplicados', label: 'E-mails Duplicados', icon: UserCheck },
             { id: 'assistentes-perfis', label: 'Perfis de Cadastro', icon: FileText },
@@ -626,21 +626,16 @@ export function MainSidebar({
         className={cn(
           "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative",
           collapsed && "justify-center px-2",
-          isDark ? [
-            "hover:bg-white/10 group",
-            isActive && "bg-blue-500/20 hover:bg-blue-500/30",
-            !isActive && ""
-          ] : [
-            "hover:bg-gray-100 group",
-            isActive && "bg-blue-50 hover:bg-blue-100",
-            !isActive && ""
-          ]
+          isDark ? "hover:bg-white/10" : "hover:bg-gray-100",
+          "group",
+          isActive && (isDark ? "bg-white/20 hover:bg-white/25" : "bg-gray-200 hover:bg-gray-300"),
+          !isActive && ""
         )}
       >
         {isActive && !collapsed && (
           <div className={cn(
             "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full",
-            isDark ? "bg-blue-400" : "bg-blue-600"
+            isDark ? "bg-white" : "bg-gray-900"
           )} />
         )}
         
@@ -658,36 +653,31 @@ export function MainSidebar({
         
         {!collapsed && (
           <>
-            <span className={cn(
-              "flex-1 text-left text-sm",
-              isDark ? "text-gray-200" : "text-gray-700"
-            )}>{item.label}</span>
+            <span className={cn("flex-1 text-left text-sm", isDark ? "text-gray-200" : "text-gray-700")}>{item.label}</span>
             
             {item.badge && (
               <span className={cn(
                 "px-2 py-0.5 text-xs rounded-full font-medium",
                 item.badge === 'DEV'
-                  ? (isDark ? "bg-green-500/20 text-green-300" : "bg-green-100 text-green-700")
+                  ? "bg-green-500/20 text-green-300"
                   : item.badge === 'BETA'
-                  ? (isDark ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700")
-                  : (isDark ? "bg-red-500/20 text-red-300" : "bg-red-100 text-red-600")
+                  ? "bg-blue-500/20 text-blue-300"
+                  : item.badge === 'NEW'
+                  ? "bg-purple-500/20 text-purple-300"
+                  : "bg-red-500/20 text-red-300"
               )}>
                 {item.badge}
               </span>
             )}
             
             {item.isExternalModule && (
-              <ExternalLink className={cn(
-                "h-3.5 w-3.5",
-                isDark ? "text-gray-400" : "text-gray-400"
-              )} />
+              <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
             )}
             
             {hasSubmenu && (
               <ChevronRight className={cn(
-                "h-4 w-4 transition-transform",
-                isExpanded && "rotate-90",
-                isDark ? "text-gray-400" : "text-gray-400"
+                "h-4 w-4 transition-transform text-gray-400",
+                isExpanded && "rotate-90"
               )} />
             )}
           </>
@@ -731,22 +721,14 @@ export function MainSidebar({
                   onClick={() => handleSubmenuClick(subItem.id)}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm",
-                    isDark ? [
-                      "hover:bg-white/5",
-                      isSubActive && "bg-blue-500/10 text-blue-300 hover:bg-blue-500/20",
-                      !isSubActive && "text-gray-400"
-                    ] : [
-                      "hover:bg-gray-100",
-                      isSubActive && "bg-blue-50 text-blue-600 hover:bg-blue-100",
-                      !isSubActive && "text-gray-600"
-                    ]
+                    "hover:bg-white/5",
+                    isSubActive && "bg-white/10 text-white hover:bg-white/15",
+                    !isSubActive && "text-gray-400"
                   )}
                 >
                   <SubIcon className={cn(
                     "h-4 w-4 flex-shrink-0",
-                    isSubActive 
-                      ? (isDark ? "text-blue-300" : "text-blue-600")
-                      : (isDark ? "text-gray-500" : "text-gray-400")
+                    isSubActive ? "text-white" : "text-gray-500"
                   )} />
                   <span className="truncate">{subItem.label}</span>
                 </button>
@@ -764,12 +746,12 @@ export function MainSidebar({
     <TooltipProvider>
       <div className={cn(
         "flex flex-col h-screen overflow-hidden",
-        isDark ? "bg-[#2d3748]" : "bg-white"
+        isDark ? "bg-[#0f0f0f]" : "bg-white"
       )}>
         {/* Header - Fixo */}
       <div className={cn(
         "px-4 py-3.5 flex-shrink-0",
-        isDark ? "border-b border-gray-700" : "border-b border-gray-200"
+        isDark ? "border-b border-gray-800" : "border-b border-gray-200"
       )}>
         <div className="flex items-center gap-3">
           {!collapsed ? (
@@ -841,8 +823,8 @@ export function MainSidebar({
               className={cn(
                 "pl-9 h-9",
                 isDark 
-                  ? "bg-gray-700/50 border-gray-600 text-gray-200 placeholder:text-gray-500 focus:bg-gray-700" 
-                  : "bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:bg-white"
+                  ? "bg-gray-900/50 border-gray-700 text-gray-200 placeholder:text-gray-500 focus:bg-gray-900" 
+                  : "bg-gray-100 border-gray-300 text-gray-900 placeholder:text-gray-500 focus:bg-white"
               )}
             />
             
@@ -884,7 +866,7 @@ export function MainSidebar({
       {!collapsed && (
         <div className={cn(
           "px-4 py-3 flex-shrink-0",
-          isDark ? "border-t border-gray-700" : "border-t border-gray-200"
+          isDark ? "border-t border-gray-800" : "border-t border-gray-200"
         )}>
           <div className="flex items-center gap-2">
             <Button

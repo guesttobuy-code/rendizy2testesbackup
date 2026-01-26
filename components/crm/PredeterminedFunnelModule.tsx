@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Funnel, ServiceTicket } from '../../types/funnels';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Search, Plus, Globe, List, Grid3x3 } from 'lucide-react';
+import { Search, Plus, Globe, List, Grid3x3, Sparkles, Link2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { funnelsApi, servicesTicketsApi } from '../../utils/api';
 import { Badge } from '../ui/badge';
@@ -17,10 +18,14 @@ import { PredeterminedFunnelView } from './PredeterminedFunnelView';
 import { ServicesTicketDetail } from './ServicesTicketDetail';
 import { CreateTicketModal } from './CreateTicketModal';
 import { PredeterminedFunnelBuilder } from './PredeterminedFunnelBuilder';
+import { FunnelSelector } from './FunnelSelector';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function PredeterminedFunnelModule() {
   const { user } = useAuth();
+  // ✅ URL STATE SYNC - Sincroniza estado com URL params
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
@@ -31,6 +36,60 @@ export function PredeterminedFunnelModule() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [editingFunnel, setEditingFunnel] = useState<Funnel | null>(null);
+
+  // ✅ SYNC STATE → URL: Atualizar URL quando estado mudar
+  const updateUrl = useCallback((updates: { funnel?: string | null; item?: string | null; view?: string }) => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (updates.funnel !== undefined) {
+      if (updates.funnel) {
+        params.set('funnel', updates.funnel);
+      } else {
+        params.delete('funnel');
+      }
+    }
+    
+    if (updates.item !== undefined) {
+      if (updates.item) {
+        params.set('item', updates.item);
+      } else {
+        params.delete('item');
+      }
+    }
+    
+    if (updates.view) {
+      params.set('view', updates.view);
+    }
+    
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // ✅ COPIAR LINK DO ITEM
+  const copyItemLink = useCallback((itemId: string) => {
+    const params = new URLSearchParams();
+    if (selectedFunnelId) params.set('funnel', selectedFunnelId);
+    params.set('item', itemId);
+    
+    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Link copiado para área de transferência!', {
+        icon: <Check className="w-4 h-4 text-green-500" />,
+      });
+    }).catch(() => {
+      toast.error('Erro ao copiar link');
+    });
+  }, [selectedFunnelId]);
+
+  // ✅ SYNC URL → ITEM: Abrir item da URL após carregar tickets
+  useEffect(() => {
+    const itemParam = searchParams.get('item');
+    if (itemParam && tickets.length > 0 && !selectedTicket) {
+      const itemFromUrl = tickets.find(t => t.id === itemParam);
+      if (itemFromUrl) {
+        setSelectedTicket(itemFromUrl);
+      }
+    }
+  }, [searchParams, tickets, selectedTicket]);
 
   // Carregar funis pré-determinados
   useEffect(() => {
@@ -214,11 +273,41 @@ export function PredeterminedFunnelModule() {
       <div className="p-6 border-b bg-white dark:bg-gray-900">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold">Funis Pré-determinados</h1>
+            <h1 className="text-2xl font-bold">Pré-determinados</h1>
             <p className="text-sm text-gray-500 mt-1">
               Processos sequenciais tipo wizard (ex: vistoria, implantação)
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            {/* Seletor de Funil + Gestão */}
+            <FunnelSelector
+              type="PREDETERMINED"
+              selectedFunnelId={selectedFunnelId}
+              onFunnelChange={(value) => {
+                setSelectedFunnelId(value);
+                localStorage.setItem('rendizy_selected_predetermined_funnel', value);
+              }}
+              funnels={filteredFunnels}
+              onFunnelsUpdate={(updatedFunnels) => {
+                // Atualizar lista filtrada e lista completa
+                setFunnels(prev => {
+                  const otherFunnels = prev.filter(f => f.type !== 'PREDETERMINED');
+                  return [...otherFunnels, ...updatedFunnels];
+                });
+              }}
+            />
+            <Button variant="outline" size="sm">
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Automação
+            </Button>
+            <Button size="sm" className="bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800">
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI chat
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Button
               variant={viewMode === 'wizard' ? 'default' : 'outline'}
@@ -236,19 +325,24 @@ export function PredeterminedFunnelModule() {
               <List className="w-4 h-4 mr-2" />
               Lista
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEditingFunnel(null);
-                setIsBuilderOpen(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Processo
-            </Button>
-            {selectedFunnel && (
+          </div>
+
+          {selectedFunnel && (
+            <>
               <Button
                 variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditingFunnel(null);
+                  setIsBuilderOpen(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Processo
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setEditingFunnel(selectedFunnel);
                   setIsBuilderOpen(true);
@@ -256,44 +350,13 @@ export function PredeterminedFunnelModule() {
               >
                 Editar Processo
               </Button>
-            )}
-            <Button onClick={() => setIsCreateModalOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Ticket
-            </Button>
-          </div>
-        </div>
+            </>
+          )}
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Funil:</label>
-            <Select
-              value={selectedFunnelId || ''}
-              onValueChange={(value) => {
-                setSelectedFunnelId(value);
-                localStorage.setItem('rendizy_selected_predetermined_funnel', value);
-              }}
-            >
-              <SelectTrigger className="w-80">
-                <SelectValue placeholder="Selecione um funil..." />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredFunnels.map((funnel) => (
-                  <SelectItem key={funnel.id} value={funnel.id}>
-                    <div className="flex items-center gap-2">
-                      {funnel.isGlobalDefault && (
-                        <Globe className="w-4 h-4 text-purple-600" />
-                      )}
-                      <span>{funnel.name}</span>
-                      {funnel.isGlobalDefault && (
-                        <Badge variant="outline" className="ml-2">Global</Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Ticket
+          </Button>
 
           <div className="flex-1 max-w-md">
             <div className="relative">
@@ -394,7 +457,10 @@ export function PredeterminedFunnelModule() {
                       <div
                         key={ticket.id}
                         className="bg-white dark:bg-gray-800 rounded-lg border p-4 cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => setSelectedTicket(ticket)}
+                        onClick={() => {
+                          setSelectedTicket(ticket);
+                          updateUrl({ item: ticket.id }); // ✅ Atualizar URL
+                        }}
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -429,7 +495,10 @@ export function PredeterminedFunnelModule() {
         <ServicesTicketDetail
           ticket={selectedTicket}
           funnel={selectedFunnel}
-          onClose={() => setSelectedTicket(null)}
+          onClose={() => {
+            setSelectedTicket(null);
+            updateUrl({ item: null }); // ✅ Remover item da URL
+          }}
           onUpdate={handleTicketUpdate}
         />
       )}

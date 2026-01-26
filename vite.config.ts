@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => {
       extensions: ['.js', '.jsx', '.ts', '.tsx'],
       dedupe: ['react', 'react-dom'],
       alias: {
-        '@': path.resolve(__dirname, './RendizyPrincipal')
+        '@': path.resolve(__dirname, '.')
       }
     },
     optimizeDeps: {

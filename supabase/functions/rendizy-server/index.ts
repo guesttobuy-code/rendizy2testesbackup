@@ -68,6 +68,7 @@ import * as currencySettingsRoutes from "./routes-currency-settings.ts";
 import { registerDiscountPackagesRoutes } from "./routes-discount-packages.ts";
 import * as organizationsRoutes from "./routes-organizations.ts";
 import usersApp from "./routes-users.ts";
+import meApp from "./routes-me.ts"; // ✅ v1.0.114: Perfil do usuário logado (avatar, etc)
 import ownersApp from "./routes-owners.ts";
 import * as photosRoutes from "./routes-photos.ts";
 import * as stripeRoutes from "./routes-stripe.ts";
@@ -80,6 +81,13 @@ import { guestAreaApp } from "./routes-guest-area.ts"; // 🏠 CÁPSULA: Área d
 import * as automationsRoutes from "./routes-automations.ts"; // ✅ Automações: CRUD
 import * as automationsAiRoutes from "./routes-automations-ai.ts"; // ✅ Automações: AI (linguagem natural)
 import * as automationsTriggerRoutes from "./routes-automations-trigger.ts"; // ✅ Automações: Trigger/Execução
+
+// ============================================================================
+// 📊 CRM MODULAR (Arquitetura separada por módulo)
+// ============================================================================
+import * as salesRoutes from "./routes-sales.ts"; // 🛒 VENDAS: Funis + Deals
+import * as servicesRoutes from "./routes-services.ts"; // 🔧 SERVIÇOS: Funis + Tickets
+import * as predeterminedRoutes from "./routes-predetermined.ts"; // 📋 PRÉ-DETERMINADOS: Funis + Items
 
 const app = new Hono();
 
@@ -481,6 +489,12 @@ app.route("/rendizy-server/users", usersApp);
 app.route("/users", usersApp);
 app.route("/rendizy-server/make-server-67caf26a/users", usersApp);
 app.route("/make-server-67caf26a/users", usersApp);
+
+// ✅ Me (Usuário logado - perfil próprio, avatar, etc)
+app.route("/rendizy-server/me", meApp);
+app.route("/me", meApp);
+app.route("/rendizy-server/make-server-67caf26a/me", meApp);
+app.route("/make-server-67caf26a/me", meApp);
 
 // ============================================================================
 // RESERVATIONS
@@ -1036,6 +1050,107 @@ app.post("/automations/trigger", tenancyMiddleware, automationsTriggerRoutes.tri
 app.post("/automations/trigger/message", tenancyMiddleware, automationsTriggerRoutes.triggerMessageAutomation);
 app.post("/automations/trigger/reservation", tenancyMiddleware, automationsTriggerRoutes.triggerReservationAutomation);
 app.get("/automations/test-trigger", automationsTriggerRoutes.testTrigger);
+
+// ============================================================================
+// 📊 CRM MODULAR - VENDAS (SALES)
+// Funis de vendas + Deals (cards de vendas)
+// ============================================================================
+// Funis
+app.get("/rendizy-server/crm/sales/funnels", tenancyMiddleware, salesRoutes.listSalesFunnels);
+app.get("/rendizy-server/crm/sales/funnels/:id", tenancyMiddleware, salesRoutes.getSalesFunnel);
+app.post("/rendizy-server/crm/sales/funnels", tenancyMiddleware, salesRoutes.createSalesFunnel);
+app.put("/rendizy-server/crm/sales/funnels/:id", tenancyMiddleware, salesRoutes.updateSalesFunnel);
+app.delete("/rendizy-server/crm/sales/funnels/:id", tenancyMiddleware, salesRoutes.deleteSalesFunnel);
+// Deals
+app.get("/rendizy-server/crm/sales/deals", tenancyMiddleware, salesRoutes.listSalesDeals);
+app.get("/rendizy-server/crm/sales/deals/:id", tenancyMiddleware, salesRoutes.getSalesDeal);
+app.post("/rendizy-server/crm/sales/deals", tenancyMiddleware, salesRoutes.createSalesDeal);
+app.put("/rendizy-server/crm/sales/deals/:id", tenancyMiddleware, salesRoutes.updateSalesDeal);
+app.delete("/rendizy-server/crm/sales/deals/:id", tenancyMiddleware, salesRoutes.deleteSalesDeal);
+app.post("/rendizy-server/crm/sales/deals/:id/move", tenancyMiddleware, salesRoutes.moveSalesDeal);
+// Stats
+app.get("/rendizy-server/crm/sales/stats", tenancyMiddleware, salesRoutes.getSalesStats);
+// Aliases sem prefixo
+app.get("/crm/sales/funnels", tenancyMiddleware, salesRoutes.listSalesFunnels);
+app.get("/crm/sales/funnels/:id", tenancyMiddleware, salesRoutes.getSalesFunnel);
+app.post("/crm/sales/funnels", tenancyMiddleware, salesRoutes.createSalesFunnel);
+app.put("/crm/sales/funnels/:id", tenancyMiddleware, salesRoutes.updateSalesFunnel);
+app.delete("/crm/sales/funnels/:id", tenancyMiddleware, salesRoutes.deleteSalesFunnel);
+app.get("/crm/sales/deals", tenancyMiddleware, salesRoutes.listSalesDeals);
+app.get("/crm/sales/deals/:id", tenancyMiddleware, salesRoutes.getSalesDeal);
+app.post("/crm/sales/deals", tenancyMiddleware, salesRoutes.createSalesDeal);
+app.put("/crm/sales/deals/:id", tenancyMiddleware, salesRoutes.updateSalesDeal);
+app.delete("/crm/sales/deals/:id", tenancyMiddleware, salesRoutes.deleteSalesDeal);
+app.post("/crm/sales/deals/:id/move", tenancyMiddleware, salesRoutes.moveSalesDeal);
+app.get("/crm/sales/stats", tenancyMiddleware, salesRoutes.getSalesStats);
+
+// ============================================================================
+// 📊 CRM MODULAR - SERVIÇOS (SERVICES)
+// Funis de serviços + Tickets (cards de atendimento)
+// ============================================================================
+// Funis
+app.get("/rendizy-server/crm/services/funnels", tenancyMiddleware, servicesRoutes.listServiceFunnels);
+app.get("/rendizy-server/crm/services/funnels/:id", tenancyMiddleware, servicesRoutes.getServiceFunnel);
+app.post("/rendizy-server/crm/services/funnels", tenancyMiddleware, servicesRoutes.createServiceFunnel);
+app.put("/rendizy-server/crm/services/funnels/:id", tenancyMiddleware, servicesRoutes.updateServiceFunnel);
+app.delete("/rendizy-server/crm/services/funnels/:id", tenancyMiddleware, servicesRoutes.deleteServiceFunnel);
+// Tickets
+app.get("/rendizy-server/crm/services/tickets", tenancyMiddleware, servicesRoutes.listServiceTickets);
+app.get("/rendizy-server/crm/services/tickets/:id", tenancyMiddleware, servicesRoutes.getServiceTicket);
+app.post("/rendizy-server/crm/services/tickets", tenancyMiddleware, servicesRoutes.createServiceTicket);
+app.put("/rendizy-server/crm/services/tickets/:id", tenancyMiddleware, servicesRoutes.updateServiceTicket);
+app.delete("/rendizy-server/crm/services/tickets/:id", tenancyMiddleware, servicesRoutes.deleteServiceTicket);
+app.post("/rendizy-server/crm/services/tickets/:id/move", tenancyMiddleware, servicesRoutes.moveServiceTicket);
+// Stats
+app.get("/rendizy-server/crm/services/stats", tenancyMiddleware, servicesRoutes.getServiceStats);
+// Aliases sem prefixo
+app.get("/crm/services/funnels", tenancyMiddleware, servicesRoutes.listServiceFunnels);
+app.get("/crm/services/funnels/:id", tenancyMiddleware, servicesRoutes.getServiceFunnel);
+app.post("/crm/services/funnels", tenancyMiddleware, servicesRoutes.createServiceFunnel);
+app.put("/crm/services/funnels/:id", tenancyMiddleware, servicesRoutes.updateServiceFunnel);
+app.delete("/crm/services/funnels/:id", tenancyMiddleware, servicesRoutes.deleteServiceFunnel);
+app.get("/crm/services/tickets", tenancyMiddleware, servicesRoutes.listServiceTickets);
+app.get("/crm/services/tickets/:id", tenancyMiddleware, servicesRoutes.getServiceTicket);
+app.post("/crm/services/tickets", tenancyMiddleware, servicesRoutes.createServiceTicket);
+app.put("/crm/services/tickets/:id", tenancyMiddleware, servicesRoutes.updateServiceTicket);
+app.delete("/crm/services/tickets/:id", tenancyMiddleware, servicesRoutes.deleteServiceTicket);
+app.post("/crm/services/tickets/:id/move", tenancyMiddleware, servicesRoutes.moveServiceTicket);
+app.get("/crm/services/stats", tenancyMiddleware, servicesRoutes.getServiceStats);
+
+// ============================================================================
+// 📊 CRM MODULAR - PRÉ-DETERMINADOS (PREDETERMINED)
+// Funis de workflow + Items (cards de workflow)
+// ============================================================================
+// Funis
+app.get("/rendizy-server/crm/predetermined/funnels", tenancyMiddleware, predeterminedRoutes.listPredeterminedFunnels);
+app.get("/rendizy-server/crm/predetermined/funnels/:id", tenancyMiddleware, predeterminedRoutes.getPredeterminedFunnel);
+app.post("/rendizy-server/crm/predetermined/funnels", tenancyMiddleware, predeterminedRoutes.createPredeterminedFunnel);
+app.put("/rendizy-server/crm/predetermined/funnels/:id", tenancyMiddleware, predeterminedRoutes.updatePredeterminedFunnel);
+app.delete("/rendizy-server/crm/predetermined/funnels/:id", tenancyMiddleware, predeterminedRoutes.deletePredeterminedFunnel);
+// Items
+app.get("/rendizy-server/crm/predetermined/items", tenancyMiddleware, predeterminedRoutes.listPredeterminedItems);
+app.get("/rendizy-server/crm/predetermined/items/:id", tenancyMiddleware, predeterminedRoutes.getPredeterminedItem);
+app.post("/rendizy-server/crm/predetermined/items", tenancyMiddleware, predeterminedRoutes.createPredeterminedItem);
+app.put("/rendizy-server/crm/predetermined/items/:id", tenancyMiddleware, predeterminedRoutes.updatePredeterminedItem);
+app.delete("/rendizy-server/crm/predetermined/items/:id", tenancyMiddleware, predeterminedRoutes.deletePredeterminedItem);
+app.post("/rendizy-server/crm/predetermined/items/:id/move", tenancyMiddleware, predeterminedRoutes.movePredeterminedItem);
+app.patch("/rendizy-server/crm/predetermined/items/:id/checklist", tenancyMiddleware, predeterminedRoutes.updatePredeterminedItemChecklist);
+// Stats
+app.get("/rendizy-server/crm/predetermined/stats", tenancyMiddleware, predeterminedRoutes.getPredeterminedStats);
+// Aliases sem prefixo
+app.get("/crm/predetermined/funnels", tenancyMiddleware, predeterminedRoutes.listPredeterminedFunnels);
+app.get("/crm/predetermined/funnels/:id", tenancyMiddleware, predeterminedRoutes.getPredeterminedFunnel);
+app.post("/crm/predetermined/funnels", tenancyMiddleware, predeterminedRoutes.createPredeterminedFunnel);
+app.put("/crm/predetermined/funnels/:id", tenancyMiddleware, predeterminedRoutes.updatePredeterminedFunnel);
+app.delete("/crm/predetermined/funnels/:id", tenancyMiddleware, predeterminedRoutes.deletePredeterminedFunnel);
+app.get("/crm/predetermined/items", tenancyMiddleware, predeterminedRoutes.listPredeterminedItems);
+app.get("/crm/predetermined/items/:id", tenancyMiddleware, predeterminedRoutes.getPredeterminedItem);
+app.post("/crm/predetermined/items", tenancyMiddleware, predeterminedRoutes.createPredeterminedItem);
+app.put("/crm/predetermined/items/:id", tenancyMiddleware, predeterminedRoutes.updatePredeterminedItem);
+app.delete("/crm/predetermined/items/:id", tenancyMiddleware, predeterminedRoutes.deletePredeterminedItem);
+app.post("/crm/predetermined/items/:id/move", tenancyMiddleware, predeterminedRoutes.movePredeterminedItem);
+app.patch("/crm/predetermined/items/:id/checklist", tenancyMiddleware, predeterminedRoutes.updatePredeterminedItemChecklist);
+app.get("/crm/predetermined/stats", tenancyMiddleware, predeterminedRoutes.getPredeterminedStats);
 
 // ============================================================================
 // DEFAULT HANDLERS

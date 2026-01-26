@@ -729,11 +729,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (userData) {
+        console.log('🔍 [AuthContext] Dados recebidos do banco:', { 
+          avatar_url: userData.avatar_url, 
+          name: userData.name 
+        });
+        
         const updatedUser: User = {
           ...user,
           name: userData.name || user.name,
           avatar: userData.avatar_url || user.avatar,
         };
+        
+        console.log('🔍 [AuthContext] Avatar final:', updatedUser.avatar);
         
         setUser(updatedUser);
         

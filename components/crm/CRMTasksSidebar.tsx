@@ -44,7 +44,7 @@ const menuSections = [
     items: [
       {
         id: 'deals',
-        label: 'Deals',
+        label: 'Vendas',
         icon: <Target className="w-5 h-5" />,
         path: '/crm/deals',
         badge: '4',
@@ -210,7 +210,7 @@ const menuSections = [
       },
       {
         id: 'config',
-        label: 'Configurações',
+        label: 'Configurações do CRM',
         icon: <Settings className="w-5 h-5" />,
         path: '/crm/configuracoes',
       },

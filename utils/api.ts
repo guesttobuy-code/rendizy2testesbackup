@@ -321,10 +321,13 @@ export async function apiRequest<T>(
 ): Promise<ApiResponse<T>> {
   try {
     const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`🌐 [apiRequest] URL: ${url}`);
+    console.log(`🌐 [apiRequest] Method: ${options.method || 'GET'}`);
 
     // ✅ CORREÇÃO: Usar token do usuário do localStorage ao invés de publicAnonKey
     // ✅ SOLUÇÃO: Usar header customizado X-Auth-Token para evitar validação JWT automática do Supabase
     const userToken = localStorage.getItem('rendizy-token');
+    console.log(`🌐 [apiRequest] Token presente: ${!!userToken}`);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -340,13 +343,16 @@ export async function apiRequest<T>(
     // ✅ GARANTIR que credentials não seja passado via options
     const { credentials, ...restOptions } = options;
 
+    console.log(`🌐 [apiRequest] Fazendo fetch...`);
     const response = await fetch(url, {
       ...restOptions,
       headers,
       credentials: 'omit', // ✅ Explícito: não enviar credentials
     });
+    console.log(`🌐 [apiRequest] Fetch retornou! Status: ${response.status}`);
 
     const data = await response.json();
+    console.log(`🌐 [apiRequest] JSON parseado:`, data);
 
     if (!response.ok) {
       console.error(`API Error [${endpoint}]:`, data);

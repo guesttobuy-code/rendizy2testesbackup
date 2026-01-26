@@ -451,7 +451,46 @@ RESUMO_SESSAO_[DATA].md
 
 ---
 
-## 📞 SUPORTE E CONTATO
+## � CRM MODULAR (2026-01-26)
+
+### ADRs (Architecture Decision Records)
+
+| ADR | Título | Status | Data |
+|-----|--------|--------|------|
+| [ADR-001](adr/ADR-001-CRM-MODULAR-ARCHITECTURE.md) | CRM Modular Multi-Tenant | ✅ Implementado | 2026-01-26 |
+
+### Changelogs CRM
+
+| Data | Título | Impacto |
+|------|--------|---------|
+| [2026-01-26](changelogs/2026-01-26-CRM-MODULAR-MULTI-TENANT.md) | CRM Modular Multi-Tenant | Alto |
+
+### Referência Rápida: CRM Modular
+
+**Tabelas por Módulo:**
+```
+VENDAS:           sales_funnels, sales_funnel_stages, sales_deals
+SERVIÇOS:         service_funnels, service_funnel_stages, service_tickets
+PRÉ-DETERMINADOS: predetermined_funnels, predetermined_funnel_stages, predetermined_items
+```
+
+**APIs Frontend:**
+```typescript
+import { crmSalesApi } from '@/utils/api-crm-sales';
+import { crmServicesApi } from '@/utils/api-crm-services';
+import { crmPredeterminedApi } from '@/utils/api-crm-predetermined';
+```
+
+**Rotas Backend:**
+```
+/crm/sales/*         → routes-sales.ts
+/crm/services/*      → routes-services.ts
+/crm/predetermined/* → routes-predetermined.ts
+```
+
+---
+
+## �📞 SUPORTE E CONTATO
 
 **Para Problemas:**
 1. Verificar `/docs/06-troubleshooting/`

@@ -7,9 +7,10 @@ import { Deal } from '../../types/crm';
 interface SortableDealCardProps {
   deal: Deal;
   onClick: () => void;
+  onCopyLink?: () => void; // ✅ Copiar link do deal
 }
 
-export function SortableDealCard({ deal, onClick }: SortableDealCardProps) {
+export function SortableDealCard({ deal, onClick, onCopyLink }: SortableDealCardProps) {
   const {
     attributes,
     listeners,
@@ -27,7 +28,7 @@ export function SortableDealCard({ deal, onClick }: SortableDealCardProps) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <DealCard deal={deal} onClick={onClick} />
+      <DealCard deal={deal} onClick={onClick} onCopyLink={onCopyLink} />
     </div>
   );
 }

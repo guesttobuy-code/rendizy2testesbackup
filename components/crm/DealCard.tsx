@@ -3,12 +3,20 @@ import { Deal, DealSource } from '../../types/crm';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { MessageSquare, AlertCircle } from 'lucide-react';
+import { Button } from '../ui/button';
+import { MessageSquare, AlertCircle, Link2 } from 'lucide-react';
 import { cn } from '../ui/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 interface DealCardProps {
   deal: Deal;
   onClick: () => void;
+  onCopyLink?: () => void; // ✅ Copiar link do deal
 }
 
 const SOURCE_CONFIG: Record<DealSource, { icon: string; color: string; bgColor: string }> = {
@@ -20,7 +28,7 @@ const SOURCE_CONFIG: Record<DealSource, { icon: string; color: string; bgColor: 
   OTHER: { icon: '📋', color: 'text-gray-600', bgColor: 'bg-gray-50 dark:bg-gray-900/20' },
 };
 
-export function DealCard({ deal, onClick }: DealCardProps) {
+export function DealCard({ deal, onClick, onCopyLink }: DealCardProps) {
   const formatCurrency = (value: number, currency: string) => {
     const currencyMap: Record<string, string> = {
       BRL: 'BRL',
@@ -91,6 +99,28 @@ export function DealCard({ deal, onClick }: DealCardProps) {
         <span className="text-xs text-gray-600 dark:text-gray-400 flex-1 truncate">
           {deal.contactName}
         </span>
+        {onCopyLink && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCopyLink();
+                  }}
+                >
+                  <Link2 className="w-3.5 h-3.5 text-gray-400 hover:text-blue-500" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Copiar link do deal</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <MessageSquare className="w-4 h-4 text-gray-400 flex-shrink-0" />
       </div>
     </Card>

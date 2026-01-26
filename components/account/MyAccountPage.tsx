@@ -64,7 +64,7 @@ export function MyAccountPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 pr-52">
         <div>
           <h1 className="text-2xl font-semibold">Minha Conta</h1>
           <p className="text-sm text-muted-foreground">Veja exatamente quem está logado e em qual organização.</p>
@@ -72,8 +72,8 @@ export function MyAccountPage() {
         <Badge variant={isAuthenticated ? 'default' : 'secondary'}>{sessionStatus}</Badge>
       </div>
 
-      <Tabs defaultValue="usuario" className="w-full">
-        <TabsList>
+      <Tabs defaultValue="usuario" className="w-full items-start">
+        <TabsList className="self-start justify-start">
           <TabsTrigger value="usuario">Usuário</TabsTrigger>
           <TabsTrigger value="organizacao">Organização</TabsTrigger>
           <TabsTrigger value="sessao">Sessão</TabsTrigger>

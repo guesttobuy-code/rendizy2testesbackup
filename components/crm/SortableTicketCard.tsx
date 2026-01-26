@@ -5,12 +5,20 @@ import { ServiceTicket } from '../../types/funnels';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { AlertCircle, CheckCircle2, Clock, XCircle, GripVertical } from 'lucide-react';
+import { Button } from '../ui/button';
+import { AlertCircle, CheckCircle2, Clock, XCircle, GripVertical, Link2 } from 'lucide-react';
 import { cn } from '../ui/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 interface SortableTicketCardProps {
   ticket: ServiceTicket;
   onClick: () => void;
+  onCopyLink?: () => void; // ✅ Copiar link do ticket
 }
 
 const PRIORITY_COLORS: Record<ServiceTicket['priority'], string> = {
@@ -36,7 +44,7 @@ const STATUS_COLORS: Record<ServiceTicket['status'], string> = {
   CANCELLED: 'text-gray-600',
 };
 
-export function SortableTicketCard({ ticket, onClick }: SortableTicketCardProps) {
+export function SortableTicketCard({ ticket, onClick, onCopyLink }: SortableTicketCardProps) {
   const {
     attributes,
     listeners,
@@ -116,9 +124,31 @@ export function SortableTicketCard({ ticket, onClick }: SortableTicketCardProps)
                   {assignedInitials}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-xs text-gray-600 dark:text-gray-400">
+              <span className="text-xs text-gray-600 dark:text-gray-400 flex-1">
                 {ticket.assignedToName}
               </span>
+              {onCopyLink && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCopyLink();
+                        }}
+                      >
+                        <Link2 className="w-3.5 h-3.5 text-gray-400 hover:text-blue-500" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copiar link do ticket</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           )}
         </CardContent>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Deal, DealStage } from '../../types/crm';
 import { DealColumn } from './DealColumn';
 import { ScrollArea } from '../ui/scroll-area';
@@ -11,29 +11,32 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DealCard } from './DealCard';
 import { dealsApi } from '../../utils/api';
 import { toast } from 'sonner';
+import { FunnelStage } from '../../types/funnels';
 
 interface KanbanBoardProps {
   deals: Deal[];
   onDealClick: (deal: Deal) => void;
   onDealUpdate?: (deal: Deal) => void;
+  onCopyDealLink?: (dealId: string) => void; // ✅ Copiar link do deal
   searchQuery?: string;
+  stages?: FunnelStage[]; // Stages dinâmicas do funil selecionado
 }
 
-const STAGE_CONFIG: Record<DealStage, { label: string; color: string }> = {
-  QUALIFIED: { label: 'QUALIFICADO', color: 'bg-blue-500' },
-  CONTACT_MADE: { label: 'CONTATO FEITO', color: 'bg-green-500' },
-  MEETING_ARRANGED: { label: 'REUNIÃO AGENDADA', color: 'bg-yellow-500' },
-  PROPOSAL_MADE: { label: 'PROPOSTA ENVIADA', color: 'bg-orange-500' },
-  NEGOTIATIONS: { label: 'NEGOCIAÇÃO', color: 'bg-purple-500' },
-  WON: { label: 'GANHO', color: 'bg-emerald-500' },
-  LOST: { label: 'PERDIDO', color: 'bg-red-500' },
+// Fallback para stages padrão quando não há funil selecionado
+const DEFAULT_STAGE_CONFIG: Record<DealStage, { label: string; color: string }> = {
+  QUALIFIED: { label: 'QUALIFICADO', color: '#3b82f6' },
+  CONTACT_MADE: { label: 'CONTATO FEITO', color: '#f59e0b' },
+  MEETING_ARRANGED: { label: 'REUNIÃO AGENDADA', color: '#ef4444' },
+  PROPOSAL_MADE: { label: 'PROPOSTA ENVIADA', color: '#8b5cf6' },
+  NEGOTIATIONS: { label: 'NEGOCIAÇÃO', color: '#6366f1' },
+  WON: { label: 'GANHO', color: '#10b981' },
+  LOST: { label: 'PERDIDO', color: '#ef4444' },
 };
 
-const STAGE_ORDER: DealStage[] = [
+const DEFAULT_STAGE_ORDER: DealStage[] = [
   'QUALIFIED',
   'CONTACT_MADE',
   'MEETING_ARRANGED',
@@ -41,7 +44,7 @@ const STAGE_ORDER: DealStage[] = [
   'NEGOTIATIONS',
 ];
 
-export function KanbanBoard({ deals, onDealClick, onDealUpdate, searchQuery = '' }: KanbanBoardProps) {
+export function KanbanBoard({ deals, onDealClick, onDealUpdate, onCopyDealLink, searchQuery = '', stages }: KanbanBoardProps) {
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [localDeals, setLocalDeals] = useState<Deal[]>(deals);
   const sensors = useSensors(
@@ -56,6 +59,25 @@ export function KanbanBoard({ deals, onDealClick, onDealUpdate, searchQuery = ''
   React.useEffect(() => {
     setLocalDeals(deals);
   }, [deals]);
+
+  // Determinar stages a usar (dinâmicas ou fallback)
+  const activeStages = useMemo(() => {
+    if (stages && stages.length > 0) {
+      return stages.map(s => ({
+        id: s.id,
+        name: s.name,
+        color: s.color,
+        order: s.order,
+      })).sort((a, b) => a.order - b.order);
+    }
+    // Fallback para stages padrão
+    return DEFAULT_STAGE_ORDER.map((stage, index) => ({
+      id: stage,
+      name: DEFAULT_STAGE_CONFIG[stage].label,
+      color: DEFAULT_STAGE_CONFIG[stage].color,
+      order: index + 1,
+    }));
+  }, [stages]);
   // Filtrar deals por busca
   const filteredDeals = useMemo(() => {
     if (!searchQuery.trim()) return localDeals;
@@ -68,41 +90,57 @@ export function KanbanBoard({ deals, onDealClick, onDealUpdate, searchQuery = ''
     );
   }, [localDeals, searchQuery]);
 
-  // Agrupar deals por estágio
+  // Agrupar deals por estágio (dinâmico)
   const dealsByStage = useMemo(() => {
-    const grouped: Record<DealStage, Deal[]> = {
-      QUALIFIED: [],
-      CONTACT_MADE: [],
-      MEETING_ARRANGED: [],
-      PROPOSAL_MADE: [],
-      NEGOTIATIONS: [],
-      WON: [],
-      LOST: [],
+    const grouped: Record<string, Deal[]> = {};
+    
+    // Inicializar todas as stages ativas
+    activeStages.forEach(stage => {
+      grouped[stage.id] = [];
+    });
+
+    // Mapear stages antigas para novas (baseado em ordem ou nome similar)
+    const mapStageToActive = (dealStage: string): string => {
+      // Primeiro, verificar se o stage existe diretamente
+      if (grouped[dealStage] !== undefined) {
+        return dealStage;
+      }
+      // Mapear stages legadas para o índice correspondente
+      const legacyOrder: Record<string, number> = {
+        'QUALIFIED': 0,
+        'CONTACT_MADE': 1,
+        'MEETING_ARRANGED': 2,
+        'PROPOSAL_MADE': 3,
+        'NEGOTIATIONS': 4,
+      };
+      const orderIndex = legacyOrder[dealStage];
+      if (orderIndex !== undefined && activeStages[orderIndex]) {
+        return activeStages[orderIndex].id;
+      }
+      // Fallback: primeira stage
+      return activeStages[0]?.id || dealStage;
     };
 
     filteredDeals.forEach(deal => {
-      if (grouped[deal.stage]) {
-        grouped[deal.stage].push(deal);
+      const targetStage = mapStageToActive(deal.stage);
+      if (grouped[targetStage]) {
+        grouped[targetStage].push(deal);
       }
     });
 
     return grouped;
-  }, [filteredDeals]);
+  }, [filteredDeals, activeStages]);
 
   // Calcular totais por estágio
   const stageTotals = useMemo(() => {
-    const totals: Record<DealStage, { count: number; value: number }> = {
-      QUALIFIED: { count: 0, value: 0 },
-      CONTACT_MADE: { count: 0, value: 0 },
-      MEETING_ARRANGED: { count: 0, value: 0 },
-      PROPOSAL_MADE: { count: 0, value: 0 },
-      NEGOTIATIONS: { count: 0, value: 0 },
-      WON: { count: 0, value: 0 },
-      LOST: { count: 0, value: 0 },
-    };
+    const totals: Record<string, { count: number; value: number }> = {};
+    
+    activeStages.forEach(stage => {
+      totals[stage.id] = { count: 0, value: 0 };
+    });
 
-    Object.entries(dealsByStage).forEach(([stage, stageDeals]) => {
-      totals[stage as DealStage] = {
+    Object.entries(dealsByStage).forEach(([stageId, stageDeals]) => {
+      totals[stageId] = {
         count: stageDeals.length,
         value: stageDeals.reduce((sum, deal) => {
           // Converter para BRL se necessário (simplificado)
@@ -113,7 +151,7 @@ export function KanbanBoard({ deals, onDealClick, onDealUpdate, searchQuery = ''
     });
 
     return totals;
-  }, [dealsByStage]);
+  }, [dealsByStage, activeStages]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -168,20 +206,21 @@ export function KanbanBoard({ deals, onDealClick, onDealUpdate, searchQuery = ''
       <div className="h-full bg-gray-50 dark:bg-gray-900">
         <ScrollArea className="h-full">
           <div className="flex gap-4 p-6 min-w-max">
-            {STAGE_ORDER.map(stage => {
-              const config = STAGE_CONFIG[stage];
-              const stageDeals = dealsByStage[stage];
-              const total = stageTotals[stage];
+            {activeStages.map(stage => {
+              const stageDeals = dealsByStage[stage.id] || [];
+              const total = stageTotals[stage.id] || { count: 0, value: 0 };
 
               return (
                 <DealColumn
-                  key={stage}
-                  stage={stage}
-                  label={config.label}
+                  key={stage.id}
+                  stage={stage.id as DealStage}
+                  label={stage.name.toUpperCase()}
                   deals={stageDeals}
                   totalValue={total.value}
                   totalCount={total.count}
                   onDealClick={onDealClick}
+                  onCopyDealLink={onCopyDealLink}
+                  color={stage.color}
                 />
               );
             })}

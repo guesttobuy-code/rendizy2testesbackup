@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ServiceTicket, Funnel, FunnelStage } from '../../types/funnels';
 import { ServicesKanbanBoard } from './ServicesKanbanBoard';
 import { ServicesTicketDetail } from './ServicesTicketDetail';
 import { CreateTicketModal } from './CreateTicketModal';
+import { FunnelSelector } from './FunnelSelector';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Search, Plus, Grid3x3, List, Globe } from 'lucide-react';
+import { Search, Plus, Grid3x3, List, Globe, Sparkles, Link2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { funnelsApi, servicesTicketsApi } from '../../utils/api';
 import { Badge } from '../ui/badge';
@@ -18,6 +20,9 @@ import {
 } from '../ui/select';
 
 export function ServicesFunnelModule() {
+  // ✅ URL STATE SYNC - Sincroniza estado com URL params
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const [selectedTicket, setSelectedTicket] = useState<ServiceTicket | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -26,6 +31,60 @@ export function ServicesFunnelModule() {
   const [allFunnels, setAllFunnels] = useState<Funnel[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ✅ SYNC STATE → URL: Atualizar URL quando estado mudar
+  const updateUrl = useCallback((updates: { funnel?: string | null; ticket?: string | null; view?: string }) => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (updates.funnel !== undefined) {
+      if (updates.funnel) {
+        params.set('funnel', updates.funnel);
+      } else {
+        params.delete('funnel');
+      }
+    }
+    
+    if (updates.ticket !== undefined) {
+      if (updates.ticket) {
+        params.set('ticket', updates.ticket);
+      } else {
+        params.delete('ticket');
+      }
+    }
+    
+    if (updates.view) {
+      params.set('view', updates.view);
+    }
+    
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // ✅ COPIAR LINK DO TICKET
+  const copyTicketLink = useCallback((ticketId: string) => {
+    const params = new URLSearchParams();
+    if (selectedFunnelId) params.set('funnel', selectedFunnelId);
+    params.set('ticket', ticketId);
+    
+    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Link copiado para área de transferência!', {
+        icon: <Check className="w-4 h-4 text-green-500" />,
+      });
+    }).catch(() => {
+      toast.error('Erro ao copiar link');
+    });
+  }, [selectedFunnelId]);
+
+  // ✅ SYNC URL → TICKET: Abrir ticket da URL após carregar tickets
+  useEffect(() => {
+    const ticketParam = searchParams.get('ticket');
+    if (ticketParam && tickets.length > 0 && !selectedTicket) {
+      const ticketFromUrl = tickets.find(t => t.id === ticketParam);
+      if (ticketFromUrl) {
+        setSelectedTicket(ticketFromUrl);
+      }
+    }
+  }, [searchParams, tickets, selectedTicket]);
 
   // Carregar funis disponíveis e selecionar o ativo
   useEffect(() => {
@@ -166,6 +225,7 @@ export function ServicesFunnelModule() {
   const handleFunnelChange = (funnelId: string) => {
     setSelectedFunnelId(funnelId);
     localStorage.setItem('rendizy_selected_services_funnel', funnelId);
+    updateUrl({ funnel: funnelId, ticket: null }); // ✅ Atualizar URL e limpar ticket
     const selectedFunnel = allFunnels.find(f => f.id === funnelId);
     if (selectedFunnel) {
       setFunnel(selectedFunnel);
@@ -306,6 +366,12 @@ export function ServicesFunnelModule() {
 
   const handleTicketClick = (ticket: ServiceTicket) => {
     setSelectedTicket(ticket);
+    updateUrl({ ticket: ticket.id }); // ✅ Atualizar URL com ticket
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedTicket(null);
+    updateUrl({ ticket: null }); // ✅ Remover ticket da URL
   };
 
   const [createTicketOpen, setCreateTicketOpen] = useState(false);
@@ -332,57 +398,32 @@ export function ServicesFunnelModule() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex-1">
-            {/* Seletor de Funil */}
-            <div className="flex items-center gap-3 mb-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Funil:
-              </label>
-              <Select
-                value={selectedFunnelId || ''}
-                onValueChange={handleFunnelChange}
-              >
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Selecione um funil" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allFunnels.map(f => (
-                    <SelectItem key={f.id} value={f.id}>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{f.name}</span>
-                          {f.isGlobalDefault && (
-                            <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 text-xs">
-                              <Globe className="w-3 h-3 mr-1" />
-                              Global
-                            </Badge>
-                          )}
-                        </div>
-                        {f.description && (
-                          <span className="text-xs text-gray-500">{f.description}</span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Informações do Funil Selecionado */}
-            {funnel && (
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {funnel.name}
-                </h1>
-                {funnel.description && (
-                  <p className="text-sm text-gray-500 mt-1">{funnel.description}</p>
-                )}
-              </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Serviços
+            </h1>
+            {funnel?.description && (
+              <p className="text-sm text-gray-500 mt-1">{funnel.description}</p>
             )}
           </div>
-          <Button onClick={handleCreateTicket}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Ticket
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Seletor de Funil + Gestão */}
+            <FunnelSelector
+              type="SERVICES"
+              selectedFunnelId={selectedFunnelId}
+              onFunnelChange={handleFunnelChange}
+              funnels={allFunnels}
+              onFunnelsUpdate={setAllFunnels}
+            />
+            <Button variant="outline" size="sm">
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Automação
+            </Button>
+            <Button size="sm" className="bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800">
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI chat
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -395,6 +436,10 @@ export function ServicesFunnelModule() {
               className="pl-10"
             />
           </div>
+          <Button onClick={handleCreateTicket}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Ticket
+          </Button>
           <Select value={viewMode} onValueChange={(v) => setViewMode(v as 'kanban' | 'list')}>
             <SelectTrigger className="w-32">
               <SelectValue />
@@ -429,6 +474,7 @@ export function ServicesFunnelModule() {
             tickets={tickets}
             onTicketClick={handleTicketClick}
             onTicketUpdate={handleTicketUpdate}
+            onCopyTicketLink={copyTicketLink}
             searchQuery={searchQuery}
           />
         )}
@@ -439,7 +485,7 @@ export function ServicesFunnelModule() {
         <ServicesTicketDetail
           ticket={selectedTicket}
           funnel={funnel}
-          onClose={() => setSelectedTicket(null)}
+          onClose={handleCloseDetail}
           onUpdate={handleTicketUpdate}
         />
       )}

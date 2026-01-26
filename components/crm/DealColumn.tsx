@@ -12,6 +12,8 @@ interface DealColumnProps {
   totalValue: number;
   totalCount: number;
   onDealClick: (deal: Deal) => void;
+  onCopyDealLink?: (dealId: string) => void; // ✅ Copiar link do deal
+  color?: string; // Cor dinâmica da stage
 }
 
 export function DealColumn({
@@ -21,6 +23,8 @@ export function DealColumn({
   totalValue,
   totalCount,
   onDealClick,
+  onCopyDealLink,
+  color,
 }: DealColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage,
@@ -41,9 +45,17 @@ export function DealColumn({
     >
       {/* Column Header */}
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2">
-          {label}
-        </h3>
+        <div className="flex items-center gap-2 mb-2">
+          {color && (
+            <div 
+              className="w-3 h-3 rounded-full flex-shrink-0" 
+              style={{ backgroundColor: color }}
+            />
+          )}
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+            {label}
+          </h3>
+        </div>
         <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
           <span className="font-medium">{formatCurrency(totalValue)}</span>
           <span>{totalCount} {totalCount === 1 ? 'deal' : 'deals'}</span>
@@ -68,6 +80,7 @@ export function DealColumn({
                 key={deal.id}
                 deal={deal}
                 onClick={() => onDealClick(deal)}
+                onCopyLink={onCopyDealLink ? () => onCopyDealLink(deal.id) : undefined}
               />
             ))}
           </SortableContext>

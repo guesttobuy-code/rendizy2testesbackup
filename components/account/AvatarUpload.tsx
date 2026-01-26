@@ -1,19 +1,21 @@
 /**
  * 📸 AVATAR UPLOAD - Componente de Upload de Foto de Perfil
- * v1.0.0 - 2026-01-25
+ * v1.2.0 - 2026-01-26
  * 
  * Permite ao usuário:
  * - Fazer upload de nova foto de perfil
  * - Visualizar preview antes de salvar
  * - Remover foto atual
+ * 
+ * ✅ v1.2.0: Upload direto para Storage + API para salvar URL (evita limite de payload)
  */
 import { useState, useRef } from 'react';
 import { Camera, Upload, X, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../ui/utils';
 import { Button } from '../ui/button';
-import { getSupabaseClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiRequest } from '../../utils/api';
 
 interface AvatarUploadProps {
   currentAvatarUrl?: string | null;
@@ -58,6 +60,46 @@ export function AvatarUpload({
     return name.substring(0, 2).toUpperCase();
   };
 
+  // Função para redimensionar imagem para avatar (max 200x200)
+  const resizeImage = (file: File, maxSize: number = 200): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Redimensionar mantendo proporção
+          if (width > height) {
+            if (width > maxSize) {
+              height = height * (maxSize / width);
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width = width * (maxSize / height);
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Converter para base64 com qualidade 80%
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -89,69 +131,31 @@ export function AvatarUpload({
 
     setIsUploading(true);
     try {
-      const supabase = getSupabaseClient();
+      console.log('🔄 [AvatarUpload] Redimensionando imagem...');
       
-      // Gerar nome único para o arquivo
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      // Upload para Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        // Se o bucket não existir, tentar usar URL base64
-        console.warn('Erro no upload para storage:', uploadError);
-        
-        // Fallback: salvar como base64 diretamente no banco
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64Url = reader.result as string;
-          
-          // Atualizar usuário com avatar base64
-          const { error: updateError } = await (supabase
-            .from('users') as any)
-            .update({ avatar_url: base64Url })
-            .eq('id', user.id);
-
-          if (updateError) {
-            throw updateError;
-          }
-
-          toast.success('Foto de perfil atualizada!');
-          setSelectedFile(null);
-          setPreviewUrl(null);
-          onAvatarChange?.(base64Url);
-          refreshUser?.();
-        };
-        reader.readAsDataURL(selectedFile);
-        return;
+      // Redimensionar para max 200x200 (avatar pequeno)
+      const resizedBase64 = await resizeImage(selectedFile, 200);
+      console.log('🔄 [AvatarUpload] Base64 após resize:', resizedBase64.length, 'bytes');
+      
+      // Enviar base64 redimensionado para API (agora cabe no payload)
+      console.log('🔄 [AvatarUpload] Salvando no banco via API...');
+      const response = await apiRequest<any>('/me/avatar', {
+        method: 'PUT',
+        body: JSON.stringify({ avatar_url: resizedBase64 })
+      });
+      
+      console.log('📥 [AvatarUpload] Response:', response);
+      
+      if (!response.success) {
+        console.error('❌ [AvatarUpload] API retornou erro:', response);
+        throw new Error(response.error || 'Erro ao atualizar avatar');
       }
 
-      // Obter URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      // Atualizar usuário com nova URL
-      const { error: updateError } = await (supabase
-        .from('users') as any)
-        .update({ avatar_url: publicUrl })
-        .eq('id', user.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
+      console.log('✅ [AvatarUpload] Avatar atualizado com sucesso!');
       toast.success('Foto de perfil atualizada!');
       setSelectedFile(null);
       setPreviewUrl(null);
-      onAvatarChange?.(publicUrl);
+      onAvatarChange?.(resizedBase64);
       refreshUser?.();
       
     } catch (err: any) {
@@ -167,16 +171,14 @@ export function AvatarUpload({
 
     setIsUploading(true);
     try {
-      const supabase = getSupabaseClient();
-
-      // Atualizar usuário removendo avatar
-      const { error: updateError } = await (supabase
-        .from('users') as any)
-        .update({ avatar_url: null })
-        .eq('id', user.id);
-
-      if (updateError) {
-        throw updateError;
+      // ✅ v1.1.0: Usar API /me/avatar ao invés de Supabase direto
+      const response = await apiRequest<any>('/me/avatar', {
+        method: 'PUT',
+        body: JSON.stringify({ avatar_url: null })
+      });
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Erro ao remover avatar');
       }
 
       toast.success('Foto de perfil removida');
