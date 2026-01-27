@@ -130,7 +130,7 @@ app.get("/lista", async (c) => {
     const { data, error } = await supabase
       // ✅ Tabela oficial do sistema: properties (NÃO existe anuncios_drafts)
       .from("properties")
-      .select("id,data,status,organization_id,user_id,created_at,updated_at")
+      .select("id,data,status,organization_id,user_id,owner_contact_id,created_at,updated_at")
       .eq('organization_id', organizationId)
       // Excluir registros internos de settings (mantém anúncios normais onde __kind é NULL)
       .or(`data->>__kind.is.null,data->>__kind.neq.${SETTINGS_KIND}`)
@@ -471,6 +471,10 @@ app.patch('/:id', async (c) => {
       update.data = deepMerge((current as any).data ?? {}, body.data);
     }
     if (typeof body?.status === 'string') update.status = body.status;
+    // Suporte a owner_contact_id (vínculo com proprietário no CRM)
+    if (body?.owner_contact_id !== undefined) {
+      update.owner_contact_id = body.owner_contact_id; // pode ser UUID ou null
+    }
     // Atualiza user_id para rastrear autoria da última alteração (não permite trocar org)
     update.user_id = resolveUserId(c);
 
@@ -479,7 +483,7 @@ app.patch('/:id', async (c) => {
       .update(update)
       .eq('id', id)
       .eq('organization_id', organizationId)
-      .select('id, data, organization_id, user_id, status, created_at, updated_at')
+      .select('id, data, organization_id, user_id, owner_contact_id, status, created_at, updated_at')
       .maybeSingle();
 
     if (error || !data) {

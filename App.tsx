@@ -163,6 +163,11 @@ const NotificationsModule = React.lazy(() =>
   import('./components/notifications/NotificationsModule').then((m) => ({ default: m.NotificationsModule }))
 );
 
+// 📝 TEMPLATES NOTIFICAÇÕES - v1.0.0 - Gerenciamento de templates multi-canal
+const NotificationTemplatesPage = React.lazy(() =>
+  import('./components/NotificationTemplatesPage').then((m) => ({ default: m.NotificationTemplatesPage }))
+);
+
 // 🏠 CÁPSULA GUEST AREA - v1.0.0 - Área do Hóspede servida centralmente
 const GuestAreaPage = React.lazy(() =>
   import('./src/capsules/GuestArea/GuestAreaPage').then((m) => ({ default: m.GuestAreaPage }))
@@ -1525,6 +1530,13 @@ function App() {
                       onSearchReservation={handleSearchReservation}
                       onAdvancedSearch={handleAdvancedSearch}
                     />
+                  </ProtectedRoute>
+                } />
+
+                {/* 📝 ROTA TEMPLATES NOTIFICAÇÕES - v1.0.0 - PROTEGIDA */}
+                <Route path="/notificacoes/templates" element={
+                  <ProtectedRoute>
+                    <NotificationTemplatesPage />
                   </ProtectedRoute>
                 } />
 

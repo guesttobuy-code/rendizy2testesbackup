@@ -26,17 +26,16 @@ import {
 } from '../../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, User, Building2, MapPin, Globe, Info, Crown, CreditCard, Home, FileText, Plus, X, Trash2 } from 'lucide-react';
+import { Loader2, User, Building2, MapPin, Globe, Info, Crown, CreditCard, Home, FileText, Plus, X, Trash2, Search } from 'lucide-react';
 import { crmContactsApi, CrmContact, ContactType, ContractType, BankData } from '../../../src/utils/api-crm-contacts';
 import { crmCompaniesApi, CrmCompany } from '../../../src/utils/api-crm-companies';
-import { propertiesApi } from '../../../utils/api';
 import { Badge } from '../../ui/badge';
 
 interface ContactFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contact?: CrmContact | null;
-  onSuccess: () => void;
+  onSuccess: (savedContact?: CrmContact) => void; // Agora retorna o contato salvo
   defaultType?: ContactType;
 }
 
@@ -92,7 +91,8 @@ export function ContactFormModal({
   const [linkedProperties, setLinkedProperties] = useState<any[]>([]);
   const [allProperties, setAllProperties] = useState<any[]>([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
-  const [selectedPropertyToAdd, setSelectedPropertyToAdd] = useState('');
+  const [propertySearchTerm, setPropertySearchTerm] = useState('');
+  const [selectedPropertiesToAdd, setSelectedPropertiesToAdd] = useState<string[]>([]);
   
   const [formData, setFormData] = useState({
     first_name: '',
@@ -251,50 +251,129 @@ export function ContactFormModal({
     }
   }, [open]);
 
-  // Carregar propriedades (todas e vinculadas ao proprietário)
+  // Estado para controlar "Salvar e Continuar"
+  const [savedContact, setSavedContact] = useState<CrmContact | null>(null);
+  
+  // Se salvou via "Salvar e Continuar", usar o contato salvo como base
+  const effectiveContact = savedContact || contact;
+  const effectiveIsEdit = !!effectiveContact;
+
+  // Carregar propriedades do Anúncios Ultimate (mesma fonte do calendário)
   useEffect(() => {
-    if (open && formData.contact_type === 'proprietario') {
+    const isProprietarioType = formData.contact_type === 'proprietario';
+    
+    if (open && isProprietarioType) {
       setLoadingProperties(true);
-      propertiesApi.list().then(res => {
-        const props = res.data || [];
+      
+      // Usar mesma API que o App.tsx usa para carregar imóveis
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('Erro ao carregar propriedades');
+        }
+        const result = await response.json();
+        const anuncios = result.anuncios || [];
+        
+        // Mapear para formato mais amigável
+        const props = anuncios.map((a: any) => ({
+          id: a.id,
+          name: a.data?.title || a.title || 'Sem nome',
+          code: a.data?.internalId || a.data?.internal_id || a.data?.identificacao_interna || '',
+          status: a.status,
+          owner_contact_id: a.owner_contact_id,
+          address: {
+            city: a.data?.address?.city || a.data?.cidade || '',
+          },
+          // Dados originais para referência
+          _raw: a
+        }));
+        
         setAllProperties(props);
         
         // Se é edição, filtrar propriedades vinculadas a este contato
-        if (contact?.id) {
+        if (effectiveContact?.id) {
           const linked = props.filter((p: any) => 
-            p.owner_contact_id === contact.id || 
-            p.data?.owner_contact_id === contact.id
+            p.owner_contact_id === effectiveContact.id
           );
           setLinkedProperties(linked);
         } else {
           setLinkedProperties([]);
         }
-      }).catch(err => {
+      })
+      .catch(err => {
         console.error('Erro ao carregar propriedades:', err);
-      }).finally(() => {
+        toast.error('Erro ao carregar lista de imóveis');
+      })
+      .finally(() => {
         setLoadingProperties(false);
       });
     }
-  }, [open, formData.contact_type, contact?.id]);
+  }, [open, formData.contact_type, effectiveContact?.id]);
 
-  // Adicionar imóvel ao proprietário
-  const handleAddProperty = async (propertyId: string) => {
-    if (!propertyId || !contact?.id) return;
+  // Helper para atualizar propriedade via API de anúncios
+  const updatePropertyOwner = async (propertyId: string, ownerContactId: string | null) => {
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${propertyId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': ANON_KEY,
+        'Authorization': `Bearer ${ANON_KEY}`,
+        'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ owner_contact_id: ownerContactId })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Erro ao atualizar vínculo');
+    }
+    return response.json();
+  };
+
+  // Adicionar múltiplos imóveis ao proprietário
+  const handleAddProperties = async () => {
+    if (selectedPropertiesToAdd.length === 0 || !effectiveContact?.id) return;
     
     try {
-      await propertiesApi.update(propertyId, { owner_contact_id: contact.id } as any);
-      toast.success('Imóvel vinculado com sucesso!');
+      // Vincular todos os selecionados
+      await Promise.all(
+        selectedPropertiesToAdd.map(propertyId => 
+          updatePropertyOwner(propertyId, effectiveContact!.id)
+        )
+      );
+      
+      toast.success(`${selectedPropertiesToAdd.length} ${selectedPropertiesToAdd.length === 1 ? 'imóvel vinculado' : 'imóveis vinculados'} com sucesso!`);
       
       // Atualizar lista local
-      const property = allProperties.find(p => p.id === propertyId);
-      if (property) {
-        setLinkedProperties(prev => [...prev, property]);
-      }
-      setSelectedPropertyToAdd('');
+      const newLinked = allProperties.filter(p => selectedPropertiesToAdd.includes(p.id));
+      setLinkedProperties(prev => [...prev, ...newLinked]);
+      setSelectedPropertiesToAdd([]);
+      setPropertySearchTerm('');
     } catch (err) {
-      console.error('Erro ao vincular imóvel:', err);
-      toast.error('Erro ao vincular imóvel');
+      console.error('Erro ao vincular imóveis:', err);
+      toast.error('Erro ao vincular imóveis');
     }
+  };
+
+  // Toggle seleção de imóvel
+  const togglePropertySelection = (propertyId: string) => {
+    setSelectedPropertiesToAdd(prev => 
+      prev.includes(propertyId) 
+        ? prev.filter(id => id !== propertyId)
+        : [...prev, propertyId]
+    );
   };
 
   // Remover vínculo de imóvel
@@ -302,7 +381,7 @@ export function ContactFormModal({
     if (!propertyId) return;
     
     try {
-      await propertiesApi.update(propertyId, { owner_contact_id: null } as any);
+      await updatePropertyOwner(propertyId, null);
       toast.success('Vínculo removido');
       setLinkedProperties(prev => prev.filter(p => p.id !== propertyId));
     } catch (err) {
@@ -315,7 +394,7 @@ export function ContactFormModal({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, continueEditing = false) => {
     e.preventDefault();
 
     if (!formData.first_name.trim()) {
@@ -380,19 +459,29 @@ export function ContactFormModal({
         payload.bank_data = bank_data;
       }
 
-      if (isEdit && contact) {
+      let resultContact: CrmContact | null = null;
+
+      if (effectiveIsEdit && effectiveContact) {
         // Se tipo bloqueado, não enviar contact_type
         if (isTypeLocked) {
           delete payload.contact_type;
         }
-        await crmContactsApi.update(contact.id, payload);
+        const result = await crmContactsApi.update(effectiveContact.id, payload);
+        resultContact = result.data || null;
         toast.success('Contato atualizado com sucesso');
       } else {
-        await crmContactsApi.create(payload);
+        const result = await crmContactsApi.create(payload);
+        resultContact = result.data || null;
         toast.success('Contato criado com sucesso');
       }
 
-      onSuccess();
+      if (continueEditing && resultContact) {
+        // Salvar e continuar - manter modal aberto em modo edição
+        setSavedContact(resultContact);
+        toast.info('Agora você pode vincular imóveis na aba "Imóveis"');
+      } else {
+        onSuccess(resultContact || undefined);
+      }
     } catch (error: any) {
       console.error('Erro ao salvar contato:', error);
       toast.error(error.message || 'Erro ao salvar contato');
@@ -402,14 +491,19 @@ export function ContactFormModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(open) => {
+      if (!open) {
+        setSavedContact(null); // Reset ao fechar
+      }
+      onOpenChange(open);
+    }}>
       <DialogContent className="max-w-2xl min-h-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? 'Editar Contato' : 'Novo Contato'}
+            {effectiveIsEdit ? 'Editar Contato' : 'Novo Contato'}
           </DialogTitle>
           <DialogDescription>
-            {isEdit 
+            {effectiveIsEdit 
               ? 'Atualize as informações do contato'
               : 'Preencha os dados para criar um novo contato'
             }
@@ -444,7 +538,7 @@ export function ContactFormModal({
                   <span>Proprietário</span>
                 </TabsTrigger>
               )}
-              {isProprietario && isEdit && (
+              {isProprietario && effectiveIsEdit && (
                 <TabsTrigger value="properties" className="flex items-center gap-1.5 text-xs sm:text-sm">
                   <Home className="h-4 w-4" />
                   <span>Imóveis</span>
@@ -917,7 +1011,7 @@ export function ContactFormModal({
             )}
 
             {/* Tab: Imóveis (só para proprietários em edição) */}
-            {isProprietario && isEdit && (
+            {isProprietario && effectiveIsEdit && (
               <TabsContent value="properties" className="space-y-4 mt-4">
                 <div className="space-y-4">
                   {/* Header */}
@@ -930,43 +1024,91 @@ export function ContactFormModal({
                     </div>
                   </div>
 
-                  {/* Adicionar imóvel */}
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1 space-y-2">
-                      <Label>Adicionar Imóvel</Label>
-                      <Select
-                        value={selectedPropertyToAdd}
-                        onValueChange={setSelectedPropertyToAdd}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um imóvel para vincular..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allProperties
-                            .filter(p => !linkedProperties.some(lp => lp.id === p.id))
-                            .map(property => (
-                              <SelectItem key={property.id} value={property.id}>
-                                {property.data?.basicInfo?.name || property.name || property.internal_id || property.id.slice(0, 8)}
-                              </SelectItem>
-                            ))
-                          }
-                          {allProperties.filter(p => !linkedProperties.some(lp => lp.id === p.id)).length === 0 && (
-                            <SelectItem value="_none_" disabled>
-                              Todos os imóveis já estão vinculados
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                  {/* Adicionar imóveis - Busca e seleção múltipla */}
+                  <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+                    <Label className="font-medium">Adicionar Imóveis</Label>
+                    
+                    {/* Campo de busca */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Buscar imóvel por nome..."
+                        value={propertySearchTerm}
+                        onChange={(e) => setPropertySearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleAddProperty(selectedPropertyToAdd)}
-                      disabled={!selectedPropertyToAdd || loadingProperties}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Vincular
-                    </Button>
+
+                    {/* Lista de imóveis disponíveis com checkboxes */}
+                    {(() => {
+                      const availableProperties = allProperties
+                        .filter(p => !linkedProperties.some(lp => lp.id === p.id))
+                        .filter(p => {
+                          if (!propertySearchTerm.trim()) return true;
+                          const searchLower = propertySearchTerm.toLowerCase();
+                          // Usar mesma lógica do PropertySidebar - campos vêm do adapter: name, code, address.city
+                          const name = (p.name || p.title || '').toLowerCase();
+                          const code = (p.code || '').toLowerCase();
+                          const city = (p.address?.city || '').toLowerCase();
+                          return name.includes(searchLower) || code.includes(searchLower) || city.includes(searchLower);
+                        });
+
+                      if (availableProperties.length === 0) {
+                        return (
+                          <div className="text-center py-4 text-gray-500 text-sm">
+                            {propertySearchTerm 
+                              ? 'Nenhum imóvel encontrado com esse nome'
+                              : 'Todos os imóveis já estão vinculados'}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="max-h-48 overflow-y-auto border rounded-lg bg-white divide-y" style={{ overflowX: 'hidden' }}>
+                          {availableProperties.map(property => {
+                            const isSelected = selectedPropertiesToAdd.includes(property.id);
+                            // Usar mesma lógica do PropertySidebar - code é a identificação interna
+                            const propertyLabel = property.code || property.name || 'Sem nome';
+                            // Truncar nome se muito longo (máx 40 chars)
+                            const displayLabel = propertyLabel.length > 40 
+                              ? propertyLabel.substring(0, 37) + '...' 
+                              : propertyLabel;
+                            return (
+                              <label
+                                key={property.id}
+                                className={`flex items-center gap-2 p-2 cursor-pointer hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => togglePropertySelection(property.id)}
+                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
+                                />
+                                <div className="flex-1 overflow-hidden" style={{ maxWidth: 'calc(100% - 30px)' }}>
+                                  <p className="text-xs font-medium text-gray-900" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayLabel}</p>
+                                  {property.address?.city && (
+                                    <p className="text-[10px] text-gray-500 truncate">{property.address.city}</p>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Botão de vincular */}
+                    {selectedPropertiesToAdd.length > 0 && (
+                      <Button
+                        type="button"
+                        onClick={handleAddProperties}
+                        disabled={loadingProperties}
+                        className="w-full"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Vincular {selectedPropertiesToAdd.length} {selectedPropertiesToAdd.length === 1 ? 'imóvel' : 'imóveis'}
+                      </Button>
+                    )}
                   </div>
 
                   {/* Lista de imóveis vinculados */}
@@ -978,49 +1120,53 @@ export function ContactFormModal({
                     <div className="text-center py-8 text-gray-500 border rounded-lg bg-gray-50">
                       <Home className="h-12 w-12 mx-auto mb-2 text-gray-400" />
                       <p>Nenhum imóvel vinculado a este proprietário</p>
-                      <p className="text-sm">Use o seletor acima para vincular imóveis</p>
+                      <p className="text-sm">Use a busca acima para encontrar e vincular imóveis</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {linkedProperties.map(property => (
+                    <div className="space-y-1.5">
+                      <Label className="font-medium text-xs text-gray-600">Imóveis vinculados:</Label>
+                      {linkedProperties.map(property => {
+                        const propertyLabel = property.code || property.name || 'Sem nome';
+                        // Truncar nome se muito longo
+                        const displayLabel = propertyLabel.length > 35 
+                          ? propertyLabel.substring(0, 32) + '...' 
+                          : propertyLabel;
+                        return (
                         <div
                           key={property.id}
-                          className="flex items-center justify-between p-3 border rounded-lg bg-white hover:bg-gray-50"
+                          className="flex items-center gap-2 p-2 border rounded bg-white hover:bg-gray-50"
+                          style={{ maxWidth: '100%', overflow: 'hidden' }}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-blue-100">
-                              <Home className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium">
-                                {property.data?.basicInfo?.name || property.name || 'Sem nome'}
-                              </p>
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
-                                {property.internal_id && (
-                                  <span>#{property.internal_id}</span>
-                                )}
-                                {property.data?.location?.city && (
-                                  <span>• {property.data.location.city}</span>
-                                )}
-                                {property.status && (
-                                  <Badge variant={property.status === 'active' ? 'default' : 'secondary'}>
-                                    {property.status === 'active' ? 'Ativo' : property.status}
-                                  </Badge>
-                                )}
-                              </div>
+                          <div className="p-1 rounded bg-green-100 flex-shrink-0">
+                            <Home className="h-3.5 w-3.5 text-green-600" />
+                          </div>
+                          <div className="flex-1 overflow-hidden" style={{ minWidth: 0 }}>
+                            <p className="text-xs font-medium text-gray-900" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {displayLabel}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              {property.address?.city && (
+                                <span className="text-[10px] text-gray-500 truncate">{property.address.city}</span>
+                              )}
+                              {property.status && (
+                                <Badge variant="outline" className="text-[9px] h-3.5 px-1 bg-green-50 text-green-700 border-green-200">
+                                  {property.status === 'active' ? 'Ativo' : property.status}
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-6 w-6 p-0 flex-shrink-0"
                             onClick={() => handleRemoveProperty(property.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1077,9 +1223,21 @@ export function ContactFormModal({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
+            {/* Mostrar "Salvar e Continuar" para novos proprietários que ainda não foram salvos */}
+            {isProprietario && !effectiveIsEdit && (
+              <Button 
+                type="button" 
+                variant="secondary"
+                disabled={loading}
+                onClick={(e) => handleSubmit(e as any, true)}
+              >
+                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Salvar e Vincular Imóveis
+              </Button>
+            )}
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isEdit ? 'Salvar' : 'Criar Contato'}
+              {effectiveIsEdit ? 'Salvar' : 'Criar Contato'}
             </Button>
           </DialogFooter>
         </form>

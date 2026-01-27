@@ -91,6 +91,8 @@ import * as predeterminedRoutes from "./routes-predetermined.ts"; // 📋 PRÉ-D
 import * as crmContactsRoutes from "./routes-crm-contacts.ts"; // 👤 CONTATOS: Pessoas CRM
 import * as crmCompaniesRoutes from "./routes-crm-companies.ts"; // 🏢 EMPRESAS: Organizações CRM
 import * as crmNotesRoutes from "./routes-crm-notes.ts"; // 📝 NOTAS: Observações CRM
+import * as notificationProvidersRoutes from "./routes-notification-providers.ts"; // 📬 NOTIFICAÇÕES: Config de providers
+import * as notificationTemplatesRoutes from "./routes-notification-templates.ts"; // 📝 NOTIFICAÇÕES: Templates multi-canal
 
 const app = new Hono();
 
@@ -1214,6 +1216,47 @@ app.get("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.getNote);
 app.post("/crm/notes", tenancyMiddleware, crmNotesRoutes.createNote);
 app.put("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.updateNote);
 app.delete("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.deleteNote);
+
+// ============================================================================
+// 📬 NOTIFICATION PROVIDERS - Configuração de canais de notificação
+// Resend, Brevo, Evolution API, etc.
+// ============================================================================
+app.get("/rendizy-server/notifications/providers", tenancyMiddleware, notificationProvidersRoutes.listNotificationProviders);
+app.get("/rendizy-server/notifications/providers/:channel", tenancyMiddleware, notificationProvidersRoutes.getProviderConfig);
+app.post("/rendizy-server/notifications/providers", tenancyMiddleware, notificationProvidersRoutes.saveProviderConfig);
+app.delete("/rendizy-server/notifications/providers/:channel/:provider", tenancyMiddleware, notificationProvidersRoutes.deleteProviderConfig);
+app.post("/rendizy-server/notifications/providers/test", tenancyMiddleware, notificationProvidersRoutes.testProviderSend);
+// Aliases sem prefixo
+app.get("/notifications/providers", tenancyMiddleware, notificationProvidersRoutes.listNotificationProviders);
+app.get("/notifications/providers/:channel", tenancyMiddleware, notificationProvidersRoutes.getProviderConfig);
+app.post("/notifications/providers", tenancyMiddleware, notificationProvidersRoutes.saveProviderConfig);
+app.delete("/notifications/providers/:channel/:provider", tenancyMiddleware, notificationProvidersRoutes.deleteProviderConfig);
+app.post("/notifications/providers/test", tenancyMiddleware, notificationProvidersRoutes.testProviderSend);
+
+// ============================================================================
+// 📝 NOTIFICATION TEMPLATES - Templates de notificação multi-canal
+// ============================================================================
+app.get("/rendizy-server/notifications/templates", tenancyMiddleware, notificationTemplatesRoutes.listTemplates);
+app.get("/rendizy-server/notifications/templates/:id", tenancyMiddleware, notificationTemplatesRoutes.getTemplate);
+app.post("/rendizy-server/notifications/templates", tenancyMiddleware, notificationTemplatesRoutes.createTemplate);
+app.put("/rendizy-server/notifications/templates/:id", tenancyMiddleware, notificationTemplatesRoutes.updateTemplate);
+app.delete("/rendizy-server/notifications/templates/:id", tenancyMiddleware, notificationTemplatesRoutes.deleteTemplate);
+app.patch("/rendizy-server/notifications/templates/:id/status", tenancyMiddleware, notificationTemplatesRoutes.toggleTemplateStatus);
+app.post("/rendizy-server/notifications/templates/:id/duplicate", tenancyMiddleware, notificationTemplatesRoutes.duplicateTemplate);
+app.get("/rendizy-server/notifications/triggers", tenancyMiddleware, notificationTemplatesRoutes.listTriggerTypes);
+app.post("/rendizy-server/notifications/templates/preview", tenancyMiddleware, notificationTemplatesRoutes.previewTemplate);
+app.post("/rendizy-server/notifications/templates/:id/test", tenancyMiddleware, notificationTemplatesRoutes.testTemplateDelivery);
+// Aliases sem prefixo
+app.get("/notifications/templates", tenancyMiddleware, notificationTemplatesRoutes.listTemplates);
+app.get("/notifications/templates/:id", tenancyMiddleware, notificationTemplatesRoutes.getTemplate);
+app.post("/notifications/templates", tenancyMiddleware, notificationTemplatesRoutes.createTemplate);
+app.put("/notifications/templates/:id", tenancyMiddleware, notificationTemplatesRoutes.updateTemplate);
+app.delete("/notifications/templates/:id", tenancyMiddleware, notificationTemplatesRoutes.deleteTemplate);
+app.patch("/notifications/templates/:id/status", tenancyMiddleware, notificationTemplatesRoutes.toggleTemplateStatus);
+app.post("/notifications/templates/:id/duplicate", tenancyMiddleware, notificationTemplatesRoutes.duplicateTemplate);
+app.get("/notifications/triggers", tenancyMiddleware, notificationTemplatesRoutes.listTriggerTypes);
+app.post("/notifications/templates/preview", tenancyMiddleware, notificationTemplatesRoutes.previewTemplate);
+app.post("/notifications/templates/:id/test", tenancyMiddleware, notificationTemplatesRoutes.testTemplateDelivery);
 
 // ============================================================================
 // DEFAULT HANDLERS

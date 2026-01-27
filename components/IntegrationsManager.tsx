@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import {
   Zap,
   Building2,
@@ -16,7 +17,6 @@ import {
   CreditCard,
   ChevronRight,
   CheckCircle2,
-  XCircle,
   Clock,
   Settings,
   BarChart3,
@@ -27,7 +27,10 @@ import {
   Plus,
   Trash2,
   Package,
-  Loader2
+  Loader2,
+  Mail,
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -246,6 +249,44 @@ const CHANNELS: IntegrationChannel[] = [
     badge: {
       text: 'Pagamentos',
       variant: 'secondary'
+    }
+  },
+  {
+    id: 'resend',
+    name: 'Resend',
+    description: 'Email transacional moderno com API simples e React Email',
+    icon: Send,
+    iconColor: 'text-white',
+    gradientFrom: 'from-black',
+    gradientTo: 'to-gray-800',
+    status: 'active',
+    stats: {
+      connected: 0,
+      active: 0,
+      inactive: 0
+    },
+    badge: {
+      text: 'Email',
+      variant: 'default'
+    }
+  },
+  {
+    id: 'brevo',
+    name: 'Brevo',
+    description: 'Email marketing + SMS transacional (ex-Sendinblue)',
+    icon: Mail,
+    iconColor: 'text-white',
+    gradientFrom: 'from-blue-600',
+    gradientTo: 'to-cyan-500',
+    status: 'active',
+    stats: {
+      connected: 0,
+      active: 0,
+      inactive: 0
+    },
+    badge: {
+      text: 'Email + SMS',
+      variant: 'success'
     }
   },
   {
@@ -525,6 +566,8 @@ export function IntegrationsManager() {
             {selectedChannel === 'ai-provider' && <AIIntegration />}
             {selectedChannel === 'stripe' && <StripePaymentIntegration />}
             {selectedChannel === 'pagarme' && <PagarmePaymentIntegration />}
+            {selectedChannel === 'resend' && <ResendEmailIntegration />}
+            {selectedChannel === 'brevo' && <BrevoIntegration />}
           </div>
         </DialogContent>
       </Dialog>
@@ -1531,6 +1574,605 @@ function PagarmePaymentIntegration() {
               </div>
               <Switch defaultChecked />
             </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// ============================================================================
+// RESEND EMAIL INTEGRATION
+// ============================================================================
+
+function ResendEmailIntegration() {
+  const { isAdmin, isSuperAdmin } = useAuth();
+  const canConfigureIntegrations = isAdmin || isSuperAdmin;
+
+  const [apiKey, setApiKey] = useState('');
+  const [fromEmail, setFromEmail] = useState('');
+  const [fromName, setFromName] = useState('Rendizy');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isConfigured, setIsConfigured] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+
+  // Carregar config existente
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const { getChannelProviders } = await import('../utils/api-notification-providers');
+        const configs = await getChannelProviders('email');
+        if (configs.resend) {
+          setFromEmail(configs.resend.fromEmail || '');
+          setFromName(configs.resend.fromName || 'Rendizy');
+          setIsConfigured(configs.resend.enabled);
+          if (configs.resend.apiKey === '***configured***') {
+            setApiKey(''); // Não mostra a key, só placeholder
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao carregar config Resend:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadConfig();
+  }, []);
+
+  // Salvar configuração
+  const handleSave = async () => {
+    if (!apiKey && !isConfigured) {
+      toast.error('API Key é obrigatória');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const { saveProviderConfig } = await import('../utils/api-notification-providers');
+      await saveProviderConfig({
+        provider: 'resend',
+        channel: 'email',
+        enabled: true,
+        apiKey: apiKey || undefined, // Só envia se preenchido
+        fromEmail,
+        fromName,
+      });
+      toast.success('Configuração salva com sucesso!');
+      setIsConfigured(true);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar configuração');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Testar envio
+  const handleTest = async () => {
+    if (!testEmail) {
+      toast.error('Digite um email para teste');
+      return;
+    }
+    setIsTesting(true);
+    try {
+      const { testProviderSend } = await import('../utils/api-notification-providers');
+      const result = await testProviderSend({
+        channel: 'email',
+        recipient: testEmail,
+        message: 'Este é um email de teste do Rendizy! 🎉',
+      });
+      if (result.success) {
+        toast.success('Email de teste enviado!');
+      } else {
+        toast.error(result.error?.message || 'Falha ao enviar email de teste');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao testar envio');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Alert className={isConfigured ? "bg-green-500/10 border-green-500/30" : "bg-black/5 border-black/20"}>
+        <Mail className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Resend</strong> - Email transacional moderno com API simples.
+          {isConfigured && <Badge variant="outline" className="ml-2 text-green-600 border-green-600">Configurado ✓</Badge>}
+          <br />
+          <span className="text-sm text-muted-foreground">
+            Plano gratuito: <strong>3.000 emails/mês</strong> (100/dia)
+          </span>
+        </AlertDescription>
+      </Alert>
+
+      <Tabs defaultValue="credentials">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="credentials">Credenciais</TabsTrigger>
+          <TabsTrigger value="test" disabled={!isConfigured}>Testar</TabsTrigger>
+          <TabsTrigger value="docs">Documentação</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="credentials" className="space-y-4 mt-4">
+          {!canConfigureIntegrations ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Você não tem permissão para configurar integrações.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="resend-api-key">API Key</Label>
+                <Input 
+                  id="resend-api-key" 
+                  type="password" 
+                  placeholder={isConfigured ? "••••••••••••••••" : "re_..."} 
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {isConfigured ? 'Deixe vazio para manter a chave atual. ' : ''}
+                  Obtenha em <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">resend.com/api-keys</a>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="resend-from-email">Email Remetente</Label>
+                <Input 
+                  id="resend-from-email" 
+                  type="email" 
+                  placeholder="noreply@seudominio.com" 
+                  value={fromEmail}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Domínio deve estar verificado no Resend
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="resend-from-name">Nome do Remetente</Label>
+                <Input 
+                  id="resend-from-name" 
+                  placeholder="Rendizy" 
+                  value={fromName}
+                  onChange={(e) => setFromName(e.target.value)}
+                />
+              </div>
+
+              <Button className="w-full" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar Configuração
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="test" className="space-y-4 mt-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="test-email">Email para Teste</Label>
+              <Input 
+                id="test-email" 
+                type="email" 
+                placeholder="seuemail@exemplo.com" 
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleTest} disabled={isTesting} className="w-full">
+              {isTesting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+              Enviar Email de Teste
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="docs" className="space-y-4 mt-4">
+          <div className="p-4 bg-muted rounded-lg space-y-3">
+            <h4 className="font-semibold">📚 Como Integrar</h4>
+            <ol className="list-decimal list-inside space-y-2 text-sm">
+              <li>Crie uma conta em <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">resend.com</a></li>
+              <li>Verifique seu domínio (DNS: SPF, DKIM)</li>
+              <li>Gere uma API Key</li>
+              <li>Cole a API Key acima</li>
+            </ol>
+            
+            <Separator className="my-3" />
+            
+            <h4 className="font-semibold">📖 Documentação Oficial</h4>
+            <div className="flex flex-col gap-2">
+              <a href="https://resend.com/docs/introduction" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
+                → Getting Started
+              </a>
+              <a href="https://resend.com/docs/api-reference/emails/send-email" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
+                → API Reference (Send Email)
+              </a>
+              <a href="https://resend.com/docs/dashboard/domains/introduction" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
+                → Configurar Domínio
+              </a>
+              <a href="https://react.email" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
+                → React Email (Templates)
+              </a>
+            </div>
+
+            <Separator className="my-3" />
+            
+            <h4 className="font-semibold">💰 Preços</h4>
+            <ul className="text-sm space-y-1">
+              <li><strong>Free:</strong> 3.000 emails/mês, 100/dia</li>
+              <li><strong>Pro ($20):</strong> 50.000 emails/mês</li>
+              <li><strong>Scale ($90):</strong> 100.000 emails/mês</li>
+            </ul>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// ============================================================================
+// BREVO INTEGRATION (Email + SMS)
+// ============================================================================
+
+function BrevoIntegration() {
+  const { isAdmin, isSuperAdmin } = useAuth();
+  const canConfigureIntegrations = isAdmin || isSuperAdmin;
+
+  const [apiKey, setApiKey] = useState('');
+  const [fromEmail, setFromEmail] = useState('');
+  const [fromName, setFromName] = useState('Rendizy');
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [smsSenderName, setSmsSenderName] = useState('Rendizy');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEmailConfigured, setIsEmailConfigured] = useState(false);
+  const [isSmsConfigured, setIsSmsConfigured] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testTarget, setTestTarget] = useState('');
+
+  // Carregar configs existentes
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const { getChannelProviders } = await import('../utils/api-notification-providers');
+        
+        // Carregar config de email
+        const emailConfigs = await getChannelProviders('email');
+        if (emailConfigs['brevo-email']) {
+          setFromEmail(emailConfigs['brevo-email'].fromEmail || '');
+          setFromName(emailConfigs['brevo-email'].fromName || 'Rendizy');
+          setIsEmailConfigured(emailConfigs['brevo-email'].enabled);
+        }
+        
+        // Carregar config de SMS
+        const smsConfigs = await getChannelProviders('sms');
+        if (smsConfigs['brevo-sms']) {
+          setSmsEnabled(smsConfigs['brevo-sms'].enabled);
+          setSmsSenderName(smsConfigs['brevo-sms'].senderName || 'Rendizy');
+          setIsSmsConfigured(smsConfigs['brevo-sms'].enabled);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar config Brevo:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadConfig();
+  }, []);
+
+  // Salvar config de email
+  const handleSaveEmail = async () => {
+    if (!apiKey && !isEmailConfigured) {
+      toast.error('API Key é obrigatória');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const { saveProviderConfig } = await import('../utils/api-notification-providers');
+      await saveProviderConfig({
+        provider: 'brevo-email',
+        channel: 'email',
+        enabled: true,
+        apiKey: apiKey || undefined,
+        fromEmail,
+        fromName,
+      });
+      toast.success('Configuração de email salva!');
+      setIsEmailConfigured(true);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Salvar config de SMS
+  const handleSaveSms = async () => {
+    if (!apiKey && !isSmsConfigured) {
+      toast.error('API Key é obrigatória (mesma do email)');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const { saveProviderConfig } = await import('../utils/api-notification-providers');
+      await saveProviderConfig({
+        provider: 'brevo-sms',
+        channel: 'sms',
+        enabled: smsEnabled,
+        apiKey: apiKey || undefined,
+        senderName: smsSenderName,
+      });
+      toast.success(smsEnabled ? 'SMS habilitado!' : 'SMS desabilitado');
+      setIsSmsConfigured(smsEnabled);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Testar envio
+  const handleTestEmail = async () => {
+    if (!testTarget) {
+      toast.error('Digite um email para teste');
+      return;
+    }
+    setIsTesting(true);
+    try {
+      const { testProviderSend } = await import('../utils/api-notification-providers');
+      const result = await testProviderSend({
+        channel: 'email',
+        recipient: testTarget,
+        message: 'Este é um email de teste do Rendizy via Brevo! 🎉',
+        providerOverride: 'brevo-email',
+      });
+      if (result.success) {
+        toast.success('Email de teste enviado via Brevo!');
+      } else {
+        toast.error(result.error?.message || 'Falha ao enviar');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao testar');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleTestSms = async () => {
+    if (!testTarget) {
+      toast.error('Digite um número para teste (ex: +5511999999999)');
+      return;
+    }
+    setIsTesting(true);
+    try {
+      const { testProviderSend } = await import('../utils/api-notification-providers');
+      const result = await testProviderSend({
+        channel: 'sms',
+        recipient: testTarget,
+        message: 'Teste de SMS do Rendizy!',
+      });
+      if (result.success) {
+        toast.success('SMS de teste enviado!');
+      } else {
+        toast.error(result.error?.message || 'Falha ao enviar');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao testar');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Alert className={isEmailConfigured || isSmsConfigured ? "bg-blue-500/10 border-blue-500/30" : "bg-blue-500/5 border-blue-500/20"}>
+        <MessageSquare className="h-4 w-4 text-blue-500" />
+        <AlertDescription>
+          <strong>Brevo</strong> - Email marketing + SMS transacional.
+          {isEmailConfigured && <Badge variant="outline" className="ml-2 text-blue-600 border-blue-600">Email ✓</Badge>}
+          {isSmsConfigured && <Badge variant="outline" className="ml-2 text-green-600 border-green-600">SMS ✓</Badge>}
+          <br />
+          <span className="text-sm text-muted-foreground">
+            Plano gratuito: <strong>9.000 emails/mês</strong> (300/dia) + SMS pago
+          </span>
+        </AlertDescription>
+      </Alert>
+
+      <Tabs defaultValue="credentials">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="credentials">Credenciais</TabsTrigger>
+          <TabsTrigger value="sms">SMS</TabsTrigger>
+          <TabsTrigger value="test" disabled={!isEmailConfigured && !isSmsConfigured}>Testar</TabsTrigger>
+          <TabsTrigger value="docs">Docs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="credentials" className="space-y-4 mt-4">
+          {!canConfigureIntegrations ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Você não tem permissão para configurar integrações.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="brevo-api-key">API Key (v3)</Label>
+                <Input 
+                  id="brevo-api-key" 
+                  type="password" 
+                  placeholder={isEmailConfigured ? "••••••••••••••••" : "xkeysib-..."} 
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {isEmailConfigured ? 'Deixe vazio para manter a chave atual. ' : ''}
+                  Obtenha em <a href="https://app.brevo.com/settings/keys/api" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Brevo → Settings → API Keys</a>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="brevo-from-email">Email Remetente</Label>
+                <Input 
+                  id="brevo-from-email" 
+                  type="email" 
+                  placeholder="noreply@seudominio.com" 
+                  value={fromEmail}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="brevo-from-name">Nome do Remetente</Label>
+                <Input 
+                  id="brevo-from-name" 
+                  placeholder="Rendizy" 
+                  value={fromName}
+                  onChange={(e) => setFromName(e.target.value)}
+                />
+              </div>
+
+              <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={handleSaveEmail} disabled={isSaving}>
+                {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar Configuração de Email
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="sms" className="space-y-4 mt-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Habilitar SMS</Label>
+                <p className="text-sm text-muted-foreground">
+                  Enviar notificações por SMS (cobrado por mensagem)
+                </p>
+              </div>
+              <Switch checked={smsEnabled} onCheckedChange={setSmsEnabled} />
+            </div>
+
+            {smsEnabled && (
+              <>
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    SMS é cobrado por uso. Preço médio: ~R$0,10 por SMS no Brasil.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sms-sender">Nome do Remetente SMS</Label>
+                  <Input 
+                    id="sms-sender" 
+                    placeholder="Rendizy" 
+                    value={smsSenderName}
+                    onChange={(e) => setSmsSenderName(e.target.value)}
+                    maxLength={11}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Máximo 11 caracteres, sem acentos
+                  </p>
+                </div>
+
+                <div className="p-4 bg-muted rounded-lg">
+                  <h4 className="font-semibold mb-2">📱 Casos de Uso SMS</h4>
+                  <ul className="text-sm space-y-1">
+                    <li>• Lembrete de check-in (dia anterior)</li>
+                    <li>• Código de acesso ao imóvel</li>
+                    <li>• Confirmação de reserva urgente</li>
+                    <li>• Alerta de check-out</li>
+                  </ul>
+                </div>
+              </>
+            )}
+
+            <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={handleSaveSms} disabled={isSaving}>
+              <Save className="w-4 h-4 mr-2" />
+              Salvar Configuração SMS
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="test" className="space-y-4 mt-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="test-target">Destinatário</Label>
+              <Input 
+                id="test-target" 
+                placeholder="email@exemplo.com ou +5511999999999" 
+                value={testTarget}
+                onChange={(e) => setTestTarget(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={handleTestEmail} disabled={isTesting || !isEmailConfigured} variant="outline">
+                {isTesting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+                Testar Email
+              </Button>
+              <Button onClick={handleTestSms} disabled={isTesting || !isSmsConfigured} variant="outline">
+                {isTesting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageSquare className="w-4 h-4 mr-2" />}
+                Testar SMS
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="docs" className="space-y-4 mt-4">
+          <div className="p-4 bg-muted rounded-lg space-y-3">
+            <h4 className="font-semibold">📚 Como Integrar</h4>
+            <ol className="list-decimal list-inside space-y-2 text-sm">
+              <li>Crie conta em <a href="https://www.brevo.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">brevo.com</a></li>
+              <li>Vá em Settings → API Keys</li>
+              <li>Gere uma API Key v3</li>
+              <li>Cole a API Key acima</li>
+            </ol>
+            
+            <Separator className="my-3" />
+            
+            <h4 className="font-semibold">📖 Documentação Oficial</h4>
+            <div className="flex flex-col gap-2">
+              <a href="https://developers.brevo.com/docs/getting-started" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
+                → Getting Started
+              </a>
+              <a href="https://developers.brevo.com/reference/sendtransacemail" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
+                → API Send Email
+              </a>
+              <a href="https://developers.brevo.com/reference/sendtransacsms" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
+                → API Send SMS
+              </a>
+              <a href="https://developers.brevo.com/docs/send-transactional-sms" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
+                → Guia SMS Transacional
+              </a>
+            </div>
+
+            <Separator className="my-3" />
+            
+            <h4 className="font-semibold">💰 Preços</h4>
+            <ul className="text-sm space-y-1">
+              <li><strong>Email Free:</strong> 300/dia (≈9.000/mês)</li>
+              <li><strong>Email Starter (R$36):</strong> 5.000/mês</li>
+              <li><strong>SMS Brasil:</strong> ~R$0,05-0,15 por mensagem</li>
+            </ul>
           </div>
         </TabsContent>
       </Tabs>

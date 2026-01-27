@@ -2,7 +2,7 @@
  * Sheet lateral para visualização detalhada de Contato
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -30,9 +30,18 @@ import {
   FileText,
   Clock,
   UserCheck,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '../../ui/utils';
 import { CrmContact, ContactType } from '../../../src/utils/api-crm-contacts';
+
+interface LinkedProperty {
+  id: string;
+  name: string;
+  code: string;
+  status: string;
+  city?: string;
+}
 
 interface ContactDetailSheetProps {
   contact: CrmContact | null;
@@ -71,6 +80,59 @@ export function ContactDetailSheet({
   onDelete,
   onCreateUser,
 }: ContactDetailSheetProps) {
+  const [linkedProperties, setLinkedProperties] = useState<LinkedProperty[]>([]);
+  const [loadingProperties, setLoadingProperties] = useState(false);
+
+  // Buscar imóveis vinculados quando o contato é proprietário
+  useEffect(() => {
+    if (!contact || contact.contact_type !== 'proprietario') {
+      setLinkedProperties([]);
+      return;
+    }
+
+    const fetchLinkedProperties = async () => {
+      setLoadingProperties(true);
+      try {
+        // Usar mesma API que o ContactFormModal
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          const anuncios = result.anuncios || [];
+          
+          // Filtrar apenas imóveis deste proprietário
+          const ownerProperties = anuncios.filter(
+            (a: any) => a.owner_contact_id === contact.id
+          );
+          
+          setLinkedProperties(ownerProperties.map((a: any) => ({
+            id: a.id,
+            name: a.data?.title || a.title || 'Sem nome',
+            code: a.data?.internalId || a.data?.internal_id || a.data?.identificacao_interna || '-',
+            status: a.status === 'active' ? 'Ativo' : (a.status || 'Ativo'),
+            city: a.data?.address?.city || a.data?.cidade || '',
+          })));
+        }
+      } catch (error) {
+        console.error('Erro ao buscar imóveis vinculados:', error);
+      } finally {
+        setLoadingProperties(false);
+      }
+    };
+
+    fetchLinkedProperties();
+  }, [contact?.id, contact?.contact_type]);
+
   if (!contact) return null;
 
   const typeLabel = TYPE_LABELS[contact.contact_type as ContactType] || 'Contato';
@@ -88,41 +150,41 @@ export function ContactDetailSheet({
 
   return (
     <Sheet open={!!contact} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "h-14 w-14 rounded-full flex items-center justify-center text-lg font-semibold",
-                typeColor
-              )}>
-                {contact.first_name?.[0]?.toUpperCase() || '?'}
-                {contact.last_name?.[0]?.toUpperCase() || ''}
-              </div>
-              <div>
-                <SheetTitle className="text-xl">
-                  {contact.full_name || 'Sem nome'}
-                </SheetTitle>
-                <SheetDescription className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline" className={cn("border-0", typeColor)}>
-                    {typeLabel}
-                    {contact.is_type_locked && ' 🔒'}
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto p-0">
+        {/* Header com fundo colorido */}
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 p-6 border-b">
+          <div className="flex items-start gap-4">
+            <div className={cn(
+              "h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold shadow-sm",
+              typeColor
+            )}>
+              {contact.first_name?.[0]?.toUpperCase() || '?'}
+              {contact.last_name?.[0]?.toUpperCase() || ''}
+            </div>
+            <div className="flex-1 min-w-0">
+              <SheetTitle className="text-xl font-semibold text-gray-900 dark:text-white truncate">
+                {contact.full_name || 'Sem nome'}
+              </SheetTitle>
+              <SheetDescription className="flex flex-wrap items-center gap-2 mt-2">
+                <Badge variant="outline" className={cn("border-0 font-medium", typeColor)}>
+                  {typeLabel}
+                  {contact.is_type_locked && ' 🔒'}
+                </Badge>
+                {contact.user_id && (
+                  <Badge variant="outline" className="bg-green-100 text-green-700 border-0">
+                    <UserCheck className="h-3 w-3 mr-1" />
+                    Tem acesso
                   </Badge>
-                  {contact.user_id && (
-                    <Badge variant="outline" className="bg-green-100 text-green-700 border-0">
-                      <UserCheck className="h-3 w-3 mr-1" />
-                      Tem acesso
-                    </Badge>
-                  )}
-                </SheetDescription>
-              </div>
+                )}
+              </SheetDescription>
             </div>
           </div>
-        </SheetHeader>
+        </div>
 
-        <div className="mt-6 space-y-6">
+        {/* Conteúdo principal com padding */}
+        <div className="p-6 space-y-6">
           {/* Ações rápidas */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => onEdit(contact)}>
               <Edit className="h-4 w-4 mr-2" />
               Editar
@@ -213,15 +275,36 @@ export function ContactDetailSheet({
                 <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
                   Imóveis Vinculados
                 </h3>
-                {contact.property_ids && contact.property_ids.length > 0 ? (
+                {loadingProperties ? (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Carregando imóveis...</span>
+                  </div>
+                ) : linkedProperties.length > 0 ? (
                   <div className="space-y-2">
-                    {contact.property_ids.map((id, idx) => (
-                      <div key={id} className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                        <Home className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">Imóvel #{idx + 1}</span>
-                        <Button variant="ghost" size="sm" className="ml-auto">
-                          <ExternalLink className="h-3 w-3" />
-                        </Button>
+                    {linkedProperties.map((property) => (
+                      <div 
+                        key={property.id} 
+                        className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700"
+                      >
+                        <Home className="h-5 w-5 text-purple-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{property.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {property.code}{property.city ? ` • ${property.city}` : ''}
+                          </p>
+                        </div>
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs flex-shrink-0",
+                            property.status === 'Ativo' 
+                              ? 'bg-green-50 text-green-700 border-green-200' 
+                              : 'bg-gray-50 text-gray-600'
+                          )}
+                        >
+                          {property.status}
+                        </Badge>
                       </div>
                     ))}
                   </div>

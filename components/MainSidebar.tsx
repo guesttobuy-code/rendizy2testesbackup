@@ -48,6 +48,7 @@ import {
   Shield,
   Activity,
   LogIn,
+  FileEdit,
   Crown,
   DollarSign,
   CheckSquare as CheckSquareIcon,
@@ -308,7 +309,11 @@ export function MainSidebar({
           icon: Bell,
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
-          badge: '14'
+          badge: '14',
+          submenu: [
+            { id: 'notificacoes-central', label: 'Central', icon: Inbox },
+            { id: 'notificacoes-templates', label: 'Templates', icon: FileEdit }
+          ]
         },
         {
           id: 'catalogo',
@@ -426,6 +431,8 @@ export function MainSidebar({
     'usuarios-proprietarios': '/proprietarios',
     // ✅ ROTA NOTIFICAÇÕES - v1.0.0
     'notificacoes': '/notificacoes',
+    'notificacoes-central': '/notificacoes',
+    'notificacoes-templates': '/notificacoes/templates',
     // ✅ ROTAS CADASTROS CRM - v1.0.104
     'contatos': '/contatos',
     'empresas': '/empresas',

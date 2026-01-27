@@ -2,11 +2,20 @@
 // ACTIONS SERVICE - Executa ações das automações
 // ============================================================================
 // Implementa as ações disponíveis: notificações, relatórios, alertas
+// Agora integrado com o sistema modular de notificações (cápsulas)
 // ============================================================================
 
 import { getSupabaseClient } from '../kv_store.tsx';
 import { logInfo, logError } from '../utils.ts';
 import type { AutomationEvent } from './event-bus.ts';
+
+// Import do sistema de notificações modular
+import { 
+  sendEmail, 
+  sendSms, 
+  sendWhatsApp, 
+  sendInApp 
+} from './notifications/dispatcher.ts';
 
 interface AutomationAction {
   type: string;
@@ -51,7 +60,8 @@ export async function executeAction(
 }
 
 /**
- * Ação: Notificar (chat interno, email, etc.)
+ * Ação: Notificar (chat interno, email, WhatsApp, SMS)
+ * Agora usa o sistema modular de notificações
  */
 async function executeNotifyAction(
   action: AutomationAction,
@@ -66,13 +76,31 @@ async function executeNotifyAction(
 
   switch (channel) {
     case 'chat':
-      return await notifyChat(processedMessage, automation.organization_id, action.payload);
+    case 'in_app':
+    case 'dashboard':
+      return await notifyInApp(processedMessage, automation.organization_id, action.payload);
     
     case 'email':
-      return await notifyEmail(processedMessage, action.payload?.recipient, automation.organization_id);
+      return await notifyEmail(
+        processedMessage, 
+        action.payload?.recipient || action.payload?.to, 
+        action.payload?.subject || 'Notificação Rendizy',
+        automation.organization_id
+      );
     
     case 'whatsapp':
-      return await notifyWhatsApp(processedMessage, action.payload?.phone, automation.organization_id);
+      return await notifyWhatsApp(
+        processedMessage, 
+        action.payload?.phone || action.payload?.to, 
+        automation.organization_id
+      );
+    
+    case 'sms':
+      return await notifySms(
+        processedMessage,
+        action.payload?.phone || action.payload?.to,
+        automation.organization_id
+      );
     
     default:
       throw new Error(`Canal de notificação desconhecido: ${channel}`);
@@ -116,9 +144,10 @@ async function executeAlertAction(
   const message = action.template || action.payload?.message || 'Alerta automático';
   const processedMessage = replaceVariables(message, event, automation);
 
-  // Enviar como notificação de alta prioridade
-  return await notifyChat(`🚨 ALERTA: ${processedMessage}`, automation.organization_id, {
-    priority: 'high',
+  // Enviar como notificação de alta prioridade via sistema modular
+  return await notifyInApp(`🚨 ALERTA: ${processedMessage}`, automation.organization_id, {
+    priority: 'urgent',
+    type: 'error',
     ...action.payload,
   });
 }
@@ -151,76 +180,148 @@ async function executeCreateTaskAction(
   };
 }
 
+// ============================================================================
+// FUNÇÕES DE NOTIFICAÇÃO (usam o sistema modular de cápsulas)
+// ============================================================================
+
 /**
- * Notificar via chat interno
+ * Notificar via dashboard (in-app)
+ * Usa o provider in-app do sistema modular
  */
-async function notifyChat(
+async function notifyInApp(
   message: string,
   organizationId: string,
   options?: Record<string, any>
 ): Promise<any> {
   try {
-    const supabase = getSupabaseClient();
-    
-    // Criar mensagem no chat interno
-    // Por enquanto, apenas loga. Pode ser integrado com módulo de chat no futuro
-    logInfo('[ActionsService] Notificação no chat', {
-      message,
+    const result = await sendInApp(
       organizationId,
-      options,
+      options?.title || 'Notificação',
+      message,
+      {
+        type: options?.type || 'info',
+        priority: options?.priority || 'normal',
+        actionUrl: options?.actionUrl,
+        actionLabel: options?.actionLabel,
+        userId: options?.userId,
+        metadata: options,
+      }
+    );
+
+    logInfo('[ActionsService] Notificação in-app enviada', {
+      success: result.success,
+      messageId: result.messageId,
     });
 
-    return {
-      success: true,
-      channel: 'chat',
-      message,
-    };
+    return result;
   } catch (error) {
-    logError('[ActionsService] Erro ao notificar no chat', error);
+    logError('[ActionsService] Erro ao enviar notificação in-app', error);
     throw error;
   }
 }
 
 /**
  * Notificar via email
+ * Usa Resend ou Brevo conforme configurado
  */
 async function notifyEmail(
   message: string,
   recipient: string | undefined,
+  subject: string,
   organizationId: string
 ): Promise<any> {
-  logInfo('[ActionsService] Notificação por email', {
-    recipient,
-    message: message.substring(0, 50) + '...',
-  });
+  if (!recipient) {
+    logError('[ActionsService] Email: destinatário não informado');
+    return { success: false, error: 'Destinatário não informado' };
+  }
 
-  // Por enquanto, apenas loga. Pode ser integrado com SendGrid/Mailgun no futuro
-  return {
-    success: true,
-    channel: 'email',
-    recipient,
-  };
+  try {
+    const result = await sendEmail(
+      organizationId,
+      recipient,
+      subject,
+      `<div style="font-family: Arial, sans-serif; padding: 20px;">${message}</div>`
+    );
+
+    logInfo('[ActionsService] Email enviado', {
+      success: result.success,
+      provider: result.provider,
+      messageId: result.messageId,
+    });
+
+    return result;
+  } catch (error) {
+    logError('[ActionsService] Erro ao enviar email', error);
+    throw error;
+  }
 }
 
 /**
  * Notificar via WhatsApp
+ * Usa Evolution API conforme configurado
  */
 async function notifyWhatsApp(
   message: string,
   phone: string | undefined,
   organizationId: string
 ): Promise<any> {
-  logInfo('[ActionsService] Notificação por WhatsApp', {
-    phone,
-    message: message.substring(0, 50) + '...',
-  });
+  if (!phone) {
+    logError('[ActionsService] WhatsApp: telefone não informado');
+    return { success: false, error: 'Telefone não informado' };
+  }
 
-  // Por enquanto, apenas loga. Pode ser integrado com Evolution API no futuro
-  return {
-    success: true,
-    channel: 'whatsapp',
-    phone,
-  };
+  try {
+    const result = await sendWhatsApp(
+      organizationId,
+      phone,
+      message
+    );
+
+    logInfo('[ActionsService] WhatsApp enviado', {
+      success: result.success,
+      provider: result.provider,
+      messageId: result.messageId,
+    });
+
+    return result;
+  } catch (error) {
+    logError('[ActionsService] Erro ao enviar WhatsApp', error);
+    throw error;
+  }
+}
+
+/**
+ * Notificar via SMS
+ * Usa Brevo SMS conforme configurado
+ */
+async function notifySms(
+  message: string,
+  phone: string | undefined,
+  organizationId: string
+): Promise<any> {
+  if (!phone) {
+    logError('[ActionsService] SMS: telefone não informado');
+    return { success: false, error: 'Telefone não informado' };
+  }
+
+  try {
+    const result = await sendSms(
+      organizationId,
+      phone,
+      message
+    );
+
+    logInfo('[ActionsService] SMS enviado', {
+      success: result.success,
+      provider: result.provider,
+      messageId: result.messageId,
+    });
+
+    return result;
+  } catch (error) {
+    logError('[ActionsService] Erro ao enviar SMS', error);
+    throw error;
+  }
 }
 
 /**
