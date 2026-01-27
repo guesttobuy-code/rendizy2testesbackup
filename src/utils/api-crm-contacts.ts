@@ -2,6 +2,9 @@
  * CRM API - Módulo CONTACTS (Contatos/Pessoas)
  * API para cadastro de pessoas/contatos do CRM
  * Arquitetura modular - persistência SQL real
+ * 
+ * @version 2.0.0
+ * @date 2026-01-27
  */
 
 import { apiRequest } from './api';
@@ -10,6 +13,17 @@ import type { ApiResponse } from './api';
 // =============================================================================
 // TYPES
 // =============================================================================
+
+/** Tipos de contato disponíveis */
+export type ContactType = 
+  | 'guest'        // Hóspede (vem de reserva - tipo fixo/locked)
+  | 'lead'         // Lead/Interessado
+  | 'cliente'      // Cliente ativo
+  | 'ex-cliente'   // Ex-cliente
+  | 'proprietario' // Proprietário de imóvel
+  | 'parceiro'     // Parceiro comercial/corretor
+  | 'fornecedor'   // Fornecedor
+  | 'outro';       // Outros
 
 export interface CrmContact {
   id: string;
@@ -23,6 +37,7 @@ export interface CrmContact {
   whatsapp_jid?: string;
   chat_contact_id?: string;
   company_id?: string;
+  company_name?: string; // Preenchido via JOIN
   job_title?: string;
   department?: string;
   address_street?: string;
@@ -37,7 +52,8 @@ export interface CrmContact {
   source?: string;
   source_detail?: string;
   labels?: string[];
-  contact_type?: 'lead' | 'cliente' | 'ex-cliente' | 'parceiro';
+  contact_type: ContactType;
+  is_type_locked?: boolean; // Se true, tipo não pode ser alterado (ex: guest)
   birth_date?: string;
   gender?: string;
   owner_id?: string;
@@ -45,6 +61,9 @@ export interface CrmContact {
   visible_to?: 'everyone' | 'owner_only' | 'team';
   custom_fields?: Record<string, unknown>;
   notes?: string;
+  // Novos campos v2
+  user_id?: string; // Se contato virou usuário
+  property_ids?: string[]; // Imóveis vinculados (proprietário)
   company?: { id: string; name: string };
   created_by?: string;
   created_at: string;
@@ -84,20 +103,23 @@ export interface CrmContactCreate {
 export interface CrmContactsListParams {
   page?: number;
   limit?: number;
+  offset?: number;
   search?: string;
   company_id?: string;
-  contact_type?: string;
+  contact_type?: ContactType;
   owner_id?: string;
 }
 
 export interface CrmContactsListResponse {
   data: CrmContact[];
+  total: number;
   pagination: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
   };
+}
 }
 
 // =============================================================================
@@ -107,37 +129,44 @@ export interface CrmContactsListResponse {
 /**
  * Lista contatos com paginação e filtros
  */
-export async function listContacts(params?: CrmContactsListParams): Promise<ApiResponse<CrmContactsListResponse>> {
+export async function listContacts(params?: CrmContactsListParams): Promise<CrmContactsListResponse> {
   const queryParams = new URLSearchParams();
   if (params?.page) queryParams.set('page', params.page.toString());
   if (params?.limit) queryParams.set('limit', params.limit.toString());
+  if (params?.offset) queryParams.set('offset', params.offset.toString());
   if (params?.search) queryParams.set('search', params.search);
   if (params?.company_id) queryParams.set('company_id', params.company_id);
   if (params?.contact_type) queryParams.set('contact_type', params.contact_type);
   if (params?.owner_id) queryParams.set('owner_id', params.owner_id);
 
   const query = queryParams.toString();
-  return apiRequest<CrmContactsListResponse>(`/crm/contacts${query ? `?${query}` : ''}`);
+  const result = await apiRequest<CrmContactsListResponse>(`/crm/contacts${query ? `?${query}` : ''}`);
+  return result;
 }
 
 /**
  * Busca contatos para autocomplete
  */
-export async function searchContacts(q: string): Promise<ApiResponse<CrmContact[]>> {
-  return apiRequest<CrmContact[]>(`/crm/contacts/search?q=${encodeURIComponent(q)}`);
+export async function searchContacts(q: string, type?: ContactType, limit?: number): Promise<CrmContact[]> {
+  const params = new URLSearchParams({ q });
+  if (type) params.set('type', type);
+  if (limit) params.set('limit', limit.toString());
+  
+  const result = await apiRequest<CrmContact[]>(`/crm/contacts/search?${params.toString()}`);
+  return result;
 }
 
 /**
  * Obtém um contato por ID
  */
-export async function getContact(id: string): Promise<ApiResponse<CrmContact>> {
+export async function getContact(id: string): Promise<CrmContact> {
   return apiRequest<CrmContact>(`/crm/contacts/${id}`);
 }
 
 /**
  * Cria um novo contato
  */
-export async function createContact(data: CrmContactCreate): Promise<ApiResponse<CrmContact>> {
+export async function createContact(data: CrmContactCreate): Promise<CrmContact> {
   return apiRequest<CrmContact>('/crm/contacts', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -147,7 +176,7 @@ export async function createContact(data: CrmContactCreate): Promise<ApiResponse
 /**
  * Atualiza um contato existente
  */
-export async function updateContact(id: string, data: Partial<CrmContactCreate>): Promise<ApiResponse<CrmContact>> {
+export async function updateContact(id: string, data: Partial<CrmContactCreate>): Promise<CrmContact> {
   return apiRequest<CrmContact>(`/crm/contacts/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -157,7 +186,7 @@ export async function updateContact(id: string, data: Partial<CrmContactCreate>)
 /**
  * Deleta um contato
  */
-export async function deleteContact(id: string): Promise<ApiResponse<{ message: string }>> {
+export async function deleteContact(id: string): Promise<{ message: string }> {
   return apiRequest<{ message: string }>(`/crm/contacts/${id}`, {
     method: 'DELETE',
   });
@@ -166,14 +195,14 @@ export async function deleteContact(id: string): Promise<ApiResponse<{ message: 
 /**
  * Lista deals de um contato
  */
-export async function getContactDeals(id: string): Promise<ApiResponse<unknown[]>> {
+export async function getContactDeals(id: string): Promise<unknown[]> {
   return apiRequest<unknown[]>(`/crm/contacts/${id}/deals`);
 }
 
 /**
  * Lista notas de um contato
  */
-export async function getContactNotes(id: string): Promise<ApiResponse<unknown[]>> {
+export async function getContactNotes(id: string): Promise<unknown[]> {
   return apiRequest<unknown[]>(`/crm/contacts/${id}/notes`);
 }
 

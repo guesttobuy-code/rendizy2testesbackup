@@ -101,6 +101,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { TopBar } from './components/TopBar';
 import { AutomationCreatorModal } from './components/automations/AutomationCreatorModal';
 
+// ✅ CADASTROS CRM - v1.0.104
+import { ContactsModule } from './components/crm/contacts/ContactsModule';
+import { CompaniesModule } from './components/crm/companies/CompaniesModule';
+
 import { initAutoRecovery } from './utils/autoRecovery';
 import { DealsModule } from './components/crm/DealsModule';
 import { ServicesFunnelModule } from './components/crm/ServicesFunnelModule';
@@ -1725,6 +1729,58 @@ function App() {
                       >
                         <div className="flex-1 overflow-hidden">
                           <ProprietariosManagement />
+                        </div>
+                      </div>
+                    </div>
+                  </ProtectedRoute>
+                } />
+
+                {/* ✅ ROTA CONTATOS CRM - v1.0.104 - PROTEGIDA */}
+                <Route path="/contatos" element={
+                  <ProtectedRoute>
+                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+                      <MainSidebar
+                        collapsed={sidebarCollapsed}
+                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        activeModule="contatos"
+                        onModuleChange={setActiveModule}
+                        onSearchReservation={handleSearchReservation}
+                        onAdvancedSearch={handleAdvancedSearch}
+                      />
+                      <div
+                        className={cn(
+                          "flex flex-col min-h-screen transition-all duration-300",
+                          sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"
+                        )}
+                      >
+                        <div className="flex-1 overflow-hidden">
+                          <ContactsModule />
+                        </div>
+                      </div>
+                    </div>
+                  </ProtectedRoute>
+                } />
+
+                {/* ✅ ROTA EMPRESAS CRM - v1.0.104 - PROTEGIDA */}
+                <Route path="/empresas" element={
+                  <ProtectedRoute>
+                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+                      <MainSidebar
+                        collapsed={sidebarCollapsed}
+                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        activeModule="empresas"
+                        onModuleChange={setActiveModule}
+                        onSearchReservation={handleSearchReservation}
+                        onAdvancedSearch={handleAdvancedSearch}
+                      />
+                      <div
+                        className={cn(
+                          "flex flex-col min-h-screen transition-all duration-300",
+                          sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"
+                        )}
+                      >
+                        <div className="flex-1 overflow-hidden">
+                          <CompaniesModule />
                         </div>
                       </div>
                     </div>

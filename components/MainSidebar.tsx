@@ -273,6 +273,25 @@ export function MainSidebar({
       ]
     },
     {
+      title: '📇 CADASTROS',
+      items: [
+        {
+          id: 'contatos',
+          label: 'Contatos',
+          icon: Users,
+          iconColor: 'text-white',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
+        },
+        {
+          id: 'empresas',
+          label: 'Empresas',
+          icon: Building2,
+          iconColor: 'text-white',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
+        }
+      ]
+    },
+    {
       title: 'Operacional',
       items: [
         {
@@ -283,7 +302,7 @@ export function MainSidebar({
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           submenu: [
             { id: 'usuarios-usuarios', label: 'Usuários', icon: UserCircle },
-            { id: 'usuarios-clientes', label: 'Clientes e Hóspedes', icon: Users },
+            { id: 'usuarios-clientes', label: 'Clientes e Hóspedes (legado)', icon: Users },
             { id: 'usuarios-proprietarios', label: 'Proprietários', icon: Building2 },
             { id: 'usuarios-documentos-listas', label: 'Documentos e Listas de Clientes', icon: FileText }
           ]
@@ -413,6 +432,9 @@ export function MainSidebar({
     'usuarios-documentos-listas': '/documentos-listas',
     // ✅ ROTA NOTIFICAÇÕES - v1.0.0
     'notificacoes': '/notificacoes',
+    // ✅ ROTAS CADASTROS CRM - v1.0.104
+    'contatos': '/contatos',
+    'empresas': '/empresas',
   };
 
   const handleMenuClick = (menuId: string, hasSubmenu: boolean, item?: MenuItem) => {
