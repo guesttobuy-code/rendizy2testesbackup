@@ -37,6 +37,7 @@ interface ContactFormModalProps {
 }
 
 const CONTACT_TYPES: { value: ContactType; label: string }[] = [
+  { value: 'guest', label: 'Hóspede' },
   { value: 'lead', label: 'Lead' },
   { value: 'cliente', label: 'Cliente' },
   { value: 'ex-cliente', label: 'Ex-Cliente' },
@@ -44,7 +45,6 @@ const CONTACT_TYPES: { value: ContactType; label: string }[] = [
   { value: 'parceiro', label: 'Parceiro' },
   { value: 'fornecedor', label: 'Fornecedor' },
   { value: 'outro', label: 'Outro' },
-  // 'guest' não aparece aqui pois é criado automaticamente via reserva
 ];
 
 const SOURCES = [
