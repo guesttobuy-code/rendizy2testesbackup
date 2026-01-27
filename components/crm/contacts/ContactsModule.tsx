@@ -291,7 +291,7 @@ export function ContactsModule({ initialTab = 'all' }: ContactsModuleProps) {
   // ============================================================================
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full pt-14">
       {/* Header */}
       <div className="flex-shrink-0 p-4 lg:p-6 border-b bg-white dark:bg-gray-900">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

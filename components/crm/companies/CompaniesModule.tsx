@@ -603,7 +603,7 @@ export const CompaniesModule: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-full pt-14 bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="flex-none px-6 py-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
         <div className="flex items-center justify-between">
