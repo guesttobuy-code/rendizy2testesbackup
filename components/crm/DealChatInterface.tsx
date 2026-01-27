@@ -77,11 +77,8 @@ export function DealChatInterface({ deal }: DealChatInterfaceProps) {
 
   const sourceConfig = SOURCE_CONFIG[deal.source] || SOURCE_CONFIG.OTHER;
   const contactInitials = deal.contactName
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+    ? deal.contactName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'N/A';
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -147,7 +144,7 @@ export function DealChatInterface({ deal }: DealChatInterfaceProps) {
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white">{deal.contactName}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{deal.contactName || 'Sem contato'}</p>
               <p className={cn('text-xs', sourceConfig.color)}>{sourceConfig.label}</p>
             </div>
           </div>

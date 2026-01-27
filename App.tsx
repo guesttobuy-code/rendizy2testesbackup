@@ -107,6 +107,8 @@ import { ServicesFunnelModule } from './components/crm/ServicesFunnelModule';
 import { PredeterminedFunnelModule } from './components/crm/PredeterminedFunnelModule';
 import { ModulePlaceholder } from './components/ModulePlaceholder';
 import CRMTasksDashboard from './components/crm/CRMTasksDashboard';
+import { CRMSettingsModule } from './components/crm/settings';
+import { AutomationsPage } from './components/crm/automations';
 import { ChevronLeft, ChevronRight, Plus, Filter, Download, Tag, Sparkles, TrendingUp, Database, AlertTriangle } from 'lucide-react';
 import { detectConflicts } from './utils/conflictDetection';
 import { initializeEvolutionContactsService, getEvolutionContactsService } from './utils/services/evolutionContactsService';
@@ -1776,6 +1778,8 @@ function App() {
                   <Route path="agenda" element={<ModulePlaceholder module="Agenda" />} />
                   <Route path="relatorios" element={<ModulePlaceholder module="Relatórios" />} />
                   <Route path="tarefas-arquivadas" element={<ModulePlaceholder module="Tarefas Arquivadas" />} />
+                  <Route path="configuracoes" element={<CRMSettingsModule />} />
+                  <Route path="automacoes" element={<AutomationsPage />} />
                 </Route>
 
                 {/* Módulo Automações - PROTEGIDO */}

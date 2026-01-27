@@ -88,6 +88,9 @@ import * as automationsTriggerRoutes from "./routes-automations-trigger.ts"; // 
 import * as salesRoutes from "./routes-sales.ts"; // 🛒 VENDAS: Funis + Deals
 import * as servicesRoutes from "./routes-services.ts"; // 🔧 SERVIÇOS: Funis + Tickets
 import * as predeterminedRoutes from "./routes-predetermined.ts"; // 📋 PRÉ-DETERMINADOS: Funis + Items
+import * as crmContactsRoutes from "./routes-crm-contacts.ts"; // 👤 CONTATOS: Pessoas CRM
+import * as crmCompaniesRoutes from "./routes-crm-companies.ts"; // 🏢 EMPRESAS: Organizações CRM
+import * as crmNotesRoutes from "./routes-crm-notes.ts"; // 📝 NOTAS: Observações CRM
 
 const app = new Hono();
 
@@ -1151,6 +1154,66 @@ app.delete("/crm/predetermined/items/:id", tenancyMiddleware, predeterminedRoute
 app.post("/crm/predetermined/items/:id/move", tenancyMiddleware, predeterminedRoutes.movePredeterminedItem);
 app.patch("/crm/predetermined/items/:id/checklist", tenancyMiddleware, predeterminedRoutes.updatePredeterminedItemChecklist);
 app.get("/crm/predetermined/stats", tenancyMiddleware, predeterminedRoutes.getPredeterminedStats);
+
+// ============================================================================
+// 📊 CRM MODULAR - CONTACTS (Contatos/Pessoas)
+// Cadastro de pessoas/contatos do CRM
+// ============================================================================
+app.get("/rendizy-server/crm/contacts", tenancyMiddleware, crmContactsRoutes.listContacts);
+app.get("/rendizy-server/crm/contacts/search", tenancyMiddleware, crmContactsRoutes.searchContacts);
+app.get("/rendizy-server/crm/contacts/:id", tenancyMiddleware, crmContactsRoutes.getContact);
+app.post("/rendizy-server/crm/contacts", tenancyMiddleware, crmContactsRoutes.createContact);
+app.put("/rendizy-server/crm/contacts/:id", tenancyMiddleware, crmContactsRoutes.updateContact);
+app.delete("/rendizy-server/crm/contacts/:id", tenancyMiddleware, crmContactsRoutes.deleteContact);
+app.get("/rendizy-server/crm/contacts/:id/deals", tenancyMiddleware, crmContactsRoutes.getContactDeals);
+app.get("/rendizy-server/crm/contacts/:id/notes", tenancyMiddleware, crmContactsRoutes.getContactNotes);
+// Aliases sem prefixo
+app.get("/crm/contacts", tenancyMiddleware, crmContactsRoutes.listContacts);
+app.get("/crm/contacts/search", tenancyMiddleware, crmContactsRoutes.searchContacts);
+app.get("/crm/contacts/:id", tenancyMiddleware, crmContactsRoutes.getContact);
+app.post("/crm/contacts", tenancyMiddleware, crmContactsRoutes.createContact);
+app.put("/crm/contacts/:id", tenancyMiddleware, crmContactsRoutes.updateContact);
+app.delete("/crm/contacts/:id", tenancyMiddleware, crmContactsRoutes.deleteContact);
+app.get("/crm/contacts/:id/deals", tenancyMiddleware, crmContactsRoutes.getContactDeals);
+app.get("/crm/contacts/:id/notes", tenancyMiddleware, crmContactsRoutes.getContactNotes);
+
+// ============================================================================
+// 📊 CRM MODULAR - COMPANIES (Empresas)
+// Cadastro de empresas/organizações do CRM
+// ============================================================================
+app.get("/rendizy-server/crm/companies", tenancyMiddleware, crmCompaniesRoutes.listCompanies);
+app.get("/rendizy-server/crm/companies/search", tenancyMiddleware, crmCompaniesRoutes.searchCompanies);
+app.get("/rendizy-server/crm/companies/:id", tenancyMiddleware, crmCompaniesRoutes.getCompany);
+app.post("/rendizy-server/crm/companies", tenancyMiddleware, crmCompaniesRoutes.createCompany);
+app.put("/rendizy-server/crm/companies/:id", tenancyMiddleware, crmCompaniesRoutes.updateCompany);
+app.delete("/rendizy-server/crm/companies/:id", tenancyMiddleware, crmCompaniesRoutes.deleteCompany);
+app.get("/rendizy-server/crm/companies/:id/contacts", tenancyMiddleware, crmCompaniesRoutes.getCompanyContacts);
+app.get("/rendizy-server/crm/companies/:id/deals", tenancyMiddleware, crmCompaniesRoutes.getCompanyDeals);
+// Aliases sem prefixo
+app.get("/crm/companies", tenancyMiddleware, crmCompaniesRoutes.listCompanies);
+app.get("/crm/companies/search", tenancyMiddleware, crmCompaniesRoutes.searchCompanies);
+app.get("/crm/companies/:id", tenancyMiddleware, crmCompaniesRoutes.getCompany);
+app.post("/crm/companies", tenancyMiddleware, crmCompaniesRoutes.createCompany);
+app.put("/crm/companies/:id", tenancyMiddleware, crmCompaniesRoutes.updateCompany);
+app.delete("/crm/companies/:id", tenancyMiddleware, crmCompaniesRoutes.deleteCompany);
+app.get("/crm/companies/:id/contacts", tenancyMiddleware, crmCompaniesRoutes.getCompanyContacts);
+app.get("/crm/companies/:id/deals", tenancyMiddleware, crmCompaniesRoutes.getCompanyDeals);
+
+// ============================================================================
+// 📊 CRM MODULAR - NOTES (Observações)
+// Histórico de notas vinculadas a entidades
+// ============================================================================
+app.get("/rendizy-server/crm/notes", tenancyMiddleware, crmNotesRoutes.listNotes);
+app.get("/rendizy-server/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.getNote);
+app.post("/rendizy-server/crm/notes", tenancyMiddleware, crmNotesRoutes.createNote);
+app.put("/rendizy-server/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.updateNote);
+app.delete("/rendizy-server/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.deleteNote);
+// Aliases sem prefixo
+app.get("/crm/notes", tenancyMiddleware, crmNotesRoutes.listNotes);
+app.get("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.getNote);
+app.post("/crm/notes", tenancyMiddleware, crmNotesRoutes.createNote);
+app.put("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.updateNote);
+app.delete("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.deleteNote);
 
 // ============================================================================
 // DEFAULT HANDLERS

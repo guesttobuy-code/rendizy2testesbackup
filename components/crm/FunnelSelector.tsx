@@ -288,7 +288,22 @@ export function FunnelSelector({
   const handleSaveStages = async () => {
     if (!editingFunnel) return;
 
-    if (editingStages.length === 0) {
+    // ✅ AUTO-ADD: Se houver texto no campo de nova etapa, adiciona automaticamente
+    let stagesToSave = [...editingStages];
+    if (newStageName.trim()) {
+      const autoAddStage: GenericStage = {
+        id: `stage-${Date.now()}`,
+        funnel_id: editingFunnel.id,
+        name: newStageName.trim(),
+        order: stagesToSave.length + 1,
+        color: newStageColor,
+        created_at: new Date().toISOString(),
+      };
+      stagesToSave = [...stagesToSave, autoAddStage];
+      console.log('[CRM] Auto-adicionando etapa pendente:', autoAddStage.name);
+    }
+
+    if (stagesToSave.length === 0) {
       toast.error('O funil precisa ter pelo menos uma etapa');
       return;
     }
@@ -298,15 +313,27 @@ export function FunnelSelector({
       const updateData = {
         name: editingFunnel.name,
         description: editingFunnel.description,
-        stages: editingStages.map(s => ({ name: s.name, color: s.color, order: s.order })),
+        stages: stagesToSave.map(s => ({ name: s.name, color: s.color, order: s.order })),
       };
+
+      console.log('[CRM] Salvando etapas...', { funnelId: editingFunnel.id, stages: updateData.stages });
 
       // ✅ API MODULAR - Atualizar via backend real
       const response = await api.update(editingFunnel.id, updateData);
+      
       if (response.success && response.data) {
-        const updatedFunnels = funnels.map(f => f.id === editingFunnel.id ? response.data as GenericFunnel : f);
+        console.log('[CRM] Etapas salvas com sucesso!', response.data);
+        
+        // ✅ Atualizar lista de funis com dados do servidor
+        const updatedFunnel = response.data as GenericFunnel;
+        const updatedFunnels = funnels.map(f => 
+          f.id === editingFunnel.id ? updatedFunnel : f
+        );
+        
+        // ✅ Propagar atualização para componente pai
         onFunnelsUpdate(updatedFunnels);
-        toast.success('Etapas salvas com sucesso!');
+        
+        toast.success(`Etapas salvas com sucesso! (${updatedFunnel.stages?.length || 0} etapas)`);
         closeStagesEditor();
       } else {
         throw new Error(response.error || 'Erro ao salvar etapas');

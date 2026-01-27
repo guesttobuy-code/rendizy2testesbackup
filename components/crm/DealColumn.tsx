@@ -41,10 +41,10 @@ export function DealColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col w-80 flex-shrink-0 ${isOver ? 'bg-blue-50 dark:bg-blue-900/20 rounded-lg' : ''}`}
+      className={`flex flex-col w-80 flex-shrink-0 h-full min-h-[400px] ${isOver ? 'bg-blue-50 dark:bg-blue-900/20 rounded-lg' : ''}`}
     >
       {/* Column Header */}
-      <div className="mb-4">
+      <div className="mb-4 flex-shrink-0">
         <div className="flex items-center gap-2 mb-2">
           {color && (
             <div 
@@ -62,8 +62,8 @@ export function DealColumn({
         </div>
       </div>
 
-      {/* Cards Container */}
-      <div className="flex-1 space-y-3 overflow-y-auto">
+      {/* Cards Container - com scroll vertical */}
+      <div className="flex-1 space-y-3 overflow-y-auto min-h-0 pr-1">
         {deals.length === 0 ? (
           <Card className="p-8 border-dashed border-2 border-gray-200 dark:border-gray-700">
             <p className="text-center text-sm text-gray-400 dark:text-gray-500">

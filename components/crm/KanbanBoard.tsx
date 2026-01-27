@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Deal, DealStage } from '../../types/crm';
 import { DealColumn } from './DealColumn';
-import { ScrollArea } from '../ui/scroll-area';
 import {
   DndContext,
   DragEndEvent,
@@ -85,8 +84,8 @@ export function KanbanBoard({ deals, onDealClick, onDealUpdate, onCopyDealLink, 
     return localDeals.filter(
       deal =>
         deal.title.toLowerCase().includes(query) ||
-        deal.contactName.toLowerCase().includes(query) ||
-        deal.ownerName.toLowerCase().includes(query)
+        (deal.contactName && deal.contactName.toLowerCase().includes(query)) ||
+        (deal.ownerName && deal.ownerName.toLowerCase().includes(query))
     );
   }, [localDeals, searchQuery]);
 
@@ -203,9 +202,10 @@ export function KanbanBoard({ deals, onDealClick, onDealUpdate, onCopyDealLink, 
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full bg-gray-50 dark:bg-gray-900">
-        <ScrollArea className="h-full">
-          <div className="flex gap-4 p-6 min-w-max">
+      <div className="h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
+        {/* Container com scroll horizontal e vertical */}
+        <div className="h-full overflow-x-auto overflow-y-auto">
+          <div className="flex gap-4 p-6 min-w-max min-h-full">
             {activeStages.map(stage => {
               const stageDeals = dealsByStage[stage.id] || [];
               const total = stageTotals[stage.id] || { count: 0, value: 0 };
@@ -225,7 +225,7 @@ export function KanbanBoard({ deals, onDealClick, onDealUpdate, onCopyDealLink, 
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       <DragOverlay>

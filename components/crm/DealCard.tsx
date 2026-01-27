@@ -51,11 +51,8 @@ export function DealCard({ deal, onClick, onCopyLink }: DealCardProps) {
 
   const sourceConfig = SOURCE_CONFIG[deal.source] || SOURCE_CONFIG.OTHER;
   const initials = deal.contactName
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+    ? deal.contactName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'N/A';
 
   return (
     <Card
@@ -97,7 +94,7 @@ export function DealCard({ deal, onClick, onCopyLink }: DealCardProps) {
           </AvatarFallback>
         </Avatar>
         <span className="text-xs text-gray-600 dark:text-gray-400 flex-1 truncate">
-          {deal.contactName}
+          {deal.contactName || 'Sem contato'}
         </span>
         {onCopyLink && (
           <TooltipProvider>

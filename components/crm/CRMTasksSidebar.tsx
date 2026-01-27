@@ -24,7 +24,8 @@ import {
   Archive,
   Sparkles,
   UsersIcon as TeamIcon,
-  GitBranch
+  GitBranch,
+  Zap
 } from 'lucide-react';
 
 const menuSections = [
@@ -82,6 +83,12 @@ const menuSections = [
         label: 'Proprietários',
         icon: <Building2 className="w-5 h-5" />,
         path: '/crm/proprietarios',
+      },
+      {
+        id: 'automacoes',
+        label: 'Automações',
+        icon: <Zap className="w-5 h-5" />,
+        path: '/crm/automacoes',
       },
     ]
   },
@@ -183,18 +190,6 @@ const menuSections = [
         label: 'Tarefas Arquivadas',
         icon: <Archive className="w-5 h-5" />,
         path: '/crm/tarefas-arquivadas',
-      },
-    ]
-  },
-  {
-    title: 'Inteligência',
-    items: [
-      {
-        id: 'automacoes-lab',
-        label: 'Automações IA (Beta)',
-        icon: <Sparkles className="w-5 h-5" />,
-        path: '/crm/automacoes-lab',
-        badge: 'LAB',
       },
     ]
   },

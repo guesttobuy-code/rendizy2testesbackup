@@ -339,7 +339,7 @@ export async function listSalesDeals(c: Context) {
     const limit = parseInt(c.req.query('limit') || '100');
     const offset = parseInt(c.req.query('offset') || '0');
 
-    let query = supabaseAdmin
+    let query = getSupabaseAdmin()
       .from('sales_deals')
       .select(`
         *,

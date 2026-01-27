@@ -7,7 +7,7 @@ import { FunnelSelector } from './FunnelSelector';
 import { Deal } from '../../types/crm';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Search, Plus, Sparkles, Grid3x3, List, Link2, Check } from 'lucide-react';
+import { Search, Plus, Grid3x3, List, Check, User, Mail, Phone, DollarSign, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Select,
@@ -16,8 +16,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../ui/dialog';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
 // ✅ API MODULAR - Separada por módulo (Sales, Services, Predetermined)
 import { crmSalesApi, SalesFunnel, SalesDeal } from '../../utils/api-crm-sales';
+
+// Estado inicial para novo deal
+const initialNewDeal = {
+  title: '',
+  contactName: '',
+  contactEmail: '',
+  contactPhone: '',
+  value: 0,
+  description: '',
+  expectedCloseDate: '',
+  source: 'manual',
+};
 
 export function DealsModule() {
   // ✅ URL STATE SYNC - Sincroniza estado com URL params
@@ -34,6 +55,11 @@ export function DealsModule() {
   // Estado para funis de vendas (API modular)
   const [salesFunnels, setSalesFunnels] = useState<SalesFunnel[]>([]);
   const [selectedFunnelId, setSelectedFunnelId] = useState<string | null>(null);
+  
+  // ✅ Estado para modal de novo deal
+  const [newDealModalOpen, setNewDealModalOpen] = useState(false);
+  const [newDeal, setNewDeal] = useState(initialNewDeal);
+  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
 
   // ✅ SYNC URL → STATE: Ler parâmetros da URL na inicialização
   useEffect(() => {
@@ -158,8 +184,10 @@ export function DealsModule() {
     loadDeals(funnelId);
   };
 
-  // Obter funil selecionado
-  const selectedFunnel = salesFunnels.find(f => f.id === selectedFunnelId);
+  // Obter funil selecionado com memoização para garantir re-render quando stages mudam
+  const selectedFunnel = React.useMemo(() => {
+    return salesFunnels.find(f => f.id === selectedFunnelId);
+  }, [salesFunnels, selectedFunnelId]);
 
   // Carregar deals da API
   useEffect(() => {
@@ -259,6 +287,53 @@ export function DealsModule() {
     }
   };
 
+  // ✅ CRIAR NOVO DEAL
+  const handleCreateDeal = async () => {
+    if (!newDeal.title.trim()) {
+      toast.error('Nome do negócio é obrigatório');
+      return;
+    }
+
+    if (!selectedFunnelId || !selectedFunnel?.stages?.length) {
+      toast.error('Selecione um funil com etapas');
+      return;
+    }
+
+    setIsCreatingDeal(true);
+    try {
+      // Usar primeira etapa do funil como stage inicial
+      const firstStage = selectedFunnel.stages.sort((a, b) => a.order - b.order)[0];
+
+      const response = await crmSalesApi.deals.create({
+        funnel_id: selectedFunnelId,
+        stage_id: firstStage.id,
+        title: newDeal.title.trim(),
+        contact_name: newDeal.contactName.trim() || undefined,
+        contact_email: newDeal.contactEmail.trim() || undefined,
+        contact_phone: newDeal.contactPhone.trim() || undefined,
+        value: newDeal.value || 0,
+        description: newDeal.description.trim() || undefined,
+        expected_close_date: newDeal.expectedCloseDate || undefined,
+        source: newDeal.source,
+      });
+
+      if (response.success && response.data) {
+        toast.success('Negócio criado com sucesso!');
+        setNewDealModalOpen(false);
+        setNewDeal(initialNewDeal);
+        // Recarregar deals
+        loadDeals(selectedFunnelId);
+      } else {
+        throw new Error(response.error || 'Erro ao criar negócio');
+      }
+    } catch (error: any) {
+      console.error('[SALES] Erro ao criar deal:', error);
+      toast.error(error.message || 'Erro ao criar negócio');
+    } finally {
+      setIsCreatingDeal(false);
+    }
+  };
+
   if (selectedDeal) {
     return (
       <DealDetail
@@ -286,15 +361,27 @@ export function DealsModule() {
               selectedFunnelId={selectedFunnelId}
               onFunnelChange={handleFunnelChange}
               funnels={salesFunnels}
-              onFunnelsUpdate={setSalesFunnels}
+              onFunnelsUpdate={(updatedFunnels) => {
+                // ✅ Atualizar funis E forçar refresh visual
+                setSalesFunnels(updatedFunnels);
+                // Se o funil editado é o selecionado, forçar refresh dos deals
+                const editedFunnel = updatedFunnels.find(f => f.id === selectedFunnelId);
+                if (editedFunnel) {
+                  console.log('[SALES] Funil atualizado com novas stages:', editedFunnel.stages?.length);
+                }
+              }}
             />
             <Button variant="outline" size="sm">
               <Plus className="w-4 h-4 mr-2" />
               Nova Automação
             </Button>
-            <Button size="sm" className="bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800">
-              <Sparkles className="w-4 h-4 mr-2" />
-              AI chat
+            <Button 
+              size="sm" 
+              onClick={() => setNewDealModalOpen(true)}
+              className="bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Negócio
             </Button>
           </div>
         </div>
@@ -368,6 +455,141 @@ export function DealsModule() {
           />
         )}
       </div>
+
+      {/* Modal de Novo Negócio */}
+      <Dialog open={newDealModalOpen} onOpenChange={setNewDealModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-green-600" />
+              Novo Negócio
+            </DialogTitle>
+            <DialogDescription>
+              Criar negócio no funil "{selectedFunnel?.name}". Será adicionado na primeira etapa.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {/* Nome do Negócio */}
+            <div className="space-y-2">
+              <Label htmlFor="deal-title" className="flex items-center gap-2">
+                <span className="text-red-500">*</span> Nome do Negócio
+              </Label>
+              <Input
+                id="deal-title"
+                value={newDeal.title}
+                onChange={(e) => setNewDeal(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Ex: Venda Apartamento Centro"
+                autoFocus
+              />
+            </div>
+
+            {/* Valor */}
+            <div className="space-y-2">
+              <Label htmlFor="deal-value" className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-gray-400" />
+                Valor (R$)
+              </Label>
+              <Input
+                id="deal-value"
+                type="number"
+                min={0}
+                value={newDeal.value || ''}
+                onChange={(e) => setNewDeal(prev => ({ ...prev, value: parseFloat(e.target.value) || 0 }))}
+                placeholder="0.00"
+              />
+            </div>
+
+            {/* Contato */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="deal-contact" className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  Nome do Contato
+                </Label>
+                <Input
+                  id="deal-contact"
+                  value={newDeal.contactName}
+                  onChange={(e) => setNewDeal(prev => ({ ...prev, contactName: e.target.value }))}
+                  placeholder="João Silva"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deal-phone" className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  Telefone
+                </Label>
+                <Input
+                  id="deal-phone"
+                  value={newDeal.contactPhone}
+                  onChange={(e) => setNewDeal(prev => ({ ...prev, contactPhone: e.target.value }))}
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="deal-email" className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-gray-400" />
+                Email
+              </Label>
+              <Input
+                id="deal-email"
+                type="email"
+                value={newDeal.contactEmail}
+                onChange={(e) => setNewDeal(prev => ({ ...prev, contactEmail: e.target.value }))}
+                placeholder="email@exemplo.com"
+              />
+            </div>
+
+            {/* Data Prevista de Fechamento */}
+            <div className="space-y-2">
+              <Label htmlFor="deal-date" className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                Previsão de Fechamento
+              </Label>
+              <Input
+                id="deal-date"
+                type="date"
+                value={newDeal.expectedCloseDate}
+                onChange={(e) => setNewDeal(prev => ({ ...prev, expectedCloseDate: e.target.value }))}
+              />
+            </div>
+
+            {/* Descrição */}
+            <div className="space-y-2">
+              <Label htmlFor="deal-description">Descrição</Label>
+              <Textarea
+                id="deal-description"
+                value={newDeal.description}
+                onChange={(e) => setNewDeal(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Detalhes sobre este negócio..."
+                rows={3}
+              />
+            </div>
+
+            {/* Botões */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setNewDealModalOpen(false);
+                  setNewDeal(initialNewDeal);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleCreateDeal}
+                disabled={isCreatingDeal || !newDeal.title.trim()}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isCreatingDeal ? 'Criando...' : 'Criar Negócio'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

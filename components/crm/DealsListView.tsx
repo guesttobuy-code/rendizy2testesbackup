@@ -64,11 +64,8 @@ export function DealsListView({ deals, onDealClick, onDealUpdate, onCopyDealLink
         deals.map(deal => {
           const sourceConfig = SOURCE_CONFIG[deal.source] || SOURCE_CONFIG.OTHER;
           const initials = deal.contactName
-            .split(' ')
-            .map(n => n[0])
-            .join('')
-            .toUpperCase()
-            .slice(0, 2);
+            ? deal.contactName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+            : 'N/A';
 
           return (
             <Card
@@ -121,10 +118,10 @@ export function DealsListView({ deals, onDealClick, onDealUpdate, onCopyDealLink
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {deal.contactName}
+                        {deal.contactName || 'Sem contato'}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Responsável: {deal.ownerName}
+                        Responsável: {deal.ownerName || 'Não atribuído'}
                       </p>
                     </div>
                     {deal.expectedCloseDate && (

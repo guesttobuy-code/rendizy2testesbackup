@@ -37,19 +37,24 @@ export function DealDetailLeft({ deal, onUpdate }: DealDetailLeftProps) {
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
 
+  // ✅ Tratar valores nulos para evitar erro de split
   const contactInitials = deal.contactName
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+    ? deal.contactName
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'N/A';
 
   const ownerInitials = deal.ownerName
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+    ? deal.ownerName
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'N/A';
 
   const handleSaveActivity = async () => {
     if (!activityDescription.trim() || !user) return;
@@ -245,8 +250,8 @@ export function DealDetailLeft({ deal, onUpdate }: DealDetailLeftProps) {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{deal.contactName}</p>
-                  <p className="text-xs text-gray-500 truncate">Responsável: {deal.ownerName}</p>
+                  <p className="font-semibold text-sm truncate">{deal.contactName || 'Sem contato'}</p>
+                  <p className="text-xs text-gray-500 truncate">Responsável: {deal.ownerName || 'Não atribuído'}</p>
                 </div>
               </div>
 
@@ -254,7 +259,7 @@ export function DealDetailLeft({ deal, onUpdate }: DealDetailLeftProps) {
                 <div className="flex items-center gap-2 text-sm">
                   <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <span className="text-gray-600 dark:text-gray-400 truncate text-xs">
-                    {deal.contactName.toLowerCase().replace(' ', '')}@company.com
+                    {deal.contactEmail || 'Sem email'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
