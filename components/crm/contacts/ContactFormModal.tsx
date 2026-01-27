@@ -345,15 +345,15 @@ export function ContactFormModal({
               <div className="space-y-2">
                 <Label htmlFor="company_id">Empresa</Label>
                 <Select
-                  value={formData.company_id}
-                  onValueChange={(value) => handleChange('company_id', value)}
+                  value={formData.company_id || '_none_'}
+                  onValueChange={(value) => handleChange('company_id', value === '_none_' ? '' : value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma empresa" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma</SelectItem>
-                    {companies.map(company => (
+                    <SelectItem value="_none_">Nenhuma</SelectItem>
+                    {companies.filter(c => c.id).map(company => (
                       <SelectItem key={company.id} value={company.id}>
                         {company.name}
                       </SelectItem>
