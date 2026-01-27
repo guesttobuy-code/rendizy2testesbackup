@@ -52,17 +52,11 @@ export function MyTasksView() {
       // Buscar tarefas do usuário via nova API
       const response = await crmTasksApi.getMyTasks();
       
-      if (response.success && response.data) {
-        // Flatten de todas as categorias em uma lista única
-        const allTasks: CrmTask[] = [
-          ...response.data.overdue,
-          ...response.data.today,
-          ...response.data.tomorrow,
-          ...response.data.thisWeek,
-          ...response.data.later,
-          ...response.data.noDueDate,
-        ];
-        setTasks(allTasks);
+      if (response.success) {
+        // API retorna { data: [...], categorized: {...} }
+        // Usar data diretamente (é o array de tarefas)
+        const tasksData = response.data || [];
+        setTasks(tasksData);
       } else {
         console.error('Erro ao carregar tarefas:', response.error);
         toast.error('Erro ao carregar tarefas');

@@ -11,7 +11,6 @@ import { cn } from '../ui/utils';
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '../ui/tooltip';
 
@@ -60,12 +59,12 @@ export function SortableTicketCard({ ticket, onClick, onCopyLink }: SortableTick
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const StatusIcon = STATUS_ICONS[ticket.status];
-  const priorityColor = PRIORITY_COLORS[ticket.priority];
-  const statusColor = STATUS_COLORS[ticket.status];
+  const StatusIcon = STATUS_ICONS[ticket.status] || AlertCircle;
+  const priorityColor = PRIORITY_COLORS[ticket.priority] || 'border-l-gray-500';
+  const statusColor = STATUS_COLORS[ticket.status] || 'text-gray-600';
 
-  const taskCount = ticket.tasks.length;
-  const completedTasks = ticket.tasks.filter(t => t.status === 'COMPLETED').length;
+  const taskCount = ticket.tasks?.length || 0;
+  const completedTasks = ticket.tasks?.filter(t => t.status === 'COMPLETED').length || 0;
 
   const assignedInitials = ticket.assignedToName
     ? ticket.assignedToName
@@ -128,26 +127,24 @@ export function SortableTicketCard({ ticket, onClick, onCopyLink }: SortableTick
                 {ticket.assignedToName}
               </span>
               {onCopyLink && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCopyLink();
-                        }}
-                      >
-                        <Link2 className="w-3.5 h-3.5 text-gray-400 hover:text-blue-500" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Copiar link do ticket</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCopyLink();
+                      }}
+                    >
+                      <Link2 className="w-3.5 h-3.5 text-gray-400 hover:text-blue-500" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copiar link do ticket</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           )}

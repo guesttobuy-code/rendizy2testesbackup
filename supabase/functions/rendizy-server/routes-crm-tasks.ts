@@ -210,6 +210,11 @@ export async function getMyTasks(c: Context) {
     
     const statuses = status.split(',');
     
+    // DEBUG: Log do userId
+    console.log(`[CRM Tasks] getMyTasks - userId: ${userId}, organizationId: ${organizationId}`);
+    
+    // Buscar tarefas da organização (simplificado para debug)
+    // Tarefas atribuídas ao usuário OU sem assignee (tarefas não atribuídas)
     const { data, error, count } = await supabase
       .from('crm_tasks')
       .select(`
@@ -218,10 +223,14 @@ export async function getMyTasks(c: Context) {
         ticket:service_tickets(id, title, status)
       `, { count: 'exact' })
       .eq('organization_id', organizationId)
-      .eq('assignee_id', userId)
       .in('status', statuses)
       .order('due_date', { ascending: true, nullsFirst: false })
       .limit(limit);
+    
+    console.log(`[CRM Tasks] getMyTasks - encontradas: ${data?.length || 0} tarefas`);
+    if (error) {
+      console.error('[CRM Tasks] getMyTasks - erro:', error);
+    }
     
     if (error) {
       console.error('[CRM Tasks] Erro ao buscar minhas tarefas:', error);
@@ -520,6 +529,19 @@ export async function createTask(c: Context) {
       assigneeName = assigneeData?.name;
     }
     
+    // Se não especificar assignee, auto-atribuir ao criador
+    const finalAssigneeId = body.assignee_id || userId;
+    
+    // Buscar nome do assignee se for o próprio usuário e não tiver nome fornecido
+    if (!assigneeName && finalAssigneeId === userId) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', userId)
+        .single();
+      assigneeName = userData?.name || null;
+    }
+    
     const taskData = {
       organization_id: organizationId,
       title: body.title.trim(),
@@ -535,7 +557,7 @@ export async function createTask(c: Context) {
       due_time: body.due_time || null,
       duration_minutes: body.duration_minutes || null,
       reminder_at: body.reminder_at || null,
-      assignee_id: body.assignee_id || null,
+      assignee_id: finalAssigneeId,
       assignee_name: assigneeName || null,
       created_by: userId,
       status: body.status || 'pending',
