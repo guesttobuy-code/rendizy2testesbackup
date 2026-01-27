@@ -26,9 +26,11 @@ import {
 } from '../../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, User, Building2, MapPin, Globe, Info, Crown, CreditCard, Home, FileText } from 'lucide-react';
+import { Loader2, User, Building2, MapPin, Globe, Info, Crown, CreditCard, Home, FileText, Plus, X, Trash2 } from 'lucide-react';
 import { crmContactsApi, CrmContact, ContactType, ContractType, BankData } from '../../../src/utils/api-crm-contacts';
 import { crmCompaniesApi, CrmCompany } from '../../../src/utils/api-crm-companies';
+import { propertiesApi } from '../../../utils/api';
+import { Badge } from '../../ui/badge';
 
 interface ContactFormModalProps {
   open: boolean;
@@ -85,6 +87,13 @@ export function ContactFormModal({
   // Form state
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<CrmCompany[]>([]);
+  
+  // Imóveis vinculados (para proprietários)
+  const [linkedProperties, setLinkedProperties] = useState<any[]>([]);
+  const [allProperties, setAllProperties] = useState<any[]>([]);
+  const [loadingProperties, setLoadingProperties] = useState(false);
+  const [selectedPropertyToAdd, setSelectedPropertyToAdd] = useState('');
+  
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -242,6 +251,66 @@ export function ContactFormModal({
     }
   }, [open]);
 
+  // Carregar propriedades (todas e vinculadas ao proprietário)
+  useEffect(() => {
+    if (open && formData.contact_type === 'proprietario') {
+      setLoadingProperties(true);
+      propertiesApi.list().then(res => {
+        const props = res.data || [];
+        setAllProperties(props);
+        
+        // Se é edição, filtrar propriedades vinculadas a este contato
+        if (contact?.id) {
+          const linked = props.filter((p: any) => 
+            p.owner_contact_id === contact.id || 
+            p.data?.owner_contact_id === contact.id
+          );
+          setLinkedProperties(linked);
+        } else {
+          setLinkedProperties([]);
+        }
+      }).catch(err => {
+        console.error('Erro ao carregar propriedades:', err);
+      }).finally(() => {
+        setLoadingProperties(false);
+      });
+    }
+  }, [open, formData.contact_type, contact?.id]);
+
+  // Adicionar imóvel ao proprietário
+  const handleAddProperty = async (propertyId: string) => {
+    if (!propertyId || !contact?.id) return;
+    
+    try {
+      await propertiesApi.update(propertyId, { owner_contact_id: contact.id } as any);
+      toast.success('Imóvel vinculado com sucesso!');
+      
+      // Atualizar lista local
+      const property = allProperties.find(p => p.id === propertyId);
+      if (property) {
+        setLinkedProperties(prev => [...prev, property]);
+      }
+      setSelectedPropertyToAdd('');
+    } catch (err) {
+      console.error('Erro ao vincular imóvel:', err);
+      toast.error('Erro ao vincular imóvel');
+    }
+  };
+
+  // Remover vínculo de imóvel
+  const handleRemoveProperty = async (propertyId: string) => {
+    if (!propertyId) return;
+    
+    try {
+      await propertiesApi.update(propertyId, { owner_contact_id: null } as any);
+      toast.success('Vínculo removido');
+      setLinkedProperties(prev => prev.filter(p => p.id !== propertyId));
+    } catch (err) {
+      console.error('Erro ao remover vínculo:', err);
+      toast.error('Erro ao remover vínculo');
+    }
+  };
+
   const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -334,7 +403,7 @@ export function ContactFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl min-h-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? 'Editar Contato' : 'Novo Contato'}
@@ -349,34 +418,41 @@ export function ContactFormModal({
 
         <form onSubmit={handleSubmit}>
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className={`grid w-full ${isProprietario ? 'grid-cols-6' : showDocuments ? 'grid-cols-5' : 'grid-cols-4'}`}>
-              <TabsTrigger value="basic">
-                <User className="h-4 w-4 mr-2" />
-                Básico
+            {/* Tabs em 2+ linhas para proprietário (7 tabs), ou 1 linha para outros */}
+            <TabsList className={`w-full h-auto flex flex-wrap gap-1 ${isProprietario ? 'grid grid-cols-4 grid-rows-2' : showDocuments ? 'grid grid-cols-5' : 'grid grid-cols-4'}`}>
+              <TabsTrigger value="basic" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <User className="h-4 w-4" />
+                <span>Básico</span>
               </TabsTrigger>
               {showDocuments && (
-                <TabsTrigger value="documents">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Documentos
+                <TabsTrigger value="documents" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                  <FileText className="h-4 w-4" />
+                  <span>Documentos</span>
                 </TabsTrigger>
               )}
-              <TabsTrigger value="company">
-                <Building2 className="h-4 w-4 mr-2" />
-                Empresa
+              <TabsTrigger value="company" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Building2 className="h-4 w-4" />
+                <span>Empresa</span>
               </TabsTrigger>
-              <TabsTrigger value="address">
-                <MapPin className="h-4 w-4 mr-2" />
-                Endereço
+              <TabsTrigger value="address" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <MapPin className="h-4 w-4" />
+                <span>Endereço</span>
               </TabsTrigger>
               {isProprietario && (
-                <TabsTrigger value="owner">
-                  <Crown className="h-4 w-4 mr-2" />
-                  Proprietário
+                <TabsTrigger value="owner" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                  <Crown className="h-4 w-4" />
+                  <span>Proprietário</span>
                 </TabsTrigger>
               )}
-              <TabsTrigger value="other">
-                <Info className="h-4 w-4 mr-2" />
-                Outros
+              {isProprietario && isEdit && (
+                <TabsTrigger value="properties" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                  <Home className="h-4 w-4" />
+                  <span>Imóveis</span>
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="other" className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <Info className="h-4 w-4" />
+                <span>Outros</span>
               </TabsTrigger>
             </TabsList>
 
@@ -836,6 +912,117 @@ export function ContactFormModal({
                       </p>
                     </div>
                   </div>
+                </div>
+              </TabsContent>
+            )}
+
+            {/* Tab: Imóveis (só para proprietários em edição) */}
+            {isProprietario && isEdit && (
+              <TabsContent value="properties" className="space-y-4 mt-4">
+                <div className="space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">Imóveis Vinculados</h3>
+                      <p className="text-sm text-gray-500">
+                        {linkedProperties.length} {linkedProperties.length === 1 ? 'imóvel vinculado' : 'imóveis vinculados'} a este proprietário
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Adicionar imóvel */}
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label>Adicionar Imóvel</Label>
+                      <Select
+                        value={selectedPropertyToAdd}
+                        onValueChange={setSelectedPropertyToAdd}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um imóvel para vincular..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allProperties
+                            .filter(p => !linkedProperties.some(lp => lp.id === p.id))
+                            .map(property => (
+                              <SelectItem key={property.id} value={property.id}>
+                                {property.data?.basicInfo?.name || property.name || property.internal_id || property.id.slice(0, 8)}
+                              </SelectItem>
+                            ))
+                          }
+                          {allProperties.filter(p => !linkedProperties.some(lp => lp.id === p.id)).length === 0 && (
+                            <SelectItem value="_none_" disabled>
+                              Todos os imóveis já estão vinculados
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleAddProperty(selectedPropertyToAdd)}
+                      disabled={!selectedPropertyToAdd || loadingProperties}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Vincular
+                    </Button>
+                  </div>
+
+                  {/* Lista de imóveis vinculados */}
+                  {loadingProperties ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    </div>
+                  ) : linkedProperties.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 border rounded-lg bg-gray-50">
+                      <Home className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                      <p>Nenhum imóvel vinculado a este proprietário</p>
+                      <p className="text-sm">Use o seletor acima para vincular imóveis</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {linkedProperties.map(property => (
+                        <div
+                          key={property.id}
+                          className="flex items-center justify-between p-3 border rounded-lg bg-white hover:bg-gray-50"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-blue-100">
+                              <Home className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {property.data?.basicInfo?.name || property.name || 'Sem nome'}
+                              </p>
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                {property.internal_id && (
+                                  <span>#{property.internal_id}</span>
+                                )}
+                                {property.data?.location?.city && (
+                                  <span>• {property.data.location.city}</span>
+                                )}
+                                {property.status && (
+                                  <Badge variant={property.status === 'active' ? 'default' : 'secondary'}>
+                                    {property.status === 'active' ? 'Ativo' : property.status}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleRemoveProperty(property.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             )}

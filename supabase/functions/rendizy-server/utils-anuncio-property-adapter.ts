@@ -43,6 +43,7 @@ export const ANUNCIO_SELECT_FOR_PROPERTY = `
   id,
   organization_id,
   user_id,
+  owner_contact_id,
   status,
   title,
   data,
@@ -183,6 +184,7 @@ export function anuncioToProperty(row: any): any {
   
   // Campo extra para rastreabilidade (fora do literal para evitar erro de tipo)
   result.organizationId = row.organization_id;
+  result.owner_contact_id = row.owner_contact_id || null; // FK para crm_contacts (proprietário)
   
   return result;
 }
@@ -271,6 +273,7 @@ export function propertyToAnuncio(
     id: property.id, // Pode ser undefined para INSERT (banco gera UUID)
     organization_id: organizationId,
     user_id: userId || null,
+    owner_contact_id: (property as any).owner_contact_id || null, // FK para crm_contacts (proprietário)
     status: property.status || "draft",
     title: property.name || "Sem nome",
     data,
@@ -303,6 +306,11 @@ export function propertyUpdateToAnuncioUpdate(updates: Partial<Property>): any {
   // Completion percentage é coluna separada
   if (updates.completionPercentage !== undefined) {
     result.completion_percentage = updates.completionPercentage;
+  }
+  
+  // owner_contact_id é coluna separada (FK para crm_contacts)
+  if ((updates as any).owner_contact_id !== undefined) {
+    result.owner_contact_id = (updates as any).owner_contact_id;
   }
   
   // Tudo mais vai no data JSONB (será merged via JSONB functions)

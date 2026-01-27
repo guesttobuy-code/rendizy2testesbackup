@@ -189,8 +189,10 @@ export function ContactsModule({ initialTab = 'all' }: ContactsModuleProps) {
         setTotalCount(contactsData.length);
       } else {
         const result = await crmContactsApi.list(params);
-        setContacts(result.data?.data || []);
-        setTotalCount(result.data?.total || 0);
+        // Backend retorna: {success, data: [...], pagination: {...}}
+        // apiRequest retorna diretamente o JSON, então result.data é o array
+        setContacts(result.data || []);
+        setTotalCount(result.pagination?.total || 0);
       }
     } catch (error) {
       console.error('Erro ao carregar contatos:', error);

@@ -2072,6 +2072,11 @@ export async function updateProperty(c: Context) {
         },
       }),
 
+      // 🆕 v2026.01.27 - Proprietário (FK para crm_contacts)
+      ...((body as any).owner_contact_id !== undefined && {
+        owner_contact_id: (body as any).owner_contact_id,
+      }),
+
       updatedAt: getCurrentDateTime(),
     };
 
