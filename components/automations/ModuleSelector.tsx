@@ -44,7 +44,6 @@ const MODULE_SECTIONS: ModuleSection[] = [
           { id: 'usuarios-usuarios', label: 'Usuários' },
           { id: 'usuarios-clientes', label: 'Clientes e Hóspedes' },
           { id: 'usuarios-proprietarios', label: 'Proprietários' },
-          { id: 'usuarios-documentos-listas', label: 'Documentos e Listas' },
         ],
       },
       { id: 'notificacoes', label: 'Notificações' },

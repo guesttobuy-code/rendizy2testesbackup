@@ -67,7 +67,7 @@ import { TenantManagement } from './components/TenantManagement';
 import { UserManagement } from './components/UserManagement';
 import { ClientsAndGuestsManagement } from './components/ClientsAndGuestsManagement';
 import { ProprietariosManagement } from './components/ProprietariosManagement';
-import { DocumentosListasClientes } from './components/DocumentosListasClientes';
+// ❌ REMOVIDO - Documentos e Listas deprecado
 import { ReservationsManagement } from './components/ReservationsManagement';
 import { BookingComIntegration } from './components/BookingComIntegration';
 import { LocationsAndListings } from './components/LocationsAndListings';
@@ -2214,7 +2214,6 @@ function getModuleName(moduleId: string): string {
     'usuarios-usuarios': 'Usuários',
     'usuarios-clientes': 'Clientes e Hóspedes',
     'usuarios-proprietarios': 'Proprietários',
-    'usuarios-documentos-listas': 'Documentos e Listas de Clientes',
     'assistentes': 'Suporte',
     'assistentes-duplicados': 'E-mails Duplicados',
     'assistentes-perfis': 'Perfis de Cadastro',
@@ -2259,7 +2258,6 @@ function getModuleDescription(moduleId: string): string {
     'usuarios-usuarios': 'Administre usuários do sistema e suas permissões.',
     'usuarios-clientes': 'Gerencie clientes (compradores, locadores residenciais e hóspedes de temporada).',
     'usuarios-proprietarios': 'Administre informações dos proprietários de imóveis.',
-    'usuarios-documentos-listas': 'Visualize e exporte listas de clientes, documentos, leads, compras e canais.',
     'assistentes': 'Ferramentas auxiliares para administração e manutenção do sistema.',
     'assistentes-duplicados': 'Identifique e mescle cadastros duplicados de e-mails.',
     'assistentes-perfis': 'Configure perfis padrão de cadastro.',

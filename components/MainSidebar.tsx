@@ -302,8 +302,7 @@ export function MainSidebar({
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           submenu: [
-            { id: 'usuarios-usuarios', label: 'Usuários', icon: UserCircle },
-            { id: 'usuarios-documentos-listas', label: 'Documentos e Listas', icon: FileText }
+            { id: 'usuarios-usuarios', label: 'Usuários', icon: UserCircle }
           ]
         },
         {
@@ -428,7 +427,6 @@ export function MainSidebar({
     'usuarios-usuarios': '/usuarios',
     'usuarios-clientes': '/clientes-hospedes',
     'usuarios-proprietarios': '/proprietarios',
-    'usuarios-documentos-listas': '/documentos-listas',
     // ✅ ROTA NOTIFICAÇÕES - v1.0.0
     'notificacoes': '/notificacoes',
     // ✅ ROTAS CADASTROS CRM - v1.0.104
