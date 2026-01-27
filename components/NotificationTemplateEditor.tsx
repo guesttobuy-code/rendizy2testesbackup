@@ -223,13 +223,13 @@ export default function NotificationTemplateEditor({
   // Conteúdo por canal
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
-  const [emailProvider, setEmailProvider] = useState('');
+  const [emailProvider, setEmailProvider] = useState('__default__');
   
   const [smsBody, setSmsBody] = useState('');
-  const [smsProvider, setSmsProvider] = useState('');
+  const [smsProvider, setSmsProvider] = useState('__default__');
   
   const [whatsappBody, setWhatsappBody] = useState('');
-  const [whatsappProvider, setWhatsappProvider] = useState('');
+  const [whatsappProvider, setWhatsappProvider] = useState('__default__');
   
   const [inAppTitle, setInAppTitle] = useState('');
   const [inAppBody, setInAppBody] = useState('');
@@ -254,18 +254,18 @@ export default function NotificationTemplateEditor({
         const { configuredProviders } = await listNotificationProviders();
         
         setEmailProviders([
-          { value: '', label: 'Padrão (automático)', configured: true },
+          { value: '__default__', label: 'Padrão (automático)', configured: true },
           { value: 'resend', label: 'Resend', configured: configuredProviders.email?.includes('resend') },
           { value: 'brevo-email', label: 'Brevo', configured: configuredProviders.email?.includes('brevo-email') },
         ]);
         
         setSmsProviders([
-          { value: '', label: 'Padrão (automático)', configured: true },
+          { value: '__default__', label: 'Padrão (automático)', configured: true },
           { value: 'brevo-sms', label: 'Brevo SMS', configured: configuredProviders.sms?.includes('brevo-sms') },
         ]);
         
         setWhatsappProviders([
-          { value: '', label: 'Padrão (automático)', configured: true },
+          { value: '__default__', label: 'Padrão (automático)', configured: true },
           { value: 'evolution-api', label: 'Evolution API', configured: configuredProviders.whatsapp?.includes('evolution-api') },
         ]);
       } catch (err) {
@@ -290,13 +290,13 @@ export default function NotificationTemplateEditor({
       
       setEmailSubject(template.email_subject || '');
       setEmailBody(template.email_body || '');
-      setEmailProvider(template.email_provider || '');
+      setEmailProvider(template.email_provider || '__default__');
       
       setSmsBody(template.sms_body || '');
-      setSmsProvider(template.sms_provider || '');
+      setSmsProvider(template.sms_provider || '__default__');
       
       setWhatsappBody(template.whatsapp_body || '');
-      setWhatsappProvider(template.whatsapp_provider || '');
+      setWhatsappProvider(template.whatsapp_provider || '__default__');
       
       setInAppTitle(template.in_app_title || '');
       setInAppBody(template.in_app_body || '');
@@ -310,11 +310,11 @@ export default function NotificationTemplateEditor({
       setChannels(['email']);
       setEmailSubject('');
       setEmailBody('');
-      setEmailProvider('');
+      setEmailProvider('__default__');
       setSmsBody('');
-      setSmsProvider('');
+      setSmsProvider('__default__');
       setWhatsappBody('');
-      setWhatsappProvider('');
+      setWhatsappProvider('__default__');
       setInAppTitle('');
       setInAppBody('');
     }
@@ -400,6 +400,10 @@ export default function NotificationTemplateEditor({
 
     setIsSaving(true);
     try {
+      // Converter __default__ de volta para undefined (null no banco)
+      const getProvider = (provider: string) => 
+        provider && provider !== '__default__' ? provider : undefined;
+
       const input: NotificationTemplateInput = {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -409,11 +413,11 @@ export default function NotificationTemplateEditor({
         channels,
         email_subject: channels.includes('email') ? emailSubject : undefined,
         email_body: channels.includes('email') ? emailBody : undefined,
-        email_provider: channels.includes('email') && emailProvider ? emailProvider : undefined,
+        email_provider: channels.includes('email') ? getProvider(emailProvider) : undefined,
         sms_body: channels.includes('sms') ? smsBody : undefined,
-        sms_provider: channels.includes('sms') && smsProvider ? smsProvider : undefined,
+        sms_provider: channels.includes('sms') ? getProvider(smsProvider) : undefined,
         whatsapp_body: channels.includes('whatsapp') ? whatsappBody : undefined,
-        whatsapp_provider: channels.includes('whatsapp') && whatsappProvider ? whatsappProvider : undefined,
+        whatsapp_provider: channels.includes('whatsapp') ? getProvider(whatsappProvider) : undefined,
         in_app_title: channels.includes('in_app') ? inAppTitle : undefined,
         in_app_body: channels.includes('in_app') ? inAppBody : undefined,
       };
@@ -625,10 +629,10 @@ export default function NotificationTemplateEditor({
                           <SelectItem 
                             key={p.value || 'default'} 
                             value={p.value}
-                            disabled={!p.configured && p.value !== ''}
+                            disabled={!p.configured && p.value !== '__default__'}
                           >
                             {p.label}
-                            {!p.configured && p.value !== '' && ' (não configurado)'}
+                            {!p.configured && p.value !== '__default__' && ' (não configurado)'}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -701,10 +705,10 @@ export default function NotificationTemplateEditor({
                           <SelectItem 
                             key={p.value || 'default'} 
                             value={p.value}
-                            disabled={!p.configured && p.value !== ''}
+                            disabled={!p.configured && p.value !== '__default__'}
                           >
                             {p.label}
-                            {!p.configured && p.value !== '' && ' (não configurado)'}
+                            {!p.configured && p.value !== '__default__' && ' (não configurado)'}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -773,10 +777,10 @@ export default function NotificationTemplateEditor({
                           <SelectItem 
                             key={p.value || 'default'} 
                             value={p.value}
-                            disabled={!p.configured && p.value !== ''}
+                            disabled={!p.configured && p.value !== '__default__'}
                           >
                             {p.label}
-                            {!p.configured && p.value !== '' && ' (não configurado)'}
+                            {!p.configured && p.value !== '__default__' && ' (não configurado)'}
                           </SelectItem>
                         ))}
                       </SelectContent>

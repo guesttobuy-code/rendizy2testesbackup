@@ -91,6 +91,7 @@ import * as predeterminedRoutes from "./routes-predetermined.ts"; // 📋 PRÉ-D
 import * as crmContactsRoutes from "./routes-crm-contacts.ts"; // 👤 CONTATOS: Pessoas CRM
 import * as crmCompaniesRoutes from "./routes-crm-companies.ts"; // 🏢 EMPRESAS: Organizações CRM
 import * as crmNotesRoutes from "./routes-crm-notes.ts"; // 📝 NOTAS: Observações CRM
+import * as crmTasksRoutes from "./routes-crm-tasks.ts"; // ✅ TAREFAS: Tasks/Atividades CRM
 import * as notificationProvidersRoutes from "./routes-notification-providers.ts"; // 📬 NOTIFICAÇÕES: Config de providers
 import * as notificationTemplatesRoutes from "./routes-notification-templates.ts"; // 📝 NOTIFICAÇÕES: Templates multi-canal
 
@@ -1216,6 +1217,28 @@ app.get("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.getNote);
 app.post("/crm/notes", tenancyMiddleware, crmNotesRoutes.createNote);
 app.put("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.updateNote);
 app.delete("/crm/notes/:id", tenancyMiddleware, crmNotesRoutes.deleteNote);
+
+// ============================================================================
+// ✅ CRM MODULAR - TASKS (Tarefas/Atividades)
+// Gestão de tarefas vinculadas a deals, tickets, contatos, etc.
+// ============================================================================
+app.get("/rendizy-server/crm/tasks", tenancyMiddleware, crmTasksRoutes.listTasks);
+app.get("/rendizy-server/crm/tasks/my", tenancyMiddleware, crmTasksRoutes.getMyTasks);
+app.get("/rendizy-server/crm/tasks/stats", tenancyMiddleware, crmTasksRoutes.getTaskStats);
+app.get("/rendizy-server/crm/tasks/:id", tenancyMiddleware, crmTasksRoutes.getTask);
+app.post("/rendizy-server/crm/tasks", tenancyMiddleware, crmTasksRoutes.createTask);
+app.put("/rendizy-server/crm/tasks/:id", tenancyMiddleware, crmTasksRoutes.updateTask);
+app.delete("/rendizy-server/crm/tasks/:id", tenancyMiddleware, crmTasksRoutes.deleteTask);
+app.patch("/rendizy-server/crm/tasks/:id/complete", tenancyMiddleware, crmTasksRoutes.completeTask);
+// Aliases sem prefixo
+app.get("/crm/tasks", tenancyMiddleware, crmTasksRoutes.listTasks);
+app.get("/crm/tasks/my", tenancyMiddleware, crmTasksRoutes.getMyTasks);
+app.get("/crm/tasks/stats", tenancyMiddleware, crmTasksRoutes.getTaskStats);
+app.get("/crm/tasks/:id", tenancyMiddleware, crmTasksRoutes.getTask);
+app.post("/crm/tasks", tenancyMiddleware, crmTasksRoutes.createTask);
+app.put("/crm/tasks/:id", tenancyMiddleware, crmTasksRoutes.updateTask);
+app.delete("/crm/tasks/:id", tenancyMiddleware, crmTasksRoutes.deleteTask);
+app.patch("/crm/tasks/:id/complete", tenancyMiddleware, crmTasksRoutes.completeTask);
 
 // ============================================================================
 // 📬 NOTIFICATION PROVIDERS - Configuração de canais de notificação

@@ -8,7 +8,7 @@
 // - Rate limiting (futuro)
 // ============================================================================
 
-import { logInfo, logError, logWarn } from '../../utils.ts';
+import { logInfo, logError, logWarning } from '../../utils.ts';
 import { getSupabaseClient } from '../../kv_store.tsx';
 import type { 
   NotificationChannel, 
@@ -89,7 +89,7 @@ class NotificationDispatcher {
 
     // Modo mock
     if (this.config.useMocks && channel !== 'in_app') {
-      logWarn(`[Dispatcher] ⚠️ Usando MockProvider para ${channel}`);
+      logWarning(`[Dispatcher] ⚠️ Usando MockProvider para ${channel}`);
       return MOCK_PROVIDERS[channel].send(payload);
     }
 
@@ -133,7 +133,7 @@ class NotificationDispatcher {
 
         // Falhou, tenta fallback se habilitado
         if (this.config.enableFallback && i < providers.length - 1) {
-          logWarn(`[Dispatcher] Provider ${provider.name} falhou, tentando fallback...`, {
+          logWarning(`[Dispatcher] Provider ${provider.name} falhou, tentando fallback...`, {
             error: result.error,
           });
           continue;

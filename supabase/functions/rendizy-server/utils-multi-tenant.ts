@@ -63,6 +63,46 @@ export async function getOrganizationIdForRequest(c: Context): Promise<string> {
 }
 
 /**
+ * Obtém user_id garantido para a requisição atual
+ * 
+ * @param c - Context do Hono
+ * @returns Promise<string | null> - user_id ou null se não disponível
+ */
+export async function getUserIdForRequest(c: Context): Promise<string | null> {
+  try {
+    const tenant = getTenant(c);
+    
+    // Retornar userId se disponível no tenant
+    if (tenant && 'userId' in tenant && tenant.userId) {
+      return tenant.userId as string;
+    }
+    
+    // Tentar obter do header Authorization (JWT)
+    const authHeader = c.req.header('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        // Decode JWT payload (sem verificação aqui, apenas extração)
+        const token = authHeader.substring(7);
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload.sub) {
+            return payload.sub;
+          }
+        }
+      } catch (e) {
+        console.warn('[getUserIdForRequest] Erro ao decodificar JWT:', e);
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[getUserIdForRequest] Erro:', error);
+    return null;
+  }
+}
+
+/**
  * Aplica filtro de organization_id em uma query Supabase
  * 
  * REGRA MESTRE:

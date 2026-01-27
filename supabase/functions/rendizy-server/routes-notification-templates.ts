@@ -37,12 +37,13 @@
 import { Context } from 'npm:hono@4';
 import { getSupabaseClient } from './kv_store.tsx';
 import { logInfo, logError } from './utils.ts';
-import { 
-  successResponse, 
-  errorResponse, 
-  validationErrorResponse 
-} from './responses.ts';
-import { getOrganizationIdForRequest, getUserIdForRequest } from './auth.ts';
+import { successResponse, errorResponse } from './utils-response.ts';
+import { getOrganizationIdForRequest, getUserIdForRequest } from './utils-multi-tenant.ts';
+
+// Validation error helper
+function validationErrorResponse(message: string, fields?: Record<string, string>) {
+  return { success: false, error: message, validationErrors: fields };
+}
 
 // ============================================================================
 // HELPERS

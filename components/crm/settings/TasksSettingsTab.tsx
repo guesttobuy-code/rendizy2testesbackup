@@ -37,118 +37,25 @@ import {
   Save,
   Info,
 } from 'lucide-react';
+import { 
+  crmTaskSettings, 
+  ConfigurableTaskType, 
+  ConfigurablePriority,
+  TaskTemplate,
+  DEFAULT_TASK_TYPES,
+  DEFAULT_PRIORITIES,
+} from '../../../src/utils/crm-task-settings';
 
 // ============================================================================
-// TIPOS
+// TIPOS (usando os do serviço centralizado)
 // ============================================================================
 
-interface TaskType {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  defaultPriority: string;
-  estimatedDuration?: number;
-  requiresApproval: boolean;
-  autoAssign: boolean;
-  assigneeRole?: string;
-}
+// Re-export types localmente para manter compatibilidade
+type LocalTaskType = ConfigurableTaskType;
+type LocalPriorityLevel = ConfigurablePriority;
 
-interface PriorityLevel {
-  id: string;
-  name: string;
-  color: string;
-  order: number;
-  slaHours?: number;
-}
-
-interface TaskTemplate {
-  id: string;
-  name: string;
-  description: string;
-  taskType: string;
-  checklist: string[];
-  tags: string[];
-}
-
-// ============================================================================
-// DADOS INICIAIS (MOCK)
-// ============================================================================
-
-const DEFAULT_TASK_TYPES: TaskType[] = [
-  {
-    id: 'limpeza',
-    name: 'Limpeza',
-    icon: '🧹',
-    color: '#22c55e',
-    defaultPriority: 'media',
-    estimatedDuration: 120,
-    requiresApproval: false,
-    autoAssign: true,
-    assigneeRole: 'housekeeping',
-  },
-  {
-    id: 'manutencao',
-    name: 'Manutenção',
-    icon: '🔧',
-    color: '#f59e0b',
-    defaultPriority: 'alta',
-    estimatedDuration: 60,
-    requiresApproval: true,
-    autoAssign: false,
-  },
-  {
-    id: 'checkin',
-    name: 'Check-in',
-    icon: '🚪',
-    color: '#3b82f6',
-    defaultPriority: 'alta',
-    estimatedDuration: 30,
-    requiresApproval: false,
-    autoAssign: true,
-    assigneeRole: 'reception',
-  },
-  {
-    id: 'checkout',
-    name: 'Check-out',
-    icon: '👋',
-    color: '#8b5cf6',
-    defaultPriority: 'media',
-    estimatedDuration: 15,
-    requiresApproval: false,
-    autoAssign: true,
-    assigneeRole: 'reception',
-  },
-  {
-    id: 'vistoria',
-    name: 'Vistoria',
-    icon: '📋',
-    color: '#ec4899',
-    defaultPriority: 'media',
-    estimatedDuration: 45,
-    requiresApproval: true,
-    autoAssign: false,
-  },
-  {
-    id: 'compras',
-    name: 'Compras/Reposição',
-    icon: '🛒',
-    color: '#14b8a6',
-    defaultPriority: 'baixa',
-    estimatedDuration: 90,
-    requiresApproval: true,
-    autoAssign: false,
-  },
-];
-
-const DEFAULT_PRIORITIES: PriorityLevel[] = [
-  { id: 'urgente', name: 'Urgente', color: '#ef4444', order: 1, slaHours: 2 },
-  { id: 'alta', name: 'Alta', color: '#f97316', order: 2, slaHours: 8 },
-  { id: 'media', name: 'Média', color: '#eab308', order: 3, slaHours: 24 },
-  { id: 'baixa', name: 'Baixa', color: '#22c55e', order: 4, slaHours: 72 },
-];
-
-const DEFAULT_TEMPLATES: TaskTemplate[] = [
+// Templates locais (TODO: migrar para serviço centralizado)
+const LOCAL_DEFAULT_TEMPLATES: TaskTemplate[] = [
   {
     id: 'limpeza_checkout',
     name: 'Limpeza Pós Check-out',
@@ -193,7 +100,7 @@ function TaskTypeCard({
   onEdit,
   onDelete,
 }: {
-  taskType: TaskType;
+  taskType: LocalTaskType;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -316,9 +223,17 @@ function TemplateCard({ template }: { template: TaskTemplate }) {
 // ============================================================================
 
 export function TasksSettingsTab() {
-  const [taskTypes, setTaskTypes] = useState<TaskType[]>(DEFAULT_TASK_TYPES);
-  const [priorities] = useState<PriorityLevel[]>(DEFAULT_PRIORITIES);
-  const [templates] = useState<TaskTemplate[]>(DEFAULT_TEMPLATES);
+  // Usar o serviço centralizado para carregar e salvar os tipos
+  const [taskTypes, setTaskTypes] = useState<LocalTaskType[]>(() => crmTaskSettings.getTaskTypes());
+  const [priorities] = useState<LocalPriorityLevel[]>(() => crmTaskSettings.getPriorities());
+  const [templates] = useState<TaskTemplate[]>(LOCAL_DEFAULT_TEMPLATES);
+
+  // Salvar alterações automaticamente
+  const handleDeleteType = (id: string) => {
+    const newTypes = taskTypes.filter((t) => t.id !== id);
+    setTaskTypes(newTypes);
+    crmTaskSettings.saveTaskTypes(newTypes);
+  };
 
   // Configurações gerais
   const [settings, setSettings] = useState({
@@ -360,7 +275,7 @@ export function TasksSettingsTab() {
                 key={type.id}
                 taskType={type}
                 onEdit={() => {}}
-                onDelete={() => setTaskTypes(taskTypes.filter((t) => t.id !== type.id))}
+                onDelete={() => handleDeleteType(type.id)}
               />
             ))}
           </div>

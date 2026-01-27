@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { ServiceTicket } from '../../types/funnels';
-import { servicesTicketsApi } from '../../utils/api';
+import { crmTasksApi, TaskStats } from '../../src/utils/api-crm-tasks';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   CheckCircle2, 
@@ -11,130 +10,51 @@ import {
   Users, 
   Calendar,
   FileText,
-  BarChart3
+  BarChart3,
+  RefreshCw,
+  ListTodo,
+  Phone,
+  Video,
+  Mail,
+  Bell,
+  Flag
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
-interface DashboardStats {
-  totalTickets: number;
-  completedTickets: number;
-  inProgressTickets: number;
-  pendingTickets: number;
-  overdueTasks: number;
-  tasksDueToday: number;
-  tasksDueThisWeek: number;
-  averageCompletionTime: number;
-  tasksByPriority: {
-    urgent: number;
-    high: number;
-    medium: number;
-    low: number;
-  };
-  tasksByType: {
-    standard: number;
-    form: number;
-    attachment: number;
-  };
-}
+import { Button } from '../ui/button';
+import { toast } from 'sonner';
 
 export function TasksDashboard() {
   const { user } = useAuth();
-  const [tickets, setTickets] = useState<ServiceTicket[]>([]);
+  const [stats, setStats] = useState<TaskStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadTickets();
+    loadStats();
   }, []);
 
-  const loadTickets = async () => {
-    setLoading(true);
+  const loadStats = async (showRefreshing = false) => {
+    if (showRefreshing) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
-      const response = await servicesTicketsApi.list();
+      const response = await crmTasksApi.getStats();
       if (response.success && response.data) {
-        setTickets(response.data);
+        setStats(response.data);
+      } else {
+        console.error('Erro ao carregar estatísticas:', response.error);
+        toast.error('Erro ao carregar estatísticas');
       }
     } catch (error) {
-      console.error('Erro ao carregar tickets:', error);
+      console.error('Erro ao carregar estatísticas:', error);
+      toast.error('Erro ao carregar estatísticas');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
-
-  const stats = useMemo<DashboardStats>(() => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    let totalTickets = tickets.length;
-    let completedTickets = 0;
-    let inProgressTickets = 0;
-    let pendingTickets = 0;
-    let overdueTasks = 0;
-    let tasksDueToday = 0;
-    let tasksDueThisWeek = 0;
-    let totalCompletionTime = 0;
-    let completedCount = 0;
-    const tasksByPriority = { urgent: 0, high: 0, medium: 0, low: 0 };
-    const tasksByType = { standard: 0, form: 0, attachment: 0 };
-
-    tickets.forEach(ticket => {
-      // Status do ticket
-      if (ticket.status === 'RESOLVED') completedTickets++;
-      else if (ticket.status === 'IN_ANALYSIS') inProgressTickets++;
-      else pendingTickets++;
-
-      // Tarefas
-      ticket.tasks.forEach(task => {
-        // Por prioridade
-        const priority = ticket.priority || 'medium';
-        tasksByPriority[priority as keyof typeof tasksByPriority]++;
-
-        // Por tipo
-        tasksByType[task.type.toLowerCase() as keyof typeof tasksByType]++;
-
-        // Prazos
-        if (task.dueDate) {
-          const dueDate = new Date(task.dueDate);
-          if (task.status !== 'COMPLETED') {
-            if (dueDate < today) {
-              overdueTasks++;
-            } else if (dueDate >= today && dueDate < weekFromNow) {
-              if (dueDate.getTime() === today.getTime()) {
-                tasksDueToday++;
-              }
-              tasksDueThisWeek++;
-            }
-          }
-        }
-
-        // Tempo de conclusão
-        if (task.status === 'COMPLETED' && task.completedAt && task.createdAt) {
-          const created = new Date(task.createdAt);
-          const completed = new Date(task.completedAt);
-          totalCompletionTime += completed.getTime() - created.getTime();
-          completedCount++;
-        }
-      });
-    });
-
-    const averageCompletionTime = completedCount > 0
-      ? totalCompletionTime / completedCount / (1000 * 60 * 60) // em horas
-      : 0;
-
-    return {
-      totalTickets,
-      completedTickets,
-      inProgressTickets,
-      pendingTickets,
-      overdueTasks,
-      tasksDueToday,
-      tasksDueThisWeek,
-      averageCompletionTime,
-      tasksByPriority,
-      tasksByType,
-    };
-  }, [tickets]);
 
   if (loading) {
     return (
@@ -144,28 +64,51 @@ export function TasksDashboard() {
     );
   }
 
+  if (!stats) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-500">Nenhuma estatística disponível</p>
+      </div>
+    );
+  }
+
+  // Calcular totais de tipos
+  const totalByType = Object.values(stats.by_type).reduce((a, b) => a + b, 0);
+  const totalByPriority = Object.values(stats.by_priority).reduce((a, b) => a + b, 0);
+
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Dashboard de Tarefas
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Visão geral do desempenho e estatísticas
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Dashboard de Tarefas
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Visão geral do desempenho e estatísticas
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => loadStats(true)}
+          disabled={refreshing}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          Atualizar
+        </Button>
       </div>
 
-      {/* Cards de Estatísticas */}
+      {/* Cards de Estatísticas Principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Tickets</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total de Tarefas</CardTitle>
+            <ListTodo className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalTickets}</div>
+            <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.completedTickets} concluídos
+              {stats.completed} concluídas
             </p>
           </CardContent>
         </Card>
@@ -173,40 +116,38 @@ export function TasksDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Em Progresso</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.inProgressTickets}</div>
+            <div className="text-2xl font-bold text-blue-600">{stats.in_progress}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.pendingTickets} pendentes
+              {stats.pending} pendentes
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tarefas Atrasadas</CardTitle>
+            <CardTitle className="text-sm font-medium">Atrasadas</CardTitle>
             <AlertCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.overdueTasks}</div>
+            <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.tasksDueToday} vencem hoje
+              requerem atenção
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tempo Médio</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Vencem Hoje</CardTitle>
+            <Calendar className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.averageCompletionTime.toFixed(1)}h
-            </div>
+            <div className="text-2xl font-bold text-amber-600">{stats.due_today}</div>
             <p className="text-xs text-muted-foreground">
-              Tempo médio de conclusão
+              {stats.due_this_week} esta semana
             </p>
           </CardContent>
         </Card>
@@ -218,8 +159,8 @@ export function TasksDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Tarefas por Prioridade
+              <Flag className="w-5 h-5" />
+              Por Prioridade
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -229,28 +170,28 @@ export function TasksDashboard() {
                   <div className="w-3 h-3 rounded-full bg-red-500" />
                   <span className="text-sm">Urgente</span>
                 </div>
-                <span className="font-semibold">{stats.tasksByPriority.urgent}</span>
+                <span className="font-semibold">{stats.by_priority.urgent || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-orange-500" />
                   <span className="text-sm">Alta</span>
                 </div>
-                <span className="font-semibold">{stats.tasksByPriority.high}</span>
+                <span className="font-semibold">{stats.by_priority.high || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
                   <span className="text-sm">Média</span>
                 </div>
-                <span className="font-semibold">{stats.tasksByPriority.medium}</span>
+                <span className="font-semibold">{stats.by_priority.medium || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-gray-500" />
+                  <div className="w-3 h-3 rounded-full bg-gray-400" />
                   <span className="text-sm">Baixa</span>
                 </div>
-                <span className="font-semibold">{stats.tasksByPriority.low}</span>
+                <span className="font-semibold">{stats.by_priority.low || 0}</span>
               </div>
             </div>
           </CardContent>
@@ -260,32 +201,46 @@ export function TasksDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Tarefas por Tipo
+              <BarChart3 className="w-5 h-5" />
+              Por Tipo
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-500" />
-                  <span className="text-sm">Padrão</span>
+                  <ListTodo className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm">Tarefa</span>
                 </div>
-                <span className="font-semibold">{stats.tasksByType.standard}</span>
+                <span className="font-semibold">{stats.by_type.task || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-500" />
-                  <span className="text-sm">Formulário</span>
+                  <Phone className="w-4 h-4 text-green-500" />
+                  <span className="text-sm">Ligação</span>
                 </div>
-                <span className="font-semibold">{stats.tasksByType.form}</span>
+                <span className="font-semibold">{stats.by_type.call || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <span className="text-sm">Anexo</span>
+                  <Video className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm">Reunião</span>
                 </div>
-                <span className="font-semibold">{stats.tasksByType.attachment}</span>
+                <span className="font-semibold">{stats.by_type.meeting || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm">E-mail</span>
+                </div>
+                <span className="font-semibold">{stats.by_type.email || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-indigo-500" />
+                  <span className="text-sm">Lembrete</span>
+                </div>
+                <span className="font-semibold">{stats.by_type.reminder || 0}</span>
               </div>
             </div>
           </CardContent>
@@ -301,23 +256,50 @@ export function TasksDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {stats.tasksDueThisWeek > 0 ? (
-              <>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {stats.tasksDueToday} tarefa(s) vencem hoje
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {stats.tasksDueThisWeek - stats.tasksDueToday} tarefa(s) vencem esta semana
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-gray-500">Nenhum prazo próximo</p>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <p className="text-3xl font-bold text-red-600">{stats.overdue}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Atrasadas</p>
+            </div>
+            <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+              <p className="text-3xl font-bold text-amber-600">{stats.due_today}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Vencem Hoje</p>
+            </div>
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-3xl font-bold text-blue-600">{stats.due_this_week}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Esta Semana</p>
+            </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Taxa de Conclusão */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-green-500" />
+            Taxa de Conclusão
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-green-500 transition-all duration-500"
+                  style={{ width: `${stats.total > 0 ? (stats.completed / stats.total) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+            <span className="font-bold text-lg">
+              {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            {stats.completed} de {stats.total} tarefas concluídas
+          </p>
         </CardContent>
       </Card>
     </div>
   );
 }
-

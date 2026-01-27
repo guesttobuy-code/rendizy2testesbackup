@@ -5,7 +5,7 @@
 // Cada provider específico estende esta classe
 // ============================================================================
 
-import { logInfo, logError, logWarn } from '../../utils.ts';
+import { logInfo, logError, logWarning } from '../../utils.ts';
 import { getSupabaseClient } from '../../kv_store.tsx';
 import type { 
   NotificationProvider, 
@@ -85,7 +85,7 @@ export abstract class BaseProvider implements NotificationProvider {
       });
     } catch (err) {
       // Não falha o envio se o log falhar
-      logWarn(`[${this.name}] Erro ao logar delivery:`, err);
+      logWarning(`[${this.name}] Erro ao logar delivery:`, err);
     }
   }
 

@@ -7,13 +7,14 @@
 import { Context } from 'npm:hono@4';
 import { getSupabaseClient } from './kv_store.tsx';
 import { logInfo, logError } from './utils.ts';
-import { 
-  successResponse, 
-  errorResponse, 
-  validationErrorResponse 
-} from './responses.ts';
-import { getOrganizationIdForRequest } from './auth.ts';
+import { successResponse, errorResponse } from './utils-response.ts';
+import { getOrganizationIdForRequest } from './utils-multi-tenant.ts';
 import { notificationDispatcher } from './services/notifications/dispatcher.ts';
+
+// Validation error helper
+function validationErrorResponse(message: string, fields?: Record<string, string>) {
+  return { success: false, error: message, validationErrors: fields };
+}
 
 // ============================================================================
 // TIPOS

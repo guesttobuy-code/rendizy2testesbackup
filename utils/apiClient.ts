@@ -39,10 +39,12 @@ export async function apiClient<T = any>(
   }
   
   // ✅ Fazer requisição
+  // NOTA: Removido credentials: 'include' pois usamos token no localStorage
+  // credentials: 'include' conflita com Access-Control-Allow-Origin: '*'
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...fetchOptions,
     headers,
-    credentials: 'include' // ✅ Importante para cookies HttpOnly
+    // credentials: 'include' - REMOVIDO: conflito CORS com wildcard origin
   });
   
   // ✅ Interceptar 401 e tentar refresh
@@ -63,7 +65,7 @@ export async function apiClient<T = any>(
         const retryResponse = await fetch(`${API_BASE}${endpoint}`, {
           ...fetchOptions,
           headers,
-          credentials: 'include'
+          // credentials: 'include' - REMOVIDO: conflito CORS
         });
         
         if (retryResponse.ok) {

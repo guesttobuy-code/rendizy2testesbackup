@@ -111,6 +111,8 @@ import { ServicesFunnelModule } from './components/crm/ServicesFunnelModule';
 import { PredeterminedFunnelModule } from './components/crm/PredeterminedFunnelModule';
 import { ModulePlaceholder } from './components/ModulePlaceholder';
 import CRMTasksDashboard from './components/crm/CRMTasksDashboard';
+import { MyTasksView } from './components/crm/MyTasksView';
+import { TasksDashboard } from './components/crm/TasksDashboard';
 import { CRMSettingsModule } from './components/crm/settings';
 import { AutomationsPage } from './components/crm/automations';
 import { ChevronLeft, ChevronRight, Plus, Filter, Download, Tag, Sparkles, TrendingUp, Database, AlertTriangle } from 'lucide-react';
@@ -1536,7 +1538,31 @@ function App() {
                 {/* 📝 ROTA TEMPLATES NOTIFICAÇÕES - v1.0.0 - PROTEGIDA */}
                 <Route path="/notificacoes/templates" element={
                   <ProtectedRoute>
-                    <NotificationTemplatesPage />
+                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+                      <LoadingProgress
+                        isLoading={initialLoading}
+                      />
+
+                      <MainSidebar
+                        activeModule='templates-notificacoes'
+                        onModuleChange={setActiveModule}
+                        collapsed={sidebarCollapsed}
+                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        onSearchReservation={handleSearchReservation}
+                        onAdvancedSearch={handleAdvancedSearch}
+                      />
+
+                      <div
+                        className={cn(
+                          "flex flex-col min-h-screen transition-all duration-300",
+                          sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"
+                        )}
+                      >
+                        <div className="flex-1 overflow-hidden">
+                          <NotificationTemplatesPage />
+                        </div>
+                      </div>
+                    </div>
                   </ProtectedRoute>
                 } />
 
@@ -1787,8 +1813,8 @@ function App() {
                   <Route path="contatos" element={<ModulePlaceholder module="Contatos" />} />
                   <Route path="leads" element={<ModulePlaceholder module="Leads" />} />
                   <Route path="proprietarios" element={<ModulePlaceholder module="Proprietários" />} />
-                  <Route path="minhas-tarefas" element={<ModulePlaceholder module="Minhas Tarefas" />} />
-                  <Route path="todas-tarefas" element={<ModulePlaceholder module="Todas as Tarefas" />} />
+                  <Route path="minhas-tarefas" element={<MyTasksView />} />
+                  <Route path="todas-tarefas" element={<TasksDashboard />} />
                   <Route path="calendario-tarefas" element={<ModulePlaceholder module="Calendário de Tarefas" />} />
                   <Route path="equipes" element={<ModulePlaceholder module="Equipes" />} />
                   <Route path="prioridades" element={<ModulePlaceholder module="Prioridades" />} />

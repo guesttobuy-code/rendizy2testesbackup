@@ -667,7 +667,8 @@ export async function getSalesStats(c: Context) {
 
     const funnelId = c.req.query('funnel_id');
 
-    let baseQuery = supabaseAdmin
+    const supabase = getSupabaseAdmin();
+    let baseQuery = supabase
       .from('sales_deals')
       .select('*')
       .eq('organization_id', organizationId);
@@ -677,18 +678,18 @@ export async function getSalesStats(c: Context) {
     }
 
     const { data: deals } = await baseQuery;
-    const allDeals = deals || [];
+    const allDeals: Array<{ status: string; value?: string | number }> = deals || [];
 
     const stats = {
       total: allDeals.length,
-      active: allDeals.filter(d => d.status === 'active').length,
-      won: allDeals.filter(d => d.status === 'won').length,
-      lost: allDeals.filter(d => d.status === 'lost').length,
-      totalValue: allDeals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0),
-      wonValue: allDeals.filter(d => d.status === 'won').reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0),
-      avgValue: allDeals.length > 0 ? allDeals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0) / allDeals.length : 0,
-      winRate: allDeals.filter(d => d.status !== 'active').length > 0
-        ? (allDeals.filter(d => d.status === 'won').length / allDeals.filter(d => d.status !== 'active').length) * 100
+      active: allDeals.filter((d: { status: string }) => d.status === 'active').length,
+      won: allDeals.filter((d: { status: string }) => d.status === 'won').length,
+      lost: allDeals.filter((d: { status: string }) => d.status === 'lost').length,
+      totalValue: allDeals.reduce((sum: number, d: { value?: string | number }) => sum + (parseFloat(String(d.value)) || 0), 0),
+      wonValue: allDeals.filter((d: { status: string }) => d.status === 'won').reduce((sum: number, d: { value?: string | number }) => sum + (parseFloat(String(d.value)) || 0), 0),
+      avgValue: allDeals.length > 0 ? allDeals.reduce((sum: number, d: { value?: string | number }) => sum + (parseFloat(String(d.value)) || 0), 0) / allDeals.length : 0,
+      winRate: allDeals.filter((d: { status: string }) => d.status !== 'active').length > 0
+        ? (allDeals.filter((d: { status: string }) => d.status === 'won').length / allDeals.filter((d: { status: string }) => d.status !== 'active').length) * 100
         : 0
     };
 

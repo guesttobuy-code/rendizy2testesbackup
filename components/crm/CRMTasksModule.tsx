@@ -81,7 +81,7 @@ export default function CRMTasksModule() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="flex h-screen pt-16 bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Sidebar própria do módulo CRM & Tasks */}
       <CRMTasksSidebar onEditFunnels={() => setEditFunnelsOpen(true)} />
       

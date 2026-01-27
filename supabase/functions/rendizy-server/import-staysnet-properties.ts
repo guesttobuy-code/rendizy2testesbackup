@@ -30,7 +30,7 @@ import { importPropertyPricing } from './import-staysnet-pricing.ts';
 import { getOrganizationIdOrThrow } from './utils-get-organization-id.ts';
 import { loadStaysNetRuntimeConfigOrThrow } from './utils-staysnet-config.ts';
 import { storeStaysnetRawObject } from './utils-staysnet-raw-store.ts';
-import { LISTING_AMENITIES, LOCATION_AMENITIES } from '../../../utils/amenities-categories.ts';
+import { LISTING_AMENITIES, LOCATION_AMENITIES } from './utils-amenities-categories.ts';
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000002';
