@@ -4,8 +4,7 @@
  * Arquitetura modular - persistência SQL real
  */
 
-import { apiRequest } from './api';
-import type { ApiResponse } from './api';
+import { apiRequest, type ApiResponse } from '../../utils/api';
 
 // =============================================================================
 // TYPES
@@ -103,7 +102,7 @@ export interface CrmCompaniesListResponse {
 /**
  * Lista empresas com paginação e filtros
  */
-export async function listCompanies(params?: CrmCompaniesListParams): Promise<CrmCompaniesListResponse> {
+export async function listCompanies(params?: CrmCompaniesListParams): Promise<ApiResponse<CrmCompaniesListResponse>> {
   const queryParams = new URLSearchParams();
   if (params?.page) queryParams.set('page', params.page.toString());
   if (params?.limit) queryParams.set('limit', params.limit.toString());
@@ -119,7 +118,7 @@ export async function listCompanies(params?: CrmCompaniesListParams): Promise<Cr
 /**
  * Busca empresas para autocomplete
  */
-export async function searchCompanies(q: string, limit?: number): Promise<CrmCompany[]> {
+export async function searchCompanies(q: string, limit?: number): Promise<ApiResponse<CrmCompany[]>> {
   const params = new URLSearchParams({ q });
   if (limit) params.set('limit', limit.toString());
   return apiRequest<CrmCompany[]>(`/crm/companies/search?${params.toString()}`);
@@ -128,14 +127,14 @@ export async function searchCompanies(q: string, limit?: number): Promise<CrmCom
 /**
  * Obtém uma empresa por ID
  */
-export async function getCompany(id: string): Promise<CrmCompany> {
+export async function getCompany(id: string): Promise<ApiResponse<CrmCompany>> {
   return apiRequest<CrmCompany>(`/crm/companies/${id}`);
 }
 
 /**
  * Cria uma nova empresa
  */
-export async function createCompany(data: CrmCompanyCreate): Promise<CrmCompany> {
+export async function createCompany(data: CrmCompanyCreate): Promise<ApiResponse<CrmCompany>> {
   return apiRequest<CrmCompany>('/crm/companies', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -145,7 +144,7 @@ export async function createCompany(data: CrmCompanyCreate): Promise<CrmCompany>
 /**
  * Atualiza uma empresa existente
  */
-export async function updateCompany(id: string, data: Partial<CrmCompanyCreate>): Promise<CrmCompany> {
+export async function updateCompany(id: string, data: Partial<CrmCompanyCreate>): Promise<ApiResponse<CrmCompany>> {
   return apiRequest<CrmCompany>(`/crm/companies/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -155,7 +154,7 @@ export async function updateCompany(id: string, data: Partial<CrmCompanyCreate>)
 /**
  * Deleta uma empresa
  */
-export async function deleteCompany(id: string): Promise<{ message: string }> {
+export async function deleteCompany(id: string): Promise<ApiResponse<{ message: string }>> {
   return apiRequest<{ message: string }>(`/crm/companies/${id}`, {
     method: 'DELETE',
   });
@@ -164,14 +163,14 @@ export async function deleteCompany(id: string): Promise<{ message: string }> {
 /**
  * Lista contatos de uma empresa
  */
-export async function getCompanyContacts(id: string): Promise<unknown[]> {
+export async function getCompanyContacts(id: string): Promise<ApiResponse<unknown[]>> {
   return apiRequest<unknown[]>(`/crm/companies/${id}/contacts`);
 }
 
 /**
  * Lista deals de uma empresa
  */
-export async function getCompanyDeals(id: string): Promise<unknown[]> {
+export async function getCompanyDeals(id: string): Promise<ApiResponse<unknown[]>> {
   return apiRequest<unknown[]>(`/crm/companies/${id}/deals`);
 }
 

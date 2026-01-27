@@ -520,8 +520,8 @@ export const CompaniesModule: React.FC = () => {
         limit: itemsPerPage
       });
 
-      setCompanies(result.data || []);
-      setTotalCount(result.total || 0);
+      setCompanies(result.data?.data || []);
+      setTotalCount(result.data?.total || 0);
     } catch (error) {
       console.error('Erro ao carregar empresas:', error);
       toast.error('Erro ao carregar empresas');
@@ -545,8 +545,9 @@ export const CompaniesModule: React.FC = () => {
       setLoading(true);
       try {
         const result = await crmCompaniesApi.search(searchTerm, 50);
-        setCompanies(result);
-        setTotalCount(result.length);
+        const companies = result.data || [];
+        setCompanies(companies);
+        setTotalCount(companies.length);
       } catch (error) {
         console.error('Erro ao buscar empresas:', error);
       } finally {

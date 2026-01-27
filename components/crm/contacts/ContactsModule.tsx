@@ -11,17 +11,17 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Badge } from '../ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Badge } from '../../ui/badge';
 import { 
   Select, 
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from '../ui/select';
+} from '../../ui/select';
 import {
   Table,
   TableBody,
@@ -29,15 +29,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../ui/table';
+} from '../../ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '../ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+} from '../../ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { toast } from 'sonner';
 import {
   Users,
@@ -64,11 +64,11 @@ import {
   ExternalLink,
   UserCog,
 } from 'lucide-react';
-import { cn } from '../ui/utils';
-import { crmContactsApi, CrmContact, ContactType } from '../../utils/api-crm-contacts';
-import { ContactFormModal } from './contacts/ContactFormModal';
-import { ContactDetailSheet } from './contacts/ContactDetailSheet';
-import { CreateUserFromContactModal } from './contacts/CreateUserFromContactModal';
+import { cn } from '../../ui/utils';
+import { crmContactsApi, CrmContact, ContactType } from '../../../src/utils/api-crm-contacts';
+import { ContactFormModal } from './ContactFormModal';
+import { ContactDetailSheet } from './ContactDetailSheet';
+import { CreateUserFromContactModal } from './CreateUserFromContactModal';
 
 // ============================================================================
 // TYPES
@@ -184,12 +184,13 @@ export function ContactsModule({ initialTab = 'all' }: ContactsModuleProps) {
       if (searchQuery.trim()) {
         // Usar endpoint de search
         const result = await crmContactsApi.search(searchQuery, activeTab === 'all' ? undefined : activeTab, PAGE_SIZE);
-        setContacts(result);
-        setTotalCount(result.length);
+        const contactsData = result.data || [];
+        setContacts(contactsData);
+        setTotalCount(contactsData.length);
       } else {
         const result = await crmContactsApi.list(params);
-        setContacts(result.data);
-        setTotalCount(result.total);
+        setContacts(result.data?.data || []);
+        setTotalCount(result.data?.total || 0);
       }
     } catch (error) {
       console.error('Erro ao carregar contatos:', error);

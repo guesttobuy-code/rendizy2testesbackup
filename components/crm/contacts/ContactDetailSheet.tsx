@@ -32,7 +32,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { cn } from '../../ui/utils';
-import { CrmContact, ContactType } from '../../../utils/api-crm-contacts';
+import { CrmContact, ContactType } from '../../../src/utils/api-crm-contacts';
 
 interface ContactDetailSheetProps {
   contact: CrmContact | null;

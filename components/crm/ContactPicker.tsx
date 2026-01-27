@@ -39,7 +39,7 @@ import {
   ChevronsUpDown,
   Loader2,
 } from 'lucide-react';
-import { crmContactsApi, CrmContact, ContactType } from '../../utils/api-crm-contacts';
+import { crmContactsApi, CrmContact, ContactType } from '../../src/utils/api-crm-contacts';
 import { ContactFormModal } from './contacts/ContactFormModal';
 
 // ============================================================================
@@ -92,13 +92,13 @@ export function ContactPicker({
   const [loading, setLoading] = useState(false);
   const [selectedContact, setSelectedContact] = useState<CrmContact | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Carregar contato selecionado se value mudar
   useEffect(() => {
     if (value && !selectedContact) {
-      crmContactsApi.get(value).then(contact => {
-        setSelectedContact(contact);
+      crmContactsApi.get(value).then(response => {
+        setSelectedContact(response.data || null);
       }).catch(err => {
         console.error('Erro ao carregar contato selecionado:', err);
       });
@@ -122,14 +122,15 @@ export function ContactPicker({
         let result: CrmContact[];
         
         if (search.trim()) {
-          result = await crmContactsApi.search(
+          const response = await crmContactsApi.search(
             search, 
             filterTypes?.length === 1 ? filterTypes[0] : undefined,
             20
           );
+          result = response.data || [];
         } else {
           const response = await crmContactsApi.list({ limit: 20 });
-          result = response.data;
+          result = response.data?.data || [];
         }
 
         // Filtrar por tipos se especificado
@@ -157,7 +158,7 @@ export function ContactPicker({
     if (open && contacts.length === 0) {
       setLoading(true);
       crmContactsApi.list({ limit: 20 }).then(res => {
-        let result = res.data;
+        let result = res.data?.data || [];
         if (filterTypes && filterTypes.length > 0) {
           result = result.filter(c => filterTypes.includes(c.contact_type as ContactType));
         }

@@ -30,7 +30,7 @@ import {
   Globe,
   MapPin,
 } from 'lucide-react';
-import { crmCompaniesApi, CrmCompany } from '../../utils/api-crm-companies';
+import { crmCompaniesApi, CrmCompany } from '../../src/utils/api-crm-companies';
 
 // ============================================================================
 // TYPES
@@ -64,13 +64,13 @@ export function CompanyPicker({
   const [companies, setCompanies] = useState<CrmCompany[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CrmCompany | null>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Carregar empresa selecionada se value mudar
   useEffect(() => {
     if (value && !selectedCompany) {
-      crmCompaniesApi.get(value).then(company => {
-        setSelectedCompany(company);
+      crmCompaniesApi.get(value).then(response => {
+        setSelectedCompany(response.data || null);
       }).catch(err => {
         console.error('Erro ao carregar empresa selecionada:', err);
       });
@@ -93,10 +93,11 @@ export function CompanyPicker({
         let result: CrmCompany[];
         
         if (search.trim()) {
-          result = await crmCompaniesApi.search(search, 20);
+          const response = await crmCompaniesApi.search(search, 20);
+          result = response.data || [];
         } else {
           const response = await crmCompaniesApi.list({ limit: 20 });
-          result = response.data;
+          result = response.data?.data || [];
         }
 
         setCompanies(result);
@@ -119,7 +120,7 @@ export function CompanyPicker({
     if (open && companies.length === 0) {
       setLoading(true);
       crmCompaniesApi.list({ limit: 20 }).then(res => {
-        setCompanies(res.data);
+        setCompanies(res.data?.data || []);
       }).catch(err => {
         console.error('Erro ao carregar empresas:', err);
       }).finally(() => {
@@ -144,8 +145,10 @@ export function CompanyPicker({
     if (!search.trim()) return;
     
     try {
-      const newCompany = await crmCompaniesApi.create({ name: search.trim() });
-      handleSelect(newCompany);
+      const response = await crmCompaniesApi.create({ name: search.trim() });
+      if (response.data) {
+        handleSelect(response.data);
+      }
     } catch (error) {
       console.error('Erro ao criar empresa:', error);
     }

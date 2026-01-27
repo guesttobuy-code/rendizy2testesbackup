@@ -25,8 +25,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { toast } from 'sonner';
 import { Loader2, User, Building2, MapPin, Globe, Info } from 'lucide-react';
-import { crmContactsApi, CrmContact, ContactType } from '../../../utils/api-crm-contacts';
-import { crmCompaniesApi, CrmCompany } from '../../../utils/api-crm-companies';
+import { crmContactsApi, CrmContact, ContactType } from '../../../src/utils/api-crm-contacts';
+import { crmCompaniesApi, CrmCompany } from '../../../src/utils/api-crm-companies';
 
 interface ContactFormModalProps {
   open: boolean;
@@ -151,7 +151,7 @@ export function ContactFormModal({
   useEffect(() => {
     if (open) {
       crmCompaniesApi.list({ limit: 100 }).then(res => {
-        setCompanies(res.data);
+        setCompanies(res.data?.data || []);
       }).catch(err => {
         console.error('Erro ao carregar empresas:', err);
       });

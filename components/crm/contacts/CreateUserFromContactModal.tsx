@@ -26,7 +26,7 @@ import {
 import { Alert, AlertDescription } from '../../ui/alert';
 import { toast } from 'sonner';
 import { Loader2, UserPlus, Mail, AlertTriangle, Check } from 'lucide-react';
-import { CrmContact } from '../../../utils/api-crm-contacts';
+import { CrmContact } from '../../../src/utils/api-crm-contacts';
 
 interface CreateUserFromContactModalProps {
   contact: CrmContact | null;
