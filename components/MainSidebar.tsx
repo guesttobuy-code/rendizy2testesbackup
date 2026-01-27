@@ -297,17 +297,13 @@ export function MainSidebar({
       items: [
         {
           id: 'usuarios-hospedes',
-          label: 'Usuários e Clientes',
+          label: 'Usuários e Acessos',
           icon: Users,
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           submenu: [
             { id: 'usuarios-usuarios', label: 'Usuários', icon: UserCircle },
-            { id: 'usuarios-clientes', label: 'Clientes e Hóspedes (legado)', icon: Users },
-            { id: 'contatos', label: 'Contatos CRM', icon: Contact2 },
-            { id: 'empresas', label: 'Empresas', icon: Building2 },
-            { id: 'usuarios-proprietarios', label: 'Proprietários', icon: Building2 },
-            { id: 'usuarios-documentos-listas', label: 'Documentos e Listas de Clientes', icon: FileText }
+            { id: 'usuarios-documentos-listas', label: 'Documentos e Listas', icon: FileText }
           ]
         },
         {
