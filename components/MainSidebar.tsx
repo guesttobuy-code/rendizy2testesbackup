@@ -296,14 +296,11 @@ export function MainSidebar({
       title: 'Operacional',
       items: [
         {
-          id: 'usuarios-hospedes',
-          label: 'Usuários e Acessos',
-          icon: Users,
+          id: 'usuarios-usuarios',
+          label: 'Usuários',
+          icon: UserCircle,
           iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
-          submenu: [
-            { id: 'usuarios-usuarios', label: 'Usuários', icon: UserCircle }
-          ]
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         },
         {
           id: 'notificacoes',
