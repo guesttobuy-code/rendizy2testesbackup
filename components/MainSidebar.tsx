@@ -53,7 +53,8 @@ import {
   CheckSquare as CheckSquareIcon,
   Users as UsersIcon,
   BarChart3,
-  ExternalLink
+  ExternalLink,
+  Contact2
 } from 'lucide-react';
 import { cn } from './ui/utils';
 import { Button } from './ui/button';
@@ -303,6 +304,8 @@ export function MainSidebar({
           submenu: [
             { id: 'usuarios-usuarios', label: 'Usuários', icon: UserCircle },
             { id: 'usuarios-clientes', label: 'Clientes e Hóspedes (legado)', icon: Users },
+            { id: 'contatos', label: 'Contatos CRM', icon: Contact2 },
+            { id: 'empresas', label: 'Empresas', icon: Building2 },
             { id: 'usuarios-proprietarios', label: 'Proprietários', icon: Building2 },
             { id: 'usuarios-documentos-listas', label: 'Documentos e Listas de Clientes', icon: FileText }
           ]

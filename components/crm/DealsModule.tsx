@@ -27,10 +27,13 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 // ✅ API MODULAR - Separada por módulo (Sales, Services, Predetermined)
 import { crmSalesApi, SalesFunnel, SalesDeal } from '../../utils/api-crm-sales';
+import { ContactPicker } from './ContactPicker';
+import { CrmContact } from '../../src/utils/api-crm-contacts';
 
 // Estado inicial para novo deal
 const initialNewDeal = {
   title: '',
+  contactId: null as string | null,
   contactName: '',
   contactEmail: '',
   contactPhone: '',
@@ -308,6 +311,7 @@ export function DealsModule() {
         funnel_id: selectedFunnelId,
         stage_id: firstStage.id,
         title: newDeal.title.trim(),
+        contact_id: newDeal.contactId || undefined,
         contact_name: newDeal.contactName.trim() || undefined,
         contact_email: newDeal.contactEmail.trim() || undefined,
         contact_phone: newDeal.contactPhone.trim() || undefined,
@@ -500,46 +504,33 @@ export function DealsModule() {
               />
             </div>
 
-            {/* Contato */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="deal-contact" className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  Nome do Contato
-                </Label>
-                <Input
-                  id="deal-contact"
-                  value={newDeal.contactName}
-                  onChange={(e) => setNewDeal(prev => ({ ...prev, contactName: e.target.value }))}
-                  placeholder="João Silva"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="deal-phone" className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  Telefone
-                </Label>
-                <Input
-                  id="deal-phone"
-                  value={newDeal.contactPhone}
-                  onChange={(e) => setNewDeal(prev => ({ ...prev, contactPhone: e.target.value }))}
-                  placeholder="(11) 99999-9999"
-                />
-              </div>
-            </div>
-
+            {/* Contato CRM */}
             <div className="space-y-2">
-              <Label htmlFor="deal-email" className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-gray-400" />
-                Email
+              <Label className="flex items-center gap-2">
+                <User className="w-4 h-4 text-gray-400" />
+                Contato (CRM)
               </Label>
-              <Input
-                id="deal-email"
-                type="email"
-                value={newDeal.contactEmail}
-                onChange={(e) => setNewDeal(prev => ({ ...prev, contactEmail: e.target.value }))}
-                placeholder="email@exemplo.com"
+              <ContactPicker
+                value={newDeal.contactId}
+                onChange={(contactId, contact) => {
+                  setNewDeal(prev => ({
+                    ...prev,
+                    contactId,
+                    contactName: contact?.name || '',
+                    contactEmail: contact?.email || '',
+                    contactPhone: contact?.phone || '',
+                  }));
+                }}
+                placeholder="Buscar ou criar contato..."
+                allowCreate={true}
               />
+              {newDeal.contactName && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {newDeal.contactName}
+                  {newDeal.contactEmail && ` • ${newDeal.contactEmail}`}
+                  {newDeal.contactPhone && ` • ${newDeal.contactPhone}`}
+                </p>
+              )}
             </div>
 
             {/* Data Prevista de Fechamento */}
