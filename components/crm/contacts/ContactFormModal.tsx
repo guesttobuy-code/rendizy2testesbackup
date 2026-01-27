@@ -1,5 +1,6 @@
 /**
  * Modal de criação/edição de Contato
+ * Suporta campos condicionais para Proprietário e Hóspede
  */
 
 import React, { useState, useEffect } from 'react';
@@ -15,6 +16,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Textarea } from '../../ui/textarea';
+import { Switch } from '../../ui/switch';
 import {
   Select,
   SelectContent,
@@ -24,8 +26,8 @@ import {
 } from '../../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, User, Building2, MapPin, Globe, Info } from 'lucide-react';
-import { crmContactsApi, CrmContact, ContactType } from '../../../src/utils/api-crm-contacts';
+import { Loader2, User, Building2, MapPin, Globe, Info, Crown, CreditCard, Home, FileText } from 'lucide-react';
+import { crmContactsApi, CrmContact, ContactType, ContractType, BankData } from '../../../src/utils/api-crm-contacts';
 import { crmCompaniesApi, CrmCompany } from '../../../src/utils/api-crm-companies';
 
 interface ContactFormModalProps {
@@ -53,7 +55,21 @@ const SOURCES = [
   { value: 'WEBSITE', label: 'Site' },
   { value: 'INDICACAO', label: 'Indicação' },
   { value: 'IMPORT', label: 'Importação' },
+  { value: 'RESERVA', label: 'Reserva (StaysNet)' },
   { value: 'OUTRO', label: 'Outro' },
+];
+
+const CONTRACT_TYPES: { value: ContractType; label: string }[] = [
+  { value: 'exclusivity', label: 'Exclusividade' },
+  { value: 'non_exclusive', label: 'Não Exclusivo' },
+  { value: 'temporary', label: 'Temporário' },
+];
+
+const PAYMENT_METHODS = [
+  { value: 'pix', label: 'PIX' },
+  { value: 'ted', label: 'TED' },
+  { value: 'doc', label: 'DOC' },
+  { value: 'boleto', label: 'Boleto' },
 ];
 
 export function ContactFormModal({
@@ -83,6 +99,9 @@ export function ContactFormModal({
     source_detail: '',
     // Endereço
     address_street: '',
+    address_number: '',
+    address_complement: '',
+    address_neighborhood: '',
     address_city: '',
     address_state: '',
     address_country: 'Brasil',
@@ -93,7 +112,31 @@ export function ContactFormModal({
     // Outros
     birth_date: '',
     notes: '',
+    // Documentos (hóspede/proprietário)
+    cpf: '',
+    rg: '',
+    passport: '',
+    // Proprietário específico
+    profissao: '',
+    renda_mensal: '',
+    contract_type: 'non_exclusive' as ContractType,
+    contract_start_date: '',
+    contract_end_date: '',
+    is_premium: false,
+    taxa_comissao: '',
+    forma_pagamento_comissao: '',
+    // Dados bancários
+    bank_banco: '',
+    bank_agencia: '',
+    bank_conta: '',
+    bank_tipo_conta: '',
+    bank_chave_pix: '',
   });
+
+  // Mostrar campos específicos conforme tipo
+  const isProprietario = formData.contact_type === 'proprietario';
+  const isGuest = formData.contact_type === 'guest';
+  const showDocuments = isProprietario || isGuest;
 
   // Carregar dados do contato se edição
   useEffect(() => {
@@ -111,6 +154,9 @@ export function ContactFormModal({
         source: contact.source || 'MANUAL',
         source_detail: contact.source_detail || '',
         address_street: contact.address_street || '',
+        address_number: contact.address_number || '',
+        address_complement: contact.address_complement || '',
+        address_neighborhood: contact.address_neighborhood || '',
         address_city: contact.address_city || '',
         address_state: contact.address_state || '',
         address_country: contact.address_country || 'Brasil',
@@ -119,6 +165,25 @@ export function ContactFormModal({
         instagram_url: contact.instagram_url || '',
         birth_date: contact.birth_date || '',
         notes: contact.notes || '',
+        // Documentos
+        cpf: contact.cpf || '',
+        rg: contact.rg || '',
+        passport: contact.passport || '',
+        // Proprietário
+        profissao: contact.profissao || '',
+        renda_mensal: contact.renda_mensal?.toString() || '',
+        contract_type: (contact.contract_type as ContractType) || 'non_exclusive',
+        contract_start_date: contact.contract_start_date || '',
+        contract_end_date: contact.contract_end_date || '',
+        is_premium: contact.is_premium || false,
+        taxa_comissao: contact.taxa_comissao?.toString() || '',
+        forma_pagamento_comissao: contact.forma_pagamento_comissao || '',
+        // Dados bancários
+        bank_banco: contact.bank_data?.banco || '',
+        bank_agencia: contact.bank_data?.agencia || '',
+        bank_conta: contact.bank_data?.conta || '',
+        bank_tipo_conta: contact.bank_data?.tipo_conta || '',
+        bank_chave_pix: contact.bank_data?.chave_pix || '',
       });
     } else {
       // Reset form
@@ -135,6 +200,9 @@ export function ContactFormModal({
         source: 'MANUAL',
         source_detail: '',
         address_street: '',
+        address_number: '',
+        address_complement: '',
+        address_neighborhood: '',
         address_city: '',
         address_state: '',
         address_country: 'Brasil',
@@ -143,6 +211,22 @@ export function ContactFormModal({
         instagram_url: '',
         birth_date: '',
         notes: '',
+        cpf: '',
+        rg: '',
+        passport: '',
+        profissao: '',
+        renda_mensal: '',
+        contract_type: 'non_exclusive',
+        contract_start_date: '',
+        contract_end_date: '',
+        is_premium: false,
+        taxa_comissao: '',
+        forma_pagamento_comissao: '',
+        bank_banco: '',
+        bank_agencia: '',
+        bank_conta: '',
+        bank_tipo_conta: '',
+        bank_chave_pix: '',
       });
     }
   }, [contact, defaultType]);
@@ -158,7 +242,7 @@ export function ContactFormModal({
     }
   }, [open]);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -172,16 +256,65 @@ export function ContactFormModal({
 
     setLoading(true);
     try {
-      const payload = {
-        ...formData,
+      // Montar dados bancários se proprietário
+      const bank_data: BankData | undefined = isProprietario ? {
+        banco: formData.bank_banco || undefined,
+        agencia: formData.bank_agencia || undefined,
+        conta: formData.bank_conta || undefined,
+        tipo_conta: formData.bank_tipo_conta as 'corrente' | 'poupanca' | undefined,
+        chave_pix: formData.bank_chave_pix || undefined,
+      } : undefined;
+
+      const payload: any = {
+        first_name: formData.first_name,
+        last_name: formData.last_name || null,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        mobile: formData.mobile || null,
+        contact_type: formData.contact_type,
         company_id: formData.company_id || null,
+        job_title: formData.job_title || null,
+        department: formData.department || null,
+        source: formData.source,
+        source_detail: formData.source_detail || null,
+        address_street: formData.address_street || null,
+        address_number: formData.address_number || null,
+        address_complement: formData.address_complement || null,
+        address_neighborhood: formData.address_neighborhood || null,
+        address_city: formData.address_city || null,
+        address_state: formData.address_state || null,
+        address_country: formData.address_country || null,
+        address_zip: formData.address_zip || null,
+        linkedin_url: formData.linkedin_url || null,
+        instagram_url: formData.instagram_url || null,
         birth_date: formData.birth_date || null,
+        notes: formData.notes || null,
       };
+
+      // Campos de documentos (guest e proprietário)
+      if (showDocuments) {
+        payload.cpf = formData.cpf || null;
+        payload.rg = formData.rg || null;
+        payload.passport = formData.passport || null;
+      }
+
+      // Campos específicos de proprietário
+      if (isProprietario) {
+        payload.profissao = formData.profissao || null;
+        payload.renda_mensal = formData.renda_mensal ? parseFloat(formData.renda_mensal) : null;
+        payload.contract_type = formData.contract_type;
+        payload.contract_start_date = formData.contract_start_date || null;
+        payload.contract_end_date = formData.contract_end_date || null;
+        payload.is_premium = formData.is_premium;
+        payload.taxa_comissao = formData.taxa_comissao ? parseFloat(formData.taxa_comissao) : null;
+        payload.forma_pagamento_comissao = formData.forma_pagamento_comissao || null;
+        payload.bank_data = bank_data;
+      }
 
       if (isEdit && contact) {
         // Se tipo bloqueado, não enviar contact_type
         if (isTypeLocked) {
-          delete (payload as any).contact_type;
+          delete payload.contact_type;
         }
         await crmContactsApi.update(contact.id, payload);
         toast.success('Contato atualizado com sucesso');
@@ -216,11 +349,17 @@ export function ContactFormModal({
 
         <form onSubmit={handleSubmit}>
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className={`grid w-full ${isProprietario ? 'grid-cols-6' : showDocuments ? 'grid-cols-5' : 'grid-cols-4'}`}>
               <TabsTrigger value="basic">
                 <User className="h-4 w-4 mr-2" />
                 Básico
               </TabsTrigger>
+              {showDocuments && (
+                <TabsTrigger value="documents">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Documentos
+                </TabsTrigger>
+              )}
               <TabsTrigger value="company">
                 <Building2 className="h-4 w-4 mr-2" />
                 Empresa
@@ -229,6 +368,12 @@ export function ContactFormModal({
                 <MapPin className="h-4 w-4 mr-2" />
                 Endereço
               </TabsTrigger>
+              {isProprietario && (
+                <TabsTrigger value="owner">
+                  <Crown className="h-4 w-4 mr-2" />
+                  Proprietário
+                </TabsTrigger>
+              )}
               <TabsTrigger value="other">
                 <Info className="h-4 w-4 mr-2" />
                 Outros
@@ -340,6 +485,65 @@ export function ContactFormModal({
               </div>
             </TabsContent>
 
+            {/* Tab: Documentos (Guest/Proprietário) */}
+            {showDocuments && (
+              <TabsContent value="documents" className="space-y-4 mt-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cpf">CPF</Label>
+                    <Input
+                      id="cpf"
+                      value={formData.cpf}
+                      onChange={(e) => handleChange('cpf', e.target.value)}
+                      placeholder="000.000.000-00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rg">RG</Label>
+                    <Input
+                      id="rg"
+                      value={formData.rg}
+                      onChange={(e) => handleChange('rg', e.target.value)}
+                      placeholder="00.000.000-0"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="passport">Passaporte</Label>
+                    <Input
+                      id="passport"
+                      value={formData.passport}
+                      onChange={(e) => handleChange('passport', e.target.value)}
+                      placeholder="Passaporte"
+                    />
+                  </div>
+                </div>
+
+                {isProprietario && (
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <Label htmlFor="profissao">Profissão</Label>
+                      <Input
+                        id="profissao"
+                        value={formData.profissao}
+                        onChange={(e) => handleChange('profissao', e.target.value)}
+                        placeholder="Profissão"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="renda_mensal">Renda Mensal</Label>
+                      <Input
+                        id="renda_mensal"
+                        type="number"
+                        value={formData.renda_mensal}
+                        onChange={(e) => handleChange('renda_mensal', e.target.value)}
+                        placeholder="R$ 0,00"
+                      />
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            )}
+
             {/* Tab: Empresa */}
             <TabsContent value="company" className="space-y-4 mt-4">
               <div className="space-y-2">
@@ -386,14 +590,46 @@ export function ContactFormModal({
 
             {/* Tab: Endereço */}
             <TabsContent value="address" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="address_street">Endereço</Label>
-                <Input
-                  id="address_street"
-                  value={formData.address_street}
-                  onChange={(e) => handleChange('address_street', e.target.value)}
-                  placeholder="Rua, número, complemento"
-                />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="address_street">Logradouro</Label>
+                  <Input
+                    id="address_street"
+                    value={formData.address_street}
+                    onChange={(e) => handleChange('address_street', e.target.value)}
+                    placeholder="Rua, Avenida..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address_number">Número</Label>
+                  <Input
+                    id="address_number"
+                    value={formData.address_number}
+                    onChange={(e) => handleChange('address_number', e.target.value)}
+                    placeholder="Nº"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="address_complement">Complemento</Label>
+                  <Input
+                    id="address_complement"
+                    value={formData.address_complement}
+                    onChange={(e) => handleChange('address_complement', e.target.value)}
+                    placeholder="Apto, Bloco..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address_neighborhood">Bairro</Label>
+                  <Input
+                    id="address_neighborhood"
+                    value={formData.address_neighborhood}
+                    onChange={(e) => handleChange('address_neighborhood', e.target.value)}
+                    placeholder="Bairro"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -438,6 +674,171 @@ export function ContactFormModal({
                 </div>
               </div>
             </TabsContent>
+
+            {/* Tab: Proprietário (campos específicos) */}
+            {isProprietario && (
+              <TabsContent value="owner" className="space-y-4 mt-4">
+                {/* Tipo de Contrato */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm">Tipo de Contrato</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contract_type">Tipo</Label>
+                      <Select
+                        value={formData.contract_type}
+                        onValueChange={(value) => handleChange('contract_type', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONTRACT_TYPES.map(type => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contract_start_date">Início</Label>
+                      <Input
+                        id="contract_start_date"
+                        type="date"
+                        value={formData.contract_start_date}
+                        onChange={(e) => handleChange('contract_start_date', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contract_end_date">Fim</Label>
+                      <Input
+                        id="contract_end_date"
+                        type="date"
+                        value={formData.contract_end_date}
+                        onChange={(e) => handleChange('contract_end_date', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comissões */}
+                <div className="space-y-4 pt-4 border-t">
+                  <h4 className="font-medium text-sm">Comissões</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="taxa_comissao">Taxa de Comissão (%)</Label>
+                      <Input
+                        id="taxa_comissao"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.taxa_comissao}
+                        onChange={(e) => handleChange('taxa_comissao', e.target.value)}
+                        placeholder="10.0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="forma_pagamento_comissao">Forma de Pagamento</Label>
+                      <Select
+                        value={formData.forma_pagamento_comissao || '_none_'}
+                        onValueChange={(value) => handleChange('forma_pagamento_comissao', value === '_none_' ? '' : value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none_">Selecione</SelectItem>
+                          {PAYMENT_METHODS.map(method => (
+                            <SelectItem key={method.value} value={method.value}>
+                              {method.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dados Bancários */}
+                <div className="space-y-4 pt-4 border-t">
+                  <h4 className="font-medium text-sm">Dados Bancários</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_banco">Banco</Label>
+                      <Input
+                        id="bank_banco"
+                        value={formData.bank_banco}
+                        onChange={(e) => handleChange('bank_banco', e.target.value)}
+                        placeholder="Nome do banco"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_agencia">Agência</Label>
+                      <Input
+                        id="bank_agencia"
+                        value={formData.bank_agencia}
+                        onChange={(e) => handleChange('bank_agencia', e.target.value)}
+                        placeholder="0000-0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_conta">Conta</Label>
+                      <Input
+                        id="bank_conta"
+                        value={formData.bank_conta}
+                        onChange={(e) => handleChange('bank_conta', e.target.value)}
+                        placeholder="00000-0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_tipo_conta">Tipo de Conta</Label>
+                      <Select
+                        value={formData.bank_tipo_conta || '_none_'}
+                        onValueChange={(value) => handleChange('bank_tipo_conta', value === '_none_' ? '' : value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none_">Selecione</SelectItem>
+                          <SelectItem value="corrente">Corrente</SelectItem>
+                          <SelectItem value="poupanca">Poupança</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_chave_pix">Chave PIX</Label>
+                    <Input
+                      id="bank_chave_pix"
+                      value={formData.bank_chave_pix}
+                      onChange={(e) => handleChange('bank_chave_pix', e.target.value)}
+                      placeholder="CPF, email, telefone ou chave aleatória"
+                    />
+                  </div>
+                </div>
+
+                {/* Premium */}
+                <div className="pt-4 border-t">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={formData.is_premium}
+                      onCheckedChange={(checked) => handleChange('is_premium', checked)}
+                    />
+                    <div>
+                      <Label className="flex items-center gap-2">
+                        <Crown className="h-4 w-4 text-yellow-500" />
+                        Proprietário Premium
+                      </Label>
+                      <p className="text-sm text-gray-500">
+                        Proprietários premium recebem benefícios exclusivos
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            )}
 
             {/* Tab: Outros */}
             <TabsContent value="other" className="space-y-4 mt-4">

@@ -1,16 +1,16 @@
 /**
- * ⚡ IMPORT STAYSNET - GUESTS (HÓSPEDES) - v1.0.104
+ * ⚡ IMPORT STAYSNET - GUESTS (HÓSPEDES) - v2.0.0
  * 
  * PADRÃO ATÔMICO:
  * - Extrai dados de guests das reservations
- * - Inserts diretos na tabela guests
+ * - Inserts diretos na tabela crm_contacts (com contact_type='guest')
  * - Deduplica via email + organization_id
- * - Atualiza reservation.guest_id para vincular
+ * - Atualiza reservation.crm_contact_id para vincular
  * 
  * DEPENDÊNCIA: Deve ser executado APÓS import-staysnet-reservations.ts
  * 
  * ENDPOINT API: GET /booking/reservations (extrai guests daqui)
- * TABELA DESTINO: guests
+ * TABELA DESTINO: crm_contacts (unificada)
  * 
  * REFERÊNCIA: docs/architecture/PERSISTENCIA_ATOMICA_PADRAO_VITORIOSO.md
  */
@@ -321,10 +321,11 @@ function extractGuestData(res: StaysNetReservation): ExtractedGuest {
 
 async function selectGuestIdByStaysnetClientId(supabase: any, orgId: string, staysnetClientId: string): Promise<string | null> {
   const { data, error } = await supabase
-    .from('guests')
+    .from('crm_contacts')
     .select('id')
     .eq('organization_id', orgId)
     .eq('staysnet_client_id', staysnetClientId)
+    .eq('contact_type', 'guest')
     .maybeSingle();
 
   if (error) {
@@ -364,8 +365,8 @@ export async function importStaysNetGuests(c: Context) {
   console.log('⚡ IMPORT STAYSNET - GUESTS (HÓSPEDES)');
   console.log('═══════════════════════════════════════════════════');
   console.log('📍 API Endpoint: /booking/reservations (extrai guests)');
-  console.log('📍 Tabela Destino: guests');
-  console.log('📍 Método: INSERT direto + UPDATE reservation.guest_id');
+  console.log('📍 Tabela Destino: crm_contacts (contact_type=guest)');
+  console.log('📍 Método: INSERT direto + UPDATE reservation.crm_contact_id');
   console.log('═══════════════════════════════════════════════════\n');
 
   let fetched = 0;
@@ -649,7 +650,7 @@ export async function importStaysNetGuests(c: Context) {
         
         const { data: reservation, error: resError } = await supabase
           .from('reservations')
-          .select('id, guest_id')
+          .select('id, crm_contact_id')
           .eq('organization_id', orgId)
           .eq('external_id', externalId)
           .maybeSingle();
@@ -679,10 +680,11 @@ export async function importStaysNetGuests(c: Context) {
 
         if (!existingGuest) {
           const { data: byEmail, error: checkError } = await supabase
-            .from('guests')
+            .from('crm_contacts')
             .select('id')
             .eq('organization_id', orgId)
             .eq('email', guestData.email)
+            .eq('contact_type', 'guest')
             .maybeSingle();
 
           if (checkError) {
@@ -699,10 +701,11 @@ export async function importStaysNetGuests(c: Context) {
             const cpfDigits = sanitizeDigits(guestData.cpf);
             if (cpfDigits) {
               const { data: byCpf, error: cpfErr } = await supabase
-                .from('guests')
+                .from('crm_contacts')
                 .select('id')
                 .eq('organization_id', orgId)
                 .eq('cpf', cpfDigits)
+                .eq('contact_type', 'guest')
                 .maybeSingle();
               if (cpfErr) {
                 const msg = String(cpfErr.message || '');
@@ -722,10 +725,11 @@ export async function importStaysNetGuests(c: Context) {
             const passport = guestData.passport.trim();
             if (passport) {
               const { data: byPassport, error: passErr } = await supabase
-                .from('guests')
+                .from('crm_contacts')
                 .select('id')
                 .eq('organization_id', orgId)
                 .eq('passport', passport)
+                .eq('contact_type', 'guest')
                 .maybeSingle();
               if (passErr) {
                 const msg = String(passErr.message || '');
@@ -755,7 +759,7 @@ export async function importStaysNetGuests(c: Context) {
               };
               if (guestData.staysnetClientId) patch.staysnet_client_id = guestData.staysnetClientId;
               const upd = await supabase
-                .from('guests')
+                .from('crm_contacts')
                 .update(patch)
                 .eq('organization_id', orgId)
                 .eq('id', guestId);
@@ -773,9 +777,9 @@ export async function importStaysNetGuests(c: Context) {
           }
         } else {
           // ================================================================
-          // 2.4: CRIAR NOVO GUEST
+          // 2.4: CRIAR NOVO GUEST (como crm_contact)
           // ================================================================
-          console.log(`   ➕ Criando novo guest...`);
+          console.log(`   ➕ Criando novo guest em crm_contacts...`);
           
           const birthDateIso = safeIsoDateOnly(guestData.birthDate);
           if (guestData.birthDate && !birthDateIso) {
@@ -785,27 +789,37 @@ export async function importStaysNetGuests(c: Context) {
           const newGuestData = {
             id: crypto.randomUUID(),
             organization_id: orgId,
+            // CRM unificado: tipo guest com bloqueio
+            contact_type: 'guest',
+            is_type_locked: true,
+            // Dados básicos
             first_name: guestData.firstName,
             last_name: guestData.lastName,
             email: guestData.email,
             phone: guestData.phone || null,
+            mobile: guestData.phone || null,
+            // Documentos (campos específicos de guest)
             cpf: guestData.cpf ? sanitizeDigits(guestData.cpf) : null,
             passport: guestData.passport || null,
+            // Dados adicionais
             birth_date: birthDateIso,
             nationality: guestData.nationality || null,
             language: guestData.language || 'pt-BR',
             source: guestData.source,
+            // StaysNet integration
             staysnet_client_id: guestData.staysnetClientId || null,
             staysnet_raw: guestData.staysnetRaw || null,
+            // Stats iniciais
             stats_total_reservations: 0,
             stats_total_nights: 0,
             stats_total_spent: 0,
-            tags: ['staysnet'],
+            // Metadados
+            tags: ['staysnet', 'hóspede'],
             is_blacklisted: false
           };
 
           let { data: insertedGuest, error: insertError } = await supabase
-            .from('guests')
+            .from('crm_contacts')
             .insert(newGuestData)
             .select('id')
             .single();
@@ -820,7 +834,7 @@ export async function importStaysNetGuests(c: Context) {
               if (shouldDropClientId) delete compat.staysnet_client_id;
               if (shouldDropRaw) delete compat.staysnet_raw;
               const retry = await supabase
-                .from('guests')
+                .from('crm_contacts')
                 .insert(compat)
                 .select('id')
                 .single();
@@ -839,12 +853,12 @@ export async function importStaysNetGuests(c: Context) {
         }
 
         // ====================================================================
-        // 2.5: VINCULAR GUEST À RESERVATION (se ainda não estiver vinculado)
+        // 2.5: VINCULAR GUEST À RESERVATION (via crm_contact_id)
         // ====================================================================
-        if (reservation.guest_id !== guestId) {
+        if (reservation.crm_contact_id !== guestId) {
           const { error: linkError } = await supabase
             .from('reservations')
-            .update({ guest_id: guestId })
+            .update({ crm_contact_id: guestId })
             .eq('id', reservation.id)
             .eq('organization_id', orgId);
 
@@ -853,7 +867,7 @@ export async function importStaysNetGuests(c: Context) {
             errors++;
             errorDetails.push({
               guest: confirmationCode,
-              error: `Falha ao vincular guest_id=${guestId} na reservation_id=${reservation.id}: ${linkError.message}`,
+              error: `Falha ao vincular crm_contact_id=${guestId} na reservation_id=${reservation.id}: ${linkError.message}`,
             });
           } else {
             console.log(`   🔗 Guest vinculado à reservation: ${reservation.id}`);
@@ -904,11 +918,11 @@ export async function importStaysNetGuests(c: Context) {
     return c.json({
       success: errors < processed,
       method: 'import-guests',
-      table: 'guests',
+      table: 'crm_contacts',
       stats: { fetched, processed, created, updated, linked, alreadyLinked, skipped, errors },
       next: { skip: nextSkip, hasMore: nextHasMore },
       errorDetails,
-      message: `Importados ${created} guests de StaysNet, ${linked} vinculados a reservations (skipped: ${skipped})`
+      message: `Importados ${created} guests para crm_contacts de StaysNet, ${linked} vinculados a reservations (skipped: ${skipped})`
     });
 
   } catch (error: any) {

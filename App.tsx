@@ -1657,31 +1657,8 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* ✅ ROTA CLIENTES E HÓSPEDES - v1.0.103.335 - PROTEGIDA */}
-                <Route path="/clientes-hospedes" element={
-                  <ProtectedRoute>
-                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-                      <MainSidebar
-                        collapsed={sidebarCollapsed}
-                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        activeModule={activeModule}
-                        onModuleChange={setActiveModule}
-                        onSearchReservation={handleSearchReservation}
-                        onAdvancedSearch={handleAdvancedSearch}
-                      />
-                      <div
-                        className={cn(
-                          "flex flex-col min-h-screen transition-all duration-300",
-                          sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"
-                        )}
-                      >
-                        <div className="flex-1 overflow-hidden">
-                          <ClientsAndGuestsManagement />
-                        </div>
-                      </div>
-                    </div>
-                  </ProtectedRoute>
-                } />
+                {/* ✅ ROTA CLIENTES E HÓSPEDES - REDIRECT para /contatos (CRM unificado) */}
+                <Route path="/clientes-hospedes" element={<Navigate to="/contatos" replace />} />
 
                 {/* ✅ ROTA USUÁRIOS - PROTEGIDA */}
                 <Route path="/usuarios" element={
@@ -1709,31 +1686,8 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* ✅ ROTA PROPRIETÁRIOS - PROTEGIDA */}
-                <Route path="/proprietarios" element={
-                  <ProtectedRoute>
-                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-                      <MainSidebar
-                        collapsed={sidebarCollapsed}
-                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        activeModule="usuarios-proprietarios"
-                        onModuleChange={setActiveModule}
-                        onSearchReservation={handleSearchReservation}
-                        onAdvancedSearch={handleAdvancedSearch}
-                      />
-                      <div
-                        className={cn(
-                          "flex flex-col min-h-screen transition-all duration-300",
-                          sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"
-                        )}
-                      >
-                        <div className="flex-1 overflow-hidden">
-                          <ProprietariosManagement />
-                        </div>
-                      </div>
-                    </div>
-                  </ProtectedRoute>
-                } />
+                {/* ✅ ROTA PROPRIETÁRIOS - REDIRECT para /contatos (CRM unificado) */}
+                <Route path="/proprietarios" element={<Navigate to="/contatos" replace />} />
 
                 {/* ✅ ROTA CONTATOS CRM - v1.0.104 - PROTEGIDA */}
                 <Route path="/contatos" element={

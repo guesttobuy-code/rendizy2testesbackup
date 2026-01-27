@@ -24,6 +24,27 @@ export type ContactType =
   | 'fornecedor'   // Fornecedor
   | 'outro';       // Outros
 
+/** Tipo de contrato (para proprietários) */
+export type ContractType = 'exclusivity' | 'non_exclusive' | 'temporary';
+
+/** Preferências do hóspede */
+export interface GuestPreferences {
+  early_check_in?: boolean;
+  late_check_out?: boolean;
+  quiet_floor?: boolean;
+  high_floor?: boolean;
+  pets?: boolean;
+}
+
+/** Dados bancários (para proprietários) */
+export interface BankData {
+  banco?: string;
+  agencia?: string;
+  conta?: string;
+  tipo_conta?: 'corrente' | 'poupanca';
+  chave_pix?: string;
+}
+
 export interface CrmContact {
   id: string;
   organization_id: string;
@@ -39,18 +60,25 @@ export interface CrmContact {
   company_name?: string; // Preenchido via JOIN
   job_title?: string;
   department?: string;
+  // Endereço completo
   address_street?: string;
+  address_number?: string;
+  address_complement?: string;
+  address_neighborhood?: string;
   address_city?: string;
   address_state?: string;
   address_country?: string;
   address_zip?: string;
+  // Redes sociais
   linkedin_url?: string;
   instagram_url?: string;
   facebook_url?: string;
   twitter_url?: string;
+  // Origem e classificação
   source?: string;
   source_detail?: string;
   labels?: string[];
+  tags?: string[];
   contact_type: ContactType;
   is_type_locked?: boolean; // Se true, tipo não pode ser alterado (ex: guest)
   birth_date?: string;
@@ -60,7 +88,37 @@ export interface CrmContact {
   visible_to?: 'everyone' | 'owner_only' | 'team';
   custom_fields?: Record<string, unknown>;
   notes?: string;
-  // Novos campos v2
+  // Campos de hóspede (guest)
+  cpf?: string;
+  passport?: string;
+  rg?: string;
+  document_number?: string;
+  nationality?: string;
+  language?: string;
+  stats_total_reservations?: number;
+  stats_total_nights?: number;
+  stats_total_spent?: number;
+  stats_average_rating?: number;
+  stats_last_stay_date?: string;
+  preferences?: GuestPreferences;
+  is_blacklisted?: boolean;
+  blacklist_reason?: string;
+  blacklisted_at?: string;
+  blacklisted_by?: string;
+  staysnet_client_id?: string;
+  staysnet_raw?: unknown;
+  // Campos de proprietário (owner)
+  contract_type?: ContractType;
+  contract_start_date?: string;
+  contract_end_date?: string;
+  contract_status?: string;
+  bank_data?: BankData;
+  taxa_comissao?: number;
+  forma_pagamento_comissao?: string;
+  is_premium?: boolean;
+  profissao?: string;
+  renda_mensal?: number;
+  // Vínculos
   user_id?: string; // Se contato virou usuário
   property_ids?: string[]; // Imóveis vinculados (proprietário)
   company?: { id: string; name: string };
@@ -79,17 +137,25 @@ export interface CrmContactCreate {
   company_id?: string;
   job_title?: string;
   department?: string;
+  // Endereço
   address_street?: string;
+  address_number?: string;
+  address_complement?: string;
+  address_neighborhood?: string;
   address_city?: string;
   address_state?: string;
   address_country?: string;
   address_zip?: string;
+  // Redes sociais
   linkedin_url?: string;
   instagram_url?: string;
+  // Origem
   source?: string;
   source_detail?: string;
   labels?: string[];
+  tags?: string[];
   contact_type?: string;
+  is_type_locked?: boolean;
   birth_date?: string;
   gender?: string;
   owner_id?: string;
@@ -97,6 +163,30 @@ export interface CrmContactCreate {
   visible_to?: string;
   custom_fields?: Record<string, unknown>;
   notes?: string;
+  // Campos de hóspede
+  cpf?: string;
+  passport?: string;
+  rg?: string;
+  document_number?: string;
+  nationality?: string;
+  language?: string;
+  preferences?: GuestPreferences;
+  is_blacklisted?: boolean;
+  blacklist_reason?: string;
+  staysnet_client_id?: string;
+  staysnet_raw?: unknown;
+  // Campos de proprietário
+  contract_type?: ContractType;
+  contract_start_date?: string;
+  contract_end_date?: string;
+  contract_status?: string;
+  bank_data?: BankData;
+  taxa_comissao?: number;
+  forma_pagamento_comissao?: string;
+  is_premium?: boolean;
+  profissao?: string;
+  renda_mensal?: number;
+  property_ids?: string[];
 }
 
 export interface CrmContactsListParams {

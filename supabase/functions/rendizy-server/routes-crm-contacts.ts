@@ -204,24 +204,56 @@ export async function createContact(c: Context) {
       company_id,
       job_title,
       department,
+      // Endereço completo
       address_street,
+      address_number,
+      address_complement,
+      address_neighborhood,
       address_city,
       address_state,
       address_country,
       address_zip,
+      // Social
       linkedin_url,
       instagram_url,
+      // Classificação
       source,
       source_detail,
       labels,
+      tags,
       contact_type,
+      is_type_locked,
       birth_date,
       gender,
       owner_id,
       owner_name,
       visible_to,
       custom_fields,
-      notes
+      notes,
+      // Campos de hóspede (guest)
+      cpf,
+      passport,
+      rg,
+      document_number,
+      nationality,
+      language,
+      preferences,
+      is_blacklisted,
+      blacklist_reason,
+      staysnet_client_id,
+      staysnet_raw,
+      // Campos de proprietário (owner)
+      contract_type,
+      contract_start_date,
+      contract_end_date,
+      contract_status,
+      bank_data,
+      taxa_comissao,
+      forma_pagamento_comissao,
+      is_premium,
+      profissao,
+      renda_mensal,
+      property_ids,
     } = body;
 
     // Validação básica
@@ -245,24 +277,56 @@ export async function createContact(c: Context) {
         company_id,
         job_title,
         department,
+        // Endereço
         address_street,
+        address_number,
+        address_complement,
+        address_neighborhood,
         address_city,
         address_state,
         address_country: address_country || 'Brasil',
         address_zip,
+        // Social
         linkedin_url,
         instagram_url,
+        // Classificação
         source: source || 'MANUAL',
         source_detail,
         labels: labels || [],
+        tags: tags || [],
         contact_type: contact_type || 'lead',
+        is_type_locked: is_type_locked || false,
         birth_date,
         gender,
         owner_id,
         owner_name,
         visible_to: visible_to || 'everyone',
         custom_fields: custom_fields || {},
-        notes
+        notes,
+        // Campos de hóspede
+        cpf,
+        passport,
+        rg,
+        document_number,
+        nationality,
+        language: language || 'pt-BR',
+        preferences: preferences || {},
+        is_blacklisted: is_blacklisted || false,
+        blacklist_reason,
+        staysnet_client_id,
+        staysnet_raw,
+        // Campos de proprietário
+        contract_type,
+        contract_start_date,
+        contract_end_date,
+        contract_status: contract_status || 'active',
+        bank_data: bank_data || {},
+        taxa_comissao,
+        forma_pagamento_comissao,
+        is_premium: is_premium || false,
+        profissao,
+        renda_mensal,
+        property_ids: property_ids || [],
       })
       .select(`
         *,
@@ -304,11 +368,25 @@ export async function updateContact(c: Context) {
     const allowedFields = [
       'first_name', 'last_name', 'email', 'phone', 'mobile', 'whatsapp_jid',
       'company_id', 'job_title', 'department',
-      'address_street', 'address_city', 'address_state', 'address_country', 'address_zip',
+      // Endereço
+      'address_street', 'address_number', 'address_complement', 'address_neighborhood',
+      'address_city', 'address_state', 'address_country', 'address_zip',
+      // Social
       'linkedin_url', 'instagram_url', 'facebook_url', 'twitter_url',
-      'source', 'source_detail', 'labels', 'contact_type',
+      // Classificação
+      'source', 'source_detail', 'labels', 'tags', 'contact_type', 'is_type_locked',
       'birth_date', 'gender', 'owner_id', 'owner_name', 'visible_to',
-      'custom_fields', 'notes'
+      'custom_fields', 'notes',
+      // Campos de hóspede
+      'cpf', 'passport', 'rg', 'document_number', 'nationality', 'language',
+      'preferences', 'is_blacklisted', 'blacklist_reason',
+      'staysnet_client_id', 'staysnet_raw',
+      'stats_total_reservations', 'stats_total_nights', 'stats_total_spent',
+      'stats_average_rating', 'stats_last_stay_date',
+      // Campos de proprietário
+      'contract_type', 'contract_start_date', 'contract_end_date', 'contract_status',
+      'bank_data', 'taxa_comissao', 'forma_pagamento_comissao',
+      'is_premium', 'profissao', 'renda_mensal', 'property_ids',
     ];
 
     for (const field of allowedFields) {
