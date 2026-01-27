@@ -3,6 +3,28 @@
 -- Data: 2026-01-27
 -- Descrição: Templates customizáveis para notificações (email, sms, whatsapp)
 -- ============================================================================
+-- 
+-- REFERÊNCIA RÁPIDA:
+-- 
+-- FRONTEND:
+--   - Página: components/NotificationTemplatesPage.tsx
+--   - Editor: components/NotificationTemplateEditor.tsx
+--   - API: utils/api-notification-templates.ts
+-- 
+-- BACKEND:
+--   - routes-notification-templates.ts
+-- 
+-- RELACIONAMENTOS:
+--   - organization_id → organizations(id)
+--   - created_by/updated_by → auth.users(id)
+-- 
+-- RLS:
+--   - SELECT: Usuários veem templates da própria org
+--   - INSERT/UPDATE/DELETE: Apenas superadmin/imobiliaria
+--   - Templates is_system=true não podem ser deletados
+-- 
+-- DOCS: docs/ARQUITETURA_NOTIFICACOES.md
+-- ============================================================================
 
 -- Tabela principal de templates
 CREATE TABLE IF NOT EXISTS public.notification_templates (

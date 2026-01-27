@@ -6,6 +6,32 @@
  * 
  * @version 1.0.0
  * @date 2026-01-27
+ * @author GitHub Copilot
+ * 
+ * ============================================================================
+ * REFERÊNCIA RÁPIDA
+ * ============================================================================
+ * 
+ * USADO POR: NotificationTemplatesPage.tsx
+ * API: utils/api-notification-templates.ts
+ * BACKEND: routes-notification-templates.ts
+ * 
+ * TABS DO EDITOR:
+ * 1. Geral - Nome, trigger, status
+ * 2. Email - Assunto + corpo HTML
+ * 3. SMS - Corpo (limite 480 chars)
+ * 4. WhatsApp - Corpo texto
+ * 5. In-App - Título + corpo
+ * 
+ * VARIÁVEIS: Usa sintaxe {{nomeVariavel}}
+ * PREVIEW: Substitui variáveis com dados de exemplo (SAMPLE_DATA)
+ * TESTE: Envia notificação real para destinatário informado
+ * 
+ * DOCS:
+ * - docs/ARQUITETURA_NOTIFICACOES.md
+ * - docs/REFERENCIA_NOTIFICACOES.md
+ * 
+ * ============================================================================
  */
 
 import React, { useState, useEffect, useMemo } from 'react';

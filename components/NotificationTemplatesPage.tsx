@@ -6,6 +6,28 @@
  * 
  * @version 1.0.0
  * @date 2026-01-27
+ * @author GitHub Copilot
+ * 
+ * ============================================================================
+ * REFERÊNCIA RÁPIDA
+ * ============================================================================
+ * 
+ * ROTA: /notificacoes/templates
+ * MENU: Notificações > Templates (MainSidebar.tsx)
+ * API: utils/api-notification-templates.ts
+ * BACKEND: routes-notification-templates.ts
+ * EDITOR: NotificationTemplateEditor.tsx
+ * 
+ * DEPENDÊNCIAS:
+ * - Tabela: notification_templates (migration 2026012705)
+ * - Tabela: notification_trigger_types (triggers pré-configurados)
+ * 
+ * DOCS:
+ * - docs/ARQUITETURA_NOTIFICACOES.md
+ * - docs/REFERENCIA_NOTIFICACOES.md
+ * - docs/CHANGELOG_2026-01-27.md
+ * 
+ * ============================================================================
  */
 
 import React, { useState, useEffect, useCallback } from 'react';

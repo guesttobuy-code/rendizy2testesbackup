@@ -2,6 +2,36 @@
 // ROUTES: Notification Templates
 // ============================================================================
 // API para gerenciar templates de notificação multi-canal
+// 
+// @version 1.0.0
+// @date 2026-01-27
+// @author GitHub Copilot
+// ============================================================================
+// 
+// REFERÊNCIA RÁPIDA:
+// 
+// FRONTEND:
+//   - Página: components/NotificationTemplatesPage.tsx
+//   - Editor: components/NotificationTemplateEditor.tsx
+//   - API Helper: utils/api-notification-templates.ts
+// 
+// DATABASE:
+//   - Tabela: notification_templates (migration 2026012705)
+//   - Tabela: notification_trigger_types
+// 
+// ENDPOINTS (registrados em index.ts ~linha 1235):
+//   GET    /notifications/templates          - listTemplates
+//   GET    /notifications/templates/:id      - getTemplate
+//   POST   /notifications/templates          - createTemplate
+//   PUT    /notifications/templates/:id      - updateTemplate
+//   DELETE /notifications/templates/:id      - deleteTemplate
+//   PATCH  /notifications/templates/:id/status - toggleTemplateStatus
+//   POST   /notifications/templates/:id/duplicate - duplicateTemplate
+//   GET    /notifications/triggers           - listTriggerTypes
+//   POST   /notifications/templates/preview  - previewTemplate
+//   POST   /notifications/templates/:id/test - testTemplateDelivery
+// 
+// DOCS: docs/ARQUITETURA_NOTIFICACOES.md, docs/REFERENCIA_NOTIFICACOES.md
 // ============================================================================
 
 import { Context } from 'npm:hono@4';

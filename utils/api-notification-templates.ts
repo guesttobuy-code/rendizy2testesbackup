@@ -2,6 +2,43 @@
 // API: Notification Templates - Frontend
 // ============================================================================
 // Funções para gerenciar templates de notificação
+// 
+// @version 1.0.0
+// @date 2026-01-27
+// @author GitHub Copilot
+// ============================================================================
+// 
+// REFERÊNCIA RÁPIDA:
+// 
+// USADO POR:
+//   - components/NotificationTemplatesPage.tsx
+//   - components/NotificationTemplateEditor.tsx
+// 
+// BACKEND:
+//   - routes-notification-templates.ts (10 endpoints)
+// 
+// FUNÇÕES PRINCIPAIS:
+//   - listTemplates(filters?)     - Lista com filtros opcionais
+//   - getTemplate(id)             - Busca por ID
+//   - createTemplate(input)       - Cria novo
+//   - updateTemplate(id, input)   - Atualiza existente
+//   - deleteTemplate(id)          - Remove
+//   - toggleTemplateStatus(id, active) - Ativa/desativa
+//   - duplicateTemplate(id, name) - Cria cópia
+//   - listTriggerTypes()          - Lista triggers disponíveis
+//   - previewTemplate(content, subject, data) - Preview com variáveis
+//   - testTemplate(id, channel, recipient) - Envia teste real
+// 
+// HELPERS:
+//   - extractVariables(text)      - Extrai {{vars}} do texto
+//   - replaceVariables(text, data) - Substitui {{vars}} por valores
+// 
+// CONSTANTES:
+//   - SAMPLE_DATA                 - Dados de exemplo para preview
+//   - CHANNEL_LABELS              - Labels pt-BR dos canais
+//   - TRIGGER_CATEGORIES          - Categorias de triggers
+// 
+// DOCS: docs/REFERENCIA_NOTIFICACOES.md
 // ============================================================================
 
 import { apiClient } from './apiClient';
