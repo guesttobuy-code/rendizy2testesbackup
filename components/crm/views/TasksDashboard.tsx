@@ -72,7 +72,6 @@ import { useAuth } from '@/contexts/AuthContext';
 interface TasksDashboardProps {
   organizationId?: string;
   projectId?: string;
-  useMockData?: boolean;
 }
 
 interface KPI {
@@ -254,19 +253,13 @@ const MOCK_PROPERTIES = [
 // MAIN COMPONENT
 // ============================================================================
 
-export function TasksDashboard({ organizationId, projectId, useMockData = false }: TasksDashboardProps) {
+export function TasksDashboard({ organizationId, projectId }: TasksDashboardProps) {
   const { user } = useAuth();
   const orgId = organizationId || user?.organizationId;
   
-  // Hooks Supabase
-  const { data: supabaseTasks = [], isLoading } = useTasks({ projectId });
-  const { data: supabaseTeams = [] } = useTeams();
-  
-  // Use mock or real data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allTasks: any[] = useMockData ? MOCK_TASKS : supabaseTasks;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const teams: any[] = useMockData ? MOCK_TEAMS : supabaseTeams;
+  // Hooks Supabase - dados reais
+  const { data: allTasks = [], isLoading } = useTasks({ projectId });
+  const { data: teams = [] } = useTeams();
   
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
   const [selectedTeam, setSelectedTeam] = useState<string>('all');

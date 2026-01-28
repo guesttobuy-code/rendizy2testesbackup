@@ -3,14 +3,15 @@
  * Utiliza o componente TeamsConfig integrado
  */
 import { TeamsConfig } from '../settings/TeamsConfig';
-
-// TODO: Pegar organizationId do contexto de auth real
-const MOCK_ORGANIZATION_ID = 'org_demo_001';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function EquipesPage() {
+  const { user } = useAuth();
+  const organizationId = user?.organizationId || '';
+  
   return (
     <div className="p-6">
-      <TeamsConfig organizationId={MOCK_ORGANIZATION_ID} />
+      <TeamsConfig organizationId={organizationId} />
     </div>
   );
 }

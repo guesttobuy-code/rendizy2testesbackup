@@ -1,32 +1,60 @@
 # 🎯 ROADMAP: Sistema de Tarefas Estilo Asana para Rendizy
 
 **Data:** 2026-01-27  
-**Versão:** 2.0  
-**Status:** ✅ Fase 1 IMPLEMENTADA (2026-01-27)  
+**Versão:** 2.2  
+**Status:** ✅ Fase 2 IMPLEMENTADA - Realtime & Triggers (2026-01-28)  
 **Autor:** Rafael + Claude Opus 4.5  
-**Última Atualização:** 2026-01-27
+**Última Atualização:** 2026-01-28
 
 ---
 
-## 🚀 STATUS DE IMPLEMENTAÇÃO (2026-01-27)
+## 🚀 STATUS DE IMPLEMENTAÇÃO (2026-01-28)
 
-### ✅ IMPLEMENTADO (Fase 1 - Completa)
+### ✅ FASE 1 - UI COMPONENTS (Completa)
 
 | Componente | Status | Arquivo |
 |------------|--------|---------|
-| **Schema de Banco** | ✅ Pronto | `supabase/migrations/2026012706_create_crm_tasks_system.sql` |
-| **Tipos TypeScript** | ✅ Pronto | `types/crm-tasks.ts` |
-| **Service Layer** | ✅ Pronto | `services/crmTasksService.ts` |
-| **Gestão de Times** | ✅ Pronto | `components/crm/settings/TeamsConfig.tsx` |
-| **Campos Customizados** | ✅ Pronto | `components/crm/settings/CustomFieldsConfig.tsx` |
-| **Tarefas Operacionais** | ✅ Pronto | `components/crm/settings/OperationalTasksConfig.tsx` |
 | **View Lista** | ✅ Pronto | `components/crm/views/TasksListView.tsx` |
 | **View Board/Kanban** | ✅ Pronto | `components/crm/views/TasksBoardView.tsx` |
 | **View Calendário** | ✅ Pronto | `components/crm/views/TasksCalendarView.tsx` |
 | **Dashboard Avançado** | ✅ Pronto | `components/crm/views/TasksDashboard.tsx` |
-| **Página Principal** | ✅ Pronto | `components/crm/pages/CRMTasksPage.tsx` |
-| **Configurações** | ✅ Pronto | `components/crm/settings/CRMTasksSettings.tsx` |
+| **Gestão de Times** | ✅ Pronto | `components/crm/settings/TeamsConfig.tsx` |
+| **Campos Customizados** | ✅ Pronto | `components/crm/settings/CustomFieldsConfig.tsx` |
+| **Tarefas Operacionais** | ✅ Pronto | `components/crm/settings/OperationalTasksConfig.tsx` |
+
+### ✅ FASE 1.5 - SUPABASE INTEGRATION (Completa - 2026-01-28)
+
+| Componente | Status | Arquivo |
+|------------|--------|---------|
+| **Schema de Banco (11 tabelas)** | ✅ Migrado | `supabase/migrations/2026012706_create_crm_tasks_system.sql` |
+| **Seed de Dados de Teste** | ✅ Migrado | `supabase/migrations/2026012707_seed_crm_tasks_test_data.sql` |
+| **Tipos TypeScript** | ✅ Pronto | `types/crm-tasks.ts` |
+| **Service Layer Supabase** | ✅ Pronto | `utils/services/crmTasksService.ts` |
+| **React Query Hooks** | ✅ Pronto | `hooks/useCRMTasks.ts` |
+| **Modal Criar/Editar Tarefa** | ✅ Pronto | `components/crm/modals/TaskFormModalV2.tsx` |
+| **Modal Detalhes Tarefa** | ✅ Pronto | `components/crm/modals/TaskDetailModal.tsx` |
+| **Página Check-ins** | ✅ Pronto | `components/crm/pages/operacoes/CheckInsPage.tsx` |
+| **Página Check-outs** | ✅ Pronto | `components/crm/pages/operacoes/CheckOutsPage.tsx` |
+| **Página Limpezas** | ✅ Pronto | `components/crm/pages/operacoes/LimpezasPage.tsx` |
+| **Página Manutenções** | ✅ Pronto | `components/crm/pages/operacoes/ManutencoesPage.tsx` |
+| **Página Equipes** | ✅ Pronto | `components/crm/pages/EquipesPage.tsx` |
+| **Página Todas Tarefas** | ✅ Pronto | `components/crm/pages/TodasTarefasPage.tsx` |
+| **Página Calendário** | ✅ Pronto | `components/crm/pages/CalendarioTarefasPage.tsx` |
 | **Index de Exports** | ✅ Pronto | `components/crm/crm-tasks-index.ts` |
+
+### ✅ FASE 2 - REALTIME & AUTOMAÇÕES (Completa - 2026-01-28)
+
+| Componente | Status | Arquivo |
+|------------|--------|---------|
+| **Realtime Subscriptions** | ✅ Pronto | `hooks/useCRMTasks.ts` |
+| **Hook useCRMTasksRealtime** | ✅ Pronto | `hooks/useCRMTasks.ts` |
+| **Hook useOperationalTasksRealtime** | ✅ Pronto | `hooks/useCRMTasks.ts` |
+| **Hook useGenerateTasksForReservations** | ✅ Pronto | `hooks/useCRMTasks.ts` |
+| **Triggers SQL para Reservas** | ✅ Pronto | `supabase/migrations/2026012708_create_operational_tasks_triggers.sql` |
+| **Função generate_operational_tasks_from_reservation** | ✅ Pronto | Migration acima |
+| **Função cancel_operational_tasks_on_reservation_cancel** | ✅ Pronto | Migration acima |
+| **Função update_operational_tasks_on_reservation_change** | ✅ Pronto | Migration acima |
+| **RPC generate_tasks_for_existing_reservations** | ✅ Pronto | Migration acima |
 
 ### 📊 Funcionalidades Detalhadas
 
@@ -91,14 +119,77 @@ supabase migration up
 supabase db push
 ```
 
-### 🔜 Próximos Passos (Fase 2)
+---
 
-- [ ] Integrar com rotas do Next.js (`/crm/tasks`)
-- [ ] Conectar automações existentes com triggers de tarefas
-- [ ] Adicionar realtime com Supabase Realtime
-- [ ] View Timeline/Gantt
-- [ ] Formulários públicos para tarefas
-- [ ] Atalhos de teclado
+## 📊 PROGRESSO TOTAL DO MÓDULO
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  CRM TASKS v2 - PROGRESSO: ██████████████████░░ 90%            │
+├─────────────────────────────────────────────────────────────────┤
+│  ✅ Fase 1   - UI Components          100% ████████████████    │
+│  ✅ Fase 1.5 - Supabase Integration   100% ████████████████    │
+│  ✅ Fase 2   - Realtime & Triggers    100% ████████████████    │
+│  ⏳ Fase 3   - Polish & Nice-to-have   20% ████░░░░░░░░░░░░    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### ✅ FASE 2 - REALTIME & AUTOMAÇÕES (Completa)
+
+| Item | Status | Prioridade | Esforço |
+|------|--------|------------|---------|
+| Realtime Subscriptions | ✅ Pronto | 🔴 Alta | 2h |
+| Integrar views com organizationId real | ✅ Feito | 🔴 Alta | - |
+| Remover dados mock residuais | ✅ Feito | 🟡 Média | - |
+| Trigger geração de tarefas por reserva | ✅ Pronto | 🔴 Alta | 2h |
+| Trigger cancelamento de tarefas | ✅ Pronto | 🔴 Alta | 1h |
+| RPC para gerar tarefas retroativamente | ✅ Pronto | 🟡 Média | 1h |
+| Hook useGenerateTasksForReservations | ✅ Pronto | 🟡 Média | 0.5h |
+
+### ⏳ FASE 3 - POLISH & NICE-TO-HAVE (Pendente)
+
+| Item | Status | Prioridade | Esforço |
+|------|--------|------------|---------|
+| Notificações WhatsApp para equipes | ❌ Não iniciado | 🟡 Média | 6h |
+| View Timeline/Gantt | ❌ Não iniciado | 🟡 Média | 8h |
+| Dependências visuais entre tarefas | ❌ Não iniciado | 🟢 Baixa | 4h |
+| Atalhos de teclado | ❌ Não iniciado | 🟢 Baixa | 2h |
+| Testes de integração E2E | ⏳ Parcial | 🟡 Média | 4h |
+
+---
+
+### 🎯 STATUS DO MVP
+
+**✅ MVP PRONTO PARA PRODUÇÃO!**
+
+O módulo CRM Tasks v2 está funcional com:
+- UI completa (Lista, Board, Calendário, Dashboard)
+- Banco de dados com 11+ tabelas
+- Service layer integrada com Supabase
+- Realtime updates (Supabase Channels)
+- Triggers para geração automática de tarefas
+- Hooks React Query para todas as operações
+
+**Nice to have (pós-MVP):** ~20h adicionais
+- Timeline/Gantt
+- Notificações WhatsApp
+- Automações avançadas
+- Atalhos de teclado
+
+---
+
+### 📝 MIGRATION COMMANDS
+
+```bash
+# 1. Criar tabelas e schema
+supabase migration up 2026012706_create_crm_tasks_system.sql
+
+# 2. Popular com dados de teste
+supabase migration up 2026012707_seed_crm_tasks_test_data.sql
+
+# 3. Criar triggers de automação
+supabase migration up 2026012708_create_operational_tasks_triggers.sql
+```
 
 ---
 

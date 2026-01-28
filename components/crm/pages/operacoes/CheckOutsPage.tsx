@@ -1,16 +1,16 @@
 /**
  * Página de Operações - Check-outs do Dia
- * Integrado com Supabase via React Query hooks
+ * Integrado com Supabase via React Query hooks + Realtime
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @date 2026-01-28
  */
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DoorOpen, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Calendar, AlertTriangle, Camera, Loader2, RefreshCw } from 'lucide-react';
-import { useCheckOuts, useMarkOperationalTaskCompleted } from '@/hooks/useCRMTasks';
+import { DoorOpen, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Calendar, AlertTriangle, Camera, Loader2, RefreshCw, Wifi } from 'lucide-react';
+import { useCheckOuts, useMarkOperationalTaskCompleted, useOperationalTasksRealtime } from '@/hooks/useCRMTasks';
 import { OperationalTask } from '@/utils/services/crmTasksService';
 import { toast } from 'sonner';
 
@@ -18,6 +18,9 @@ export function CheckOutsPage() {
   const today = new Date().toISOString().split('T')[0];
   const { data: checkouts = [], isLoading, isError, refetch } = useCheckOuts(today);
   const markCompleted = useMarkOperationalTaskCompleted();
+  
+  // Realtime subscription - atualiza automaticamente quando há mudanças
+  useOperationalTasksRealtime(today);
   
   const now = new Date();
   const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;

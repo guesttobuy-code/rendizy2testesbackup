@@ -80,6 +80,8 @@ import { ptBR } from 'date-fns/locale';
 
 import type { Task, TaskStatus, TaskPriority, Team } from '@/types/crm-tasks';
 import { getStatusColor, getPriorityColor } from '@/types/crm-tasks';
+import { useTasks, useTeams } from '@/hooks/useCRMTasks';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ============================================================================
 // TYPES
@@ -264,9 +266,18 @@ export function TasksCalendarView({
   onTaskClick, 
   onCreateTask 
 }: TasksCalendarViewProps) {
+  const { user } = useAuth();
+  const orgId = organizationId || user?.organizationId;
+  
+  // Hooks Supabase - dados reais
+  const { data: allTasks = [], isLoading } = useTasks({ projectId });
+  const { data: teams = [] } = useTeams();
+  
+  // Filtrar apenas tarefas raiz
+  const tasks = allTasks.filter((t: any) => !t.parent_id);
+  
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('week');
-  const [tasks] = useState<Task[]>(MOCK_TASKS.filter(t => !t.parent_id));
   const [showReservations, setShowReservations] = useState(true);
 
   // Calculate date range

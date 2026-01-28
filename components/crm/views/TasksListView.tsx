@@ -106,7 +106,6 @@ interface TasksListViewProps {
   projectId?: string;
   onTaskClick?: (task: Task) => void;
   onCreateTask?: () => void;
-  useMockData?: boolean; // Para demo
 }
 
 interface ColumnConfig {
@@ -365,23 +364,15 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
 // MAIN COMPONENT
 // ============================================================================
 
-export function TasksListView({ organizationId, projectId, onTaskClick, onCreateTask, useMockData = false }: TasksListViewProps) {
+export function TasksListView({ organizationId, projectId, onTaskClick, onCreateTask }: TasksListViewProps) {
   const { user } = useAuth();
   const orgId = organizationId || user?.organizationId;
   
-  // Hooks Supabase
-  const { data: supabaseTasks = [], isLoading: tasksLoading } = useTasks({ projectId });
-  const { data: supabaseTeams = [] } = useTeams();
+  // Hooks Supabase - dados reais
+  const { data: tasks = [], isLoading: loading } = useTasks({ projectId });
+  const { data: teams = [] } = useTeams();
   const updateTaskMutation = useUpdateTask();
   const deleteTaskMutation = useDeleteTask();
-  
-  // Use mock data for demo or real data from Supabase
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tasks: any[] = useMockData ? MOCK_TASKS : supabaseTasks;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const teams: any[] = useMockData ? MOCK_TEAMS : supabaseTeams;
-  const loading = useMockData ? false : tasksLoading;
-  const loading = useMockData ? false : tasksLoading;
   
   // State
   const [columns, setColumns] = useState<ColumnConfig[]>(DEFAULT_COLUMNS);

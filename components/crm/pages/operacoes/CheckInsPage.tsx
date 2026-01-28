@@ -1,16 +1,16 @@
 /**
  * Página de Operações - Check-ins do Dia
- * Integrado com Supabase via React Query hooks
+ * Integrado com Supabase via React Query hooks + Realtime
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @date 2026-01-28
  */
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Key, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Calendar, Loader2, RefreshCw } from 'lucide-react';
-import { useCheckIns, useMarkOperationalTaskCompleted } from '@/hooks/useCRMTasks';
+import { Key, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Calendar, Loader2, RefreshCw, Wifi } from 'lucide-react';
+import { useCheckIns, useMarkOperationalTaskCompleted, useOperationalTasksRealtime } from '@/hooks/useCRMTasks';
 import { OperationalTask } from '@/utils/services/crmTasksService';
 import { toast } from 'sonner';
 
@@ -18,6 +18,9 @@ export function CheckInsPage() {
   const today = new Date().toISOString().split('T')[0];
   const { data: checkins = [], isLoading, isError, refetch } = useCheckIns(today);
   const markCompleted = useMarkOperationalTaskCompleted();
+  
+  // Realtime subscription - atualiza automaticamente quando há mudanças
+  useOperationalTasksRealtime(today);
   
   const pendingCount = checkins.filter((c: OperationalTask) => c.status === 'pending').length;
   const completedCount = checkins.filter((c: OperationalTask) => c.status === 'completed').length;

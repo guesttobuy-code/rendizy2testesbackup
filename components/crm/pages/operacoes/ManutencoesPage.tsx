@@ -1,23 +1,27 @@
 /**
  * Página de Operações - Manutenções
- * Integrado com Supabase via React Query hooks
+ * Integrado com Supabase via React Query hooks + Realtime
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @date 2026-01-28
  */
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Wrench, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Calendar, Users, Play, Camera, AlertTriangle, Plus, Loader2, RefreshCw } from 'lucide-react';
-import { useMaintenances, useMarkOperationalTaskStarted, useMarkOperationalTaskCompleted } from '@/hooks/useCRMTasks';
+import { Wrench, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Calendar, Users, Play, Camera, AlertTriangle, Plus, Loader2, RefreshCw, Wifi } from 'lucide-react';
+import { useMaintenances, useMarkOperationalTaskStarted, useMarkOperationalTaskCompleted, useOperationalTasksRealtime } from '@/hooks/useCRMTasks';
 import { OperationalTask } from '@/utils/services/crmTasksService';
 import { toast } from 'sonner';
 
 export function ManutencoesPage() {
+  const today = new Date().toISOString().split('T')[0];
   const { data: manutencoes = [], isLoading, isError, refetch } = useMaintenances();
   const markStarted = useMarkOperationalTaskStarted();
   const markCompleted = useMarkOperationalTaskCompleted();
+  
+  // Realtime subscription - atualiza automaticamente quando há mudanças
+  useOperationalTasksRealtime(today);
   
   const pendingCount = manutencoes.filter((c: OperationalTask) => c.status === 'pending').length;
   const inProgressCount = manutencoes.filter((c: OperationalTask) => c.status === 'in_progress').length;

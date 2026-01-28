@@ -17,6 +17,9 @@
 
 import { getSupabaseClient } from '../supabase/client';
 
+// Re-export getSupabaseClient para uso em hooks
+export { getSupabaseClient };
+
 // NOTE: Usamos type assertions (as any) porque essas tabelas foram criadas 
 // manualmente via SQL e não estão no tipo gerado do Supabase.
 // Em produção, ideal é regenerar os tipos do Supabase com `supabase gen types typescript`

@@ -1,23 +1,27 @@
 /**
  * Página de Operações - Limpezas
- * Integrado com Supabase via React Query hooks
+ * Integrado com Supabase via React Query hooks + Realtime
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @date 2026-01-28
  */
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sparkles, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Calendar, Users, Play, Camera, Loader2, RefreshCw, Plus } from 'lucide-react';
-import { useCleanings, useMarkOperationalTaskStarted, useMarkOperationalTaskCompleted } from '@/hooks/useCRMTasks';
+import { Sparkles, Clock, MapPin, Phone, CheckCircle2, AlertCircle, Calendar, Users, Play, Camera, Loader2, RefreshCw, Plus, Wifi } from 'lucide-react';
+import { useCleanings, useMarkOperationalTaskStarted, useMarkOperationalTaskCompleted, useOperationalTasksRealtime } from '@/hooks/useCRMTasks';
 import { OperationalTask } from '@/utils/services/crmTasksService';
 import { toast } from 'sonner';
 
 export function LimpezasPage() {
+  const today = new Date().toISOString().split('T')[0];
   const { data: limpezas = [], isLoading, isError, refetch } = useCleanings();
   const markStarted = useMarkOperationalTaskStarted();
   const markCompleted = useMarkOperationalTaskCompleted();
+  
+  // Realtime subscription - atualiza automaticamente quando há mudanças
+  useOperationalTasksRealtime(today);
   
   const pendingCount = limpezas.filter((c: OperationalTask) => c.status === 'pending').length;
   const inProgressCount = limpezas.filter((c: OperationalTask) => c.status === 'in_progress').length;

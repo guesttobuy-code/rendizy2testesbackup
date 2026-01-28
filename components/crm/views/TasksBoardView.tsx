@@ -99,7 +99,6 @@ interface TasksBoardViewProps {
   projectId?: string;
   onTaskClick?: (task: Task) => void;
   onCreateTask?: (status?: TaskStatus) => void;
-  useMockData?: boolean;
 }
 
 interface BoardColumn {
@@ -285,21 +284,17 @@ const BOARD_COLUMNS: any[] = [
 // MAIN COMPONENT
 // ============================================================================
 
-export function TasksBoardView({ organizationId, projectId, onTaskClick, onCreateTask, useMockData = false }: TasksBoardViewProps) {
+export function TasksBoardView({ organizationId, projectId, onTaskClick, onCreateTask }: TasksBoardViewProps) {
   const { user } = useAuth();
   const orgId = organizationId || user?.organizationId;
   
-  // Hooks Supabase
-  const { data: supabaseTasks = [], isLoading } = useTasks({ projectId });
-  const { data: supabaseTeams = [] } = useTeams();
+  // Hooks Supabase - dados reais
+  const { data: allTasks = [], isLoading } = useTasks({ projectId });
+  const { data: teams = [] } = useTeams();
   const updateTaskMutation = useUpdateTask();
   
-  // Use mock or real data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allTasks: any[] = useMockData ? MOCK_TASKS : supabaseTasks;
+  // Filtrar apenas tarefas raiz (sem parent)
   const tasks = allTasks.filter((t: any) => !t.parent_id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const teams: any[] = useMockData ? MOCK_TEAMS : supabaseTeams;
   
   const [activeId, setActiveId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');

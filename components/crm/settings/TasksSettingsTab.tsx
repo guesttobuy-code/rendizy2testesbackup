@@ -23,15 +23,12 @@ import {
   ClipboardList,
   Sparkles 
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Importar os novos componentes completos
 import { TeamsConfig } from './TeamsConfig';
 import { CustomFieldsConfig } from './CustomFieldsConfig';
 import { OperationalTasksConfig } from './OperationalTasksConfig';
-
-// TODO: Pegar organizationId do contexto de autenticação
-// Por enquanto usa um valor mockado para desenvolvimento
-const MOCK_ORGANIZATION_ID = 'org_demo_001';
 
 // ============================================================================
 // COMPONENTE PRINCIPAL
@@ -39,9 +36,10 @@ const MOCK_ORGANIZATION_ID = 'org_demo_001';
 
 export function TasksSettingsTab() {
   const [activeTab, setActiveTab] = useState('teams');
+  const { user } = useAuth();
   
-  // TODO: Substituir pelo organizationId real do contexto de auth
-  const organizationId = MOCK_ORGANIZATION_ID;
+  // Usar organizationId real do contexto de auth
+  const organizationId = user?.organizationId || '';
 
   return (
     <div className="space-y-6">

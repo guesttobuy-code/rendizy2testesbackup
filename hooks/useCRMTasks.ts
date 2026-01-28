@@ -551,3 +551,254 @@ export function useOperationalDashboardStats(date?: string) {
     refetchInterval: 30000, // Atualiza a cada 30 segundos
   });
 }
+
+// ============================================================================
+// REALTIME SUBSCRIPTIONS
+// ============================================================================
+
+import { useEffect, useCallback } from 'react';
+import { getSupabaseClient } from '@/utils/services/crmTasksService';
+
+/**
+ * Hook para subscription Realtime nas tarefas CRM
+ * Invalida o cache automaticamente quando há mudanças no banco
+ */
+export function useCRMTasksRealtime() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const orgId = user?.organizationId;
+
+  const handleTaskChange = useCallback((payload: any) => {
+    console.log('[Realtime] Task change:', payload.eventType, payload);
+    
+    // Invalida todas as queries de tarefas
+    queryClient.invalidateQueries({ queryKey: crmTasksKeys.tasks() });
+    queryClient.invalidateQueries({ queryKey: crmTasksKeys.dashboard() });
+    
+    // Se é update ou delete, invalida a tarefa específica
+    if (payload.old?.id) {
+      queryClient.invalidateQueries({ queryKey: crmTasksKeys.task(payload.old.id) });
+    }
+    if (payload.new?.id) {
+      queryClient.invalidateQueries({ queryKey: crmTasksKeys.task(payload.new.id) });
+    }
+  }, [queryClient]);
+
+  const handleOperationalTaskChange = useCallback((payload: any) => {
+    console.log('[Realtime] Operational task change:', payload.eventType, payload);
+    
+    // Invalida todas as queries operacionais
+    queryClient.invalidateQueries({ queryKey: crmTasksKeys.operational() });
+    queryClient.invalidateQueries({ queryKey: crmTasksKeys.dashboard() });
+  }, [queryClient]);
+
+  const handleTeamChange = useCallback((payload: any) => {
+    console.log('[Realtime] Team change:', payload.eventType, payload);
+    queryClient.invalidateQueries({ queryKey: crmTasksKeys.teams() });
+  }, [queryClient]);
+
+  const handleCommentChange = useCallback((payload: any) => {
+    console.log('[Realtime] Comment change:', payload.eventType, payload);
+    const taskId = payload.new?.task_id || payload.old?.task_id;
+    if (taskId) {
+      queryClient.invalidateQueries({ queryKey: crmTasksKeys.comments(taskId) });
+    }
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (!orgId) return;
+
+    const supabase = getSupabaseClient();
+    
+    // Subscribe to crm_tasks changes
+    const tasksChannel = supabase
+      .channel('crm_tasks_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'crm_tasks',
+          filter: `organization_id=eq.${orgId}`,
+        },
+        handleTaskChange
+      )
+      .subscribe();
+
+    // Subscribe to operational_tasks changes
+    const operationalChannel = supabase
+      .channel('operational_tasks_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'operational_tasks',
+          filter: `organization_id=eq.${orgId}`,
+        },
+        handleOperationalTaskChange
+      )
+      .subscribe();
+
+    // Subscribe to teams changes
+    const teamsChannel = supabase
+      .channel('teams_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'teams',
+          filter: `organization_id=eq.${orgId}`,
+        },
+        handleTeamChange
+      )
+      .subscribe();
+
+    // Subscribe to task_comments changes
+    const commentsChannel = supabase
+      .channel('task_comments_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_comments',
+        },
+        handleCommentChange
+      )
+      .subscribe();
+
+    // Cleanup on unmount
+    return () => {
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(operationalChannel);
+      supabase.removeChannel(teamsChannel);
+      supabase.removeChannel(commentsChannel);
+    };
+  }, [orgId, handleTaskChange, handleOperationalTaskChange, handleTeamChange, handleCommentChange]);
+}
+
+/**
+ * Hook para subscription Realtime nas tarefas operacionais do dia
+ * Útil para páginas de check-in, check-out, limpeza, manutenção
+ */
+export function useOperationalTasksRealtime(date?: string) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const orgId = user?.organizationId;
+  const targetDate = date || new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    if (!orgId) return;
+
+    const supabase = getSupabaseClient();
+    
+    const channel = supabase
+      .channel(`operational_tasks_${targetDate}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'operational_tasks',
+          filter: `organization_id=eq.${orgId}`,
+        },
+        (payload: { eventType: string; new?: Record<string, unknown>; old?: Record<string, unknown> }) => {
+          console.log('[Realtime] Operational task update:', payload);
+          
+          // Invalida queries específicas por tipo de evento
+          queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkIns(targetDate) });
+          queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkOuts(targetDate) });
+          queryClient.invalidateQueries({ queryKey: crmTasksKeys.cleanings({ date: targetDate }) });
+          queryClient.invalidateQueries({ queryKey: crmTasksKeys.maintenances({ date: targetDate }) });
+          queryClient.invalidateQueries({ queryKey: crmTasksKeys.operationalStats(targetDate) });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, targetDate, queryClient]);
+}
+// ============================================================================
+// TASK GENERATION HOOKS
+// ============================================================================
+
+/**
+/**
+ * Hook para gerar tarefas operacionais para reservas existentes
+ * Chama a função RPC do Supabase
+ * 
+ * NOTA: Esta função RPC deve ser criada no banco via migration 2026012708
+ */
+export function useGenerateTasksForReservations() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const orgId = user?.organizationId;
+
+  return useMutation({
+    mutationFn: async ({ fromDate, toDate }: { fromDate?: string; toDate?: string }) => {
+      if (!orgId) throw new Error('Organization ID required');
+      
+      const supabase = getSupabaseClient();
+      // Usando @ts-ignore temporariamente até regenerar os tipos do Supabase
+      // @ts-ignore - RPC function criada em migration 2026012708
+      const { data, error } = await supabase.rpc('generate_tasks_for_existing_reservations', {
+        p_organization_id: orgId,
+        p_from_date: fromDate || new Date().toISOString().split('T')[0],
+        p_to_date: toDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      });
+
+      if (error) throw error;
+      return data as Array<{ reservation_id: string; tasks_created: number }>;
+    },
+    onSuccess: () => {
+      // Invalida todas as queries operacionais
+      queryClient.invalidateQueries({ queryKey: crmTasksKeys.operational() });
+      queryClient.invalidateQueries({ queryKey: crmTasksKeys.dashboardStats() });
+    },
+  });
+}
+
+/**
+ * Hook para obter estatísticas de geração de tarefas
+ */
+export function useTaskGenerationStats(date: string) {
+  const { user } = useAuth();
+  const orgId = user?.organizationId;
+
+  return useQuery({
+    queryKey: [...crmTasksKeys.operational(), 'generation-stats', date],
+    queryFn: async () => {
+      if (!orgId) throw new Error('Organization ID required');
+      
+      const supabase = getSupabaseClient();
+      
+      // Conta tarefas pendentes vs total para o dia
+      const { data: pendingCount, error: pendingError } = await supabase
+        .from('operational_tasks')
+        .select('id', { count: 'exact' })
+        .eq('organization_id', orgId)
+        .eq('scheduled_date', date)
+        .eq('status', 'pending');
+
+      const { data: totalCount, error: totalError } = await supabase
+        .from('operational_tasks')
+        .select('id', { count: 'exact' })
+        .eq('organization_id', orgId)
+        .eq('scheduled_date', date);
+
+      if (pendingError || totalError) throw pendingError || totalError;
+
+      return {
+        pendingTasks: pendingCount?.length || 0,
+        totalTasks: totalCount?.length || 0,
+        completedTasks: (totalCount?.length || 0) - (pendingCount?.length || 0),
+      };
+    },
+    enabled: !!orgId && !!date,
+    staleTime: 60 * 1000, // 1 minuto
+  });
+}
