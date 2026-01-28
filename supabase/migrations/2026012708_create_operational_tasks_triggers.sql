@@ -1,6 +1,6 @@
 -- ============================================================================
 -- MIGRATION: Triggers para Geração Automática de Tarefas Operacionais
--- Version: 1.0.0
+-- Version: 1.1.0
 -- Date: 2026-01-28
 -- 
 -- Este arquivo cria os triggers que geram tarefas operacionais automaticamente
@@ -30,20 +30,12 @@ DECLARE
   v_event_config JSONB;
 BEGIN
   -- Pega dados da reserva
-  -- NOTA: Ajuste conforme a estrutura real da sua tabela de reservas
+  -- Tabela reservations usa colunas diretas: check_in DATE, check_out DATE
   v_org_id := NEW.organization_id;
   v_property_id := NEW.property_id;
   v_reservation_id := NEW.id::TEXT;
-  
-  -- Tenta pegar datas do campo data ou de colunas específicas
-  IF NEW.data IS NOT NULL THEN
-    v_checkin_date := (NEW.data->>'check_in')::DATE;
-    v_checkout_date := (NEW.data->>'check_out')::DATE;
-  ELSE
-    -- Fallback para colunas diretas se existirem
-    v_checkin_date := COALESCE(NEW.check_in::DATE, NEW.checkin_date::DATE);
-    v_checkout_date := COALESCE(NEW.check_out::DATE, NEW.checkout_date::DATE);
-  END IF;
+  v_checkin_date := NEW.check_in;
+  v_checkout_date := NEW.check_out;
   
   -- Se não conseguiu pegar as datas, sai
   IF v_checkin_date IS NULL OR v_checkout_date IS NULL THEN
@@ -202,16 +194,11 @@ DECLARE
   v_new_checkout DATE;
   v_date_diff INTERVAL;
 BEGIN
-  -- Pega datas antigas e novas
-  IF OLD.data IS NOT NULL THEN
-    v_old_checkin := (OLD.data->>'check_in')::DATE;
-    v_old_checkout := (OLD.data->>'check_out')::DATE;
-  END IF;
-  
-  IF NEW.data IS NOT NULL THEN
-    v_new_checkin := (NEW.data->>'check_in')::DATE;
-    v_new_checkout := (NEW.data->>'check_out')::DATE;
-  END IF;
+  -- Pega datas antigas e novas (colunas diretas check_in/check_out)
+  v_old_checkin := OLD.check_in;
+  v_old_checkout := OLD.check_out;
+  v_new_checkin := NEW.check_in;
+  v_new_checkout := NEW.check_out;
   
   -- Se check-in mudou, atualiza tarefas de check-in
   IF v_old_checkin IS DISTINCT FROM v_new_checkin AND v_new_checkin IS NOT NULL THEN
@@ -255,7 +242,6 @@ $$;
 
 -- ============================================================================
 -- TRIGGERS NA TABELA DE RESERVAS
--- NOTA: Ajuste o nome da tabela conforme sua estrutura
 -- ============================================================================
 
 -- Trigger para criar tarefas quando reserva é criada/confirmada
@@ -273,10 +259,10 @@ FOR EACH ROW
 WHEN (NEW.status = 'cancelled')
 EXECUTE FUNCTION cancel_operational_tasks_on_reservation_cancel();
 
--- Trigger para atualizar tarefas quando reserva muda de data
+-- Trigger para atualizar tarefas quando reserva muda de data (colunas diretas)
 DROP TRIGGER IF EXISTS trg_update_tasks_on_reservation_change ON reservations;
 CREATE TRIGGER trg_update_tasks_on_reservation_change
-AFTER UPDATE OF data ON reservations
+AFTER UPDATE OF check_in, check_out ON reservations
 FOR EACH ROW
 EXECUTE FUNCTION update_operational_tasks_on_reservation_change();
 
@@ -309,19 +295,19 @@ DECLARE
   v_event_config JSONB;
   v_days_offset INTEGER;
 BEGIN
-  -- Itera sobre reservas no período
+  -- Itera sobre reservas no período (colunas diretas check_in/check_out)
   FOR v_reservation IN 
     SELECT * FROM reservations 
     WHERE organization_id = p_organization_id
       AND status NOT IN ('cancelled')
       AND (
-        (data->>'check_in')::DATE BETWEEN p_from_date AND p_to_date
-        OR (data->>'check_out')::DATE BETWEEN p_from_date AND p_to_date
+        check_in BETWEEN p_from_date AND p_to_date
+        OR check_out BETWEEN p_from_date AND p_to_date
       )
   LOOP
     v_count := 0;
-    v_checkin_date := (v_reservation.data->>'check_in')::DATE;
-    v_checkout_date := (v_reservation.data->>'check_out')::DATE;
+    v_checkin_date := v_reservation.check_in;
+    v_checkout_date := v_reservation.check_out;
     
     -- Itera sobre templates ativos
     FOR v_template IN 

@@ -29,7 +29,9 @@ import {
   Key,
   DoorOpen,
   Sparkle,
-  Wrench
+  Wrench,
+  FolderKanban,
+  ClipboardList
 } from 'lucide-react';
 
 const menuSections = [
@@ -55,11 +57,17 @@ const menuSections = [
         badge: '4',
       },
       {
+        id: 'projetos',
+        label: 'Projetos & Serviços',
+        icon: <FolderKanban className="w-5 h-5" />,
+        path: '/crm/projetos',
+        badge: '5',
+      },
+      {
         id: 'services',
-        label: 'Serviços',
+        label: 'Serviços (Legacy)',
         icon: <CheckSquare className="w-5 h-5" />,
         path: '/crm/services',
-        badge: '2',
       },
       {
         id: 'predetermined',
@@ -99,6 +107,13 @@ const menuSections = [
   {
     title: 'Operações',
     items: [
+      {
+        id: 'operacoes-unificadas',
+        label: 'Todas Operações',
+        icon: <ClipboardList className="w-5 h-5" />,
+        path: '/crm/operacoes',
+        badge: 'NOVO',
+      },
       {
         id: 'checkins-hoje',
         label: 'Check-ins Hoje',
