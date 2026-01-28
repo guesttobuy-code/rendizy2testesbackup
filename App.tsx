@@ -115,6 +115,8 @@ import { MyTasksView } from './components/crm/MyTasksView';
 import { TasksDashboard } from './components/crm/TasksDashboard';
 import { CRMSettingsModule } from './components/crm/settings';
 import { AutomationsPage } from './components/crm/automations';
+// Novas páginas do CRM Tasks v2
+import { EquipesPage, CalendarioTarefasPage, TodasTarefasPage, CheckInsPage, CheckOutsPage, LimpezasPage, ManutencoesPage } from './components/crm/pages';
 import { ChevronLeft, ChevronRight, Plus, Filter, Download, Tag, Sparkles, TrendingUp, Database, AlertTriangle } from 'lucide-react';
 import { detectConflicts } from './utils/conflictDetection';
 import { initializeEvolutionContactsService, getEvolutionContactsService } from './utils/services/evolutionContactsService';
@@ -173,6 +175,11 @@ const NotificationTemplatesPage = React.lazy(() =>
 // 🏠 CÁPSULA GUEST AREA - v1.0.0 - Área do Hóspede servida centralmente
 const GuestAreaPage = React.lazy(() =>
   import('./src/capsules/GuestArea/GuestAreaPage').then((m) => ({ default: m.GuestAreaPage }))
+);
+
+// 🎨 CRM TASKS V2 DEMO - Mocks de UI para validação (Design First)
+const CRMTasksV2Demo = React.lazy(() =>
+  import('./components/crm/mocks/CRMTasksV2Demo').then((m) => ({ default: m.CRMTasksV2Demo }))
 );
 
 // Types
@@ -1573,6 +1580,13 @@ function App() {
                   </ProtectedRoute>
                 } />
 
+                {/* 🎨 CRM TASKS V2 DEMO - Mocks de UI para validação (Design First) */}
+                <Route path="/crm-tasks-demo" element={
+                  <ProtectedRoute>
+                    <CRMTasksV2Demo />
+                  </ProtectedRoute>
+                } />
+
                 {/* ✅ ROTA LOCATIONS - v1.0.103.253 - PROTEGIDA (ENCAPSULADA) */}
                 <Route path="/locations" element={
                   <ProtectedRoute>
@@ -1814,9 +1828,9 @@ function App() {
                   <Route path="leads" element={<ModulePlaceholder module="Leads" />} />
                   <Route path="proprietarios" element={<ModulePlaceholder module="Proprietários" />} />
                   <Route path="minhas-tarefas" element={<MyTasksView />} />
-                  <Route path="todas-tarefas" element={<TasksDashboard />} />
-                  <Route path="calendario-tarefas" element={<ModulePlaceholder module="Calendário de Tarefas" />} />
-                  <Route path="equipes" element={<ModulePlaceholder module="Equipes" />} />
+                  <Route path="todas-tarefas" element={<TodasTarefasPage />} />
+                  <Route path="calendario-tarefas" element={<CalendarioTarefasPage />} />
+                  <Route path="equipes" element={<EquipesPage />} />
                   <Route path="prioridades" element={<ModulePlaceholder module="Prioridades" />} />
                   <Route path="pipeline" element={<ModulePlaceholder module="Pipeline de Vendas" />} />
                   <Route path="propostas" element={<ModulePlaceholder module="Propostas" />} />
@@ -1828,6 +1842,11 @@ function App() {
                   <Route path="tarefas-arquivadas" element={<ModulePlaceholder module="Tarefas Arquivadas" />} />
                   <Route path="configuracoes" element={<CRMSettingsModule />} />
                   <Route path="automacoes" element={<AutomationsPage />} />
+                  {/* Rotas de Operações */}
+                  <Route path="operacoes/checkins" element={<CheckInsPage />} />
+                  <Route path="operacoes/checkouts" element={<CheckOutsPage />} />
+                  <Route path="operacoes/limpezas" element={<LimpezasPage />} />
+                  <Route path="operacoes/manutencoes" element={<ManutencoesPage />} />
                 </Route>
 
                 {/* Módulo Automações - PROTEGIDO */}

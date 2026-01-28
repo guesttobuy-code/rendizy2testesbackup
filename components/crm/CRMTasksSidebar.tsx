@@ -25,7 +25,11 @@ import {
   Sparkles,
   UsersIcon as TeamIcon,
   GitBranch,
-  Zap
+  Zap,
+  Key,
+  DoorOpen,
+  Sparkle,
+  Wrench
 } from 'lucide-react';
 
 const menuSections = [
@@ -89,6 +93,39 @@ const menuSections = [
         label: 'Automações',
         icon: <Zap className="w-5 h-5" />,
         path: '/crm/automacoes',
+      },
+    ]
+  },
+  {
+    title: 'Operações',
+    items: [
+      {
+        id: 'checkins-hoje',
+        label: 'Check-ins Hoje',
+        icon: <Key className="w-5 h-5" />,
+        path: '/crm/operacoes/checkins',
+        badge: '8',
+      },
+      {
+        id: 'checkouts-hoje',
+        label: 'Check-outs Hoje',
+        icon: <DoorOpen className="w-5 h-5" />,
+        path: '/crm/operacoes/checkouts',
+        badge: '5',
+      },
+      {
+        id: 'limpezas-pendentes',
+        label: 'Limpezas Pendentes',
+        icon: <Sparkle className="w-5 h-5" />,
+        path: '/crm/operacoes/limpezas',
+        badge: '12',
+      },
+      {
+        id: 'manutencoes',
+        label: 'Manutenções',
+        icon: <Wrench className="w-5 h-5" />,
+        path: '/crm/operacoes/manutencoes',
+        badge: '3',
       },
     ]
   },

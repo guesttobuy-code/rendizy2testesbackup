@@ -34,6 +34,15 @@ export function SaveAsTemplateModal({
   const [globalDefaultNote, setGlobalDefaultNote] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Verificação de segurança - se não tiver ticket ou funnel, não renderiza nada
+  if (!ticket || !funnel) {
+    return null;
+  }
+
+  // Garantir que arrays existam
+  const tasks = ticket.tasks || [];
+  const stages = funnel.stages || [];
+
   const handleSave = async () => {
     if (!name.trim()) {
       toast.error('Nome do modelo é obrigatório');
@@ -54,14 +63,14 @@ export function SaveAsTemplateModal({
         name: name.trim(),
         description: description.trim() || undefined,
         funnelId: funnel.id,
-        stages: funnel.stages,
-        tasks: ticket.tasks.map(task => ({
+        stages: stages,
+        tasks: tasks.map(task => ({
           ...task,
           // Remover IDs temporários e resetar status
           id: `${Date.now()}-${Math.random()}`,
           ticketId: '', // Não será usado no template
           status: 'TODO' as const,
-          subtasks: task.subtasks.map(subtask => ({
+          subtasks: (task.subtasks || []).map(subtask => ({
             ...subtask,
             id: `${Date.now()}-${Math.random()}`,
             taskId: `${Date.now()}-${Math.random()}`,
@@ -105,8 +114,8 @@ export function SaveAsTemplateModal({
         name: name.trim(),
         description: description.trim() || undefined,
         funnelId: funnel.id,
-        stages: funnel.stages,
-        tasks: ticket.tasks,
+        stages: stages,
+        tasks: tasks,
         isTemplate: true,
         createdBy: ticket.createdBy,
         createdAt: new Date().toISOString(),
@@ -208,7 +217,7 @@ export function SaveAsTemplateModal({
           <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-sm">
             <p className="font-semibold mb-1">Este modelo incluirá:</p>
             <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>{ticket.tasks.length} tarefa(s) em {funnel.stages.length} etapa(s)</li>
+              <li>{tasks.length} tarefa(s) em {stages.length} etapa(s)</li>
               <li>Todas as configurações de tarefas (tipos, atribuições, etc.)</li>
               <li>Estrutura completa do processo</li>
             </ul>
