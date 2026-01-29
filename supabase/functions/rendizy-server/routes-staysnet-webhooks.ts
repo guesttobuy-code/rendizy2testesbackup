@@ -922,7 +922,67 @@ async function upsertBlockFromStaysReservation(
   subtype: BlockSubtype,
   reason: string,
   staysMeta: any,
-): Promise<{ created: boolean; id: string } | null> {
+): Promise<{ created: boolean; id: string; skipped?: boolean } | null> {
+  // ════════════════════════════════════════════════════════════════════════════
+  // 🚨 REGRA CRÍTICA: NÃO criar bloqueio se já existe reserva nas mesmas datas
+  // 
+  // Contexto: O Stays.net envia webhooks de "bloqueio" quando o calendário é
+  // sincronizado com canais (Airbnb, Booking, etc). Esses bloqueios refletem
+  // reservas que JÁ EXISTEM no sistema com status confirmado.
+  // 
+  // Se criarmos o bloqueio, teremos:
+  //   - Reserva confirmada (ex: Airbnb) de 29/01 a 01/02
+  //   - Bloqueio "fantasma" de 29/01 a 01/02 (do iCal sync)
+  // 
+  // Verificamos se existe reserva com:
+  //   1. Mesma propriedade
+  //   2. Mesmas datas (check_in/check_out)
+  //   3. Status não-cancelado
+  //   4. OU mesmo partnerCode (código externo como HMXXXXXXXX do Airbnb)
+  // ════════════════════════════════════════════════════════════════════════════
+  const partnerCode = staysMeta?.partnerCode || null;
+  
+  // Verificar se existe reserva conflitante por datas
+  const { data: conflictingReservation, error: conflictErr } = await supabase
+    .from('reservations')
+    .select('id, status, external_id, staysnet_raw')
+    .eq('organization_id', organizationId)
+    .eq('property_id', propertyId)
+    .eq('check_in', startDate)
+    .eq('check_out', endDate)
+    .neq('status', 'cancelled')
+    .maybeSingle();
+
+  if (conflictErr) {
+    console.warn('[StaysNet Webhook] Failed to check conflicting reservation:', conflictErr.message);
+  }
+
+  if (conflictingReservation?.id) {
+    console.log(`[StaysNet Webhook] ⚠️ SKIP block creation: reservation ${conflictingReservation.id} already exists for same dates (${startDate} to ${endDate})`);
+    return { created: false, id: '', skipped: true };
+  }
+
+  // Verificar por partnerCode se fornecido (ex: HMX8EAWSMB do Airbnb)
+  if (partnerCode) {
+    const { data: reservationByPartnerCode, error: partnerErr } = await supabase
+      .from('reservations')
+      .select('id, status, check_in, check_out')
+      .eq('organization_id', organizationId)
+      .eq('property_id', propertyId)
+      .neq('status', 'cancelled')
+      .contains('staysnet_raw', { partnerCode })
+      .maybeSingle();
+
+    if (partnerErr) {
+      console.warn('[StaysNet Webhook] Failed to check reservation by partnerCode:', partnerErr.message);
+    }
+
+    if (reservationByPartnerCode?.id) {
+      console.log(`[StaysNet Webhook] ⚠️ SKIP block creation: reservation ${reservationByPartnerCode.id} with same partnerCode "${partnerCode}" already exists`);
+      return { created: false, id: '', skipped: true };
+    }
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from('blocks')
     .select('id')
