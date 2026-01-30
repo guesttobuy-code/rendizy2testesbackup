@@ -657,15 +657,15 @@ export function ProjetosPage() {
 
       {/* Create Project Sheet */}
       <Sheet open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
-        <SheetContent className="w-[400px] sm:w-[450px]">
-          <SheetHeader>
+        <SheetContent className="w-[500px] sm:w-[540px] px-6">
+          <SheetHeader className="pr-4">
             <SheetTitle>Novo Projeto</SheetTitle>
             <SheetDescription>
               Crie um novo projeto para organizar suas tarefas
             </SheetDescription>
           </SheetHeader>
           
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-5 pr-4">
             {/* Nome do Projeto */}
             <div className="space-y-2">
               <Label htmlFor="project-name">Nome do Projeto *</Label>

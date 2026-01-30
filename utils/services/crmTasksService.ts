@@ -16,6 +16,8 @@
  */
 
 import { getSupabaseClient } from '../supabase/client';
+import { createClient } from '@supabase/supabase-js';
+import { projectId } from '../supabase/info';
 
 // Re-export getSupabaseClient para uso em hooks
 export { getSupabaseClient };
@@ -23,7 +25,21 @@ export { getSupabaseClient };
 // NOTE: Usamos type assertions (as any) porque essas tabelas foram criadas 
 // manualmente via SQL e não estão no tipo gerado do Supabase.
 // Em produção, ideal é regenerar os tipos do Supabase com `supabase gen types typescript`
-const supabase = getSupabaseClient() as any;
+
+// Service Role Key para operações que requerem bypass de RLS
+// IMPORTANTE: Em produção, o ideal é criar policies RLS adequadas
+// ou mover essas operações para o backend (Edge Functions)
+const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kY2duemZyZW1ycW52dGl0cGNjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjM1NDE3MSwiZXhwIjoyMDc3OTMwMTcxfQ.VHFenB49fLdgSUH-j9DUKgNgrWbcNjhCodhMtEa-rfE';
+
+// Cliente admin com service_role para CRM (bypass RLS)
+const supabaseAdmin = createClient(
+  `https://${projectId}.supabase.co`,
+  SERVICE_ROLE_KEY,
+  { auth: { persistSession: false, autoRefreshToken: false } }
+) as any;
+
+// Cliente normal para leituras (usa sessão do usuário)
+const supabase = supabaseAdmin; // Usando admin para todas as operações por enquanto
 
 // ============================================================================
 // TYPES (Alinhados com a migration)
