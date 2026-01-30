@@ -39,6 +39,18 @@ import {
   Edit2,
   Eye,
   Building,
+  X,
+  ExternalLink,
+  Sparkles,
+  AlertCircle,
+  Users,
+  Link2,
+  FileText,
+  Send,
+  AtSign,
+  Smile,
+  Image,
+  CheckCheck,
 } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
 import { Button } from '@/components/ui/button';
@@ -48,6 +60,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -537,8 +552,93 @@ const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectCl
 };
 
 // ============================================================================
-// PROJECT DETAIL MODAL
+// PROJECT DETAIL MODAL - ESTILO MOCK COMPLETO
 // ============================================================================
+
+// Mock Subtasks for checklist
+interface MockSubtask {
+  id: string;
+  title: string;
+  completed: boolean;
+  assignee?: { name: string; initials: string };
+  children?: MockSubtask[];
+  expanded?: boolean;
+}
+
+const MOCK_CHECKLIST: MockSubtask[] = [
+  {
+    id: '1',
+    title: 'Tarefas Iniciais',
+    completed: true,
+    expanded: true,
+    children: [
+      { id: '1.1', title: 'Reunião inicial com proprietário', completed: true, assignee: { name: 'Maria Teresa', initials: 'MT' } },
+      { id: '1.2', title: 'Alinhamento de expectativas', completed: true, assignee: { name: 'Arthur', initials: 'AR' } },
+    ],
+  },
+  {
+    id: '2',
+    title: 'Implantação',
+    completed: false,
+    expanded: true,
+    children: [
+      { id: '2.1', title: 'Criar anúncio na plataforma', completed: false, assignee: { name: 'Rocha', initials: 'RO' } },
+      { id: '2.2', title: 'Configurar precificação', completed: false, assignee: { name: 'Rafael', initials: 'RM' } },
+      { id: '2.3', title: 'Liberar para vendas', completed: false, assignee: { name: 'Rafael', initials: 'RM' } },
+    ],
+  },
+];
+
+// Mock activities
+const MOCK_ACTIVITIES = [
+  { id: '1', type: 'comment', user: { name: 'Sua Casa Rende Mais', initials: 'SC' }, content: 'FICHA PREENCHIDA DO PROPRIETÁRIO', timestamp: '13 de nov. de 2025' },
+  { id: '2', type: 'task', user: { name: 'You', initials: 'YO' }, content: 'checked Preencher a tarefa Aqpira', timestamp: '13 de nov. de 2025 at 10:04' },
+  { id: '3', type: 'status', user: { name: 'You', initials: 'YO' }, content: 'changed status from 🟡 Fotos/Vistoria to ⏳ Aguardando', timestamp: '20 de dez. de 2025 at 12:08' },
+];
+
+// Subtask Item Component
+const SubtaskItem: React.FC<{ task: MockSubtask; level?: number }> = ({ task, level = 0 }) => {
+  const [isExpanded, setIsExpanded] = useState(task.expanded ?? true);
+  const hasChildren = task.children && task.children.length > 0;
+  const completedChildren = task.children?.filter(c => c.completed).length || 0;
+  const totalChildren = task.children?.length || 0;
+
+  return (
+    <div>
+      <div
+        className={cn(
+          'group flex items-start gap-2 py-1.5 px-2 rounded hover:bg-accent/50 transition-colors'
+        )}
+        style={{ paddingLeft: `${level * 20 + 8}px` }}
+      >
+        {hasChildren ? (
+          <button onClick={() => setIsExpanded(!isExpanded)} className="p-0.5 hover:bg-accent rounded mt-0.5">
+            {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          </button>
+        ) : (
+          <div className="w-5" />
+        )}
+        <Checkbox checked={task.completed} className={cn('mt-0.5', task.completed && 'data-[state=checked]:bg-green-500')} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={cn('text-sm', task.completed && 'line-through text-muted-foreground')}>{task.title}</span>
+            {hasChildren && <span className="text-xs text-muted-foreground">{completedChildren}/{totalChildren}</span>}
+          </div>
+        </div>
+        {task.assignee && (
+          <Avatar className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <AvatarFallback className="text-[10px]">{task.assignee.initials}</AvatarFallback>
+          </Avatar>
+        )}
+      </div>
+      {hasChildren && isExpanded && (
+        <div className="border-l border-muted" style={{ marginLeft: `${level * 20 + 20}px` }}>
+          {task.children?.map((child) => <SubtaskItem key={child.id} task={child} level={level + 1} />)}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface ProjectDetailModalProps {
   project: ProjectWithStats | null;
@@ -548,152 +648,245 @@ interface ProjectDetailModalProps {
 }
 
 const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, isOpen, onClose, onCreateTask }) => {
-  if (!project) return null;
+  const [activeTab, setActiveTab] = useState('items');
+  const [newComment, setNewComment] = useState('');
+  
+  if (!project || !isOpen) return null;
   
   const statusConfig = STATUS_CONFIG[project.status] || STATUS_CONFIG['active'];
-  const stats = project.stats || { comments: 0, attachments: 0 };
   const progress = project.total_tasks > 0 ? Math.round((project.completed_tasks / project.total_tasks) * 100) : 0;
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-[520px] p-0 flex flex-col">
-        <SheetHeader className="px-6 py-4 border-b">
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-3 h-10 rounded-full" 
-              style={{ backgroundColor: project.color || '#64748b' }}
-            />
+    <div className="fixed inset-0 z-50 flex">
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/50" onClick={() => onClose()} />
+
+      {/* Modal - Largura grande como no mock */}
+      <div className="relative ml-auto h-full w-full max-w-5xl bg-background shadow-xl flex flex-col animate-in slide-in-from-right duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="flex items-center gap-4">
+            <Checkbox className="h-5 w-5" />
             <div>
-              <SheetTitle className="text-xl">{project.name}</SheetTitle>
-              <SheetDescription>{project.description}</SheetDescription>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>SETOR - IMPLANTAÇÃO</span>
+                <ChevronRight className="h-3 w-3" />
+                <span>Imóveis - Proprietários</span>
+                <ChevronRight className="h-3 w-3" />
+                <span>Lista</span>
+              </div>
+              <h2 className="font-semibold text-lg mt-1">{project.name}</h2>
             </div>
           </div>
-        </SheetHeader>
-        
-        <Tabs defaultValue="overview" className="flex-1 overflow-hidden px-6">
-          <TabsList>
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="tasks">Tarefas ({project.total_tasks})</TabsTrigger>
-            <TabsTrigger value="activity">Atividade</TabsTrigger>
-            <TabsTrigger value="files">Arquivos ({stats.attachments})</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="overview" className="overflow-auto">
-            <div className="space-y-6 py-4">
-              {/* Status & Progress */}
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Badge className={cn('text-sm', statusConfig.bgColor, statusConfig.color)}>
-                      {statusConfig.label}
-                    </Badge>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Progresso</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <Progress value={progress} className="flex-1 h-2" />
-                      <span className="font-bold">{progress}%</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {project.completed_tasks} de {project.total_tasks} tarefas concluídas
-                    </p>
-                  </CardContent>
-                </Card>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon"><Star className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon"><ExternalLink className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => onClose()}><X className="h-4 w-4" /></Button>
+          </div>
+        </div>
+
+        {/* AI Assistant Banner */}
+        <div className="px-6 py-3 bg-muted/30 border-b">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Sparkles className="h-4 w-4 text-purple-500" />
+            <span>Peça ao cérebro para escrever uma descrição, criar um resumo ou encontrar tarefas semelhantes</span>
+          </div>
+        </div>
+
+        {/* Content - Duas colunas */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Main Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6 space-y-6">
+              {/* Status & Fields - Grid 2 colunas */}
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                <div>
+                  <label className="text-sm text-muted-foreground flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" /> Status
+                  </label>
+                  <Select defaultValue={project.status}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NAO_INICIADO">⚪ Não Iniciado</SelectItem>
+                      <SelectItem value="FOTOS_VISTORIA">🟣 Fotos/Vistoria/CheckIn</SelectItem>
+                      <SelectItem value="TRANSPORTANDO_CS">🟢 Transportando CS</SelectItem>
+                      <SelectItem value="AGUARDANDO_PROPRIETARIO">🟡 Aguardando Proprietário</SelectItem>
+                      <SelectItem value="FIM_DE">🔵 Fim de</SelectItem>
+                      <SelectItem value="DESISTENTES">🔴 Desistentes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4" /> Cessionários
+                  </label>
+                  <div className="mt-1 text-sm text-muted-foreground">Vazio</div>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Calendar className="h-4 w-4" /> Datas
+                  </label>
+                  <div className="mt-1 flex items-center gap-2 text-sm">
+                    <span>Começar +</span>
+                    {project.dueDate && <span className="text-orange-500">🗓️ {format(parseISO(project.dueDate), 'dd/MM/yy')}</span>}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Flag className="h-4 w-4" /> Prioridade
+                  </label>
+                  <Badge className="mt-1 bg-red-100 text-red-600">🚩 Urgente</Badge>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Link2 className="h-4 w-4" /> Relacionamentos
+                  </label>
+                  <div className="mt-1 text-sm text-muted-foreground">Vazio</div>
+                </div>
               </div>
 
-              {/* Info Cards */}
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Comentários</span>
-                    </div>
-                    <p className="text-2xl font-bold mt-1">{stats.comments}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Atualizado</span>
-                    </div>
-                    <p className="text-lg font-bold mt-1">
-                      {project.updated_at ? formatDistanceToNow(parseISO(project.updated_at), { addSuffix: true, locale: ptBR }) : '-'}
-                    </p>
-                  </CardContent>
-                </Card>
+              <Separator />
+
+              {/* Description */}
+              <div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 cursor-pointer hover:text-foreground">
+                  <FileText className="h-4 w-4" />
+                  Adicionar descrição
+                </div>
+                <div className="flex items-center gap-2 text-sm text-purple-500 cursor-pointer hover:text-purple-600">
+                  <Sparkles className="h-4 w-4" />
+                  Escreva com IA
+                </div>
               </div>
 
-              {/* Team */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Equipe</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    {MOCK_MEMBERS.slice(0, 4).map(member => (
-                      <TooltipProvider key={member.id}>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="text-xs">{member.initials}</AvatarFallback>
-                            </Avatar>
-                          </TooltipTrigger>
-                          <TooltipContent>{member.name}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ))}
-                    <Button variant="outline" size="sm" className="h-8">
-                      <Plus className="h-3 w-3 mr-1" />
-                      Adicionar
+              <Separator />
+
+              {/* Tabs */}
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList>
+                  <TabsTrigger value="details">Detalhes</TabsTrigger>
+                  <TabsTrigger value="subtasks">Subtarefas</TabsTrigger>
+                  <TabsTrigger value="items">
+                    Itens de ação
+                    <Badge variant="secondary" className="ml-2">{project.total_tasks}</Badge>
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="details" className="mt-4">
+                  <p className="text-sm text-muted-foreground">Detalhes do projeto serão exibidos aqui.</p>
+                </TabsContent>
+
+                <TabsContent value="subtasks" className="mt-4">
+                  <Button variant="outline" size="sm" onClick={() => onCreateTask?.(project.id)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Criar Tarefa
+                  </Button>
+                  <p className="text-sm text-muted-foreground mt-4">Subtarefas simples serão exibidas aqui.</p>
+                </TabsContent>
+
+                <TabsContent value="items" className="mt-4 space-y-4">
+                  {/* Progress */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Listas de verificação</span>
+                      <span className="text-sm text-muted-foreground">
+                        <span className="text-green-500">●</span> {project.completed_tasks}/{project.total_tasks}
+                      </span>
+                    </div>
+                    <Progress value={progress} className="h-2" />
+                  </div>
+
+                  {/* Checklist Header */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">MODELO DA IMPLANTAÇÃO</h3>
+                    <span className="text-sm text-muted-foreground">{project.completed_tasks} de {project.total_tasks}</span>
+                  </div>
+
+                  {/* Subtasks Tree */}
+                  <div className="space-y-1">
+                    {MOCK_CHECKLIST.map((task) => <SubtaskItem key={task.id} task={task} />)}
+                  </div>
+
+                  {/* Add Item */}
+                  <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground py-2">
+                    <Plus className="h-4 w-4" />
+                    Adicionar Item
+                  </button>
+
+                  {/* Hide Completed */}
+                  <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                    <CheckCheck className="h-4 w-4" />
+                    Ocultar concluído
+                  </button>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+
+          {/* Activity Sidebar */}
+          <div className="w-80 border-l flex flex-col bg-muted/10">
+            <div className="p-4 border-b">
+              <h3 className="font-semibold">Activity</h3>
+            </div>
+            
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-4">
+                {MOCK_ACTIVITIES.map((activity) => (
+                  <div key={activity.id} className="flex gap-3">
+                    <Avatar className="h-6 w-6 flex-shrink-0">
+                      <AvatarFallback className="text-[10px]">{activity.user.initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-medium">{activity.user.name}</span>
+                        <span className="text-xs text-muted-foreground">{activity.timestamp}</span>
+                      </div>
+                      <div className="flex items-start gap-2 mt-1">
+                        {activity.type === 'task' && <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />}
+                        {activity.type === 'status' && <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5" />}
+                        {activity.type === 'comment' && <MessageSquare className="h-4 w-4 text-muted-foreground mt-0.5" />}
+                        <p className="text-sm">{activity.content}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+
+            {/* Comment Input */}
+            <div className="p-4 border-t">
+              <div className="flex items-start gap-2">
+                <Avatar className="h-6 w-6">
+                  <AvatarFallback className="text-[10px]">YO</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <Textarea
+                    placeholder="Write a comment..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="min-h-[60px] resize-none"
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7"><Smile className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7"><AtSign className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7"><Image className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7"><Paperclip className="h-4 w-4" /></Button>
+                    </div>
+                    <Button size="sm" disabled={!newComment.trim()}>
+                      <Send className="h-4 w-4" />
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="tasks">
-            <div className="py-4 text-center text-muted-foreground">
-              <p>Lista de tarefas do projeto aparecerá aqui.</p>
-              <Button 
-                variant="outline" 
-                className="mt-2"
-                onClick={() => onCreateTask?.(project.id)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Tarefa
-              </Button>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="activity">
-            <div className="py-4 text-center text-muted-foreground">
-              <p>Timeline de atividades aparecerá aqui.</p>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="files">
-            <div className="py-4 text-center text-muted-foreground">
-              <p>Arquivos e anexos aparecerão aqui.</p>
-              <Button variant="outline" className="mt-2">
-                <Plus className="h-4 w-4 mr-2" />
-                Upload
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
