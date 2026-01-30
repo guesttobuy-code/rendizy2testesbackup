@@ -62,12 +62,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
 import {
   Select,
   SelectContent,
@@ -555,22 +555,22 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, isOpen
   const progress = project.total_tasks > 0 ? Math.round((project.completed_tasks / project.total_tasks) * 100) : 0;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent className="w-full sm:max-w-[520px] p-0 flex flex-col">
+        <SheetHeader className="px-6 py-4 border-b">
           <div className="flex items-center gap-3">
             <div 
               className="w-3 h-10 rounded-full" 
               style={{ backgroundColor: project.color || '#64748b' }}
             />
             <div>
-              <DialogTitle className="text-xl">{project.name}</DialogTitle>
-              <DialogDescription>{project.description}</DialogDescription>
+              <SheetTitle className="text-xl">{project.name}</SheetTitle>
+              <SheetDescription>{project.description}</SheetDescription>
             </div>
           </div>
-        </DialogHeader>
+        </SheetHeader>
         
-        <Tabs defaultValue="overview" className="flex-1 overflow-hidden">
+        <Tabs defaultValue="overview" className="flex-1 overflow-hidden px-6">
           <TabsList>
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="tasks">Tarefas ({project.total_tasks})</TabsTrigger>
@@ -692,8 +692,8 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, isOpen
             </div>
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };
 
