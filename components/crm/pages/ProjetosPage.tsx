@@ -79,12 +79,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow, isBefore, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+// Modal lateral unificado para tarefas
+import { TaskFormSheet } from '../modals/TaskFormSheet';
+
 // ============================================================================
 // TYPES
 // ============================================================================
 
 type ViewMode = 'list' | 'board' | 'calendar';
-type ProjectStatus = 'active' | 'completed' | 'archived';
+type ProjectStatus = 'NAO_INICIADO' | 'FOTOS_VISTORIA' | 'TRANSPORTANDO_CS' | 'AGUARDANDO_PROPRIETARIO' | 'FIM_DE' | 'DESISTENTES' | 'active' | 'completed' | 'archived';
 
 interface ProjectMember {
   id: string;
@@ -104,18 +107,26 @@ interface ProjectWithStats {
   completed_tasks: number;
   created_at: string;
   updated_at: string;
+  dueDate?: string;
   stats?: {
     comments: number;
     attachments: number;
   };
   starred?: boolean;
+  assignee?: ProjectMember;
 }
 
 // ============================================================================
 // CONFIG
 // ============================================================================
 
-const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string; bgColor: string; order: number }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string; order: number }> = {
+  'NAO_INICIADO': { label: 'NÃO INICIADO', color: 'text-gray-600', bgColor: 'bg-gray-100', order: 1 },
+  'FOTOS_VISTORIA': { label: 'FOTOS/VISTORIA/CHECKIN', color: 'text-purple-600', bgColor: 'bg-purple-100', order: 2 },
+  'TRANSPORTANDO_CS': { label: 'TRANSPORTANDO CS', color: 'text-green-600', bgColor: 'bg-green-100', order: 3 },
+  'AGUARDANDO_PROPRIETARIO': { label: 'AGUARDANDO PROPRIETÁRIO', color: 'text-yellow-600', bgColor: 'bg-yellow-100', order: 4 },
+  'FIM_DE': { label: 'FIM DE', color: 'text-blue-600', bgColor: 'bg-blue-100', order: 5 },
+  'DESISTENTES': { label: 'DESISTENTES', color: 'text-red-600', bgColor: 'bg-red-100', order: 6 },
   'active': { label: 'ATIVO', color: 'text-blue-600', bgColor: 'bg-blue-100', order: 1 },
   'completed': { label: 'CONCLUÍDO', color: 'text-green-600', bgColor: 'bg-green-100', order: 2 },
   'archived': { label: 'ARQUIVADO', color: 'text-gray-600', bgColor: 'bg-gray-100', order: 3 },
@@ -126,138 +137,173 @@ const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string; bgCol
 // ============================================================================
 
 const MOCK_PROJECTS: ProjectWithStats[] = [
-  {
-    id: '1',
+  // DESISTENTES
+  { 
+    id: '1', 
     organization_id: 'org-1',
-    name: 'WALKER PIERRE - GRAMADO RS / GUARAPARI ES',
-    description: 'Implantação de imóvel premium',
-    status: 'active',
-    color: '#3b82f6',
-    total_tasks: 55,
-    completed_tasks: 23,
-    created_at: '2025-11-12',
-    updated_at: '2026-01-28',
-    stats: { comments: 3, attachments: 2 },
-    starred: true,
-  },
-  {
-    id: '2',
-    organization_id: 'org-1',
-    name: 'LUCIANA - VOLTA REDONDA RJ',
-    description: 'Fotos e vistoria',
-    status: 'active',
-    color: '#8b5cf6',
-    total_tasks: 55,
-    completed_tasks: 45,
-    created_at: '2025-08-13',
-    updated_at: '2026-01-28',
-    stats: { comments: 5, attachments: 3 },
-  },
-  {
-    id: '3',
-    organization_id: 'org-1',
-    name: 'GASTÃO VIANNA - VOLTA REDONDA RJ',
-    description: 'Fotos e vistoria inicial',
-    status: 'active',
-    color: '#8b5cf6',
-    total_tasks: 55,
-    completed_tasks: 24,
-    created_at: '2025-11-12',
-    updated_at: '2026-01-28',
-    stats: { comments: 3, attachments: 1 },
-  },
-  {
-    id: '4',
-    organization_id: 'org-1',
-    name: 'JULIANA COSTA - FLORIANÓPOLIS SC',
-    description: 'Transportando CS',
-    status: 'active',
-    color: '#22c55e',
-    total_tasks: 48,
-    completed_tasks: 31,
-    created_at: '2025-12-10',
-    updated_at: '2026-01-28',
-    stats: { comments: 8, attachments: 3 },
-    starred: true,
-  },
-  {
-    id: '5',
-    organization_id: 'org-1',
-    name: 'ROBERTO ALMEIDA - SALVADOR BA',
-    description: 'Em transferência',
-    status: 'active',
-    color: '#22c55e',
-    total_tasks: 48,
-    completed_tasks: 28,
-    created_at: '2025-12-20',
-    updated_at: '2026-01-28',
-    stats: { comments: 5, attachments: 2 },
-  },
-  {
-    id: '6',
-    organization_id: 'org-1',
-    name: 'PATRICIA SANTOS - RIO DE JANEIRO RJ',
-    description: 'Projeto finalizado',
-    status: 'completed',
-    color: '#16a34a',
-    total_tasks: 48,
-    completed_tasks: 48,
-    created_at: '2025-08-15',
-    updated_at: '2026-01-28',
-    stats: { comments: 15, attachments: 8 },
-    starred: true,
-  },
-  {
-    id: '7',
-    organization_id: 'org-1',
-    name: 'MARCOS OLIVEIRA - BELO HORIZONTE MG',
-    description: 'Projeto finalizado com sucesso',
-    status: 'completed',
-    color: '#16a34a',
-    total_tasks: 55,
-    completed_tasks: 55,
-    created_at: '2025-09-01',
-    updated_at: '2026-01-28',
-    stats: { comments: 12, attachments: 5 },
-  },
-  {
-    id: '8',
-    organization_id: 'org-1',
-    name: 'Padrão de Implantação - GTB',
-    description: 'Template de implantação',
-    status: 'archived',
-    color: '#64748b',
-    total_tasks: 65,
-    completed_tasks: 1,
-    created_at: '2025-07-14',
-    updated_at: '2026-01-28',
-    stats: { comments: 0, attachments: 0 },
-  },
-  {
-    id: '9',
-    organization_id: 'org-1',
-    name: 'CI de Implantação',
-    description: 'Checklist inicial',
-    status: 'archived',
-    color: '#64748b',
-    total_tasks: 55,
-    completed_tasks: 0,
-    created_at: '2025-07-17',
-    updated_at: '2026-01-28',
-    stats: { comments: 0, attachments: 0 },
-  },
-  {
-    id: '10',
-    organization_id: 'org-1',
-    name: 'CARLOS EDUARDO - SÃO PAULO SP',
+    name: 'CARLOS EDUARDO - SÃO PAULO SP', 
     description: 'Desistiu do projeto',
-    status: 'archived',
+    status: 'DESISTENTES', 
     color: '#ef4444',
-    total_tasks: 48,
-    completed_tasks: 7,
+    total_tasks: 48, 
+    completed_tasks: 7, 
     created_at: '2025-06-01',
-    updated_at: '2026-01-28',
-    stats: { comments: 2, attachments: 1 },
+    updated_at: '2025-06-15',
+    dueDate: '2025-06-15',
+    stats: { comments: 2, attachments: 1 } 
+  },
+  { 
+    id: '2', 
+    organization_id: 'org-1',
+    name: 'FERNANDO LIMA - CURITIBA PR', 
+    description: 'Desistência por motivos pessoais',
+    status: 'DESISTENTES', 
+    color: '#ef4444',
+    total_tasks: 48, 
+    completed_tasks: 4, 
+    created_at: '2025-07-10',
+    updated_at: '2025-07-20',
+    dueDate: '2025-07-20',
+    stats: { comments: 0, attachments: 0 } 
+  },
+  
+  // FIM DE
+  { 
+    id: '3', 
+    organization_id: 'org-1',
+    name: 'PATRICIA SANTOS - RIO DE JANEIRO RJ', 
+    description: 'Projeto finalizado com sucesso',
+    status: 'FIM_DE', 
+    color: '#3b82f6',
+    total_tasks: 48, 
+    completed_tasks: 48, 
+    created_at: '2025-08-15',
+    updated_at: '2025-10-30',
+    dueDate: '2025-10-30',
+    stats: { comments: 15, attachments: 8 }, 
+    starred: true 
+  },
+  { 
+    id: '4', 
+    organization_id: 'org-1',
+    name: 'MARCOS OLIVEIRA - BELO HORIZONTE MG', 
+    description: 'Implantação concluída',
+    status: 'FIM_DE', 
+    color: '#3b82f6',
+    total_tasks: 55, 
+    completed_tasks: 55, 
+    created_at: '2025-09-01',
+    updated_at: '2025-11-15',
+    dueDate: '2025-11-15',
+    stats: { comments: 12, attachments: 5 } 
+  },
+  
+  // TRANSPORTANDO CS
+  { 
+    id: '5', 
+    organization_id: 'org-1',
+    name: 'JULIANA COSTA - FLORIANÓPOLIS SC', 
+    description: 'Em transferência para CS',
+    status: 'TRANSPORTANDO_CS', 
+    color: '#22c55e',
+    total_tasks: 48, 
+    completed_tasks: 31, 
+    created_at: '2025-12-10',
+    updated_at: '2026-01-30',
+    dueDate: '2026-01-30',
+    stats: { comments: 8, attachments: 3 }, 
+    starred: true 
+  },
+  { 
+    id: '6', 
+    organization_id: 'org-1',
+    name: 'ROBERTO ALMEIDA - SALVADOR BA', 
+    description: 'Transportando para operações',
+    status: 'TRANSPORTANDO_CS', 
+    color: '#22c55e',
+    total_tasks: 48, 
+    completed_tasks: 28, 
+    created_at: '2025-12-20',
+    updated_at: '2026-02-05',
+    dueDate: '2026-02-05',
+    stats: { comments: 5, attachments: 2 } 
+  },
+  
+  // FOTOS/VISTORIA/CHECKIN
+  { 
+    id: '7', 
+    organization_id: 'org-1',
+    name: 'LUCIANA - VOLTA REDONDA RJ', 
+    description: 'Aguardando fotos e vistoria',
+    status: 'FOTOS_VISTORIA', 
+    color: '#8b5cf6',
+    total_tasks: 55, 
+    completed_tasks: 45, 
+    created_at: '2025-08-13',
+    updated_at: '2025-08-16',
+    dueDate: '2025-08-16',
+    stats: { comments: 5, attachments: 3 } 
+  },
+  { 
+    id: '8', 
+    organization_id: 'org-1',
+    name: 'GASTÃO VIANNA - VOLTA REDONDA RJ', 
+    description: 'Vistoria inicial em andamento',
+    status: 'FOTOS_VISTORIA', 
+    color: '#8b5cf6',
+    total_tasks: 55, 
+    completed_tasks: 24, 
+    created_at: '2025-11-12',
+    updated_at: '2025-11-15',
+    dueDate: '2025-11-15',
+    stats: { comments: 3, attachments: 1 } 
+  },
+  
+  // AGUARDANDO PROPRIETÁRIO
+  { 
+    id: '9', 
+    organization_id: 'org-1',
+    name: 'WALKER PIERRE - GRAMADO RS / GUARAPARI ES', 
+    description: 'Aguardando retorno do proprietário',
+    status: 'AGUARDANDO_PROPRIETARIO', 
+    color: '#f59e0b',
+    total_tasks: 55, 
+    completed_tasks: 23, 
+    created_at: '2025-11-12',
+    updated_at: '2025-11-15',
+    dueDate: '2025-11-15',
+    stats: { comments: 3, attachments: 2 }, 
+    starred: true 
+  },
+  
+  // NÃO INICIADO
+  { 
+    id: '10', 
+    organization_id: 'org-1',
+    name: 'Padrão de Implantação - GTB', 
+    description: 'Template de implantação',
+    status: 'NAO_INICIADO', 
+    color: '#64748b',
+    total_tasks: 65, 
+    completed_tasks: 1, 
+    created_at: '2025-07-14',
+    updated_at: '2025-07-17',
+    dueDate: '2025-07-17',
+    stats: { comments: 0, attachments: 0 } 
+  },
+  { 
+    id: '11', 
+    organization_id: 'org-1',
+    name: 'CI de Implantação', 
+    description: 'Checklist inicial de implantação',
+    status: 'NAO_INICIADO', 
+    color: '#64748b',
+    total_tasks: 55, 
+    completed_tasks: 0, 
+    created_at: '2025-07-17',
+    updated_at: '2025-07-20',
+    dueDate: '2025-07-20',
+    stats: { comments: 0, attachments: 0 } 
   },
 ];
 
@@ -283,9 +329,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onClick, onStar }) => 
   const stats = project.stats || { comments: 0, attachments: 0 };
   const progress = project.total_tasks > 0 ? Math.round((project.completed_tasks / project.total_tasks) * 100) : 0;
   
-  // Simular due date para demo (usar updated_at)
-  const dueDate = project.updated_at ? parseISO(project.updated_at) : null;
-  const isOverdue = dueDate && isBefore(dueDate, new Date()) && project.status !== 'completed' && project.status !== 'archived';
+  // Use dueDate from project if available, otherwise fall back to updated_at
+  const dueDate = project.dueDate ? parseISO(project.dueDate) : (project.updated_at ? parseISO(project.updated_at) : null);
+  const isOverdue = dueDate && isBefore(dueDate, new Date()) && !['completed', 'archived', 'FIM_DE', 'DESISTENTES'].includes(project.status);
 
   return (
     <div
@@ -498,9 +544,10 @@ interface ProjectDetailModalProps {
   project: ProjectWithStats | null;
   isOpen: boolean;
   onClose: () => void;
+  onCreateTask?: (projectId: string) => void;
 }
 
-const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, isOpen, onClose }) => {
+const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, isOpen, onClose, onCreateTask }) => {
   if (!project) return null;
   
   const statusConfig = STATUS_CONFIG[project.status] || STATUS_CONFIG['active'];
@@ -618,7 +665,11 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ project, isOpen
           <TabsContent value="tasks">
             <div className="py-4 text-center text-muted-foreground">
               <p>Lista de tarefas do projeto aparecerá aqui.</p>
-              <Button variant="outline" className="mt-2">
+              <Button 
+                variant="outline" 
+                className="mt-2"
+                onClick={() => onCreateTask?.(project.id)}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Tarefa
               </Button>
@@ -657,6 +708,16 @@ export function ProjetosPage() {
   const [selectedProject, setSelectedProject] = useState<ProjectWithStats | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  // Estado do modal de criação de tarefa
+  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
+  const [taskProjectId, setTaskProjectId] = useState<string | undefined>();
+
+  // Handler para abrir modal de criação de tarefa
+  const handleCreateTask = (projectId?: string) => {
+    setTaskProjectId(projectId);
+    setIsTaskFormOpen(true);
+  };
 
   // TODO: Replace with real data
   // const { data: projects = [], isLoading } = useProjects();
@@ -850,6 +911,16 @@ export function ProjetosPage() {
         project={selectedProject} 
         isOpen={isDetailOpen} 
         onClose={() => setIsDetailOpen(false)}
+        onCreateTask={handleCreateTask}
+      />
+
+      {/* Task Form Sheet - Modal lateral unificado */}
+      <TaskFormSheet
+        open={isTaskFormOpen}
+        onOpenChange={setIsTaskFormOpen}
+        mode="create"
+        defaultProjectId={taskProjectId}
+        onSuccess={() => setIsTaskFormOpen(false)}
       />
     </div>
   );

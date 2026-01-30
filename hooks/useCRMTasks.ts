@@ -4,12 +4,18 @@
  * React Query hooks para o sistema de tarefas CRM v2
  * Gerenciamento de estado reativo com cache automático
  * 
- * @version 2.1.0
- * @date 2026-01-28
+ * @version 2.2.0
+ * @date 2026-01-30
+ * 
+ * CHANGELOG v2.2.0:
+ * - Check-ins e Check-outs agora vêm diretamente da tabela `reservations`
+ * - Dados em tempo real baseados nas reservas confirmadas/pendentes
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { reservationsApi, propertiesApi } from '@/utils/api';
+import type { Reservation } from '@/types/reservation';
 import {
   teamsService,
   tasksService,
@@ -305,29 +311,228 @@ export function useDeleteTaskComment() {
 // OPERATIONAL TASKS HOOKS (Check-ins, Check-outs, Limpezas, Manutenções)
 // ============================================================================
 
+/**
+ * Converte uma Reservation em OperationalTask para exibição na tela de operações
+ * Permite usar os mesmos componentes visuais mantendo compatibilidade
+ */
+function reservationToOperationalTask(
+  reservation: Reservation, 
+  type: 'checkin' | 'checkout',
+  propertyName?: string,
+  propertyAddress?: string
+): OperationalTask {
+  const checkDate = type === 'checkin' 
+    ? (typeof reservation.checkIn === 'string' ? reservation.checkIn : reservation.checkIn?.toISOString().split('T')[0])
+    : (typeof reservation.checkOut === 'string' ? reservation.checkOut : reservation.checkOut?.toISOString().split('T')[0]);
+  
+  const guestCount = reservation.guests?.total || reservation.guests?.adults || 1;
+  
+  // Extrair data de criação da reserva (só a parte da data, sem hora)
+  const createdAtDate = reservation.createdAt 
+    ? (typeof reservation.createdAt === 'string' 
+        ? reservation.createdAt.split('T')[0] 
+        : reservation.createdAt.toISOString().split('T')[0])
+    : null;
+  
+  // Extrair data do check-in
+  const checkInDate = typeof reservation.checkIn === 'string' 
+    ? reservation.checkIn 
+    : reservation.checkIn?.toISOString().split('T')[0];
+  
+  // URGENTE: reserva criada no mesmo dia do check-in (reserva de última hora)
+  const isLastMinuteBooking = createdAtDate && checkInDate && createdAtDate === checkInDate;
+  
+  // Converter internalComments (string com linhas) para array de comentários
+  const parseComments = (commentsStr?: string) => {
+    if (!commentsStr) return [];
+    return commentsStr.split('\n').filter(line => line.trim()).map((line, idx) => {
+      // Formato esperado: [dd/MM/yyyy HH:mm] texto do comentário
+      const match = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (match) {
+        return {
+          id: `comment-${idx}`,
+          text: match[2],
+          author: 'Equipe',
+          createdAt: match[1],
+        };
+      }
+      return {
+        id: `comment-${idx}`,
+        text: line,
+        author: 'Equipe',
+        createdAt: '',
+      };
+    });
+  };
+  
+  const comments = parseComments(reservation.internalComments);
+  
+  return {
+    id: `${reservation.id}-${type}`, // ID composto para diferenciar checkin/checkout da mesma reserva
+    organization_id: '', // Não usado na exibição
+    title: type === 'checkin' 
+      ? `Check-in: ${reservation.guestName || 'Hóspede'}`
+      : `Check-out: ${reservation.guestName || 'Hóspede'}`,
+    description: propertyName 
+      ? `${propertyName} • ${guestCount} hóspede(s) • ${reservation.nights || 1} noite(s)`
+      : `${guestCount} hóspede(s) • ${reservation.nights || 1} noite(s)`,
+    status: reservation.status === 'checked_in' || reservation.status === 'checked_out' 
+      ? 'completed' 
+      : 'pending',
+    priority: 'medium',
+    scheduled_date: checkDate || new Date().toISOString().split('T')[0],
+    scheduled_time: type === 'checkin' 
+      ? reservation.checkInTime || '14:00'
+      : reservation.checkOutTime || '11:00',
+    property_id: reservation.propertyId,
+    reservation_id: reservation.id,
+    triggered_by_event: type === 'checkin' ? 'checkin_day' : 'checkout_day',
+    created_at: reservation.createdAt,
+    updated_at: reservation.createdAt,
+    // Campos enriquecidos
+    property_name: propertyName,
+    guest_name: reservation.guestName,
+    metadata: {
+      // Dados da propriedade
+      property_name: propertyName,
+      property_code: reservation.propertyId?.substring(0, 8) || '',
+      property_address: propertyAddress || '',
+      // Dados do hóspede
+      guest_name: reservation.guestName,
+      guest_phone: reservation.guestPhone || reservation.contact?.phone || '',
+      guest_email: reservation.guestEmail || reservation.contact?.email || '',
+      guest_count: guestCount,
+      // Dados da reserva
+      reservation_id: reservation.id,
+      platform: reservation.platform,
+      external_id: reservation.externalId,
+      total_price: reservation.pricing?.total || reservation.price,
+      guests: reservation.guests,
+      nights: reservation.nights,
+      created_at: reservation.createdAt,
+      // Flag de urgência: reserva criada no mesmo dia do check-in (última hora)
+      hasCheckinToday: type === 'checkin' && isLastMinuteBooking,
+      // Comentários internos da equipe operacional
+      comments: comments,
+    },
+  };
+}
+
+/**
+ * Hook para buscar Check-ins do dia diretamente da tabela de reservas
+ * @param date - Data no formato YYYY-MM-DD (default: hoje)
+ */
 export function useCheckIns(date?: string) {
   const { user } = useAuth();
-  const orgId = user?.organizationId;
   const targetDate = date || new Date().toISOString().split('T')[0];
 
   return useQuery({
     queryKey: crmTasksKeys.checkIns(targetDate),
-    queryFn: () => operationalTasksService.getCheckIns(orgId!, targetDate),
-    enabled: !!orgId,
+    queryFn: async (): Promise<OperationalTask[]> => {
+      // Usar API paginada que suporta checkInFrom/checkInTo
+      const response = await reservationsApi.listPaged({
+        checkInFrom: targetDate,
+        checkInTo: targetDate,
+        status: ['confirmed', 'pending', 'checked_in'],
+        limit: 100,
+      });
+
+      if (!response.success || !response.data?.data) {
+        console.error('❌ [useCheckIns] Erro ao buscar check-ins:', response.error);
+        return [];
+      }
+
+      const reservations = response.data.data;
+
+      // Buscar nomes das propriedades para enriquecer os dados
+      const propertiesResponse = await propertiesApi.list();
+      const propertiesMap = new Map<string, { name: string; address?: string }>();
+      
+      if (propertiesResponse.success && propertiesResponse.data) {
+        propertiesResponse.data.forEach(p => {
+          propertiesMap.set(p.id, { 
+            name: p.name,
+            address: p.address ? `${p.address.street || ''}, ${p.address.number || ''} - ${p.address.neighborhood || ''}, ${p.address.city || ''}`.trim().replace(/^, |, $|, - ,/g, '') : ''
+          });
+        });
+      }
+
+      // Converter reservas para OperationalTask
+      const tasks = reservations.map(reservation => {
+        const prop = propertiesMap.get(reservation.propertyId);
+        return reservationToOperationalTask(
+          reservation, 
+          'checkin',
+          prop?.name,
+          prop?.address
+        );
+      });
+
+      console.log(`✅ [useCheckIns] ${tasks.length} check-ins encontrados para ${targetDate}`);
+      return tasks;
+    },
+    enabled: !!user,
     refetchInterval: 30000, // Atualiza a cada 30 segundos
+    staleTime: 30000,
   });
 }
 
+/**
+ * Hook para buscar Check-outs do dia diretamente da tabela de reservas
+ * @param date - Data no formato YYYY-MM-DD (default: hoje)
+ */
 export function useCheckOuts(date?: string) {
   const { user } = useAuth();
-  const orgId = user?.organizationId;
   const targetDate = date || new Date().toISOString().split('T')[0];
 
   return useQuery({
     queryKey: crmTasksKeys.checkOuts(targetDate),
-    queryFn: () => operationalTasksService.getCheckOuts(orgId!, targetDate),
-    enabled: !!orgId,
+    queryFn: async (): Promise<OperationalTask[]> => {
+      // Usar API paginada que suporta checkOutFrom/checkOutTo
+      const response = await reservationsApi.listPaged({
+        checkOutFrom: targetDate,
+        checkOutTo: targetDate,
+        status: ['confirmed', 'pending', 'checked_in'],
+        limit: 100,
+      });
+
+      if (!response.success || !response.data?.data) {
+        console.error('❌ [useCheckOuts] Erro ao buscar check-outs:', response.error);
+        return [];
+      }
+
+      const reservations = response.data.data;
+
+      // Buscar nomes das propriedades para enriquecer os dados
+      const propertiesResponse = await propertiesApi.list();
+      const propertiesMap = new Map<string, { name: string; address?: string }>();
+      
+      if (propertiesResponse.success && propertiesResponse.data) {
+        propertiesResponse.data.forEach(p => {
+          propertiesMap.set(p.id, { 
+            name: p.name,
+            address: p.address ? `${p.address.street || ''}, ${p.address.number || ''} - ${p.address.neighborhood || ''}, ${p.address.city || ''}`.trim().replace(/^, |, $|, - ,/g, '') : ''
+          });
+        });
+      }
+
+      // Converter reservas para OperationalTask
+      const tasks = reservations.map(reservation => {
+        const prop = propertiesMap.get(reservation.propertyId);
+        return reservationToOperationalTask(
+          reservation, 
+          'checkout',
+          prop?.name,
+          prop?.address
+        );
+      });
+
+      console.log(`✅ [useCheckOuts] ${tasks.length} check-outs encontrados para ${targetDate}`);
+      return tasks;
+    },
+    enabled: !!user,
     refetchInterval: 30000,
+    staleTime: 30000,
   });
 }
 

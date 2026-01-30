@@ -9,22 +9,14 @@ import {
   Users,
   UserPlus,
   Building2,
-  Phone,
-  Mail,
-  DollarSign,
   FileText,
   Settings,
   ChevronLeft,
-  TrendingUp,
   Calendar,
   Target,
   CheckSquare,
   ListTodo,
-  Flag,
-  Archive,
-  Sparkles,
   UsersIcon as TeamIcon,
-  GitBranch,
   Zap,
   Key,
   DoorOpen,
@@ -64,19 +56,6 @@ const menuSections = [
         badge: '5',
       },
       {
-        id: 'services',
-        label: 'Serviços (Legacy)',
-        icon: <CheckSquare className="w-5 h-5" />,
-        path: '/crm/services',
-      },
-      {
-        id: 'predetermined',
-        label: 'Pré-determinados',
-        icon: <GitBranch className="w-5 h-5" />,
-        path: '/crm/predetermined',
-        badge: 'NEW',
-      },
-      {
         id: 'contatos',
         label: 'Contatos',
         icon: <Users className="w-5 h-5" />,
@@ -96,12 +75,6 @@ const menuSections = [
         icon: <Building2 className="w-5 h-5" />,
         path: '/crm/proprietarios',
       },
-      {
-        id: 'automacoes',
-        label: 'Automações',
-        icon: <Zap className="w-5 h-5" />,
-        path: '/crm/automacoes',
-      },
     ]
   },
   {
@@ -112,7 +85,6 @@ const menuSections = [
         label: 'Todas Operações',
         icon: <ClipboardList className="w-5 h-5" />,
         path: '/crm/operacoes',
-        badge: 'NOVO',
       },
       {
         id: 'checkins-hoje',
@@ -163,7 +135,7 @@ const menuSections = [
       },
       {
         id: 'calendario-tarefas',
-        label: 'Calendário de Tarefas',
+        label: 'Calendário',
         icon: <Calendar className="w-5 h-5" />,
         path: '/crm/calendario-tarefas',
       },
@@ -173,91 +145,32 @@ const menuSections = [
         icon: <TeamIcon className="w-5 h-5" />,
         path: '/crm/equipes',
       },
-      {
-        id: 'prioridades',
-        label: 'Prioridades',
-        icon: <Flag className="w-5 h-5" />,
-        path: '/crm/prioridades',
-      },
-    ]
-  },
-  {
-    title: 'Vendas',
-    items: [
-      {
-        id: 'pipeline',
-        label: 'Pipeline de Vendas',
-        icon: <Target className="w-5 h-5" />,
-        path: '/crm/pipeline',
-      },
-      {
-        id: 'propostas',
-        label: 'Propostas',
-        icon: <FileText className="w-5 h-5" />,
-        path: '/crm/propostas',
-        badge: '8',
-      },
-      {
-        id: 'negocios',
-        label: 'Negócios',
-        icon: <DollarSign className="w-5 h-5" />,
-        path: '/crm/negocios',
-      },
-    ]
-  },
-  {
-    title: 'Comunicação',
-    items: [
-      {
-        id: 'emails',
-        label: 'E-mails',
-        icon: <Mail className="w-5 h-5" />,
-        path: '/crm/emails',
-      },
-      {
-        id: 'chamadas',
-        label: 'Chamadas',
-        icon: <Phone className="w-5 h-5" />,
-        path: '/crm/chamadas',
-      },
-      {
-        id: 'agenda',
-        label: 'Agenda',
-        icon: <Calendar className="w-5 h-5" />,
-        path: '/crm/agenda',
-      },
-    ]
-  },
-  {
-    title: 'Análise',
-    items: [
-      {
-        id: 'relatorios',
-        label: 'Relatórios',
-        icon: <TrendingUp className="w-5 h-5" />,
-        path: '/crm/relatorios',
-      },
-      {
-        id: 'tarefas-arquivadas',
-        label: 'Tarefas Arquivadas',
-        icon: <Archive className="w-5 h-5" />,
-        path: '/crm/tarefas-arquivadas',
-      },
     ]
   },
   {
     title: 'Configurações',
     items: [
       {
-        id: 'editar-funis',
-        label: 'Editar Funis',
-        icon: <GitBranch className="w-5 h-5" />,
-        path: '#',
-        action: 'edit-funnels',
+        id: 'tipos-tarefa',
+        label: 'Tipos de Tarefa',
+        icon: <FileText className="w-5 h-5" />,
+        path: '/crm/tipos-tarefa',
+      },
+      {
+        id: 'templates',
+        label: 'Templates de Projeto',
+        icon: <FolderKanban className="w-5 h-5" />,
+        path: '/crm/templates',
+      },
+      {
+        id: 'automacoes',
+        label: 'Automações',
+        icon: <Zap className="w-5 h-5" />,
+        path: '/crm/automacoes',
       },
       {
         id: 'config',
-        label: 'Configurações do CRM',
+        label: 'Configurações',
         icon: <Settings className="w-5 h-5" />,
         path: '/crm/configuracoes',
       },

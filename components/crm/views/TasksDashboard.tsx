@@ -12,9 +12,10 @@
  * - Widget de SLA em risco
  * - Visão de equipe
  * - Timeline de atividades
+ * - Meta semanal
  * 
- * @version 3.0.0
- * @date 2026-01-27
+ * @version 3.1.0
+ * @date 2026-01-30
  */
 
 import React, { useState, useMemo } from 'react';
@@ -41,6 +42,8 @@ import {
   Timer,
   ListTodo,
   Circle,
+  Play,
+  Eye,
 } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
 import { Button } from '@/components/ui/button';
@@ -83,7 +86,70 @@ interface KPI {
   icon: React.ElementType;
   color: string;
   trend?: 'up' | 'down' | 'neutral';
+  description?: string;
 }
+
+// ============================================================================
+// MOCK DATA - Meta semanal e métricas
+// ============================================================================
+
+const MOCK_WEEKLY_TARGET = {
+  target: 50,
+  completed: 38,
+};
+
+const MOCK_TEAM_PERFORMANCE = [
+  {
+    id: '1',
+    name: 'Rafael Marques',
+    initials: 'RM',
+    role: 'Gerente',
+    totalTasks: 32,
+    completed: 28,
+    overdue: 1,
+    avgTime: '1.8 dias',
+  },
+  {
+    id: '2',
+    name: 'Arthur Silva',
+    initials: 'AS',
+    role: 'Atendimento',
+    totalTasks: 45,
+    completed: 38,
+    overdue: 3,
+    avgTime: '2.2 dias',
+  },
+  {
+    id: '3',
+    name: 'Maria Teresa',
+    initials: 'MT',
+    role: 'Implantação',
+    totalTasks: 28,
+    completed: 22,
+    overdue: 4,
+    avgTime: '3.1 dias',
+  },
+  {
+    id: '4',
+    name: 'Rocha',
+    initials: 'RO',
+    role: 'Anúncios',
+    totalTasks: 35,
+    completed: 30,
+    overdue: 2,
+    avgTime: '2.0 dias',
+  },
+  {
+    id: '5',
+    name: 'João Fotos',
+    initials: 'JF',
+    role: 'Fotografia',
+    totalTasks: 16,
+    completed: 14,
+    overdue: 1,
+    avgTime: '1.5 dias',
+  },
+];
 
 // ============================================================================
 // MOCK DATA
@@ -375,260 +441,230 @@ export function TasksDashboard({ organizationId, projectId }: TasksDashboardProp
     [allTasks]
   );
 
+  // Weekly target progress
+  const weeklyProgress = Math.round((MOCK_WEEKLY_TARGET.completed / MOCK_WEEKLY_TARGET.target) * 100);
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard de Tarefas</h1>
-          <p className="text-muted-foreground">
-            Visão geral do progresso e métricas
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Equipe" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as equipes</SelectItem>
-              {MOCK_TEAMS.map(team => (
-                <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex-shrink-0 border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard de Tarefas</h1>
+            <p className="text-muted-foreground">
+              Visão geral da produtividade e progresso das tarefas
+            </p>
+          </div>
           
-          <Select value={period} onValueChange={(v) => setPeriod(v as any)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Hoje</SelectItem>
-              <SelectItem value="week">Semana</SelectItem>
-              <SelectItem value="month">Mês</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button variant="outline" size="icon">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-3">
+            <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Equipe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as equipes</SelectItem>
+                {MOCK_TEAMS.map(team => (
+                  <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={period} onValueChange={(v) => setPeriod(v as any)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Hoje</SelectItem>
+                <SelectItem value="week">Semana</SelectItem>
+                <SelectItem value="month">Mês</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button variant="outline" size="icon">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-        {kpis.map(kpi => (
-          <KPICard key={kpi.id} kpi={kpi} />
-        ))}
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column - Charts & Distribution */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Status Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Distribuição por Status</CardTitle>
-              <CardDescription>Visão geral das tarefas por estado</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-4 gap-4">
-                <StatusDistributionItem 
-                  status="todo" 
-                  count={allTasks.filter(t => t.status === 'todo').length}
-                  total={allTasks.length}
-                />
-                <StatusDistributionItem 
-                  status="in_progress" 
-                  count={allTasks.filter(t => t.status === 'in_progress').length}
-                  total={allTasks.length}
-                />
-                <StatusDistributionItem 
-                  status="blocked" 
-                  count={allTasks.filter(t => t.status === 'blocked').length}
-                  total={allTasks.length}
-                />
-                <StatusDistributionItem 
-                  status="completed" 
-                  count={allTasks.filter(t => t.status === 'completed').length}
-                  total={allTasks.length}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Team Performance */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Desempenho por Equipe</CardTitle>
-              <CardDescription>Métricas de produtividade das equipes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {teams.map(team => {
-                  const teamTasks = allTasks.filter(t => t.team_id === team.id);
-                  const completed = teamTasks.filter(t => t.status === 'completed').length;
-                  const total = teamTasks.length;
-                  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-                  
-                  return (
-                    <div key={team.id} className="flex items-center gap-4">
-                      <div 
-                        className="h-8 w-8 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: team.color }}
-                      >
-                        <Users className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm">{team.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {completed}/{total} tarefas
-                          </span>
-                        </div>
-                        <Progress value={progress} className="h-2" />
-                      </div>
-                      <span className="text-sm font-medium w-12 text-right">
-                        {progress}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Priority Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Distribuição por Prioridade</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end gap-2 h-32">
-                {(['urgent', 'high', 'medium', 'low'] as TaskPriority[]).map(priority => {
-                  const count = allTasks.filter(t => t.priority === priority).length;
-                  const maxCount = Math.max(...(['urgent', 'high', 'medium', 'low'] as TaskPriority[]).map(p => 
-                    allTasks.filter(t => t.priority === p).length
-                  ));
-                  const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                  const colors = getPriorityColor(priority);
-                  
-                  return (
-                    <div key={priority} className="flex-1 flex flex-col items-center gap-2">
-                      <div 
-                        className={cn('w-full rounded-t transition-all', colors.bg)}
-                        style={{ height: `${height}%`, minHeight: count > 0 ? 8 : 0 }}
-                      />
-                      <div className="text-center">
-                        <p className={cn('text-lg font-bold', colors.text)}>{count}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{priority}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column - Lists & Activity */}
+      {/* Content with ScrollArea */}
+      <ScrollArea className="flex-1 p-6">
         <div className="space-y-6">
-          {/* Today's Tasks */}
+          {/* KPI Cards - Grid 4 columns */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {kpis.slice(0, 4).map(kpi => (
+              <MetricCard key={kpi.id} kpi={kpi} />
+            ))}
+          </div>
+
+          {/* Meta Semanal */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Tarefas de Hoje
-                </CardTitle>
-                <Badge variant="secondary">{todayTasks.length}</Badge>
+                <CardTitle className="text-base">Meta Semanal</CardTitle>
+                <Badge variant="outline">
+                  {MOCK_WEEKLY_TARGET.completed}/{MOCK_WEEKLY_TARGET.target} tarefas
+                </Badge>
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-48">
-                <div className="space-y-2">
-                  {todayTasks.length > 0 ? todayTasks.map(task => (
-                    <TaskMiniCard key={task.id} task={task} />
-                  )) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      Nenhuma tarefa para hoje 🎉
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
+              <Progress value={weeklyProgress} className="h-3" />
+              <p className="text-sm text-muted-foreground mt-2">
+                {weeklyProgress}% da meta atingida • Faltam {MOCK_WEEKLY_TARGET.target - MOCK_WEEKLY_TARGET.completed} tarefas
+              </p>
             </CardContent>
           </Card>
 
-          {/* Overdue Tasks */}
-          {overdueTasks.length > 0 && (
-            <Card className="border-red-200 dark:border-red-900">
-              <CardHeader className="pb-2">
+          {/* Main Content Grid - 3 columns like mock */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left Column - Status & Priority Distribution */}
+            <div className="space-y-6">
+              {/* Status Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Distribuição por Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {[
+                    { status: 'Não Iniciado', count: allTasks.filter(t => t.status === 'todo').length, color: 'bg-gray-400' },
+                    { status: 'Em Andamento', count: allTasks.filter(t => t.status === 'in_progress').length, color: 'bg-blue-500' },
+                    { status: 'Bloqueado', count: allTasks.filter(t => t.status === 'blocked').length, color: 'bg-yellow-500' },
+                    { status: 'Concluído', count: allTasks.filter(t => t.status === 'completed').length, color: 'bg-green-500' },
+                    { status: 'Atrasado', count: overdueTasks.length, color: 'bg-red-500' },
+                  ].map((item) => {
+                    const total = allTasks.length || 1;
+                    const percentage = Math.round((item.count / total) * 100);
+                    return (
+                      <div key={item.status} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span>{item.status}</span>
+                          <span className="text-muted-foreground">
+                            {item.count} ({percentage}%)
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn('h-full rounded-full transition-all', item.color)}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              {/* Priority Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Por Prioridade</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end justify-between h-32 gap-2">
+                    {[
+                      { priority: 'Urgente', count: allTasks.filter(t => t.priority === 'urgent').length, color: 'bg-red-500' },
+                      { priority: 'Alta', count: allTasks.filter(t => t.priority === 'high').length, color: 'bg-orange-500' },
+                      { priority: 'Normal', count: allTasks.filter(t => t.priority === 'medium').length, color: 'bg-blue-500' },
+                      { priority: 'Baixa', count: allTasks.filter(t => t.priority === 'low').length, color: 'bg-gray-400' },
+                    ].map((item) => {
+                      const maxCount = Math.max(
+                        allTasks.filter(t => t.priority === 'urgent').length,
+                        allTasks.filter(t => t.priority === 'high').length,
+                        allTasks.filter(t => t.priority === 'medium').length,
+                        allTasks.filter(t => t.priority === 'low').length,
+                        1
+                      );
+                      const height = (item.count / maxCount) * 100;
+                      return (
+                        <div key={item.priority} className="flex-1 flex flex-col items-center gap-1">
+                          <span className="text-xs font-medium">{item.count}</span>
+                          <div
+                            className={cn('w-full rounded-t', item.color)}
+                            style={{ height: `${height}%`, minHeight: item.count > 0 ? 8 : 0 }}
+                          />
+                          <span className="text-xs text-muted-foreground text-center">
+                            {item.priority}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Middle Column - Team Performance */}
+            <Card className="col-span-1">
+              <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2 text-red-600">
-                    <AlertTriangle className="h-4 w-4" />
-                    Tarefas Atrasadas
-                  </CardTitle>
-                  <Badge variant="destructive">{overdueTasks.length}</Badge>
+                  <CardTitle className="text-base">Performance da Equipe</CardTitle>
+                  <Button variant="ghost" size="sm">
+                    Ver todos
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-36">
-                  <div className="space-y-2">
-                    {overdueTasks.map(task => (
-                      <TaskMiniCard key={task.id} task={task} showDueDate />
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* SLA at Risk */}
-          {slaAtRiskTasks.length > 0 && (
-            <Card className="border-orange-200 dark:border-orange-900">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2 text-orange-600">
-                    <Timer className="h-4 w-4" />
-                    SLA em Risco
-                  </CardTitle>
-                  <Badge className="bg-orange-100 text-orange-700">{slaAtRiskTasks.length}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-36">
-                  <div className="space-y-2">
-                    {slaAtRiskTasks.map(task => (
-                      <TaskMiniCard key={task.id} task={task} showSla />
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Atividade Recente
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-56">
-                <div className="space-y-3">
-                  {MOCK_ACTIVITIES.map(activity => (
-                    <ActivityItem key={activity.id} activity={activity} />
+              <CardContent className="p-0">
+                <ScrollArea className="h-[400px] px-4">
+                  {MOCK_TEAM_PERFORMANCE.map((member) => (
+                    <TeamMemberRow key={member.id} member={member} />
                   ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Right Column - Overdue & Activity */}
+            <div className="space-y-6">
+              {/* Overdue Tasks */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">Tarefas Atrasadas</CardTitle>
+                      <Badge variant="destructive">{overdueTasks.length}</Badge>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      Ver todas
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 px-2">
+                  <ScrollArea className="h-36">
+                    {overdueTasks.length > 0 ? overdueTasks.slice(0, 5).map(task => (
+                      <OverdueTaskRow key={task.id} task={task} />
+                    )) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Nenhuma tarefa atrasada 🎉
+                      </p>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Recent Activity */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Atividade Recente</CardTitle>
+                    <Button variant="ghost" size="sm">
+                      Ver tudo
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[200px]">
+                    {MOCK_ACTIVITIES.map((activity) => (
+                      <ActivityItem key={activity.id} activity={activity} />
+                    ))}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }
@@ -637,80 +673,149 @@ export function TasksDashboard({ organizationId, projectId }: TasksDashboardProp
 // HELPER COMPONENTS
 // ============================================================================
 
-function KPICard({ kpi }: { kpi: KPI }) {
+interface MetricCardProps {
+  kpi: KPI;
+}
+
+const MetricCard: React.FC<MetricCardProps> = ({ kpi }) => {
   const KPIIcon = kpi.icon;
+  const isPositiveTrend = kpi.trend && kpi.trend === 'up';
+  const isNegativeTrend = kpi.trend && kpi.trend === 'down';
+
   const formatValue = (val: number) => {
     if (kpi.format === 'percent') return `${val}%`;
     if (kpi.format === 'hours') return `${val}h`;
     return val.toString();
   };
-  
+
   const change = kpi.previousValue 
-    ? ((kpi.value - kpi.previousValue) / kpi.previousValue * 100).toFixed(0)
+    ? ((kpi.value - kpi.previousValue) / Math.max(kpi.previousValue, 1) * 100).toFixed(0)
     : null;
 
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center', kpi.color)}>
-            <KPIIcon className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold">{formatValue(kpi.value)}</span>
-              {kpi.trend && change && (
-                <span className={cn(
-                  'text-xs flex items-center',
-                  kpi.trend === 'up' && kpi.id === 'overdue' ? 'text-red-600' :
-                  kpi.trend === 'up' ? 'text-green-600' :
-                  kpi.trend === 'down' && kpi.id === 'overdue' ? 'text-green-600' :
-                  'text-red-600'
-                )}>
-                  {kpi.trend === 'up' ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">{kpi.label}</p>
+            <p className="text-3xl font-bold mt-1">{formatValue(kpi.value)}</p>
+            {change && (
+              <div className="flex items-center gap-1 mt-2">
+                {isPositiveTrend ? (
+                  <ArrowUpRight className={cn(
+                    "h-4 w-4",
+                    kpi.id === 'overdue' ? 'text-red-500' : 'text-green-500'
+                  )} />
+                ) : isNegativeTrend ? (
+                  <ArrowDownRight className={cn(
+                    "h-4 w-4",
+                    kpi.id === 'overdue' ? 'text-green-500' : 'text-red-500'
+                  )} />
+                ) : null}
+                <span
+                  className={cn(
+                    'text-sm',
+                    isPositiveTrend && kpi.id !== 'overdue' && 'text-green-500',
+                    isPositiveTrend && kpi.id === 'overdue' && 'text-red-500',
+                    isNegativeTrend && kpi.id !== 'overdue' && 'text-red-500',
+                    isNegativeTrend && kpi.id === 'overdue' && 'text-green-500'
+                  )}
+                >
                   {Math.abs(Number(change))}%
                 </span>
-              )}
-            </div>
+                <span className="text-sm text-muted-foreground">vs semana anterior</span>
+              </div>
+            )}
+            {kpi.description && (
+              <p className="text-xs text-muted-foreground mt-1">{kpi.description}</p>
+            )}
+          </div>
+          <div className={cn('p-3 rounded-lg', kpi.color)}>
+            <KPIIcon className="h-5 w-5" />
           </div>
         </div>
       </CardContent>
     </Card>
   );
+};
+
+interface TeamMemberRowProps {
+  member: typeof MOCK_TEAM_PERFORMANCE[0];
 }
 
-function StatusDistributionItem({ status, count, total }: { status: TaskStatus; count: number; total: number }) {
-  const colors = getStatusColor(status);
-  const percent = total > 0 ? Math.round((count / total) * 100) : 0;
-  
-  const statusLabels: Record<TaskStatus, string> = {
-    todo: 'A Fazer',
-    in_progress: 'Em Progresso',
-    blocked: 'Bloqueado',
-    completed: 'Concluído',
-    cancelled: 'Cancelado',
-  };
-
-  const StatusIcon = {
-    todo: Circle,
-    in_progress: Clock,
-    blocked: AlertTriangle,
-    completed: CheckCircle2,
-    cancelled: Circle,
-  }[status];
+const TeamMemberRow: React.FC<TeamMemberRowProps> = ({ member }) => {
+  const completionRate = Math.round((member.completed / member.totalTasks) * 100);
 
   return (
-    <div className="text-center">
-      <div className={cn('h-16 w-16 rounded-full mx-auto flex items-center justify-center mb-2', colors.bg)}>
-        <StatusIcon className={cn('h-6 w-6', colors.text)} />
+    <div className="flex items-center gap-4 py-3 hover:bg-muted/50 px-2 rounded-lg transition-colors">
+      <Avatar className="h-9 w-9">
+        <AvatarFallback>{member.initials}</AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-medium text-sm">{member.name}</p>
+          <Badge variant="outline" className="text-xs">
+            {member.role}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-4 mt-1">
+          <span className="text-xs text-muted-foreground">
+            {member.completed}/{member.totalTasks} tarefas
+          </span>
+          <Progress value={completionRate} className="flex-1 h-1.5" />
+          <span className="text-xs font-medium">{completionRate}%</span>
+        </div>
       </div>
-      <p className="text-2xl font-bold">{count}</p>
-      <p className="text-xs text-muted-foreground">{statusLabels[status]}</p>
-      <p className="text-xs text-muted-foreground">{percent}%</p>
+      <div className="flex items-center gap-4 text-sm">
+        {member.overdue > 0 && (
+          <Badge variant="destructive" className="text-xs">
+            {member.overdue} atrasadas
+          </Badge>
+        )}
+        <span className="text-muted-foreground text-xs">~{member.avgTime}</span>
+      </div>
     </div>
   );
+};
+
+interface OverdueTaskRowProps {
+  task: Task;
 }
+
+const OverdueTaskRow: React.FC<OverdueTaskRowProps> = ({ task }) => {
+  const daysOverdue = task.due_date 
+    ? Math.ceil((new Date().getTime() - new Date(task.due_date).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const user = MOCK_USERS.find(u => u.id === task.assignee_id);
+  const priorityColors = getPriorityColor(task.priority);
+
+  return (
+    <div className="flex items-center gap-3 py-3 hover:bg-muted/50 px-2 rounded-lg transition-colors group">
+      <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{task.title}</p>
+        <p className="text-xs text-muted-foreground">{task.project_id || 'Sem projeto'}</p>
+      </div>
+      <Badge variant="outline" className={cn('text-xs', priorityColors.bg, priorityColors.text)}>
+        {daysOverdue}d atrasada
+      </Badge>
+      {user && (
+        <Avatar className="h-6 w-6">
+          <AvatarFallback className="text-[10px]">
+            {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+          </AvatarFallback>
+        </Avatar>
+      )}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 opacity-0 group-hover:opacity-100"
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+};
 
 function TaskMiniCard({ task, showDueDate, showSla }: { task: Task; showDueDate?: boolean; showSla?: boolean }) {
   const priorityColors = getPriorityColor(task.priority);
@@ -754,63 +859,48 @@ function ActivityItem({ activity }: { activity: TaskActivity }) {
     created: 'criou',
     status_changed: 'alterou status de',
     completed: 'completou',
+    started: 'iniciou',
     assigned: 'atribuiu',
     commented: 'comentou em',
   };
 
   const actionIcons: Record<string, React.ElementType> = {
-    created: Plus,
+    created: Circle,
     status_changed: RefreshCw,
     completed: CheckCircle2,
+    started: Play,
     assigned: User,
     commented: Activity,
   };
 
   const ActionIcon = actionIcons[activity.action] || Activity;
 
+  const getIconColor = () => {
+    switch (activity.action) {
+      case 'completed': return 'text-green-500';
+      case 'started': return 'text-blue-500';
+      case 'created': return 'text-purple-500';
+      case 'commented': return 'text-orange-500';
+      default: return 'text-muted-foreground';
+    }
+  };
+
   return (
-    <div className="flex items-start gap-3">
-      <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
-        <ActionIcon className="h-3.5 w-3.5 text-muted-foreground" />
+    <div className="flex items-start gap-3 py-2">
+      <div className="mt-0.5">
+        <ActionIcon className={cn("h-4 w-4", getIconColor())} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm">
-          {user ? (
-            <span className="font-medium">{user.name}</span>
-          ) : (
-            <span className="font-medium">Sistema</span>
-          )}{' '}
-          {actionLabels[activity.action] || activity.action}{' '}
-          <span className="text-muted-foreground truncate">
-            {task?.title || 'tarefa'}
-          </span>
+          <span className="font-medium">{user?.name || 'Sistema'}</span>{' '}
+          <span className="text-muted-foreground">{actionLabels[activity.action] || activity.action}</span>{' '}
+          <span className="font-medium truncate">{task?.title || 'tarefa'}</span>
         </p>
         <p className="text-xs text-muted-foreground">
           {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: ptBR })}
         </p>
       </div>
     </div>
-  );
-}
-
-// Missing import for Plus
-function Plus(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
-    </svg>
   );
 }
 

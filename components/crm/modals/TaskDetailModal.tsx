@@ -46,7 +46,7 @@ import {
   useDeleteTask
 } from '@/hooks/useCRMTasks';
 import { CRMTask, TaskStatus, TaskPriority } from '@/utils/services/crmTasksService';
-import { TaskFormModalV2 } from './TaskFormModalV2';
+import { TaskFormSheet } from './TaskFormSheet';
 
 interface TaskDetailModalProps {
   taskId: string | null;
@@ -394,11 +394,12 @@ export function TaskDetailModal({
         </SheetContent>
       </Sheet>
 
-      {/* Edit Modal */}
+      {/* Edit Modal - Usando Sheet lateral unificado */}
       {task && (
-        <TaskFormModalV2
+        <TaskFormSheet
           open={editModalOpen}
           onOpenChange={setEditModalOpen}
+          mode="edit"
           task={task}
           onSuccess={() => {
             onTaskUpdated?.();

@@ -32,13 +32,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -58,6 +51,9 @@ import { TasksBoardView } from '../views/TasksBoardView';
 import { TasksCalendarView } from '../views/TasksCalendarView';
 import { TasksDashboard } from '../views/TasksDashboard';
 import { CRMTasksSettings } from '../settings/CRMTasksSettings';
+
+// Import modal lateral unificado
+import { TaskFormSheet } from '../modals/TaskFormSheet';
 
 import type { Task, TaskStatus } from '@/types/crm-tasks';
 
@@ -231,134 +227,18 @@ export function CRMTasksPage({
     <div className="h-full flex flex-col bg-background">
       {renderContent()}
 
-      {/* Task Modal */}
-      <TaskFormModal
+      {/* Task Modal Lateral Unificado */}
+      <TaskFormSheet
         open={isTaskModalOpen}
         onOpenChange={setIsTaskModalOpen}
-        task={selectedTask}
-        defaultStatus={createTaskDefaultStatus}
-        onClose={handleCloseTaskModal}
+        mode={selectedTask ? 'edit' : 'create'}
+        task={selectedTask as any}
+        onSuccess={handleCloseTaskModal}
       />
     </div>
   );
 }
 
-// ============================================================================
-// TASK FORM MODAL
-// ============================================================================
-
-interface TaskFormModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  task: Task | null;
-  defaultStatus?: TaskStatus;
-  onClose: () => void;
-}
-
-function TaskFormModal({ 
-  open, 
-  onOpenChange, 
-  task, 
-  defaultStatus,
-  onClose 
-}: TaskFormModalProps) {
-  const [title, setTitle] = useState(task?.title || '');
-  const [description, setDescription] = useState(task?.description || '');
-  const [status, setStatus] = useState<TaskStatus>(task?.status || defaultStatus || 'todo');
-
-  React.useEffect(() => {
-    if (task) {
-      setTitle(task.title);
-      setDescription(task.description || '');
-      setStatus(task.status);
-    } else {
-      setTitle('');
-      setDescription('');
-      setStatus(defaultStatus || 'todo');
-    }
-  }, [task, defaultStatus, open]);
-
-  const handleSave = () => {
-    // Save logic would go here
-    console.log('Saving task:', { title, description, status });
-    onClose();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{task ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
-          <DialogDescription>
-            {task ? 'Edite os detalhes da tarefa' : 'Crie uma nova tarefa'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          {/* Title */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Título *</label>
-            <Input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="O que precisa ser feito?"
-              autoFocus
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Descrição</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Adicione mais detalhes..."
-              className="w-full min-h-24 px-3 py-2 border rounded-md resize-none"
-            />
-          </div>
-
-          {/* Status */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Status</label>
-            <div className="flex gap-2">
-              {(['todo', 'in_progress', 'blocked', 'completed'] as TaskStatus[]).map(s => (
-                <button
-                  key={s}
-                  onClick={() => setStatus(s)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                    status === s
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted hover:bg-muted/80'
-                  )}
-                >
-                  {s === 'todo' && 'A Fazer'}
-                  {s === 'in_progress' && 'Em Progresso'}
-                  {s === 'blocked' && 'Bloqueado'}
-                  {s === 'completed' && 'Concluído'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* TODO: Add more fields (assignee, due date, priority, team, etc.) */}
-          <p className="text-sm text-muted-foreground text-center py-4 bg-muted/30 rounded-lg">
-            Campos adicionais (responsável, prazo, prioridade, equipe, subtarefas, etc.) 
-            seriam implementados aqui no formulário completo.
-          </p>
-        </div>
-
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={!title.trim()}>
-            {task ? 'Salvar Alterações' : 'Criar Tarefa'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+export default CRMTasksPage;
 
 export default CRMTasksPage;

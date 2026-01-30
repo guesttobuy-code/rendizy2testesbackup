@@ -44,6 +44,20 @@ const BATCH_SIZE = 50          // Reservas por lote (evita timeout na API)
 const API_DELAY_MS = 200       // Delay entre chamadas (rate limiting)
 const MAX_RESERVATIONS = 500   // Máximo de reservas por execução
 
+// ============================================================================
+// 🛡️ SAFEGUARDS CRÍTICOS - Prevenção de cancelamentos em massa
+// 
+// INCIDENTE 2026-01-30: Reconciliação cancelou 286 reservas incorretamente.
+// Causa: Falha de autenticação na API retornou found:false para todas reservas.
+// 
+// SAFEGUARDS IMPLEMENTADOS:
+// 1. MAX_CANCELLATIONS_PER_RUN: Limite absoluto de cancelamentos por execução
+// 2. CANCELLATION_THRESHOLD_PERCENT: Aborta se % de cancelamentos exceder limite
+// 3. Health check inicial: Testa API com reserva conhecida antes de processar
+// ============================================================================
+const MAX_CANCELLATIONS_PER_RUN = 10      // Máximo de cancelamentos por execução
+const CANCELLATION_THRESHOLD_PERCENT = 5  // Aborta se mais de 5% seriam canceladas
+
 interface ReconciliationConfig {
   baseUrl: string
   apiKey: string
@@ -58,6 +72,8 @@ interface ReconciliationStats {
   actionCancelled: number
   actionUpdated: number
   actionSkipped: number
+  authErrors: number          // 🛡️ Track auth errors separately
+  cancellationLimitReached: boolean  // 🛡️ Flag if safeguard triggered
   errors: string[]
 }
 
@@ -73,11 +89,20 @@ interface ReservationToCheck {
 
 /**
  * Busca detalhes de uma reserva na API da Stays.net
+ * 
+ * 🛡️ SAFEGUARD: Esta função distingue entre erros de autenticação (401/403)
+ * e reservas realmente não encontradas (404). Erros de auth são tratados como
+ * erros de API, não como "reserva deletada".
+ * 
+ * @returns { found: boolean, data?: any, error?: string, authError?: boolean }
+ * - found=false + !error: Reserva realmente não existe (HTTP 404)
+ * - found=false + error + authError: Falha de autenticação - NÃO cancelar!
+ * - found=true + data: Reserva encontrada
  */
 async function fetchStaysReservation(
   externalId: string,
   config: ReconciliationConfig
-): Promise<{ found: boolean; data?: any; error?: string }> {
+): Promise<{ found: boolean; data?: any; error?: string; authError?: boolean }> {
   try {
     const auth = btoa(`${config.apiKey}:${config.apiSecret || ''}`)
     const headers = {
@@ -89,6 +114,17 @@ async function fetchStaysReservation(
     const urlById = `${config.baseUrl}/booking/reservations/${encodeURIComponent(externalId)}`
     const response = await fetch(urlById, { headers })
     
+    // 🛡️ CRITICAL: Detectar erros de autenticação ANTES de assumir "not found"
+    if (response.status === 401 || response.status === 403) {
+      const errText = await response.text()
+      console.error(`🚨 [Reconcile] AUTH ERROR for ${externalId}: HTTP ${response.status} - ${errText}`)
+      return { 
+        found: false, 
+        error: `Auth error ${response.status}: ${errText}`,
+        authError: true 
+      }
+    }
+    
     if (response.status === 404) {
       return { found: false }
     }
@@ -97,6 +133,16 @@ async function fetchStaysReservation(
       // Fallback: older endpoint used in some accounts
       const fallbackUrl = `${config.baseUrl}/booking/content?_id=${encodeURIComponent(externalId)}`
       const fallbackResp = await fetch(fallbackUrl, { headers })
+      
+      // 🛡️ Check auth errors on fallback too
+      if (fallbackResp.status === 401 || fallbackResp.status === 403) {
+        return { 
+          found: false, 
+          error: `Auth error on fallback: ${fallbackResp.status}`,
+          authError: true 
+        }
+      }
+      
       if (!fallbackResp.ok) {
         const errText = await fallbackResp.text()
         return { found: false, error: `API error ${fallbackResp.status}: ${errText}` }
@@ -119,6 +165,45 @@ async function fetchStaysReservation(
   } catch (err: any) {
     return { found: false, error: err.message }
   }
+}
+
+/**
+ * 🛡️ SAFEGUARD: Health Check da API Stays.net
+ * 
+ * Testa a conectividade e autenticação da API ANTES de processar reservas.
+ * Se o health check falhar, a reconciliação é abortada.
+ * 
+ * @param testReservationId - ID de uma reserva conhecida para testar
+ * @param config - Configuração da API
+ * @returns true se a API está saudável, false caso contrário
+ */
+async function checkStaysApiHealth(
+  testReservationId: string,
+  config: ReconciliationConfig
+): Promise<{ healthy: boolean; error?: string }> {
+  console.log(`🩺 [Health Check] Testing API connectivity with reservation: ${testReservationId}`)
+  
+  const result = await fetchStaysReservation(testReservationId, config)
+  
+  // Se houve erro de auth, API não está saudável
+  if (result.authError) {
+    return { 
+      healthy: false, 
+      error: `Auth failed: ${result.error}` 
+    }
+  }
+  
+  // Se houve outro erro (timeout, network), API não está saudável
+  if (result.error && !result.found) {
+    return { 
+      healthy: false, 
+      error: `API error: ${result.error}` 
+    }
+  }
+  
+  // Se encontrou a reserva ou retornou 404 limpo, API está funcionando
+  console.log(`✅ [Health Check] API is healthy - found=${result.found}`)
+  return { healthy: true }
 }
 
 /**
@@ -152,7 +237,13 @@ function isReservationPast(checkOut: string): boolean {
 }
 
 /**
+/**
  * Processa uma reserva e detecta divergências
+ * 
+ * 🛡️ SAFEGUARDS IMPLEMENTADOS:
+ * 1. Verifica authError para evitar cancelamentos por falha de auth
+ * 2. Respeita o limite MAX_CANCELLATIONS_PER_RUN
+ * 3. Registra auth errors separadamente para análise
  */
 async function processReservation(
   reservation: ReservationToCheck,
@@ -161,11 +252,38 @@ async function processReservation(
   runId: string,
   stats: ReconciliationStats
 ): Promise<void> {
-  const { found, data, error } = await fetchStaysReservation(reservation.external_id, config)
+  const { found, data, error, authError } = await fetchStaysReservation(reservation.external_id, config)
   
-  // CASO 1: Reserva não existe mais na Stays
+  // 🛡️ SAFEGUARD: Se houve erro de autenticação, NÃO cancelar a reserva
+  // Isso evita o bug catastrófico de cancelar todas as reservas por falha de auth
+  if (authError) {
+    stats.authErrors++
+    stats.errors.push(`AUTH ERROR for ${reservation.external_id}: ${error}`)
+    console.error(`🚨 [Reconcile] AUTH ERROR - NOT cancelling ${reservation.external_id}`)
+    return
+  }
+  
+  // 🛡️ SAFEGUARD: Verificar limite de cancelamentos ANTES de processar
+  if (stats.actionCancelled >= MAX_CANCELLATIONS_PER_RUN) {
+    if (!stats.cancellationLimitReached) {
+      stats.cancellationLimitReached = true
+      console.warn(`🛑 [SAFEGUARD] Cancellation limit reached (${MAX_CANCELLATIONS_PER_RUN}). Stopping further cancellations.`)
+      stats.errors.push(`SAFEGUARD: Cancellation limit (${MAX_CANCELLATIONS_PER_RUN}) reached - remaining deletions skipped`)
+    }
+    stats.actionSkipped++
+    return
+  }
+  
+  // CASO 1: Reserva não existe mais na Stays (confirmed 404)
   if (!found && !error) {
     stats.foundDeleted++
+    
+    // 🛡️ SAFEGUARD: Verificar se % de cancelamentos está muito alto
+    const cancellationPercent = (stats.foundDeleted / stats.totalChecked) * 100
+    if (cancellationPercent > CANCELLATION_THRESHOLD_PERCENT && stats.totalChecked >= 10) {
+      console.warn(`🛑 [SAFEGUARD] High deletion rate detected: ${cancellationPercent.toFixed(1)}% (threshold: ${CANCELLATION_THRESHOLD_PERCENT}%)`)
+      stats.errors.push(`SAFEGUARD: High deletion rate (${cancellationPercent.toFixed(1)}%) - suspicious, verify API health`)
+    }
     
     // Só cancela se checkout é futuro (preserva histórico)
     if (isReservationPast(reservation.check_out)) {
@@ -185,6 +303,25 @@ async function processReservation(
       })
       stats.actionSkipped++
     } else {
+      // 🛡️ SAFEGUARD: Check limit before cancelling
+      if (stats.actionCancelled >= MAX_CANCELLATIONS_PER_RUN) {
+        stats.actionSkipped++
+        await logReconciliationItem(supabase, {
+          runId,
+          reservationId: reservation.id,
+          externalId: reservation.external_id,
+          propertyId: reservation.property_id,
+          issueType: 'deleted',
+          localStatus: reservation.status,
+          apiStatus: null,
+          localData: { check_in: reservation.check_in, check_out: reservation.check_out },
+          apiData: null,
+          actionTaken: 'safeguard_limit',
+          actionReason: `SAFEGUARD: Cancellation limit (${MAX_CANCELLATIONS_PER_RUN}) reached`,
+        })
+        return
+      }
+      
       // Reserva futura - cancela
       const { error: updateErr } = await supabase
         .from('reservations')
@@ -402,6 +539,7 @@ export async function cronStaysnetReservationsReconcile(c: Context) {
   console.log(`${'═'.repeat(60)}`)
   console.log(`Run ID: ${runId}`)
   console.log(`Organization: ${organizationId}`)
+  console.log(`🛡️ SAFEGUARDS: Max cancellations=${MAX_CANCELLATIONS_PER_RUN}, Threshold=${CANCELLATION_THRESHOLD_PERCENT}%`)
   
   const stats: ReconciliationStats = {
     totalChecked: 0,
@@ -411,6 +549,8 @@ export async function cronStaysnetReservationsReconcile(c: Context) {
     actionCancelled: 0,
     actionUpdated: 0,
     actionSkipped: 0,
+    authErrors: 0,
+    cancellationLimitReached: false,
     errors: [],
   }
   
@@ -473,6 +613,31 @@ export async function cronStaysnetReservationsReconcile(c: Context) {
     }
     
     console.log(`📊 Found ${reservations.length} reservations to check`)
+    
+    // =========================================================================
+    // 🛡️ SAFEGUARD: Health Check da API antes de processar
+    // Testa a API com a primeira reserva para garantir que está funcionando
+    // =========================================================================
+    const testReservation = (reservations as ReservationToCheck[])[0]
+    console.log(`\n🩺 [SAFEGUARD] Running API health check...`)
+    
+    const healthCheck = await checkStaysApiHealth(testReservation.external_id, config)
+    
+    if (!healthCheck.healthy) {
+      console.error(`🚨 [SAFEGUARD] API HEALTH CHECK FAILED: ${healthCheck.error}`)
+      console.error(`🛑 Reconciliation ABORTED to prevent mass cancellation`)
+      
+      stats.errors.push(`SAFEGUARD: API health check failed - ${healthCheck.error}`)
+      await updateRunStatus(supabase, runId, 'aborted', stats, `API health check failed: ${healthCheck.error}`)
+      
+      return c.json(errorResponse('API health check failed - reconciliation aborted', {
+        runId,
+        error: healthCheck.error,
+        safeguard: 'api_health_check',
+      }), 503)
+    }
+    
+    console.log(`✅ [SAFEGUARD] API health check passed`)
     console.log(`${'─'.repeat(60)}`)
     
     // Processar em batches
@@ -520,6 +685,8 @@ export async function cronStaysnetReservationsReconcile(c: Context) {
     console.log(`Deletadas encontradas: ${stats.foundDeleted}`)
     console.log(`Modificadas encontradas: ${stats.foundModified}`)
     console.log(`Ações: ${stats.actionCancelled} canceladas, ${stats.actionUpdated} atualizadas, ${stats.actionSkipped} ignoradas`)
+    console.log(`🛡️ Auth errors: ${stats.authErrors}`)
+    console.log(`🛡️ Cancellation limit reached: ${stats.cancellationLimitReached}`)
     console.log(`Erros: ${stats.errors.length}`)
     console.log(`Duração: ${duration}ms`)
     console.log(`${'═'.repeat(60)}\n`)
@@ -529,6 +696,12 @@ export async function cronStaysnetReservationsReconcile(c: Context) {
       stats,
       duration,
       dryRun,
+      safeguards: {
+        maxCancellations: MAX_CANCELLATIONS_PER_RUN,
+        thresholdPercent: CANCELLATION_THRESHOLD_PERCENT,
+        limitReached: stats.cancellationLimitReached,
+        authErrors: stats.authErrors,
+      },
       message: `Reconciliação ${dryRun ? 'simulada' : 'concluída'}: ${stats.actionCancelled} canceladas, ${stats.actionUpdated} atualizadas`,
     }))
     
