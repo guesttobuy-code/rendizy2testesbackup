@@ -80,15 +80,20 @@ const parseDateOnlyLocal = (value: unknown): Date | null => {
 };
 
 const getStatusInfo = (status: string, cancellationReason?: string) => {
+  // LEGENDA DE CORES v1.0.103.450 (consistente com getBackgroundColor):
+  // - BLOQUEIO: Vermelho
+  // - MANUTENÇÃO: Roxo
+  // - PENDING (pré-reserva): Laranja
+  // - CONFIRMED: Verde
   const info: Record<string, { label: string; color: string }> = {
-    confirmed: { label: 'Confirmada', color: 'bg-green-500' },
-    pending: { label: 'Pendente', color: 'bg-yellow-500' },
-    blocked: { label: 'Bloqueado', color: 'bg-gray-500' },
-    maintenance: { label: 'Manutenção', color: 'bg-red-500' },
-    cancelled: { label: 'Cancelada', color: 'bg-red-600' },
+    confirmed: { label: 'Confirmada', color: 'bg-green-600' },
+    pending: { label: 'Pré-reserva', color: 'bg-orange-500' },
+    blocked: { label: 'Bloqueado', color: 'bg-red-500' },
+    maintenance: { label: 'Manutenção', color: 'bg-purple-600' },
+    cancelled: { label: 'Cancelada', color: 'bg-red-700' },
     checked_in: { label: 'Check-in', color: 'bg-blue-500' },
-    checked_out: { label: 'Check-out', color: 'bg-purple-500' },
-    no_show: { label: 'No Show', color: 'bg-orange-500' }
+    checked_out: { label: 'Check-out', color: 'bg-gray-500' },
+    no_show: { label: 'No Show', color: 'bg-amber-600' }
   };
   
   const baseInfo = info[status] || info.confirmed;
@@ -133,12 +138,19 @@ function ReservationCardComponent({
   };
   
   // Definir cor de fundo baseada no status e conflitos
+  // LEGENDA DE CORES v1.0.103.450:
+  // - OVERBOOKING (conflito): Vermelho escuro #DC2626 (prioridade máxima)
+  // - BLOQUEIO: Vermelho #EF4444 
+  // - MANUTENÇÃO: Roxo #9333EA
+  // - PENDING (pré-reserva): Laranja #F97316
+  // - CONFIRMED: Azul-verde #006A72 (padrão Rendizy)
   const getBackgroundColor = () => {
-    // REGRA MESTRA: CONFLITO = VERMELHO (prioridade máxima)
+    // REGRA MESTRA: CONFLITO = VERMELHO ESCURO (prioridade máxima)
     if (reservation.hasConflict) return '#DC2626'; // Vermelho escuro para overbooking
-    if (reservation.status === 'blocked') return '#FF6B6B'; // Vermelho para bloqueado
-    if (reservation.status === 'maintenance') return '#FFA500'; // Laranja para manutenção
-    return '#006A72'; // Azul padrão para reservas confirmadas/pendentes
+    if (reservation.status === 'blocked') return '#EF4444'; // Vermelho para bloqueado
+    if (reservation.status === 'maintenance') return '#9333EA'; // Roxo para manutenção
+    if (reservation.status === 'pending') return '#F97316'; // Laranja para pré-reserva/pending
+    return '#006A72'; // Azul-verde padrão para reservas confirmadas
   };
   
   // Calcular altura e posição vertical quando há empilhamento
@@ -245,6 +257,19 @@ function ReservationCardComponent({
                   {statusInfo.label}
                 </span>
               </div>
+              {/* Data de criação - fundamental para determinar precedência */}
+              {(reservation.sourceCreatedAt || reservation.createdAt) && (
+                <div>
+                  <strong>Criação:</strong>{' '}
+                  {new Date(reservation.sourceCreatedAt || reservation.createdAt).toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+              )}
               {/* Motivo de cancelamento */}
               {reservation.status === 'cancelled' && reservation.cancellationReason && (
                 <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-gray-800">

@@ -1166,9 +1166,13 @@ function mapStaysReservationToSql(
   const guestsPets = safeInt(guestsDetails?.pets ?? input?.guests?.pets, 0);
   const guestsTotal = safeInt(guestsDetails?.total ?? input?.guests?.total, guestsAdults);
 
-  // Guardar o id interno do Stays em `external_id` (para fetch/update via API), e o código curto em `id`.
+  // Guardar o id interno do Stays em `external_id` (para fetch/update via API), e o código curto em `staysnet_reservation_code`.
   const externalId = String(input?._id || input?.reservationId || input?.reserveId || input?.id || id);
   const externalUrl = input?.reservationUrl || input?.url || input?.externalUrl || null;
+  
+  // ✅ CÓDIGO DA RESERVA STAYS (ex: "FX27J") - diferente do _id (MongoDB ID)
+  // O código curto vem em `input.id` (ex: "FX27J") e o _id é o MongoDB ID
+  const staysnetReservationCode = String(input?.id || input?.code || input?.localizator || input?._localizator || '').trim() || null;
 
   // Preferimos usar o resolvedPropertyId; se não existe, preserva existing.property_id.
   const finalPropertyId = resolvedPropertyId || existing?.property_id || null;
@@ -1204,7 +1208,10 @@ function mapStaysReservationToSql(
   const platformPartnerName = partnerObj?.name || null;
   const platformCommissionType = commissionObj?.type || null;
 
-  const sourceCreatedAtIso = parseOptionalDateToIso(input?.createdAt ?? input?.created_at ?? input?._dt);
+  // ✅ FIX: Stays.net envia creationDate (não createdAt)
+  const sourceCreatedAtIso = parseOptionalDateToIso(
+    input?.creationDate ?? input?.createdAt ?? input?.created_at ?? input?._createdAt ?? input?._dt
+  );
 
   return {
     id,
@@ -1248,6 +1255,8 @@ function mapStaysReservationToSql(
 
     // 🔒 Persistência completa do payload de origem (audit/debug)
     staysnet_raw: input,
+    // ✅ Código curto da reserva Stays (ex: "FX27J") - CRÍTICO para reconciliação
+    staysnet_reservation_code: staysnetReservationCode,
   };
 }
 

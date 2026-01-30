@@ -26,6 +26,41 @@ interface SyncStats {
 }
 
 /**
+ * ⚠️ CORREÇÃO BUG CRÍTICO (2026-01-30)
+ * Mapeia o campo 'type' do StaysNet para o status correto do Rendizy.
+ * 
+ * Problema original: O código comparava apenas 'cancelled' (britânico),
+ * mas Stays.net também pode enviar 'canceled' (americano), 'cancelada' (PT-BR).
+ * 
+ * Além disso, tipos como 'blocked', 'maintenance', 'owner_block' devem ser tratados
+ * como bloqueios, não como reservas.
+ */
+function deriveStatusFromStaysType(staysType?: string): 'cancelled' | 'confirmed' | 'pending' {
+  const typeLower = String(staysType || '').trim().toLowerCase();
+  
+  // Cancelamentos (múltiplos idiomas e ortografias)
+  if (typeLower === 'canceled' || typeLower === 'cancelled' || typeLower === 'cancelada' || typeLower === 'cancelado') {
+    return 'cancelled';
+  }
+  
+  // Reservas confirmadas (Stays.net usa 'booked', 'new', 'contract')
+  if (typeLower === 'booked' || typeLower === 'new' || typeLower === 'contract' || typeLower === 'confirmed') {
+    return 'confirmed';
+  }
+  
+  // Bloqueios (owner_block, maintenance, etc.) - Estas devem virar blocos, não reservas
+  // Mas para manter compatibilidade, retornamos 'confirmed' (serão filtrados em outro lugar)
+  if (typeLower === 'blocked' || typeLower === 'maintenance' || typeLower === 'unavailable' || 
+      typeLower === 'owner_block' || typeLower === 'owner') {
+    return 'confirmed'; // Serão tratados como blocks em outro lugar
+  }
+  
+  // Default: pending (para casos não mapeados)
+  console.warn(`[StaysNet Full Sync] ⚠️ Tipo de reserva desconhecido: "${staysType}" - usando 'pending'`);
+  return 'pending';
+}
+
+/**
  * Converte ObjectId (MongoDB) para UUID v4 válido
  * ObjectId tem 24 caracteres hexadecimais
  */
@@ -690,7 +725,8 @@ export async function fullSyncStaysNet(
               total: (staysRes.stats?._f_totalPaid || staysRes._f_total || 0) / 100,
               currency: staysRes.price?.currency || 'BRL',
             },
-            status: staysRes.type === 'cancelled' ? 'cancelled' : 'confirmed',
+            // ✅ CORREÇÃO BUG CRÍTICO: Usar função que trata múltiplas ortografias
+            status: deriveStatusFromStaysType(staysRes.type),
             platform: staysRes.partner?.name || staysRes.source || 'staysnet',
             externalId: staysRes.partnerCode || staysRes.externalId,
             externalUrl: staysRes.reservationUrl,

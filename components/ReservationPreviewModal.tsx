@@ -2,7 +2,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 // ✅ CORREÇÃO v1.0.103.401: Usar tipo unificado
 import type { Reservation } from '../types/reservation';
-import { Calendar, User, DollarSign, Users, Moon, Building2, Mail, X } from 'lucide-react';
+import { Calendar, User, DollarSign, Users, Moon, Building2, Mail, X, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { parseDateLocal } from '../utils/dateLocal';
 
@@ -45,19 +45,26 @@ export function ReservationPreviewModal({
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
       confirmed: 'Confirmada',
-      pending: 'Pendente',
+      pending: 'Pré-reserva',
       blocked: 'Bloqueada',
-      maintenance: 'Manutenção'
+      maintenance: 'Manutenção',
+      cancelled: 'Cancelada'
     };
     return labels[status] || status;
   };
 
+  // LEGENDA DE CORES v1.0.103.450 (consistente com ReservationCard):
+  // - BLOQUEIO: Vermelho
+  // - MANUTENÇÃO: Roxo
+  // - PENDING (pré-reserva): Laranja
+  // - CONFIRMED: Verde
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       confirmed: 'text-green-700 bg-green-100',
-      pending: 'text-yellow-700 bg-yellow-100',
-      blocked: 'text-gray-700 bg-gray-100',
-      maintenance: 'text-orange-700 bg-orange-100'
+      pending: 'text-orange-700 bg-orange-100',
+      blocked: 'text-red-700 bg-red-100',
+      maintenance: 'text-purple-700 bg-purple-100',
+      cancelled: 'text-red-800 bg-red-200'
     };
     return colors[status] || 'text-gray-700 bg-gray-100';
   };
@@ -109,6 +116,25 @@ export function ReservationPreviewModal({
                 <div className="text-sm text-gray-600">Status</div>
                 <div className={`inline-block px-2 py-0.5 rounded text-xs mt-1 ${getStatusColor(reservation.status)}`}>
                   {getStatusLabel(reservation.status)}
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ Data de criação - fundamental para determinar precedência */}
+            <div className="flex items-start gap-3">
+              <Clock className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="text-sm text-gray-600">Criação</div>
+                <div className="text-gray-900">
+                  {reservation.sourceCreatedAt || reservation.createdAt
+                    ? new Date(reservation.sourceCreatedAt || reservation.createdAt).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    : '—'}
                 </div>
               </div>
             </div>

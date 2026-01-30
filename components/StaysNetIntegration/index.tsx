@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Building2, Upload, FileText, RefreshCw, Settings } from 'lucide-react';
+import { Building2, Upload, FileText, RefreshCw, Settings, Activity } from 'lucide-react';
 
 // Hooks
 import { useStaysNetConfig } from './hooks/useStaysNetConfig';
@@ -18,6 +18,7 @@ import { useStaysNetImport } from './hooks/useStaysNetImport';
 // Components
 import { ConfigTab } from './components/ConfigTab';
 import { ImportTab } from './components/ImportTab';
+import { ReconciliationDashboard } from './components/ReconciliationDashboard';
 
 /**
  * StaysNet Integration Main Component
@@ -296,7 +297,7 @@ export default function StaysNetIntegration() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="config" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="config">
             <Settings className="w-4 h-4 mr-2" />
             Configuração
@@ -304,6 +305,10 @@ export default function StaysNetIntegration() {
           <TabsTrigger value="import">
             <Upload className="w-4 h-4 mr-2" />
             Importação
+          </TabsTrigger>
+          <TabsTrigger value="reconciliation">
+            <Activity className="w-4 h-4 mr-2" />
+            Reconciliação
           </TabsTrigger>
           <TabsTrigger value="mapping">
             <FileText className="w-4 h-4 mr-2" />
@@ -370,6 +375,11 @@ export default function StaysNetIntegration() {
             importProgress={importProgress}
             overallProgress={overallProgress}
           />
+        </TabsContent>
+
+        {/* Reconciliation Tab */}
+        <TabsContent value="reconciliation" className="space-y-6">
+          <ReconciliationDashboard />
         </TabsContent>
 
         {/* Mapping Tab (Placeholder) */}

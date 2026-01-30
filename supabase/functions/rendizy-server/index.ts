@@ -75,6 +75,7 @@ import * as stripeRoutes from "./routes-stripe.ts";
 import * as paymentsRoutes from "./routes-payments.ts";
 import * as cronPendingReservationsRoutes from "./routes-cron-pending-reservations.ts"; // ✅ CRON: Cancelar pendentes expiradas
 import * as cronStaysnetRoutes from "./routes-cron-staysnet.ts"; // ✅ CRON: StaysNet sync (consolidado ADR)
+import * as cronReconciliationRoutes from "./routes-cron-reconciliation.ts"; // ✅ CRON: Reconciliação diária de reservas
 import * as authSocialRoutes from "./routes-auth-social.ts"; // ✅ OAuth: Login Google/Apple
 import * as calendarRulesBatchRoutes from "./routes-calendar-rules-batch.ts"; // ✅ Batch rules (migrado ADR)
 import { guestAreaApp } from "./routes-guest-area.ts"; // 🏠 CÁPSULA: Área do Hóspede
@@ -1008,6 +1009,22 @@ app.post("/rendizy-server/cron/staysnet-properties-sync", cronStaysnetRoutes.cro
 app.post("/cron/staysnet-properties-sync", cronStaysnetRoutes.cronStaysnetPropertiesSync);
 app.post("/rendizy-server/cron/staysnet-webhooks", cronStaysnetRoutes.cronStaysnetWebhooks);
 app.post("/cron/staysnet-webhooks", cronStaysnetRoutes.cronStaysnetWebhooks);
+
+// ============================================================================
+// CRON: Reconciliação Diária de Reservas
+// ============================================================================
+// Verifica reservas locais contra API da Stays.net e corrige divergências
+// - Detecta reservas deletadas na Stays (cancela localmente)
+// - Detecta alterações de status, datas, hóspede (atualiza localmente)
+// - NOVO: Importa reservas faltantes (existem no Stays mas não no Rendizy)
+// Executado às 05:00 BRT (08:00 UTC) diariamente via pg_cron
+app.post("/rendizy-server/cron/staysnet-reservations-reconcile", cronReconciliationRoutes.cronStaysnetReservationsReconcile);
+app.post("/cron/staysnet-reservations-reconcile", cronReconciliationRoutes.cronStaysnetReservationsReconcile);
+app.post("/rendizy-server/cron/staysnet-import-missing", cronReconciliationRoutes.cronStaysnetImportMissing);
+app.post("/cron/staysnet-import-missing", cronReconciliationRoutes.cronStaysnetImportMissing);
+// Debug: verifica se uma reserva específica existe na Stays e/ou Rendizy
+app.get("/rendizy-server/cron/staysnet-debug-missing", cronReconciliationRoutes.debugMissingReservation);
+app.get("/cron/staysnet-debug-missing", cronReconciliationRoutes.debugMissingReservation);
 
 // ============================================================================
 // CALENDAR RULES BATCH (CONSOLIDADO - ADR Edge Functions)

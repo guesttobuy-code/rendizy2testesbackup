@@ -143,6 +143,53 @@ export async function loadStaysNetConfigDB(
   }
 }
 
+/**
+ * Carrega QUALQUER configuração do Stays.net habilitada no banco de dados
+ * Usado como fallback quando não há config para a org específica nem global
+ */
+export async function loadAnyStaysNetConfigDB(): Promise<{ success: boolean; data?: StaysNetConfig; organizationId?: string; error?: string }> {
+  try {
+    const supabase = getSupabaseClient();
+    
+    // Buscar qualquer config habilitada, preferencialmente as mais recentes
+    const { data, error } = await supabase
+      .from('staysnet_config')
+      .select('*')
+      .eq('enabled', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[StaysNet DB] ❌ Erro ao buscar qualquer configuração:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data) {
+      console.log('[StaysNet DB] ⚠️ Nenhuma configuração Stays.net encontrada');
+      return { success: true, data: undefined };
+    }
+
+    // Converter formato do banco para formato da interface
+    const config: StaysNetConfig = {
+      apiKey: data.api_key,
+      apiSecret: data.api_secret,
+      baseUrl: data.base_url,
+      accountName: data.account_name,
+      notificationWebhookUrl: data.notification_webhook_url,
+      scope: data.scope,
+      enabled: data.enabled,
+      lastSync: data.last_sync,
+    };
+
+    console.log('[StaysNet DB] ✅ Config encontrada (fallback) para org:', data.organization_id);
+    return { success: true, data: config, organizationId: data.organization_id };
+  } catch (error) {
+    console.error('[StaysNet DB] ❌ Erro ao buscar qualquer configuração:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 // ============================================================================
 // WEBHOOK FUNCTIONS
 // ============================================================================

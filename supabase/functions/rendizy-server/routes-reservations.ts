@@ -344,8 +344,10 @@ export async function getReservationsKpis(c: Context) {
       .from('reservations')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', orgIdFinal)
-      .gte('source_created_at', startOfDay)
-      .lte('source_created_at', endOfDay)
+      // source_created_at from Stays.net is often midnight UTC (2026-01-29T00:00:00Z)
+      // So we filter by date range without timezone conversion
+      .gte('source_created_at', today)
+      .lt('source_created_at', new Date(new Date(today).getTime() + 86400000).toISOString().split('T')[0])
       .not('status', 'in', statusNotIn);
 
     const qNewTodayByFallback = client

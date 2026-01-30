@@ -72,6 +72,10 @@ export function CalendarModule({
   handleRestrictionsEdit,
   handleOpenBlockDetails,
 }: CalendarModuleProps) {
+  // DEBUG: Ver o que chega no CalendarModule
+  console.log('🔍 [CalendarModule] reservations:', reservations?.length, 'blocks:', blocks?.length, 'properties:', properties?.length);
+  console.log('🔍 [CalendarModule] Primeiro reservation:', reservations?.[0]);
+  
   // 🔑 Marcador especial para indicar "nenhum selecionado explicitamente"
   const NONE_MARKER = '__NONE__';
 

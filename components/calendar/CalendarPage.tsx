@@ -128,6 +128,7 @@ function CalendarPageContent(props: CalendarPageProps) {
   }, [propertiesData]);
   
   useEffect(() => {
+    console.log('🔍 [CalendarPage] reservationsData changed:', reservationsData, 'length:', reservationsData?.length);
     if (reservationsData) {
       console.log('📊 [CalendarPage] Sincronizando reservas:', reservationsData.length);
       setReservations(reservationsData as Reservation[]);

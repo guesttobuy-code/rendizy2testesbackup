@@ -405,6 +405,7 @@ export function CalendarProvider({ children }: CalendarProviderProps) {
   }, []);
   
   const setReservations = (reservations: Reservation[]) => {
+    console.log('📝 [CalendarContext] setReservations chamado com', reservations?.length, 'reservas');
     dispatch({ type: 'SET_RESERVATIONS', payload: reservations });
   };
   

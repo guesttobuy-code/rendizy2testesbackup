@@ -284,12 +284,17 @@ const getPlatformColor = (platform: string) => {
   return colors[platform] || 'bg-gray-500';
 };
 
+// LEGENDA DE CORES v1.0.103.450 (consistente em todo o sistema):
+// - BLOQUEIO: Vermelho
+// - MANUTENÇÃO: Roxo  
+// - PENDING (pré-reserva): Laranja
+// - CONFIRMED: Verde
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
     confirmed: 'bg-green-100 text-green-800 border-green-300',
-    pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    blocked: 'bg-gray-100 text-gray-800 border-gray-300',
-    maintenance: 'bg-red-100 text-red-800 border-red-300'
+    pending: 'bg-orange-100 text-orange-800 border-orange-300',
+    blocked: 'bg-red-100 text-red-800 border-red-300',
+    maintenance: 'bg-purple-100 text-purple-800 border-purple-300'
   };
   return colors[status] || 'bg-gray-100';
 };
@@ -391,10 +396,37 @@ export function Calendar({
     document.body.style.userSelect = 'none';
   };
 
-  // 🔍 DEBUG: Verificar se bloqueios chegam como props
-        useEffect(() => {
-          // Logs removidos para melhorar performance de renderização
-        }, [blocks, properties, reservations]);
+  // 🔍 DEBUG: Verificar match de reservas com propriedades
+  useEffect(() => {
+    if (reservations.length > 0 && properties.length > 0) {
+      // Apenas loga uma vez quando ambos estão carregados
+      const uniqueReservationPropertyIds = new Set(reservations.map(r => r.propertyId));
+      const gridPropertyIds = new Set(properties.map(p => p.id));
+      
+      // Verificar match
+      const matchingIds = [...uniqueReservationPropertyIds].filter(id => gridPropertyIds.has(id));
+      const reservationsInJanFeb2026 = reservations.filter(r => 
+        r.checkIn >= '2026-01-01' && r.checkIn < '2026-03-01'
+      );
+      
+      console.log('🔍 [CalendarGrid] DEBUG RESERVAS vs PROPRIEDADES:', {
+        totalReservations: reservations.length,
+        totalProperties: properties.length,
+        uniqueReservationPropertyIds: uniqueReservationPropertyIds.size,
+        matchingPropertyIds: matchingIds.length,
+        reservationsInJanFeb2026: reservationsInJanFeb2026.length,
+        first3GridPropertyIds: properties.slice(0, 3).map(p => p.id.substring(0, 8)),
+        first3ReservationPropertyIds: [...uniqueReservationPropertyIds].slice(0, 3).map(id => id.substring(0, 8)),
+        propertiesWithNoMatch: [...uniqueReservationPropertyIds].filter(id => !gridPropertyIds.has(id)).slice(0, 5).map(id => id.substring(0, 8)),
+        sampleReservation: reservationsInJanFeb2026.slice(0, 3).map(r => ({
+          id: r.id?.substring(0, 8),
+          propertyId: r.propertyId?.substring(0, 8),
+          checkIn: r.checkIn,
+          checkOut: r.checkOut
+        }))
+      });
+    }
+  }, [reservations.length, properties.length]);
   
   // Usar dateRange se fornecido, senão usar currentMonth (memoizado)
   const days = useMemo(() => {
@@ -1284,6 +1316,22 @@ export function Calendar({
                           ? [...reservationsStartingToday, ...reservationsContinuingIntoView]
                           : reservationsStartingToday;
                         
+                        // DEBUG: Ver se há reservas para renderizar
+                        if (idx < 5 && allReservationsOnDay.length > 0) {
+                          console.log('🎯 [CalendarGrid] Reserva detectada:', {
+                            dayStr,
+                            propertyId: property.id?.substring(0, 8),
+                            allReservationsOnDay: allReservationsOnDay.length,
+                            reservationsStartingToday: reservationsStartingToday.length,
+                            reservationsAnchoredToday: reservationsAnchoredToday.length,
+                            firstReservation: allReservationsOnDay[0] ? {
+                              id: allReservationsOnDay[0].id?.substring(0, 8),
+                              checkIn: allReservationsOnDay[0].checkIn,
+                              checkOut: allReservationsOnDay[0].checkOut
+                            } : null
+                          });
+                        }
+                        
                         // Normalizar datas do bloqueio (pode vir ISO)
                         const blockStartYmd = blockOnDay?.startDate ? String(blockOnDay.startDate).split('T')[0].split(' ')[0] : '';
                         const blockEndYmd = blockOnDay?.endDate ? String(blockOnDay.endDate).split('T')[0].split(' ')[0] : '';
@@ -1344,9 +1392,10 @@ export function Calendar({
                             )}
                             
                             {/* Renderizar bloqueio ancorado neste dia */}
+                            {/* LEGENDA v1.0.103.450: Bloqueio = VERMELHO */}
                             {blockAnchoredToday && (
                               <div
-                                className="absolute top-0.5 h-11 bg-orange-100 border border-orange-400 rounded flex items-center justify-center z-10 cursor-pointer hover:bg-orange-200 transition-colors"
+                                className="absolute top-0.5 h-11 bg-red-100 border border-red-400 rounded flex items-center justify-center z-10 cursor-pointer hover:bg-red-200 transition-colors"
                                 style={{
                                   left: `${(idx === 0 && blockStartYmd < dayStr) ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX}px`,
                                   width: `${((visibleBlockNights * 80) - 6) + (BASE_CARD_LEFT_PX - ((idx === 0 && blockStartYmd < dayStr) ? CONTINUING_LEFT_PX : BASE_CARD_LEFT_PX))}px`,
@@ -1355,8 +1404,8 @@ export function Calendar({
                                 onClick={() => onBlockClick?.(blockOnDay)}
                                 title={`Bloqueio: ${blockOnDay.reason || 'Manutenção'}`}
                               >
-                                <div className="text-xs text-orange-800 px-2 truncate">
-                                  <span className="font-medium">🔧 {blockOnDay.reason || 'Manutenção'}</span>
+                                <div className="text-xs text-red-800 px-2 truncate">
+                                  <span className="font-medium">🔒 {blockOnDay.reason || 'Manutenção'}</span>
                                   {blockOnDay.notes && <div className="text-2xs opacity-75 truncate">{blockOnDay.notes}</div>}
                                 </div>
                               </div>

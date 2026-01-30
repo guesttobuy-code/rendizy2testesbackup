@@ -208,7 +208,8 @@ export function useReservations(options: UseReservationsOptions = {}) {
     queryFn: async () => {
       console.log('🔄 [useReservations] Carregando reservas...');
       const response = await reservationsApi.list();
-      
+      console.log('📥 [useReservations] Resposta da API:', response);
+
       if (response.success && response.data) {
         // ✅ Filtrar reservas canceladas
         const activeReservations = response.data.filter((r: any) => r.status !== 'cancelled');
@@ -218,8 +219,7 @@ export function useReservations(options: UseReservationsOptions = {}) {
 
       // ✅ Estabilidade: não “zerar” reservas em falha temporária.
       // Se a API falhar (token expirar, 401, rede), lançar erro para o React Query
-      // manter o último dado bom em cache, evitando sumir todos os cards.
-      throw new Error(response.error || 'Falha ao carregar reservas');
+      // manter o último dado bom em cache, evitando sumir todos os cards.      console.error('❌ [useReservations] Erro na API:', response.error);      throw new Error(response.error || 'Falha ao carregar reservas');
     },
     staleTime: 2 * 60 * 1000, // Cache válido por 2 minutos
     gcTime: 5 * 60 * 1000,

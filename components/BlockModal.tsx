@@ -399,7 +399,7 @@ export function BlockModal({
               <div className="space-y-2 text-sm text-blue-900">
                 <p className="font-medium">ℹ️ Informações importantes:</p>
                 <ul className="list-disc list-inside space-y-1 text-blue-800">
-                  <li>Bloqueios aparecem em LARANJA no calendário</li>
+                  <li>Bloqueios aparecem em <span className="text-red-600 font-semibold">VERMELHO</span> no calendário</li>
                   <li>Ninguém poderá reservar essas datas</li>
                   <li>Você pode remover o bloqueio a qualquer momento</li>
                   <li>O tipo é opcional - pode criar um bloqueio sem especificar</li>
