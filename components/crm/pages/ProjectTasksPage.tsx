@@ -27,6 +27,10 @@ import {
   GripVertical,
   Pencil,
   Trash2,
+  Flag,
+  CalendarDays,
+  UserPlus,
+  ArrowUpRight,
 } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
 import { Button } from '@/components/ui/button';
@@ -41,6 +45,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -91,38 +101,166 @@ const SECTION_TO_STATUS: Record<string, string> = {
 };
 
 // ============================================================================
-// PRIORITY CONFIG
+// PRIORITY CONFIG - Cores mais destacadas
 // ============================================================================
 
 const PRIORITY_CONFIG = {
-  low: { label: 'Baixa', color: 'bg-gray-100 text-gray-700', icon: '🔵' },
-  medium: { label: 'Média', color: 'bg-yellow-100 text-yellow-700', icon: '🟡' },
-  high: { label: 'Alta', color: 'bg-orange-100 text-orange-700', icon: '🟠' },
-  urgent: { label: 'Urgente', color: 'bg-red-100 text-red-700', icon: '🔴' },
+  low: { 
+    label: 'Baixa', 
+    color: 'bg-slate-100 text-slate-600 border-slate-300', 
+    bgFull: 'bg-slate-500',
+    icon: '🔵' 
+  },
+  medium: { 
+    label: 'Média', 
+    color: 'bg-yellow-100 text-yellow-700 border-yellow-400', 
+    bgFull: 'bg-yellow-500',
+    icon: '🟡' 
+  },
+  high: { 
+    label: 'Alta', 
+    color: 'bg-orange-100 text-orange-700 border-orange-400', 
+    bgFull: 'bg-orange-500',
+    icon: '🟠' 
+  },
+  urgent: { 
+    label: 'Urgente', 
+    color: 'bg-red-100 text-red-700 border-red-400', 
+    bgFull: 'bg-red-500',
+    icon: '🔴' 
+  },
 };
 
+// Lista de prioridades para dropdown
+const PRIORITY_OPTIONS = [
+  { value: 'low', label: 'Baixa', color: 'bg-slate-500' },
+  { value: 'medium', label: 'Média', color: 'bg-yellow-500' },
+  { value: 'high', label: 'Alta', color: 'bg-orange-500' },
+  { value: 'urgent', label: 'Urgente', color: 'bg-red-500' },
+];
+
 // ============================================================================
-// TASK ROW COMPONENT
+// COLUMN HEADER COMPONENT
+// ============================================================================
+
+const ColumnHeader: React.FC = () => (
+  <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground sticky top-0 z-20">
+    <div className="w-5" /> {/* Drag handle space */}
+    <div className="w-5" /> {/* Checkbox space */}
+    <div className="flex-1 min-w-0">Nome</div>
+    <div className="w-28 flex-shrink-0 text-center hidden md:block">Responsável</div>
+    <div className="w-28 flex-shrink-0 text-center hidden lg:block">Prazo</div>
+    <div className="w-32 flex-shrink-0 text-center">Prioridade</div>
+    <div className="w-8" /> {/* Actions space */}
+  </div>
+);
+
+// ============================================================================
+// TASK ROW COMPONENT (com edição inline e colunas clicáveis)
 // ============================================================================
 
 interface TaskRowProps {
   task: any;
+  taskIndex: number;
+  totalTasks: number;
+  isEditing: boolean;
   onClick: () => void;
   onToggleComplete: () => void;
   onDelete: () => void;
+  onTitleChange: (newTitle: string) => void;
+  onFieldChange: (field: string, value: any) => void;
+  onStartEditing: () => void;
+  onStopEditing: () => void;
+  onTabToNext: () => void;
+  onTabToCreate: () => void;
 }
 
-const TaskRow: React.FC<TaskRowProps> = ({ task, onClick, onToggleComplete, onDelete }) => {
+const TaskRow: React.FC<TaskRowProps> = ({ 
+  task, 
+  taskIndex,
+  totalTasks,
+  isEditing,
+  onClick, 
+  onToggleComplete, 
+  onDelete,
+  onTitleChange,
+  onFieldChange,
+  onStartEditing,
+  onStopEditing,
+  onTabToNext,
+  onTabToCreate,
+}) => {
   const isCompleted = task.status === 'completed' || task.status === 'cancelled';
   const priorityConfig = PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
+  const [localTitle, setLocalTitle] = React.useState(task.title);
+  const [dateOpen, setDateOpen] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  
+  // Sync local title com task
+  React.useEffect(() => {
+    setLocalTitle(task.title);
+  }, [task.title]);
+  
+  // Focus no input quando entra em modo de edição
+  React.useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+  
+  // Salvar título
+  const handleSave = () => {
+    if (localTitle.trim() && localTitle.trim() !== task.title) {
+      onTitleChange(localTitle.trim());
+    } else {
+      setLocalTitle(task.title);
+    }
+    onStopEditing();
+  };
+  
+  // Handler de teclas no input
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (localTitle.trim() && localTitle.trim() !== task.title) {
+        onTitleChange(localTitle.trim());
+      }
+      if (taskIndex >= totalTasks - 1) {
+        onTabToCreate();
+      } else {
+        onTabToNext();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setLocalTitle(task.title);
+      onStopEditing();
+    }
+  };
+
+  // Handler de mudança de prioridade
+  const handlePriorityChange = (newPriority: string) => {
+    onFieldChange('priority', newPriority);
+  };
+
+  // Handler de mudança de data
+  const handleDateChange = (date: Date | undefined) => {
+    onFieldChange('due_date', date ? date.toISOString() : null);
+    setDateOpen(false);
+  };
   
   return (
     <div 
-      className="group flex items-center gap-2 px-4 py-2.5 hover:bg-accent/50 cursor-pointer border-b border-transparent hover:border-border transition-colors"
-      onClick={onClick}
+      className={cn(
+        "group flex items-center gap-2 px-4 py-2.5 hover:bg-accent/50 border-b border-transparent hover:border-border transition-colors",
+        isEditing && "bg-accent/30"
+      )}
     >
       {/* Drag Handle */}
-      <div className="opacity-0 group-hover:opacity-100 cursor-grab">
+      <div className="opacity-0 group-hover:opacity-100 cursor-grab w-5 flex-shrink-0">
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </div>
       
@@ -132,7 +270,7 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, onClick, onToggleComplete, onDe
           e.stopPropagation();
           onToggleComplete();
         }}
-        className="flex-shrink-0"
+        className="flex-shrink-0 w-5"
       >
         {isCompleted ? (
           <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -141,59 +279,162 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, onClick, onToggleComplete, onDe
         )}
       </button>
       
-      {/* Task Title */}
+      {/* Task Title - Editável */}
       <div className="flex-1 min-w-0">
-        <span className={cn(
-          'text-sm',
-          isCompleted && 'line-through text-muted-foreground'
-        )}>
-          {task.title}
-        </span>
-      </div>
-      
-      {/* Assignee */}
-      <div className="w-24 flex-shrink-0 hidden md:block">
-        {task.assignee_id ? (
-          <div className="flex items-center gap-1">
-            <Avatar className="h-6 w-6">
-              <AvatarFallback className="text-[10px] bg-purple-100 text-purple-700">
-                {task.users?.name?.slice(0, 2).toUpperCase() || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-xs text-muted-foreground truncate">
-              {task.users?.name?.split(' ')[0] || 'User'}
-            </span>
-          </div>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={localTitle}
+            onChange={(e) => setLocalTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleSave}
+            className="w-full bg-transparent border-none outline-none text-sm focus:ring-0"
+            placeholder="Nome da tarefa..."
+          />
         ) : (
-          <div className="flex items-center gap-1 text-muted-foreground opacity-0 group-hover:opacity-100">
-            <User className="h-4 w-4" />
-          </div>
-        )}
-      </div>
-      
-      {/* Due Date */}
-      <div className="w-24 flex-shrink-0 hidden lg:block">
-        {task.due_date ? (
-          <span className={cn(
-            'text-xs',
-            new Date(task.due_date) < new Date() && !isCompleted
-              ? 'text-red-500 font-medium'
-              : 'text-muted-foreground'
-          )}>
-            {format(new Date(task.due_date), 'd MMM', { locale: ptBR })}
+          <span 
+            className={cn(
+              'text-sm cursor-text block',
+              isCompleted && 'line-through text-muted-foreground'
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartEditing();
+            }}
+          >
+            {task.title}
           </span>
-        ) : (
-          <div className="flex items-center text-muted-foreground opacity-0 group-hover:opacity-100">
-            <Calendar className="h-4 w-4" />
-          </div>
         )}
       </div>
       
-      {/* Priority */}
-      <div className="w-20 flex-shrink-0 hidden xl:block">
-        <Badge variant="outline" className={cn('text-[10px]', priorityConfig.color)}>
-          {priorityConfig.label}
-        </Badge>
+      {/* Botão de abrir detalhes - Seta diagonal */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md transition-all shadow-sm"
+        title="Abrir detalhes"
+      >
+        <ArrowUpRight className="h-4 w-4 text-slate-700" />
+      </button>
+      
+      {/* Responsável - Dropdown */}
+      <div className="w-28 flex-shrink-0 hidden md:flex justify-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-1 hover:bg-accent rounded px-2 py-1 transition-colors">
+              {task.assignee_id ? (
+                <>
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-[10px] bg-purple-100 text-purple-700">
+                      {task.users?.name?.slice(0, 2).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs text-muted-foreground truncate max-w-[60px]">
+                    {task.users?.name?.split(' ')[0] || 'User'}
+                  </span>
+                </>
+              ) : (
+                <div className="flex items-center gap-1 text-muted-foreground opacity-60 group-hover:opacity-100">
+                  <UserPlus className="h-4 w-4" />
+                  <span className="text-xs">Atribuir</span>
+                </div>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-48">
+            <DropdownMenuItem onClick={() => onFieldChange('assignee_id', null)}>
+              <User className="h-4 w-4 mr-2 text-muted-foreground" />
+              Sem responsável
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+              Membros da equipe (em breve)
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      
+      {/* Prazo - Date Picker */}
+      <div className="w-28 flex-shrink-0 hidden lg:flex justify-center">
+        <Popover open={dateOpen} onOpenChange={setDateOpen}>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-1 hover:bg-accent rounded px-2 py-1 transition-colors">
+              {task.due_date ? (
+                <span className={cn(
+                  'text-xs font-medium',
+                  new Date(task.due_date) < new Date() && !isCompleted
+                    ? 'text-red-500'
+                    : 'text-muted-foreground'
+                )}>
+                  {format(new Date(task.due_date), "d 'de' MMM", { locale: ptBR })}
+                </span>
+              ) : (
+                <div className="flex items-center gap-1 text-muted-foreground opacity-60 group-hover:opacity-100">
+                  <CalendarDays className="h-4 w-4" />
+                  <span className="text-xs">Prazo</span>
+                </div>
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="center">
+            <CalendarComponent
+              mode="single"
+              selected={task.due_date ? new Date(task.due_date) : undefined}
+              onSelect={handleDateChange}
+              locale={ptBR}
+              initialFocus
+            />
+            {task.due_date && (
+              <div className="p-2 border-t">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full text-red-500 hover:text-red-600"
+                  onClick={() => handleDateChange(undefined)}
+                >
+                  Remover prazo
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
+      
+      {/* Prioridade - Dropdown com destaque */}
+      <div className="w-32 flex-shrink-0 flex justify-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all",
+              "hover:shadow-sm active:scale-95",
+              priorityConfig.color
+            )}>
+              <Flag className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">{priorityConfig.label}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-36">
+            {PRIORITY_OPTIONS.map((option) => (
+              <DropdownMenuItem 
+                key={option.value}
+                onClick={() => handlePriorityChange(option.value)}
+                className={cn(
+                  "flex items-center gap-2",
+                  task.priority === option.value && "bg-accent"
+                )}
+              >
+                <div className={cn("w-3 h-3 rounded-full", option.color)} />
+                <span>{option.label}</span>
+                {task.priority === option.value && (
+                  <CheckCircle2 className="h-4 w-4 ml-auto text-green-500" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       
       {/* Actions */}
@@ -202,7 +443,7 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, onClick, onToggleComplete, onDe
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-7 w-7 opacity-0 group-hover:opacity-100"
+            className="h-7 w-7 opacity-0 group-hover:opacity-100 flex-shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             <MoreHorizontal className="h-4 w-4" />
@@ -211,7 +452,7 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, onClick, onToggleComplete, onDe
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick(); }}>
             <Pencil className="h-4 w-4 mr-2" />
-            Editar
+            Abrir detalhes
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem 
@@ -238,6 +479,8 @@ interface SectionGroupProps {
   onTaskClick: (task: any) => void;
   onToggleTaskComplete: (task: any) => void;
   onDeleteTask: (task: any) => void;
+  onUpdateTaskTitle: (task: any, newTitle: string) => void;
+  onUpdateTaskField: (task: any, field: string, value: any) => void;
   onTaskCreated: () => void;
 }
 
@@ -248,12 +491,16 @@ const SectionGroup: React.FC<SectionGroupProps> = ({
   onTaskClick,
   onToggleTaskComplete,
   onDeleteTask,
+  onUpdateTaskTitle,
+  onUpdateTaskField,
   onTaskCreated,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const taskRefs = React.useRef<Map<string, HTMLInputElement>>(new Map());
   
   // Hook para criar tarefa
   const createTaskMutation = useCreateTask();
@@ -294,6 +541,21 @@ const SectionGroup: React.FC<SectionGroupProps> = ({
       }
     } catch (error) {
       toast.error('Erro ao criar tarefa');
+    }
+  };
+  
+  // Navegar para a próxima tarefa (Tab)
+  const handleTabToNext = (currentIndex: number) => {
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < tasks.length) {
+      // Ir para próxima tarefa existente
+      const nextTask = tasks[nextIndex];
+      setEditingTaskId(nextTask.id);
+    } else {
+      // Não há mais tarefas, abrir input de criar
+      setEditingTaskId(null);
+      setIsAddingTask(true);
+      setNewTaskTitle('');
     }
   };
   
@@ -392,13 +654,32 @@ const SectionGroup: React.FC<SectionGroupProps> = ({
             </div>
           ) : (
             <>
-              {tasks.map((task) => (
+              {/* Column Header */}
+              <ColumnHeader />
+              
+              {tasks.map((task, index) => (
                 <TaskRow
                   key={task.id}
                   task={task}
+                  taskIndex={index}
+                  totalTasks={tasks.length}
+                  isEditing={editingTaskId === task.id}
                   onClick={() => onTaskClick(task)}
                   onToggleComplete={() => onToggleTaskComplete(task)}
                   onDelete={() => onDeleteTask(task)}
+                  onTitleChange={(newTitle) => onUpdateTaskTitle(task, newTitle)}
+                  onFieldChange={(field, value) => onUpdateTaskField(task, field, value)}
+                  onStartEditing={() => {
+                    setEditingTaskId(task.id);
+                    setIsAddingTask(false);
+                  }}
+                  onStopEditing={() => setEditingTaskId(null)}
+                  onTabToNext={() => handleTabToNext(index)}
+                  onTabToCreate={() => {
+                    setEditingTaskId(null);
+                    setIsAddingTask(true);
+                    setNewTaskTitle('');
+                  }}
                 />
               ))}
               
@@ -525,6 +806,31 @@ export function ProjectTasksPage() {
     }
   }, [deleteTaskMutation]);
   
+  const handleUpdateTaskTitle = useCallback(async (task: any, newTitle: string) => {
+    if (!newTitle.trim() || newTitle === task.title) return;
+    try {
+      await updateTaskMutation.mutateAsync({
+        id: task.id,
+        updates: { title: newTitle.trim() }
+      });
+      // Não mostra toast para não ser intrusivo durante edição rápida
+    } catch (error) {
+      toast.error('Erro ao atualizar título');
+    }
+  }, [updateTaskMutation]);
+  
+  // Handler genérico para atualizar qualquer campo da tarefa
+  const handleUpdateTaskField = useCallback(async (task: any, field: string, value: any) => {
+    try {
+      await updateTaskMutation.mutateAsync({
+        id: task.id,
+        updates: { [field]: value }
+      });
+    } catch (error) {
+      toast.error(`Erro ao atualizar ${field}`);
+    }
+  }, [updateTaskMutation]);
+  
   // Loading state
   if (isLoadingProject) {
     return (
@@ -599,17 +905,6 @@ export function ProjectTasksPage() {
         </div>
       </div>
       
-      {/* Table Header */}
-      <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-b bg-muted/30 text-xs font-medium text-muted-foreground">
-        <div className="w-5" /> {/* Drag handle space */}
-        <div className="w-5" /> {/* Checkbox space */}
-        <div className="flex-1">Nome</div>
-        <div className="w-24 hidden md:block">Responsável</div>
-        <div className="w-24 hidden lg:block">Data</div>
-        <div className="w-20 hidden xl:block">Prioridade</div>
-        <div className="w-7" /> {/* Actions */}
-      </div>
-      
       {/* Content */}
       <ScrollArea className="flex-1">
         {isLoadingTasks ? (
@@ -627,6 +922,8 @@ export function ProjectTasksPage() {
                 onTaskClick={handleTaskClick}
                 onToggleTaskComplete={handleToggleTaskComplete}
                 onDeleteTask={handleDeleteTask}
+                onUpdateTaskTitle={handleUpdateTaskTitle}
+                onUpdateTaskField={handleUpdateTaskField}
                 onTaskCreated={() => {
                   // Query será revalidada automaticamente pelo React Query
                 }}

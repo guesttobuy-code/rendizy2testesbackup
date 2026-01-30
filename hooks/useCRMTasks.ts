@@ -236,9 +236,15 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: (task: Omit<CRMTask, 'id' | 'organization_id' | 'created_by' | 'created_at' | 'updated_at'>) =>
       tasksService.create({ ...task, organization_id: orgId!, created_by: userId! }),
-    onSuccess: () => {
+    onSuccess: (newTask) => {
       queryClient.invalidateQueries({ queryKey: crmTasksKeys.tasks() });
       queryClient.invalidateQueries({ queryKey: crmTasksKeys.dashboard() });
+      // Invalida subtasks do pai se for uma subtarefa
+      if (newTask.parent_id) {
+        queryClient.invalidateQueries({ queryKey: crmTasksKeys.subtasks(newTask.parent_id) });
+        // Também invalida o pai do pai (para sub-subtarefas)
+        queryClient.invalidateQueries({ queryKey: ['crm-tasks', 'subtasks'] });
+      }
     },
   });
 }

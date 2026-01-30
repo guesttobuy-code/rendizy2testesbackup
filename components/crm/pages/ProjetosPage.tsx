@@ -40,6 +40,7 @@ import {
   Edit2,
   Eye,
   Loader2,
+  FileCode,
 } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
 import { Button } from '@/components/ui/button';
@@ -75,6 +76,8 @@ import { ptBR } from 'date-fns/locale';
 import { TaskFormSheet } from '../modals/TaskFormSheet';
 // Modal de detalhe do projeto com persistência real
 import { ProjectDetailModal } from '../modals/ProjectDetailModal';
+// Modal para criar templates
+import { CreateTemplateModal } from '../modals/CreateTemplateModal';
 // Hooks para dados reais
 import { useProjectsWithStats, useCreateProject } from '@/hooks/useCRMTasks';
 import {
@@ -147,9 +150,10 @@ interface ProjectRowProps {
   onClick?: () => void;
   onEdit?: () => void;
   onStar?: () => void;
+  onCreateTemplate?: () => void;
 }
 
-const ProjectRow: React.FC<ProjectRowProps> = ({ project, onClick, onEdit, onStar }) => {
+const ProjectRow: React.FC<ProjectRowProps> = ({ project, onClick, onEdit, onStar, onCreateTemplate }) => {
   const statusConfig = STATUS_CONFIG[project.status] || STATUS_CONFIG['active'];
   const stats = project.stats || { comments: 0, attachments: 0 };
   const progress = project.total_tasks > 0 ? Math.round((project.completed_tasks / project.total_tasks) * 100) : 0;
@@ -283,6 +287,10 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onClick, onEdit, onSta
             <Edit2 className="h-4 w-4 mr-2" />
             Editar Projeto
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCreateTemplate?.(); }}>
+            <FileCode className="h-4 w-4 mr-2" />
+            Criar Modelo
+          </DropdownMenuItem>
           <DropdownMenuItem>
             <Copy className="h-4 w-4 mr-2" />
             Duplicar
@@ -308,9 +316,10 @@ interface StatusGroupProps {
   onProjectClick?: (project: ProjectWithStats) => void;
   onProjectEdit?: (project: ProjectWithStats) => void;
   onAddProject?: (status: string) => void;
+  onCreateTemplate?: (project: ProjectWithStats) => void;
 }
 
-const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectClick, onProjectEdit, onAddProject }) => {
+const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectClick, onProjectEdit, onAddProject, onCreateTemplate }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const config = STATUS_CONFIG[status] || STATUS_CONFIG['not_started'];
 
@@ -351,6 +360,7 @@ const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectCl
               project={project}
               onClick={() => onProjectClick?.(project)}
               onEdit={() => onProjectEdit?.(project)}
+              onCreateTemplate={() => onCreateTemplate?.(project)}
             />
           ))}
           {/* Add Project Row */}
@@ -395,8 +405,18 @@ export function ProjetosPage() {
   const [newProjectColor, setNewProjectColor] = useState('#3b82f6');
   const [newProjectStatus, setNewProjectStatus] = useState<string>('active');
 
+  // Estado do modal de criar template
+  const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
+  const [templateProject, setTemplateProject] = useState<ProjectWithStats | null>(null);
+
   // Hook para criar projeto
   const createProjectMutation = useCreateProject();
+
+  // Handler para criar template de projeto
+  const handleCreateTemplate = useCallback((project: ProjectWithStats) => {
+    setTemplateProject(project);
+    setIsCreateTemplateOpen(true);
+  }, []);
 
   // Handler para abrir modal de criação de tarefa
   const handleCreateTask = (projectId?: string) => {
@@ -641,6 +661,7 @@ export function ProjetosPage() {
                   onProjectClick={handleProjectClick}
                   onProjectEdit={handleEditProject}
                   onAddProject={openCreateProjectModal}
+                  onCreateTemplate={handleCreateTemplate}
                 />
               );
             })}
@@ -754,6 +775,21 @@ export function ProjetosPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Modal para criar template de projeto */}
+      {templateProject && (
+        <CreateTemplateModal
+          open={isCreateTemplateOpen}
+          onOpenChange={setIsCreateTemplateOpen}
+          sourceType="project"
+          sourceId={templateProject.id}
+          sourceName={templateProject.name}
+          onSuccess={() => {
+            setIsCreateTemplateOpen(false);
+            setTemplateProject(null);
+          }}
+        />
+      )}
     </div>
   );
 }

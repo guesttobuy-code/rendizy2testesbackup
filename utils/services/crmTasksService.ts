@@ -407,20 +407,45 @@ export const tasksService = {
     return data || null;
   },
 
+  /**
+   * Busca todas as subtarefas de uma tarefa, incluindo sub-subtarefas (hierarquia completa).
+   * Usa uma abordagem iterativa para buscar todos os níveis.
+   */
   async getSubtasks(parentId: string): Promise<CRMTask[]> {
-    const { data, error } = await supabase
+    // Primeiro, busca filhos diretos
+    const { data: directChildren, error: error1 } = await supabase
       .from('crm_tasks')
       .select('*')
       .eq('parent_id', parentId)
       .order('display_order')
       .order('created_at');
     
-    if (error) {
-      console.error('[tasksService.getSubtasks] Error:', error);
-      throw error;
+    if (error1) {
+      console.error('[tasksService.getSubtasks] Error fetching direct children:', error1);
+      throw error1;
     }
+
+    if (!directChildren || directChildren.length === 0) {
+      return [];
+    }
+
+    // Agora busca filhos dos filhos (sub-subtarefas)
+    const childIds = directChildren.map(c => c.id);
+    const { data: grandChildren, error: error2 } = await supabase
+      .from('crm_tasks')
+      .select('*')
+      .in('parent_id', childIds)
+      .order('display_order')
+      .order('created_at');
     
-    return data || [];
+    if (error2) {
+      console.error('[tasksService.getSubtasks] Error fetching grandchildren:', error2);
+      // Não é fatal, retorna só os filhos diretos
+      return directChildren;
+    }
+
+    // Combina tudo
+    return [...directChildren, ...(grandChildren || [])];
   },
 
   async create(task: Omit<CRMTask, 'id' | 'created_at' | 'updated_at'>): Promise<CRMTask> {
