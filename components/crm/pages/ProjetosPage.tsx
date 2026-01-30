@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   ChevronDown,
@@ -144,10 +145,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: str
 interface ProjectRowProps {
   project: ProjectWithStats;
   onClick?: () => void;
+  onEdit?: () => void;
   onStar?: () => void;
 }
 
-const ProjectRow: React.FC<ProjectRowProps> = ({ project, onClick, onStar }) => {
+const ProjectRow: React.FC<ProjectRowProps> = ({ project, onClick, onEdit, onStar }) => {
   const statusConfig = STATUS_CONFIG[project.status] || STATUS_CONFIG['active'];
   const stats = project.stats || { comments: 0, attachments: 0 };
   const progress = project.total_tasks > 0 ? Math.round((project.completed_tasks / project.total_tasks) * 100) : 0;
@@ -273,13 +275,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onClick, onStar }) => 
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick?.(); }}>
             <Eye className="h-4 w-4 mr-2" />
-            Visualizar
+            Ver Tarefas
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(); }}>
             <Edit2 className="h-4 w-4 mr-2" />
-            Editar
+            Editar Projeto
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Copy className="h-4 w-4 mr-2" />
@@ -304,10 +306,11 @@ interface StatusGroupProps {
   status: string;
   projects: ProjectWithStats[];
   onProjectClick?: (project: ProjectWithStats) => void;
+  onProjectEdit?: (project: ProjectWithStats) => void;
   onAddProject?: (status: string) => void;
 }
 
-const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectClick, onAddProject }) => {
+const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectClick, onProjectEdit, onAddProject }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const config = STATUS_CONFIG[status] || STATUS_CONFIG['not_started'];
 
@@ -347,6 +350,7 @@ const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectCl
               key={project.id}
               project={project}
               onClick={() => onProjectClick?.(project)}
+              onEdit={() => onProjectEdit?.(project)}
             />
           ))}
           {/* Add Project Row */}
@@ -369,6 +373,8 @@ const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectCl
 
 export function ProjetosPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedProject, setSelectedProject] = useState<ProjectWithStats | null>(null);
@@ -380,7 +386,10 @@ export function ProjetosPage() {
   const [taskProjectId, setTaskProjectId] = useState<string | undefined>();
   
   // Estado do modal de criação de projeto
-  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(() => {
+    // Abre automaticamente se tiver ?new=true na URL
+    return searchParams.get('new') === 'true';
+  });
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectColor, setNewProjectColor] = useState('#3b82f6');
@@ -496,6 +505,12 @@ export function ProjetosPage() {
 
   // Handlers
   const handleProjectClick = useCallback((project: ProjectWithStats) => {
+    // Navegar para a página de tarefas do projeto
+    navigate(`/crm/projetos/${project.id}`);
+  }, [navigate]);
+  
+  // Handler para abrir detalhes do projeto (botão de editar)
+  const handleEditProject = useCallback((project: ProjectWithStats) => {
     setSelectedProject(project);
     setIsDetailOpen(true);
   }, []);
@@ -624,6 +639,7 @@ export function ProjetosPage() {
                   status={status}
                   projects={statusProjects}
                   onProjectClick={handleProjectClick}
+                  onProjectEdit={handleEditProject}
                   onAddProject={openCreateProjectModal}
                 />
               );

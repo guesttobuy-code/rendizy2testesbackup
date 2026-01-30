@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
@@ -7,11 +7,12 @@ import { Badge } from '../ui/badge';
 import {
   LayoutDashboard,
   Users,
-  UserPlus,
   Building2,
   FileText,
   Settings,
   ChevronLeft,
+  ChevronDown,
+  ChevronRight,
   Calendar,
   Target,
   CheckSquare,
@@ -23,8 +24,11 @@ import {
   Sparkle,
   Wrench,
   FolderKanban,
-  ClipboardList
+  ClipboardList,
+  Folder,
+  Plus
 } from 'lucide-react';
+import { useProjectsWithStats } from '@/hooks/useCRMTasks';
 
 const menuSections = [
   {
@@ -61,19 +65,6 @@ const menuSections = [
         icon: <Users className="w-5 h-5" />,
         path: '/crm/contatos',
         badge: '156',
-      },
-      {
-        id: 'leads',
-        label: 'Leads',
-        icon: <UserPlus className="w-5 h-5" />,
-        path: '/crm/leads',
-        badge: '32',
-      },
-      {
-        id: 'proprietarios',
-        label: 'Proprietários',
-        icon: <Building2 className="w-5 h-5" />,
-        path: '/crm/proprietarios',
       },
     ]
   },
@@ -186,6 +177,10 @@ export default function CRMTasksSidebar({ onEditFunnels }: CRMTasksSidebarProps 
   const navigate = useNavigate();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [projectsExpanded, setProjectsExpanded] = useState(true);
+  
+  // Carregar projetos do banco
+  const { data: projects = [] } = useProjectsWithStats();
 
   const isActive = (path: string) => {
     if (path === '/crm') {
@@ -249,35 +244,109 @@ export default function CRMTasksSidebar({ onEditFunnels }: CRMTasksSidebarProps 
                 {section.items.map((item) => {
                   const active = isActive(item.path);
                   return (
-                    <Button
-                      key={item.id}
-                      variant={active ? 'secondary' : 'ghost'}
-                      className={`
-                        w-full justify-start gap-3
-                        ${active ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' : ''}
-                        ${isCollapsed ? 'justify-center px-2' : ''}
-                      `}
-                      onClick={() => {
-                        if ((item as any).action === 'edit-funnels' && onEditFunnels) {
-                          onEditFunnels();
-                        } else {
-                          navigate(item.path);
-                        }
-                      }}
-                      title={isCollapsed ? item.label : undefined}
-                    >
-                      {item.icon}
-                      {!isCollapsed && (
-                        <>
-                          <span className="flex-1 text-left">{item.label}</span>
-                          {'badge' in item && item.badge && (
-                            <Badge variant="default" className="ml-auto">
-                              {item.badge}
+                    <div key={item.id}>
+                      {/* Botão do item */}
+                      <Button
+                        variant={active ? 'secondary' : 'ghost'}
+                        className={`
+                          w-full justify-start gap-3
+                          ${active ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' : ''}
+                          ${isCollapsed ? 'justify-center px-2' : ''}
+                        `}
+                        onClick={() => {
+                          if ((item as any).action === 'edit-funnels' && onEditFunnels) {
+                            onEditFunnels();
+                          } else {
+                            navigate(item.path);
+                          }
+                        }}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        {item.icon}
+                        {!isCollapsed && (
+                          <>
+                            <span className="flex-1 text-left">{item.label}</span>
+                            {'badge' in item && item.badge && (
+                              <Badge variant="default" className="ml-auto">
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </>
+                        )}
+                      </Button>
+                      
+                      {/* Lista de projetos - aparece logo após o botão "Projetos & Serviços" */}
+                      {item.id === 'projetos' && !isCollapsed && projects.length > 0 && (
+                        <div className="mt-1 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => setProjectsExpanded(!projectsExpanded)}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent/50 rounded-md transition-colors"
+                          >
+                            {projectsExpanded ? (
+                              <ChevronDown className="w-3 h-3" />
+                            ) : (
+                              <ChevronRight className="w-3 h-3" />
+                            )}
+                            <Folder className="w-3.5 h-3.5" />
+                            <span>MEUS PROJETOS</span>
+                            <Badge variant="outline" className="ml-auto text-[10px] h-4">
+                              {projects.length}
                             </Badge>
+                          </button>
+                          
+                          {projectsExpanded && (
+                            <div className="ml-5 mt-1 space-y-0.5 border-l-2 border-muted pl-2">
+                              {projects.slice(0, 8).map((project) => {
+                                const projectUrl = `/crm/projetos/${project.id}`;
+                                const projectActive = location.pathname === projectUrl;
+                                return (
+                                  <div
+                                    key={project.id}
+                                    onClick={() => navigate(projectUrl)}
+                                    className={`
+                                      w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md transition-colors cursor-pointer
+                                      ${projectActive 
+                                        ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' 
+                                        : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                                      }
+                                    `}
+                                  >
+                                    <div 
+                                      className="w-2 h-2 rounded-full flex-shrink-0" 
+                                      style={{ backgroundColor: project.color || '#6366f1' }}
+                                    />
+                                    <span className="truncate flex-1 text-left">{project.name}</span>
+                                    {(project.total_tasks || 0) > 0 && (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {project.completed_tasks || 0}/{project.total_tasks}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              
+                              {projects.length > 8 && (
+                                <div
+                                  onClick={() => navigate('/crm/projetos')}
+                                  className="w-full px-2 py-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                                >
+                                  Ver todos ({projects.length})...
+                                </div>
+                              )}
+                              
+                              <div
+                                onClick={() => navigate('/crm/projetos?new=true')}
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 rounded-md cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>Novo Projeto</span>
+                              </div>
+                            </div>
                           )}
-                        </>
+                        </div>
                       )}
-                    </Button>
+                    </div>
                   );
                 })}
               </div>

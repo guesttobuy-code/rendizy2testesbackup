@@ -116,7 +116,7 @@ import { TasksDashboard } from './components/crm/TasksDashboard';
 import { CRMSettingsModule } from './components/crm/settings';
 import { AutomationsPage } from './components/crm/automations';
 // Novas páginas do CRM Tasks v2
-import { EquipesPage, CalendarioTarefasPage, TodasTarefasPage, CheckInsPage, CheckOutsPage, LimpezasPage, ManutencoesPage, OperacoesUnificadasPage, ProjetosPage } from './components/crm/pages';
+import { EquipesPage, CalendarioTarefasPage, TodasTarefasPage, CheckInsPage, CheckOutsPage, LimpezasPage, ManutencoesPage, OperacoesUnificadasPage, ProjetosPage, ProjectTasksPage } from './components/crm/pages';
 import { ChevronLeft, ChevronRight, Plus, Filter, Download, Tag, Sparkles, TrendingUp, Database, AlertTriangle } from 'lucide-react';
 import { detectConflicts } from './utils/conflictDetection';
 import { initializeEvolutionContactsService, getEvolutionContactsService } from './utils/services/evolutionContactsService';
@@ -1832,6 +1832,7 @@ function App() {
                   <Route path="calendario-tarefas" element={<CalendarioTarefasPage />} />
                   <Route path="equipes" element={<EquipesPage />} />
                   <Route path="projetos" element={<ProjetosPage />} />
+                  <Route path="projetos/:projectId" element={<ProjectTasksPage />} />
                   <Route path="prioridades" element={<ModulePlaceholder module="Prioridades" />} />
                   <Route path="pipeline" element={<ModulePlaceholder module="Pipeline de Vendas" />} />
                   <Route path="propostas" element={<ModulePlaceholder module="Propostas" />} />

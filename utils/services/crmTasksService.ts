@@ -349,14 +349,10 @@ export const tasksService = {
     dueDateTo?: string;
     search?: string;
   }): Promise<CRMTask[]> {
+    // Query simplificada sem joins problemáticos
     let query = supabase
       .from('crm_tasks')
-      .select(`
-        *,
-        users:assignee_id (name),
-        teams:team_id (name),
-        crm_projects:project_id (name)
-      `)
+      .select('*')
       .eq('organization_id', orgId)
       .is('parent_id', null) // Only top-level tasks
       .order('created_at', { ascending: false });
@@ -388,55 +384,43 @@ export const tasksService = {
 
     const { data, error } = await query;
     
-    if (error) throw error;
+    if (error) {
+      console.error('[tasksService.getAll] Error:', error);
+      throw error;
+    }
     
-    return (data || []).map(task => ({
-      ...task,
-      assignee_name: task.users?.name,
-      team_name: task.teams?.name,
-      project_name: task.crm_projects?.name,
-    }));
+    return data || [];
   },
 
   async getById(id: string): Promise<CRMTask | null> {
     const { data, error } = await supabase
       .from('crm_tasks')
-      .select(`
-        *,
-        users:assignee_id (name),
-        teams:team_id (name),
-        crm_projects:project_id (name)
-      `)
+      .select('*')
       .eq('id', id)
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('[tasksService.getById] Error:', error);
+      throw error;
+    }
     
-    return data ? {
-      ...data,
-      assignee_name: data.users?.name,
-      team_name: data.teams?.name,
-      project_name: data.crm_projects?.name,
-    } : null;
+    return data || null;
   },
 
   async getSubtasks(parentId: string): Promise<CRMTask[]> {
     const { data, error } = await supabase
       .from('crm_tasks')
-      .select(`
-        *,
-        users:assignee_id (name)
-      `)
+      .select('*')
       .eq('parent_id', parentId)
       .order('display_order')
       .order('created_at');
     
-    if (error) throw error;
+    if (error) {
+      console.error('[tasksService.getSubtasks] Error:', error);
+      throw error;
+    }
     
-    return (data || []).map(task => ({
-      ...task,
-      assignee_name: task.users?.name,
-    }));
+    return data || [];
   },
 
   async create(task: Omit<CRMTask, 'id' | 'created_at' | 'updated_at'>): Promise<CRMTask> {
@@ -479,44 +463,34 @@ export const tasksService = {
   async getByDateRange(orgId: string, startDate: string, endDate: string): Promise<CRMTask[]> {
     const { data, error } = await supabase
       .from('crm_tasks')
-      .select(`
-        *,
-        users:assignee_id (name),
-        teams:team_id (name)
-      `)
+      .select('*')
       .eq('organization_id', orgId)
       .gte('due_date', startDate)
       .lte('due_date', endDate)
       .order('due_date');
     
-    if (error) throw error;
+    if (error) {
+      console.error('[tasksService.getByDateRange] Error:', error);
+      throw error;
+    }
     
-    return (data || []).map(task => ({
-      ...task,
-      assignee_name: task.users?.name,
-      team_name: task.teams?.name,
-    }));
+    return data || [];
   },
 
   async getMyTasks(userId: string): Promise<CRMTask[]> {
     const { data, error } = await supabase
       .from('crm_tasks')
-      .select(`
-        *,
-        teams:team_id (name),
-        crm_projects:project_id (name)
-      `)
+      .select('*')
       .eq('assignee_id', userId)
       .in('status', ['pending', 'in_progress'])
       .order('due_date', { ascending: true, nullsFirst: false });
     
-    if (error) throw error;
+    if (error) {
+      console.error('[tasksService.getMyTasks] Error:', error);
+      throw error;
+    }
     
-    return (data || []).map(task => ({
-      ...task,
-      team_name: task.teams?.name,
-      project_name: task.crm_projects?.name,
-    }));
+    return data || [];
   },
 };
 
@@ -528,20 +502,16 @@ export const taskCommentsService = {
   async getByTask(taskId: string): Promise<TaskComment[]> {
     const { data, error } = await supabase
       .from('task_comments')
-      .select(`
-        *,
-        users:user_id (name, avatar)
-      `)
+      .select('*')
       .eq('task_id', taskId)
       .order('created_at', { ascending: true });
     
-    if (error) throw error;
+    if (error) {
+      console.error('[taskCommentsService.getByTask] Error:', error);
+      throw error;
+    }
     
-    return (data || []).map(comment => ({
-      ...comment,
-      user_name: comment.users?.name,
-      user_avatar: comment.users?.avatar,
-    }));
+    return data || [];
   },
 
   async create(comment: { task_id: string; user_id: string; content: string; mentions?: string[] }): Promise<TaskComment> {
