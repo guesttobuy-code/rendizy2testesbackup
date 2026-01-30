@@ -75,7 +75,17 @@ import { TaskFormSheet } from '../modals/TaskFormSheet';
 // Modal de detalhe do projeto com persistência real
 import { ProjectDetailModal } from '../modals/ProjectDetailModal';
 // Hooks para dados reais
-import { useProjectsWithStats } from '@/hooks/useCRMTasks';
+import { useProjectsWithStats, useCreateProject } from '@/hooks/useCRMTasks';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 
 // ============================================================================
 // TYPES
@@ -294,9 +304,10 @@ interface StatusGroupProps {
   status: string;
   projects: ProjectWithStats[];
   onProjectClick?: (project: ProjectWithStats) => void;
+  onAddProject?: (status: string) => void;
 }
 
-const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectClick }) => {
+const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectClick, onAddProject }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const config = STATUS_CONFIG[status] || STATUS_CONFIG['not_started'];
 
@@ -321,7 +332,7 @@ const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectCl
           className="text-xs text-primary hover:underline ml-auto opacity-0 group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
-            // TODO: Open create project modal with status
+            onAddProject?.(status);
           }}
         >
           + Adicionar projeto
@@ -339,7 +350,10 @@ const StatusGroup: React.FC<StatusGroupProps> = ({ status, projects, onProjectCl
             />
           ))}
           {/* Add Project Row */}
-          <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:bg-accent/30 transition-colors">
+          <button 
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:bg-accent/30 transition-colors"
+            onClick={() => onAddProject?.(status)}
+          >
             <Plus className="h-4 w-4" />
             Adicionar projeto
           </button>
@@ -364,11 +378,58 @@ export function ProjetosPage() {
   // Estado do modal de criação de tarefa
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [taskProjectId, setTaskProjectId] = useState<string | undefined>();
+  
+  // Estado do modal de criação de projeto
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [newProjectColor, setNewProjectColor] = useState('#3b82f6');
+  const [newProjectStatus, setNewProjectStatus] = useState<string>('active');
+
+  // Hook para criar projeto
+  const createProjectMutation = useCreateProject();
 
   // Handler para abrir modal de criação de tarefa
   const handleCreateTask = (projectId?: string) => {
     setTaskProjectId(projectId);
     setIsTaskFormOpen(true);
+  };
+
+  // Handler para criar novo projeto
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) {
+      toast.error('Nome do projeto é obrigatório');
+      return;
+    }
+
+    try {
+      await createProjectMutation.mutateAsync({
+        name: newProjectName.trim(),
+        description: newProjectDescription.trim() || null,
+        color: newProjectColor,
+        status: newProjectStatus,
+      });
+      
+      toast.success('Projeto criado com sucesso!');
+      
+      // Reset form and close modal
+      setNewProjectName('');
+      setNewProjectDescription('');
+      setNewProjectColor('#3b82f6');
+      setNewProjectStatus('active');
+      setIsCreateProjectOpen(false);
+    } catch (error) {
+      console.error('Erro ao criar projeto:', error);
+      toast.error('Erro ao criar projeto');
+    }
+  };
+
+  // Abrir modal de criação de projeto
+  const openCreateProjectModal = (status?: string) => {
+    if (status) {
+      setNewProjectStatus(status);
+    }
+    setIsCreateProjectOpen(true);
   };
 
   // Dados reais do banco via React Query
@@ -454,7 +515,7 @@ export function ProjetosPage() {
             <Button variant="outline" size="icon">
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button>
+            <Button onClick={() => openCreateProjectModal()}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Projeto
             </Button>
@@ -547,7 +608,7 @@ export function ProjetosPage() {
             <p className="text-muted-foreground mt-1">
               {searchQuery ? 'Tente outra busca' : 'Crie seu primeiro projeto'}
             </p>
-            <Button className="mt-4">
+            <Button className="mt-4" onClick={() => openCreateProjectModal()}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Projeto
             </Button>
@@ -563,6 +624,7 @@ export function ProjetosPage() {
                   status={status}
                   projects={statusProjects}
                   onProjectClick={handleProjectClick}
+                  onAddProject={openCreateProjectModal}
                 />
               );
             })}
@@ -592,6 +654,90 @@ export function ProjetosPage() {
         defaultProjectId={taskProjectId}
         onSuccess={() => setIsTaskFormOpen(false)}
       />
+
+      {/* Create Project Sheet */}
+      <Sheet open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
+        <SheetContent className="w-[400px] sm:w-[450px]">
+          <SheetHeader>
+            <SheetTitle>Novo Projeto</SheetTitle>
+            <SheetDescription>
+              Crie um novo projeto para organizar suas tarefas
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="mt-6 space-y-4">
+            {/* Nome do Projeto */}
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Nome do Projeto *</Label>
+              <Input
+                id="project-name"
+                placeholder="Ex: Site para cliente X"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+              />
+            </div>
+
+            {/* Descrição */}
+            <div className="space-y-2">
+              <Label htmlFor="project-description">Descrição</Label>
+              <Textarea
+                id="project-description"
+                placeholder="Descreva o projeto..."
+                value={newProjectDescription}
+                onChange={(e) => setNewProjectDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            {/* Status */}
+            <div className="space-y-2">
+              <Label>Status Inicial</Label>
+              <Select value={newProjectStatus} onValueChange={setNewProjectStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Cor */}
+            <div className="space-y-2">
+              <Label>Cor do Projeto</Label>
+              <div className="flex gap-2 flex-wrap">
+                {['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={cn(
+                      'w-8 h-8 rounded-full border-2 transition-all',
+                      newProjectColor === color ? 'border-foreground scale-110' : 'border-transparent'
+                    )}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setNewProjectColor(color)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Botões */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setIsCreateProjectOpen(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleCreateProject}
+                disabled={createProjectMutation.isPending}
+              >
+                {createProjectMutation.isPending ? 'Criando...' : 'Criar Projeto'}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
