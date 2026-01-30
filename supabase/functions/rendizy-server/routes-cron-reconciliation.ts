@@ -80,22 +80,32 @@ async function fetchStaysReservation(
 ): Promise<{ found: boolean; data?: any; error?: string }> {
   try {
     const auth = btoa(`${config.apiKey}:${config.apiSecret || ''}`)
-    const url = `${config.baseUrl}/booking/content?_id=${externalId}`
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/json',
-      },
-    })
+    const headers = {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/json',
+    }
+
+    // ✅ Stays.net canonical detail endpoint
+    const urlById = `${config.baseUrl}/booking/reservations/${encodeURIComponent(externalId)}`
+    const response = await fetch(urlById, { headers })
     
     if (response.status === 404) {
       return { found: false }
     }
     
     if (!response.ok) {
-      const errText = await response.text()
-      return { found: false, error: `API error ${response.status}: ${errText}` }
+      // Fallback: older endpoint used in some accounts
+      const fallbackUrl = `${config.baseUrl}/booking/content?_id=${encodeURIComponent(externalId)}`
+      const fallbackResp = await fetch(fallbackUrl, { headers })
+      if (!fallbackResp.ok) {
+        const errText = await fallbackResp.text()
+        return { found: false, error: `API error ${fallbackResp.status}: ${errText}` }
+      }
+      const fallbackData = await fallbackResp.json()
+      if (fallbackData?.message === 'not found' || fallbackData?.error === 'not found') {
+        return { found: false }
+      }
+      return { found: true, data: fallbackData }
     }
     
     const data = await response.json()
