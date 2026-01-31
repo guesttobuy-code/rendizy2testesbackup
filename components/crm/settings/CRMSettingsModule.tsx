@@ -5,12 +5,12 @@
  * ║  Tela de configurações do módulo CRM com 4 abas:                         ║
  * ║  1. Origens de Lead (fontes de entrada de leads)                         ║
  * ║  2. Automações (catálogo de triggers/ações)                              ║
- * ║  3. Gestão de Atividades e Tarefas                                       ║
+ * ║  3. Gestão de Atividades e Tarefas (inclui Serviços por Imóvel)          ║
  * ║  4. Configurações Gerais                                                 ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * @version 1.1.0
- * @date 2026-01-26
+ * @version 1.3.0
+ * @date 2026-01-31
  * 
  * Segue o padrão de SettingsTabsLayout do módulo Financeiro.
  */
@@ -46,7 +46,7 @@ export default function CRMSettingsModule() {
 
         {/* Tabs */}
         <Tabs defaultValue="origens" className="w-full">
-          <TabsList className="w-full justify-start bg-transparent border-b border-gray-200 dark:border-gray-700 rounded-none h-auto p-0 gap-0">
+          <TabsList className="w-full justify-start bg-transparent border-b border-gray-200 dark:border-gray-700 rounded-none h-auto p-0 gap-0 flex-wrap">
             <TabsTrigger
               value="origens"
               className="data-[state=active]:bg-transparent data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-6 py-3 h-auto flex items-center gap-2"

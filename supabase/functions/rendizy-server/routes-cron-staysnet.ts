@@ -164,7 +164,24 @@ export async function cronStaysnetPropertiesSync(c: Context) {
     for (const listing of newListings) {
       try {
         const staysId = listing._id || listing.id
-        const internalName = listing.internalName || listing.title || listing._mstitle?.pt_BR || 'Sem nome'
+        
+        // ⚠️ CRÍTICO: Extrair título real - NUNCA usar fallback genérico
+        const internalName = listing.internalName || 
+          listing._mstitle?.pt_BR || 
+          listing._mstitle?.en_US ||
+          listing.title?.pt_BR ||
+          listing.title?.en_US ||
+          listing.title ||
+          listing.name
+        
+        // Se não tem título válido, pular importação
+        if (!internalName || typeof internalName !== 'string' || !internalName.trim()) {
+          console.warn(`⚠️ [cronStaysnetPropertiesSync] Listing ${staysId} sem título válido - pulando`)
+          result.errors.push(`Listing ${staysId} sem título válido`)
+          continue
+        }
+        
+        const cleanTitle = String(internalName).trim()
         
         // Criar property no Rendizy
         // ⚠️ staysnet_listing_id vai dentro do JSONB 'data' (não existe como coluna direta)
@@ -172,10 +189,11 @@ export async function cronStaysnetPropertiesSync(c: Context) {
           id: crypto.randomUUID(),
           organization_id: organizationId,
           user_id: DEFAULT_USER_ID,
-          title: internalName,
+          title: cleanTitle,
           status: 'active',
           data: {
-            title: internalName,
+            title: cleanTitle,
+            internalId: cleanTitle,
             externalIds: {
               staysnet_listing_id: staysId,
               staysnet_property_id: staysId,
@@ -197,8 +215,8 @@ export async function cronStaysnetPropertiesSync(c: Context) {
           console.error(`❌ [cronStaysnetPropertiesSync] Error importing ${staysId}:`, insertError.message)
         } else {
           result.imported++
-          result.newProperties.push(internalName)
-          console.log(`✅ [cronStaysnetPropertiesSync] Imported: ${internalName} (${staysId})`)
+          result.newProperties.push(cleanTitle)
+          console.log(`✅ [cronStaysnetPropertiesSync] Imported: ${cleanTitle} (${staysId})`)
         }
       } catch (err: any) {
         result.errors.push(`Exception: ${err.message}`)

@@ -124,7 +124,19 @@ async function importNewProperty(
 ): Promise<{ success: boolean; propertyId?: string; error?: string }> {
   try {
     const listingId = listing._id || listing.id;
-    const listingCode = listing.internalName || listing._mstitle || listing.name || `stays-${listingId}`;
+    
+    // ⚠️ CRÍTICO: Extrair título real - NUNCA usar fallback genérico
+    const title = listing.internalName || 
+      listing._mstitle?.pt_BR || 
+      listing._mstitle?.en_US ||
+      listing.name;
+    
+    // Se não tem título válido, não criar imóvel
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return { success: false, error: `Listing ${listingId} não tem título válido` };
+    }
+    
+    const cleanTitle = String(title).trim();
 
     // Prepara dados básicos do anúncio
     const anuncioData: Record<string, any> = {
@@ -133,7 +145,8 @@ async function importNewProperty(
         staysnet_property_id: listing.propertyId || null,
         staysnet_code: listing.internalName || null,
       },
-      title: listing.internalName || listing._mstitle || listing.name || `Imóvel ${listingId}`,
+      title: cleanTitle,
+      internalId: cleanTitle,
       internalName: listing.internalName || null,
       propertyType: listing._t_propertyMeta?.en || listing._t_propertyTypeMeta?.en || null,
       status: 'draft', // Sempre cria como rascunho para revisão manual
@@ -142,20 +155,45 @@ async function importNewProperty(
       staysnet_raw: listing,
     };
 
-    // Usa RPC save_anuncio_field para criar/atualizar atomicamente
+    // ⚠️ FIX: Usar parâmetros corretos da RPC save_anuncio_field
     const { data, error } = await supabase.rpc('save_anuncio_field', {
-      _org: organizationId,
-      _user: '00000000-0000-0000-0000-000000000002',
-      _id: null, // Novo registro
-      _key: 'import_batch',
-      _val: anuncioData,
+      p_anuncio_id: null, // Novo registro
+      p_field: 'title',
+      p_value: cleanTitle,
+      p_idempotency_key: `staysnet-sync-${listingId}`,
+      p_organization_id: organizationId,
+      p_user_id: '00000000-0000-0000-0000-000000000002',
     });
 
     if (error) {
       return { success: false, error: error.message };
     }
+    
+    const propertyId = data?.id;
+    if (!propertyId) {
+      return { success: false, error: 'RPC não retornou ID' };
+    }
+    
+    // Salvar campos adicionais
+    await supabase.rpc('save_anuncio_field', {
+      p_anuncio_id: propertyId,
+      p_field: 'externalIds',
+      p_value: anuncioData.externalIds,
+      p_idempotency_key: `staysnet-sync-externalIds-${listingId}`,
+      p_organization_id: organizationId,
+      p_user_id: '00000000-0000-0000-0000-000000000002',
+    });
+    
+    await supabase.rpc('save_anuncio_field', {
+      p_anuncio_id: propertyId,
+      p_field: 'internalId',
+      p_value: cleanTitle,
+      p_idempotency_key: `staysnet-sync-internalId-${listingId}`,
+      p_organization_id: organizationId,
+      p_user_id: '00000000-0000-0000-0000-000000000002',
+    });
 
-    return { success: true, propertyId: data?.id || data };
+    return { success: true, propertyId };
   } catch (err: any) {
     return { success: false, error: err.message || 'Unknown error' };
   }

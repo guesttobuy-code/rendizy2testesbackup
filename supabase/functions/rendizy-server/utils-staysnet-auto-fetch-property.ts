@@ -178,7 +178,15 @@ async function persistPropertyFromStaysListing(
 ): Promise<string | null> {
   try {
     // Extrair dados básicos do listing
-    const title = extractTitle(listing) || `Property ${listingId}`;
+    const title = extractTitle(listing);
+    
+    // ⚠️ CRÍTICO: NUNCA criar imóvel sem título real
+    // Se não temos título, não temos dados suficientes para criar
+    if (!title) {
+      console.warn(`   ⚠️ [AutoFetch] Listing ${listingId} não tem título válido - abortando criação`);
+      return null;
+    }
+    
     const listingCode = String(listing?.id || '').trim();
     
     // Idempotency key estável

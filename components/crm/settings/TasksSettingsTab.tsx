@@ -6,13 +6,13 @@
  * ║  Sistema completo de gestão estilo Asana.                                ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * @version 2.0.0
- * @date 2026-01-28
+ * @version 2.1.0
+ * @date 2026-01-31
  * 
- * REFATORADO: Agora integra os componentes completos:
+ * SIMPLIFICADO: 3 abas apenas
  * - TeamsConfig: Gestão de times e equipes
  * - CustomFieldsConfig: Campos personalizados
- * - OperationalTasksConfig: Templates de tarefas operacionais
+ * - OperationalTasksConfig: Templates + Responsabilidade (integrados)
  */
 
 import { useState } from 'react';
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Importar os novos componentes completos
+// Importar os componentes
 import { TeamsConfig } from './TeamsConfig';
 import { CustomFieldsConfig } from './CustomFieldsConfig';
 import { OperationalTasksConfig } from './OperationalTasksConfig';
@@ -97,20 +97,8 @@ export function TasksSettingsTab() {
           <CustomFieldsConfig organizationId={organizationId} />
         </TabsContent>
 
-        {/* Tarefas Operacionais */}
+        {/* Tarefas Operacionais - INTEGRADO com responsabilidade */}
         <TabsContent value="operational" className="mt-6">
-          <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-            <div className="flex items-start gap-3">
-              <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-              <div>
-                <div className="font-medium text-green-900 dark:text-green-100">Tarefas Operacionais Automáticas</div>
-                <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                  Configure templates de tarefas que são criadas automaticamente por eventos (check-in, check-out) 
-                  ou agendamento cíclico (semanal, mensal). Ideal para limpezas, vistorias e manutenções.
-                </p>
-              </div>
-            </div>
-          </div>
           <OperationalTasksConfig organizationId={organizationId} />
         </TabsContent>
       </Tabs>

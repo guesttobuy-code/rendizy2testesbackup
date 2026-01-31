@@ -834,7 +834,7 @@ export function OperacoesUnificadasPage() {
   const isLoading = loadingCheckins || loadingCheckouts || loadingCleanings || loadingMaintenances;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden origin-top-left scale-[0.85]" style={{ width: '117.6%', height: '117.6%' }}>
       {/* Header compacto */}
       <div className="flex-shrink-0 bg-background border-b px-6 py-2">
         <div className="flex items-center justify-between gap-4">
@@ -914,9 +914,10 @@ export function OperacoesUnificadasPage() {
         </div>
       </div>
 
-      {/* Summary Cards compactos */}
+      {/* Summary Cards compactos - Com indicadores Empresa/Proprietário */}
       <div className="flex-shrink-0 px-6 py-2 bg-muted/30 border-b">
         <div className="grid grid-cols-5 gap-3">
+          {/* Total */}
           <div className="bg-white rounded-lg border p-2.5 flex items-center gap-2.5">
             <div className="p-1.5 bg-gray-100 rounded-md">
               <Calendar className="h-4 w-4 text-gray-600" />
@@ -926,6 +927,8 @@ export function OperacoesUnificadasPage() {
               <p className="text-xs text-muted-foreground">Total</p>
             </div>
           </div>
+          
+          {/* Check-ins */}
           <div className="bg-white rounded-lg border p-2.5 flex items-center gap-2.5">
             <div className="p-1.5 bg-green-100 rounded-md">
               <LogIn className="h-4 w-4 text-green-600" />
@@ -935,6 +938,8 @@ export function OperacoesUnificadasPage() {
               <p className="text-xs text-muted-foreground">Check-ins</p>
             </div>
           </div>
+          
+          {/* Check-outs */}
           <div className="bg-white rounded-lg border p-2.5 flex items-center gap-2.5">
             <div className="p-1.5 bg-orange-100 rounded-md">
               <LogOut className="h-4 w-4 text-orange-600" />
@@ -944,22 +949,48 @@ export function OperacoesUnificadasPage() {
               <p className="text-xs text-muted-foreground">Check-outs</p>
             </div>
           </div>
-          <div className="bg-white rounded-lg border p-2.5 flex items-center gap-2.5">
-            <div className="p-1.5 bg-blue-100 rounded-md">
-              <Sparkles className="h-4 w-4 text-blue-600" />
+          
+          {/* Limpezas - Com divisão Empresa/Proprietário */}
+          <div className="bg-white rounded-lg border p-2.5">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1 bg-blue-100 rounded">
+                <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+              </div>
+              <p className="text-lg font-bold leading-none">{counts.cleaning}</p>
+              <span className="text-xs text-muted-foreground">Limpezas</span>
             </div>
-            <div>
-              <p className="text-xl font-bold leading-none">{counts.cleaning}</p>
-              <p className="text-xs text-muted-foreground">Limpezas</p>
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="flex items-center gap-0.5 text-blue-600">
+                <Building2 className="h-3 w-3" />
+                {counts.cleaning} Emp.
+              </span>
+              <span className="text-muted-foreground">|</span>
+              <span className="flex items-center gap-0.5 text-orange-500">
+                <User className="h-3 w-3" />
+                0 Prop.
+              </span>
             </div>
           </div>
-          <div className="bg-white rounded-lg border p-2.5 flex items-center gap-2.5">
-            <div className="p-1.5 bg-purple-100 rounded-md">
-              <Wrench className="h-4 w-4 text-purple-600" />
+          
+          {/* Manutenções - Com divisão Empresa/Proprietário */}
+          <div className="bg-white rounded-lg border p-2.5">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1 bg-purple-100 rounded">
+                <Wrench className="h-3.5 w-3.5 text-purple-600" />
+              </div>
+              <p className="text-lg font-bold leading-none">{counts.maintenance}</p>
+              <span className="text-xs text-muted-foreground">Manutenções</span>
             </div>
-            <div>
-              <p className="text-xl font-bold leading-none">{counts.maintenance}</p>
-              <p className="text-xs text-muted-foreground">Manutenções</p>
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="flex items-center gap-0.5 text-purple-600">
+                <Building2 className="h-3 w-3" />
+                {counts.maintenance} Emp.
+              </span>
+              <span className="text-muted-foreground">|</span>
+              <span className="flex items-center gap-0.5 text-orange-500">
+                <User className="h-3 w-3" />
+                0 Prop.
+              </span>
             </div>
           </div>
         </div>

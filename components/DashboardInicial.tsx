@@ -107,14 +107,18 @@ export function DashboardInicial({
     ['pending', 'confirmed', 'checked_in'].includes(r.status)
   );
 
+  // Filtrar por status válidos para check-in (exclui canceladas)
   const checkInsToday = reservations.filter(r => {
+    if (!['pending', 'confirmed', 'checked_in'].includes(r.status)) return false;
     const checkIn = parseDateLocal(r.checkIn);
     if (!checkIn) return false;
     checkIn.setHours(0, 0, 0, 0);
     return checkIn.getTime() === today.getTime();
   });
 
+  // Filtrar por status válidos para check-out (inclui checked_out para mostrar concluídos)
   const checkOutsToday = reservations.filter(r => {
+    if (!['pending', 'confirmed', 'checked_in', 'checked_out'].includes(r.status)) return false;
     const checkOut = parseDateLocal(r.checkOut);
     if (!checkOut) return false;
     checkOut.setHours(0, 0, 0, 0);

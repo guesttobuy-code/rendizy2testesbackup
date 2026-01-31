@@ -130,7 +130,7 @@ app.get("/lista", async (c) => {
     const { data, error } = await supabase
       // ✅ Tabela oficial do sistema: properties (NÃO existe anuncios_drafts)
       .from("properties")
-      .select("id,data,status,organization_id,user_id,owner_contact_id,created_at,updated_at")
+      .select("id,data,status,organization_id,user_id,owner_contact_id,created_at,updated_at,cleaning_responsibility,maintenance_responsibility")
       .eq('organization_id', organizationId)
       // Excluir registros internos de settings (mantém anúncios normais onde __kind é NULL)
       .or(`data->>__kind.is.null,data->>__kind.neq.${SETTINGS_KIND}`)

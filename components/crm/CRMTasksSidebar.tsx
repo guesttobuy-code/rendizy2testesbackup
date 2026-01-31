@@ -191,7 +191,7 @@ export default function CRMTasksSidebar({ onEditFunnels }: CRMTasksSidebarProps 
 
   return (
     <div className={`
-      ${isCollapsed ? 'w-20' : 'w-64'}
+      ${isCollapsed ? 'w-20' : 'w-72'}
       bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700
       flex flex-col transition-all duration-300
       h-screen overflow-hidden pt-14

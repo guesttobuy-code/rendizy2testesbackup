@@ -495,10 +495,11 @@ export function useCheckOuts(date?: string) {
     queryKey: crmTasksKeys.checkOuts(targetDate),
     queryFn: async (): Promise<OperationalTask[]> => {
       // Usar API paginada que suporta checkOutFrom/checkOutTo
+      // Incluir checked_out para mostrar também os que já foram concluídos
       const response = await reservationsApi.listPaged({
         checkOutFrom: targetDate,
         checkOutTo: targetDate,
-        status: ['confirmed', 'pending', 'checked_in'],
+        status: ['confirmed', 'pending', 'checked_in', 'checked_out'],
         limit: 100,
       });
 
