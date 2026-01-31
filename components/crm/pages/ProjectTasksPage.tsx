@@ -140,6 +140,52 @@ const PRIORITY_OPTIONS = [
 ];
 
 // ============================================================================
+// STATUS CONFIG - Mesmas opções do modal
+// ============================================================================
+
+const STATUS_CONFIG = {
+  pending: { 
+    label: 'Pendente', 
+    color: 'bg-slate-100 text-slate-600 border-slate-300',
+    icon: '⏳',
+    iconColor: 'text-slate-500'
+  },
+  in_progress: { 
+    label: 'Em Andamento', 
+    color: 'bg-blue-100 text-blue-700 border-blue-400',
+    icon: '🔄',
+    iconColor: 'text-blue-500'
+  },
+  completed: { 
+    label: 'Concluído', 
+    color: 'bg-green-100 text-green-700 border-green-400',
+    icon: '✅',
+    iconColor: 'text-green-500'
+  },
+  cancelled: { 
+    label: 'Cancelado', 
+    color: 'bg-red-100 text-red-600 border-red-300',
+    icon: '❌',
+    iconColor: 'text-red-500'
+  },
+  skipped: { 
+    label: 'Pulado', 
+    color: 'bg-purple-100 text-purple-600 border-purple-300',
+    icon: '⏭️',
+    iconColor: 'text-purple-500'
+  },
+};
+
+// Lista de status para dropdown
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pendente', icon: '⏳', color: 'bg-slate-500' },
+  { value: 'in_progress', label: 'Em Andamento', icon: '🔄', color: 'bg-blue-500' },
+  { value: 'completed', label: 'Concluído', icon: '✅', color: 'bg-green-500' },
+  { value: 'cancelled', label: 'Cancelado', icon: '❌', color: 'bg-red-500' },
+  { value: 'skipped', label: 'Pulado', icon: '⏭️', color: 'bg-purple-500' },
+];
+
+// ============================================================================
 // COLUMN HEADER COMPONENT
 // ============================================================================
 
@@ -148,6 +194,8 @@ const ColumnHeader: React.FC = () => (
     <div className="w-5" /> {/* Drag handle space */}
     <div className="w-5" /> {/* Checkbox space */}
     <div className="flex-1 min-w-0">Nome</div>
+    <div className="w-8 flex-shrink-0" /> {/* Arrow button space */}
+    <div className="w-28 flex-shrink-0 text-center hidden sm:block">Status</div>
     <div className="w-28 flex-shrink-0 text-center hidden md:block">Responsável</div>
     <div className="w-28 flex-shrink-0 text-center hidden lg:block">Prazo</div>
     <div className="w-32 flex-shrink-0 text-center">Prioridade</div>
@@ -252,6 +300,9 @@ const TaskRow: React.FC<TaskRowProps> = ({
     setDateOpen(false);
   };
   
+  // Configuração de status da tarefa
+  const statusConfig = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
+  
   return (
     <div 
       className={cn(
@@ -319,6 +370,39 @@ const TaskRow: React.FC<TaskRowProps> = ({
       >
         <ArrowUpRight className="h-4 w-4 text-slate-700" />
       </button>
+      
+      {/* Status - Dropdown */}
+      <div className="w-28 flex-shrink-0 hidden sm:flex justify-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className={cn(
+              "flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-medium transition-all hover:shadow-sm",
+              statusConfig.color
+            )}>
+              <span>{statusConfig.icon}</span>
+              <span>{statusConfig.label}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-44">
+            {STATUS_OPTIONS.map((option) => (
+              <DropdownMenuItem 
+                key={option.value}
+                onClick={() => onFieldChange('status', option.value)}
+                className={cn(
+                  "flex items-center gap-2",
+                  task.status === option.value && "bg-accent"
+                )}
+              >
+                <span>{option.icon}</span>
+                <span>{option.label}</span>
+                {task.status === option.value && (
+                  <CheckCircle2 className="h-4 w-4 ml-auto text-green-500" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       
       {/* Responsável - Dropdown */}
       <div className="w-28 flex-shrink-0 hidden md:flex justify-center">

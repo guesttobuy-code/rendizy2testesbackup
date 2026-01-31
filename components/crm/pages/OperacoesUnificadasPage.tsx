@@ -75,7 +75,8 @@ import {
   useCleanings, 
   useMaintenances,
   useMarkOperationalTaskCompleted,
-  useOperationalTasksRealtime 
+  useOperationalTasksRealtime,
+  crmTasksKeys
 } from '@/hooks/useCRMTasks';
 import { OperationalTask } from '@/utils/services/crmTasksService';
 import { reservationsApi } from '@/utils/api';
@@ -153,6 +154,7 @@ interface OperationComment {
 interface OperationCardProps {
   operation: OperationalTask;
   onMarkComplete: (id: string) => void;
+  onMarkPending?: (id: string) => void;
   isCompleting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -162,6 +164,7 @@ interface OperationCardProps {
 const OperationCard: React.FC<OperationCardProps> = ({ 
   operation, 
   onMarkComplete, 
+  onMarkPending,
   isCompleting,
   isSelected = false,
   onSelect,
@@ -325,31 +328,53 @@ const OperationCard: React.FC<OperationCardProps> = ({
 
           {/* Status & Actions */}
           <div className="flex items-center gap-2">
-            {getStatusBadge(operation.status)}
-            
-            {/* Complete Button */}
-            {operation.status !== 'completed' && (
+            {/* Status Toggle Buttons */}
+            <div className="flex items-center border rounded-lg overflow-hidden">
               <Button
                 size="sm"
-                variant={isUrgent ? 'default' : 'outline'}
+                variant="ghost"
                 className={cn(
-                  'gap-1.5',
-                  isUrgent && 'bg-green-600 hover:bg-green-700 text-white'
+                  'gap-1.5 rounded-none border-r h-8 px-3',
+                  operation.status === 'pending' 
+                    ? 'bg-slate-200 text-slate-700 shadow-inner' 
+                    : 'hover:bg-slate-100 text-muted-foreground hover:text-slate-600'
                 )}
-                disabled={isCompleting}
+                disabled={isCompleting || operation.status === 'pending'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkPending?.(operation.id);
+                }}
+              >
+                {isCompleting && operation.status !== 'pending' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Circle className="h-3.5 w-3.5" />
+                )}
+                Pendente
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  'gap-1.5 rounded-none h-8 px-3',
+                  operation.status === 'completed' 
+                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 ring-2 ring-emerald-400' 
+                    : 'hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600'
+                )}
+                disabled={isCompleting || operation.status === 'completed'}
                 onClick={(e) => {
                   e.stopPropagation();
                   onMarkComplete(operation.id);
                 }}
               >
-                {isCompleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                {isCompleting && operation.status !== 'completed' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                 )}
                 Concluído
               </Button>
-            )}
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -659,11 +684,78 @@ export function OperacoesUnificadasPage() {
   const handleMarkComplete = async (id: string) => {
     setCompletingId(id);
     try {
-      await markCompleted.mutateAsync({ id });
-      toast.success('Operação concluída com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao concluir operação');
-      console.error(error);
+      // IDs de check-in/checkout são compostos: reservationId-checkin ou reservationId-checkout
+      const isCheckinCheckout = id.endsWith('-checkin') || id.endsWith('-checkout');
+      
+      if (isCheckinCheckout) {
+        // Extrair o ID real da reserva e o tipo de operação
+        const isCheckin = id.endsWith('-checkin');
+        const reservationId = id.replace(/-checkin$|-checkout$/, '');
+        const newStatus = isCheckin ? 'checked_in' : 'checked_out';
+        
+        console.log(`📝 Atualizando reserva ${reservationId} para status: ${newStatus}`);
+        
+        // Atualizar o status da reserva via API
+        const response = await reservationsApi.update(reservationId, { status: newStatus });
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Erro ao atualizar reserva');
+        }
+        
+        // Invalidar queries e forçar refetch imediato para atualizar a lista
+        await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
+        await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
+        await queryClient.refetchQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
+        await queryClient.refetchQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
+        
+        toast.success(isCheckin ? 'Check-in realizado com sucesso!' : 'Check-out realizado com sucesso!');
+      } else {
+        // Para outras operações (limpeza, manutenção), usar o serviço normal
+        await markCompleted.mutateAsync({ id });
+        toast.success('Operação concluída com sucesso!');
+      }
+    } catch (error: any) {
+      console.error('Erro ao concluir operação:', error);
+      toast.error(error?.message || 'Erro ao concluir operação');
+    } finally {
+      setCompletingId(null);
+    }
+  };
+
+  // Handler para voltar o status para pendente
+  const handleMarkPending = async (id: string) => {
+    setCompletingId(id);
+    try {
+      // IDs de check-in/checkout são compostos: reservationId-checkin ou reservationId-checkout
+      const isCheckinCheckout = id.endsWith('-checkin') || id.endsWith('-checkout');
+      
+      if (isCheckinCheckout) {
+        // Extrair o ID real da reserva
+        const reservationId = id.replace(/-checkin$|-checkout$/, '');
+        
+        console.log(`📝 Voltando reserva ${reservationId} para status: confirmed`);
+        
+        // Voltar o status da reserva para confirmed
+        const response = await reservationsApi.update(reservationId, { status: 'confirmed' });
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Erro ao atualizar reserva');
+        }
+        
+        // Invalidar queries e forçar refetch imediato para atualizar a lista
+        await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
+        await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
+        await queryClient.refetchQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
+        await queryClient.refetchQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
+        
+        toast.success('Operação marcada como pendente!');
+      } else {
+        // Para outras operações, atualizar via serviço (se disponível)
+        toast.info('Função disponível apenas para check-ins e check-outs');
+      }
+    } catch (error: any) {
+      console.error('Erro ao marcar como pendente:', error);
+      toast.error(error?.message || 'Erro ao atualizar operação');
     } finally {
       setCompletingId(null);
     }
@@ -968,6 +1060,7 @@ export function OperacoesUnificadasPage() {
                     key={operation.id}
                     operation={operation}
                     onMarkComplete={handleMarkComplete}
+                    onMarkPending={handleMarkPending}
                     isCompleting={completingId === operation.id}
                     isSelected={selectedIds.has(operation.id)}
                     onSelect={handleSelect}
