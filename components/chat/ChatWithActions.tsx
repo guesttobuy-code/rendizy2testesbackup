@@ -30,6 +30,7 @@ import { ChatMessagePanel } from './ChatMessagePanel';
 import { ChatDetailsSidebar, ChatContactDetails } from './ChatDetailsSidebar';
 import { QuickActionsModal, QuickActionType } from '../modals/QuickActionsModal';
 import { CreateDealFromChatModal } from '../modals/CreateDealFromChatModal';
+import { CheckinManagementModal } from '../modals/CheckinManagementModal';
 import { Button } from '../ui/button';
 import { 
   MoreVertical, 
@@ -145,6 +146,7 @@ export function ChatWithActions({
   const [showSidebar, setShowSidebar] = useState(initialShowSidebar && variant === 'full');
   const [showQuickActionsModal, setShowQuickActionsModal] = useState(false);
   const [showCreateDealModal, setShowCreateDealModal] = useState(false);
+  const [showCheckinManagement, setShowCheckinManagement] = useState(false);
 
   // ═══════════════════════════════════════════════════════
   // COMPUTED
@@ -211,6 +213,9 @@ export function ChatWithActions({
       case 'BLOCK_GENERIC':
         toast.info('Funcionalidade de bloqueio em desenvolvimento');
         // TODO: Abrir modal de bloqueio
+        break;
+      case 'MANAGE_CHECKIN':
+        setShowCheckinManagement(true);
         break;
     }
   }, []);
@@ -418,6 +423,17 @@ export function ChatWithActions({
             setShowCreateDealModal(false);
             setShowQuickActionsModal(true);
           }}
+        />
+
+        {/* Modal Gestão de Check-in */}
+        <CheckinManagementModal
+          open={showCheckinManagement}
+          onOpenChange={setShowCheckinManagement}
+          contact={contact ? {
+            id: contact.id,
+            name: contact.name,
+            phone: contact.phone,
+          } : undefined}
         />
       </>
     );

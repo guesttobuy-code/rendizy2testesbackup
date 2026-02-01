@@ -1035,3 +1035,326 @@ export const tasksDashboardService = {
     };
   },
 };
+
+// ============================================================================
+// OPERATIONAL TASK TEMPLATES SERVICE
+// ============================================================================
+
+export interface OperationalTaskTemplate {
+  id: string;
+  organization_id: string;
+  name: string;
+  description?: string;
+  instructions?: string;
+  priority?: string; // high, medium, low
+  estimated_duration_minutes?: number;
+  trigger_type: 'event' | 'scheduled' | 'manual';
+  event_trigger?: {
+    event: string;
+    time_mode?: string;
+    fixed_time?: string;
+    days_offset?: number;
+    offset_direction?: string;
+  };
+  schedule_config?: any;
+  assignment_type?: 'user' | 'team';
+  assigned_user_id?: string;
+  assigned_team_id?: string;
+  property_scope: 'all' | 'selected';
+  property_ids: string[];
+  property_tag?: string;
+  property_owner_id?: string;
+  color?: string;
+  icon?: string;
+  is_active: boolean;
+  responsibility_filter?: 'all' | 'company' | 'owner';
+  operation_category?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const operationalTaskTemplatesService = {
+  async getAll(orgId: string): Promise<OperationalTaskTemplate[]> {
+    const { data, error } = await supabase
+      .from('operational_task_templates')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('name');
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getById(id: string): Promise<OperationalTaskTemplate | null> {
+    const { data, error } = await supabase
+      .from('operational_task_templates')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async create(template: Omit<OperationalTaskTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<OperationalTaskTemplate> {
+    const { data, error } = await supabase
+      .from('operational_task_templates')
+      .insert(template as any)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Erro ao criar template:', error);
+      throw error;
+    }
+    return data;
+  },
+
+  async update(id: string, updates: Partial<OperationalTaskTemplate>): Promise<OperationalTaskTemplate> {
+    const { data, error } = await supabase
+      .from('operational_task_templates')
+      .update({ ...updates, updated_at: new Date().toISOString() } as any)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Erro ao atualizar template:', error);
+      throw error;
+    }
+    return data;
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('operational_task_templates')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('❌ Erro ao deletar template:', error);
+      throw error;
+    }
+  },
+
+  async toggleActive(id: string, isActive: boolean): Promise<OperationalTaskTemplate> {
+    return this.update(id, { is_active: isActive });
+  },
+
+  async duplicate(id: string): Promise<OperationalTaskTemplate> {
+    const original = await this.getById(id);
+    if (!original) throw new Error('Template não encontrado');
+    
+    const { id: _id, created_at, updated_at, ...templateData } = original;
+    
+    return this.create({
+      ...templateData,
+      name: `${original.name} (Cópia)`,
+    });
+  },
+
+  /**
+   * Busca templates de limpeza ativos para uma organização
+   */
+  async getCleaningTemplates(orgId: string): Promise<OperationalTaskTemplate[]> {
+    const { data, error } = await supabase
+      .from('operational_task_templates')
+      .select('*')
+      .eq('organization_id', orgId)
+      .eq('is_active', true)
+      .eq('operation_category', 'cleaning')
+      .order('name');
+    
+    if (error) {
+      console.error('❌ Erro ao buscar templates de limpeza:', error);
+      throw error;
+    }
+    return data || [];
+  },
+
+  /**
+   * Verifica se um template se aplica a uma propriedade específica
+   */
+  templateAppliesToProperty(template: OperationalTaskTemplate, propertyId: string): boolean {
+    if (template.property_scope === 'all') {
+      return true;
+    }
+    if (template.property_scope === 'selected' && template.property_ids) {
+      return template.property_ids.includes(propertyId);
+    }
+    return false;
+  },
+
+  /**
+   * Gera tarefas de limpeza virtuais baseadas nos templates e checkouts do dia
+   * Útil para mostrar na tela de operações quais limpezas serão/deverão ser feitas
+   */
+  async generateCleaningTasksFromCheckouts(
+    orgId: string,
+    checkouts: Array<{ 
+      id: string; 
+      propertyId: string; 
+      propertyName?: string;
+      checkOut: string;
+      guestName?: string;
+    }>
+  ): Promise<OperationalTask[]> {
+    // Buscar templates de limpeza ativos
+    const templates = await this.getCleaningTemplates(orgId);
+    
+    console.log(`📋 [generateCleaningTasksFromCheckouts] ${templates.length} templates encontrados, ${checkouts.length} checkouts`);
+    
+    if (templates.length === 0) {
+      console.log('ℹ️ Nenhum template de limpeza ativo encontrado');
+      return [];
+    }
+
+    const generatedTasks: OperationalTask[] = [];
+
+    for (const checkout of checkouts) {
+      // Encontrar templates aplicáveis a esta propriedade
+      const applicableTemplates = templates.filter(t => 
+        this.templateAppliesToProperty(t, checkout.propertyId)
+      );
+
+      for (const template of applicableTemplates) {
+        // Extrair metadata do template (se for JSON no instructions)
+        let meta: any = {};
+        try {
+          meta = JSON.parse(template.instructions || '{}');
+        } catch {
+          meta = {};
+        }
+
+        // Só gerar se for vinculado a checkout ou both
+        // Relaxamos a condição _type para templates que podem não ter esse campo
+        const linkedTo = meta.linked_to || 'checkout';
+        const shouldGenerate = linkedTo === 'checkout' || linkedTo === 'both';
+        
+        console.log(`🔍 Template "${template.name}" - linkedTo: ${linkedTo}, shouldGenerate: ${shouldGenerate}`);
+        
+        if (shouldGenerate) {
+          const task: OperationalTask = {
+            id: `generated-${checkout.id}-${template.id}`,
+            organization_id: orgId,
+            template_id: template.id,
+            title: template.name,
+            description: template.description,
+            instructions: template.instructions,
+            status: 'pending',
+            priority: (template.priority as any) || 'medium',
+            scheduled_date: checkout.checkOut,
+            scheduled_time: template.event_trigger?.fixed_time || '10:00',
+            property_id: checkout.propertyId,
+            reservation_id: checkout.id,
+            triggered_by_event: 'checkout_day',
+            metadata: {
+              property_name: checkout.propertyName,
+              guest_name: checkout.guestName,
+              template_name: template.name,
+              template_color: template.color,
+              template_icon: template.icon,
+              subtasks: meta.subtasks || [],
+              sla_hours: meta.sla_hours || 4,
+              include_vistoria: meta.include_vistoria || false,
+              _generated: true, // Flag para indicar que é gerado dinamicamente
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            // Campos de join
+            template_name: template.name,
+            template_icon: template.icon,
+            template_color: template.color,
+          };
+          
+          generatedTasks.push(task);
+        }
+      }
+    }
+
+    console.log(`✅ ${generatedTasks.length} tarefas de limpeza geradas a partir de ${checkouts.length} checkouts`);
+    return generatedTasks;
+  },
+
+  /**
+   * Gera tarefas de limpeza virtuais baseadas nos templates e check-ins do dia
+   */
+  async generateCleaningTasksFromCheckins(
+    orgId: string,
+    checkins: Array<{ 
+      id: string; 
+      propertyId: string; 
+      propertyName?: string;
+      checkIn: string;
+      guestName?: string;
+    }>
+  ): Promise<OperationalTask[]> {
+    // Buscar templates de limpeza ativos
+    const templates = await this.getCleaningTemplates(orgId);
+    
+    if (templates.length === 0) {
+      return [];
+    }
+
+    const generatedTasks: OperationalTask[] = [];
+
+    for (const checkin of checkins) {
+      // Encontrar templates aplicáveis a esta propriedade
+      const applicableTemplates = templates.filter(t => 
+        this.templateAppliesToProperty(t, checkin.propertyId)
+      );
+
+      for (const template of applicableTemplates) {
+        let meta: any = {};
+        try {
+          meta = JSON.parse(template.instructions || '{}');
+        } catch {
+          meta = {};
+        }
+
+        // Só gerar se for vinculado a checkin ou both
+        const linkedTo = meta.linked_to || 'checkout';
+        const shouldGenerate = linkedTo === 'checkin' || linkedTo === 'both';
+        
+        if (shouldGenerate) {
+          const task: OperationalTask = {
+            id: `generated-checkin-${checkin.id}-${template.id}`,
+            organization_id: orgId,
+            template_id: template.id,
+            title: `${template.name} (Check-in)`,
+            description: template.description,
+            instructions: template.instructions,
+            status: 'pending',
+            priority: (template.priority as any) || 'medium',
+            scheduled_date: checkin.checkIn,
+            scheduled_time: template.event_trigger?.fixed_time || '10:00',
+            property_id: checkin.propertyId,
+            reservation_id: checkin.id,
+            triggered_by_event: 'checkin_day',
+            metadata: {
+              property_name: checkin.propertyName,
+              guest_name: checkin.guestName,
+              template_name: template.name,
+              template_color: template.color,
+              template_icon: template.icon,
+              subtasks: meta.subtasks || [],
+              sla_hours: meta.sla_hours || 4,
+              include_vistoria: meta.include_vistoria || false,
+              _generated: true,
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            template_name: template.name,
+            template_icon: template.icon,
+            template_color: template.color,
+          };
+          
+          generatedTasks.push(task);
+        }
+      }
+    }
+
+    console.log(`✅ ${generatedTasks.length} tarefas de limpeza geradas a partir de ${checkins.length} check-ins`);
+    return generatedTasks;
+  },
+};

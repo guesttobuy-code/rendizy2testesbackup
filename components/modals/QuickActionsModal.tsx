@@ -32,7 +32,8 @@ import {
   UserCheck, 
   Users, 
   Lock,
-  ChevronRight
+  ChevronRight,
+  LogIn,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 
@@ -46,7 +47,8 @@ export type QuickActionType =
   | 'CREATE_QUOTATION'
   | 'BLOCK_BROKER_VISIT'
   | 'BLOCK_CLIENT_VISIT'
-  | 'BLOCK_GENERIC';
+  | 'BLOCK_GENERIC'
+  | 'MANAGE_CHECKIN';
 
 export interface QuickActionConfig {
   type: QuickActionType;
@@ -128,6 +130,14 @@ const ACTIONS_CONFIG: QuickActionConfig[] = [
     icon: <Lock className="w-5 h-5" />,
     color: 'text-gray-600',
     bgColor: 'bg-gray-50 dark:bg-gray-900/20 hover:bg-gray-100 dark:hover:bg-gray-900/30',
+  },
+  {
+    type: 'MANAGE_CHECKIN',
+    label: 'Gestão de Check-in',
+    description: 'Ver instruções e gerenciar status do check-in',
+    icon: <LogIn className="w-5 h-5" />,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30',
   },
 ];
 

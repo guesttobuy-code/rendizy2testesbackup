@@ -130,7 +130,7 @@ app.get("/lista", async (c) => {
     const { data, error } = await supabase
       // ✅ Tabela oficial do sistema: properties (NÃO existe anuncios_drafts)
       .from("properties")
-      .select("id,data,status,organization_id,user_id,owner_contact_id,created_at,updated_at,cleaning_responsibility,maintenance_responsibility")
+      .select("id,data,status,organization_id,user_id,owner_contact_id,created_at,updated_at,cleaning_responsibility,maintenance_responsibility,checkin_category,checkin_config")
       .eq('organization_id', organizationId)
       // Excluir registros internos de settings (mantém anúncios normais onde __kind é NULL)
       .or(`data->>__kind.is.null,data->>__kind.neq.${SETTINGS_KIND}`)
@@ -500,6 +500,154 @@ app.patch('/:id', async (c) => {
     return c.json({ ok: true, anuncio: data });
   } catch (err: any) {
     console.error('❌ [PATCH /:id] Erro interno:', err);
+    return c.json({ error: err?.message || String(err) }, 500);
+  }
+});
+
+/**
+ * PATCH /anuncios-ultimate/update-responsibility
+ * Atualiza campos de responsabilidade (cleaning_responsibility, maintenance_responsibility)
+ * Estes são campos de coluna direta, não dentro de data JSONB
+ */
+app.patch('/update-responsibility', async (c) => {
+  try {
+    const body = await c.req.json();
+    const supabase = getSupabaseClient(c);
+    const organizationId = await resolveOrgId(c);
+    
+    const { property_id, cleaning_responsibility, maintenance_responsibility } = body;
+    
+    if (!property_id) {
+      return c.json({ error: 'property_id required' }, 400);
+    }
+    
+    // Validar valores permitidos
+    const validValues = ['company', 'owner'];
+    if (cleaning_responsibility && !validValues.includes(cleaning_responsibility)) {
+      return c.json({ error: 'cleaning_responsibility must be company or owner' }, 400);
+    }
+    if (maintenance_responsibility && !validValues.includes(maintenance_responsibility)) {
+      return c.json({ error: 'maintenance_responsibility must be company or owner' }, 400);
+    }
+    
+    // Construir update apenas com campos fornecidos
+    const update: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (cleaning_responsibility !== undefined) {
+      update.cleaning_responsibility = cleaning_responsibility;
+    }
+    if (maintenance_responsibility !== undefined) {
+      update.maintenance_responsibility = maintenance_responsibility;
+    }
+    
+    console.log(`📝 [update-responsibility] Atualizando property ${property_id}:`, update);
+    
+    const { data, error } = await supabase
+      .from('properties')
+      .update(update)
+      .eq('id', property_id)
+      .eq('organization_id', organizationId)
+      .select('id, cleaning_responsibility, maintenance_responsibility, updated_at')
+      .maybeSingle();
+    
+    if (error) {
+      console.error('❌ [update-responsibility] Erro:', error);
+      return c.json({ error: 'update_failed', details: error }, 500);
+    }
+    
+    if (!data) {
+      return c.json({ error: 'property_not_found' }, 404);
+    }
+    
+    console.log(`✅ [update-responsibility] Atualizado:`, data);
+    return c.json({ ok: true, property: data });
+  } catch (err: any) {
+    console.error('❌ [update-responsibility] Erro interno:', err);
+    return c.json({ error: err?.message || String(err) }, 500);
+  }
+});
+
+/**
+ * POST /anuncios-ultimate/batch-update-responsibility
+ * Atualiza responsabilidade de múltiplos imóveis de uma vez
+ * Também suporta checkin_category e checkin_config
+ */
+app.post('/batch-update-responsibility', async (c) => {
+  try {
+    const body = await c.req.json();
+    const supabase = getSupabaseClient(c);
+    const organizationId = await resolveOrgId(c);
+    
+    const { updates } = body; // Array de { property_id, cleaning_responsibility?, maintenance_responsibility?, checkin_category?, checkin_config? }
+    
+    if (!updates || !Array.isArray(updates) || updates.length === 0) {
+      return c.json({ error: 'updates array required' }, 400);
+    }
+    
+    const validValues = ['company', 'owner'];
+    const results: { property_id: string; success: boolean; error?: string }[] = [];
+    
+    for (const item of updates) {
+      const { property_id, cleaning_responsibility, maintenance_responsibility, checkin_category, checkin_config } = item;
+      
+      if (!property_id) {
+        results.push({ property_id: 'unknown', success: false, error: 'property_id required' });
+        continue;
+      }
+      
+      // Validar valores de responsabilidade
+      if (cleaning_responsibility && !validValues.includes(cleaning_responsibility)) {
+        results.push({ property_id, success: false, error: 'invalid cleaning_responsibility' });
+        continue;
+      }
+      if (maintenance_responsibility && !validValues.includes(maintenance_responsibility)) {
+        results.push({ property_id, success: false, error: 'invalid maintenance_responsibility' });
+        continue;
+      }
+      
+      // Construir update
+      const update: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (cleaning_responsibility !== undefined) {
+        update.cleaning_responsibility = cleaning_responsibility;
+      }
+      if (maintenance_responsibility !== undefined) {
+        update.maintenance_responsibility = maintenance_responsibility;
+      }
+      if (checkin_category !== undefined) {
+        update.checkin_category = checkin_category;
+      }
+      if (checkin_config !== undefined) {
+        update.checkin_config = checkin_config;
+      }
+      
+      const { error } = await supabase
+        .from('properties')
+        .update(update)
+        .eq('id', property_id)
+        .eq('organization_id', organizationId);
+      
+      if (error) {
+        results.push({ property_id, success: false, error: error.message });
+      } else {
+        results.push({ property_id, success: true });
+      }
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+    
+    console.log(`✅ [batch-update-responsibility] ${successCount} sucesso, ${failCount} falhas`);
+    
+    return c.json({ 
+      ok: true, 
+      results,
+      summary: { success: successCount, failed: failCount, total: updates.length }
+    });
+  } catch (err: any) {
+    console.error('❌ [batch-update-responsibility] Erro interno:', err);
     return c.json({ error: err?.message || String(err) }, 500);
   }
 });

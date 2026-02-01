@@ -139,7 +139,7 @@ const menuSections = [
     ]
   },
   {
-    title: 'Configurações',
+    title: 'Configurações do CRM',
     items: [
       {
         id: 'tipos-tarefa',
@@ -161,7 +161,7 @@ const menuSections = [
       },
       {
         id: 'config',
-        label: 'Configurações',
+        label: 'Configurações do CRM',
         icon: <Settings className="w-5 h-5" />,
         path: '/crm/configuracoes',
       },

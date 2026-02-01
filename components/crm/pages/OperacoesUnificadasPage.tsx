@@ -16,6 +16,7 @@ import {
   Clock,
   MessageSquare,
   CheckCircle2,
+  CheckCircle,
   Circle,
   AlertCircle,
   Search,
@@ -78,10 +79,11 @@ import {
   useOperationalTasksRealtime,
   crmTasksKeys
 } from '@/hooks/useCRMTasks';
-import { OperationalTask } from '@/utils/services/crmTasksService';
+import { OperationalTask, operationalTasksService } from '@/utils/services/crmTasksService';
 import { reservationsApi } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { CheckinInstructionsCard } from './operacoes/CheckinInstructionsCard';
 
 // ============================================================================
 // TYPES
@@ -176,12 +178,14 @@ const OperationCard: React.FC<OperationCardProps> = ({
   
   const isUrgent = operation.status === 'pending' && operation.metadata?.hasCheckinToday;
   
-  // Determine type from triggered_by_event or template
-  const type = operation.triggered_by_event?.includes('checkin') ? 'checkin' 
+  // Determine type from triggered_by_event, template, or _type
+  const type = (operation as any)._type 
+    || (operation.triggered_by_event?.includes('checkin') ? 'checkin' 
     : operation.triggered_by_event?.includes('checkout') ? 'checkout'
+    : operation.metadata?.template_name?.toLowerCase().includes('limpeza') ? 'cleaning'
     : operation.title?.toLowerCase().includes('limpeza') ? 'cleaning'
     : operation.title?.toLowerCase().includes('manuten') ? 'maintenance'
-    : 'checkin';
+    : 'checkin');
 
   // Extract property and guest info from metadata or operation fields
   const propertyName = operation.metadata?.property_name || operation.property_id?.substring(0, 8) || 'Imóvel';
@@ -190,6 +194,14 @@ const OperationCard: React.FC<OperationCardProps> = ({
   const guestName = operation.metadata?.guest_name || '';
   const guestPhone = operation.metadata?.guest_phone || '';
   const guestCount = operation.metadata?.guest_count || 0;
+
+  // Template info for cleaning tasks
+  const templateName = operation.template_name || operation.metadata?.template_name || '';
+  const templateColor = operation.template_color || operation.metadata?.template_color || '';
+  const isGenerated = operation.metadata?._generated === true;
+  const subtasks = operation.metadata?.subtasks || [];
+  const slaHours = operation.metadata?.sla_hours || 4;
+  const includeVistoria = operation.metadata?.include_vistoria || false;
 
   // Get comments from metadata
   const comments: OperationComment[] = operation.metadata?.comments || [];
@@ -275,20 +287,47 @@ const OperationCard: React.FC<OperationCardProps> = ({
             </button>
 
             {/* Type Badge */}
-            <div className={cn(
-              'flex items-center justify-center w-10 h-10 rounded-lg border',
-              getTypeColor(type),
-              isUrgent && 'border-red-300 bg-red-100'
-            )}>
+            <div 
+              className={cn(
+                'flex items-center justify-center w-10 h-10 rounded-lg border',
+                getTypeColor(type),
+                isUrgent && 'border-red-300 bg-red-100'
+              )}
+              style={templateColor ? { backgroundColor: `${templateColor}20`, borderColor: templateColor } : undefined}
+            >
               {getTypeIcon(type)}
             </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold truncate">{propertyName}</h3>
                 {propertyCode && (
                   <span className="text-xs text-muted-foreground">{propertyCode}</span>
+                )}
+                {/* Urgency Badge for Check-in Tasks */}
+                {type === 'checkin' && operation.metadata?.urgency_label && operation.status !== 'completed' && (
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-xs font-medium",
+                      operation.metadata?.is_overdue && "bg-red-100 text-red-700 border-red-300 animate-pulse",
+                      operation.metadata?.is_today && !operation.metadata?.is_overdue && "bg-orange-100 text-orange-700 border-orange-300",
+                      !operation.metadata?.is_overdue && !operation.metadata?.is_today && "bg-blue-50 text-blue-600 border-blue-200"
+                    )}
+                  >
+                    {operation.metadata.urgency_label}
+                  </Badge>
+                )}
+                {/* Template Badge for Cleaning Tasks */}
+                {type === 'cleaning' && templateName && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs"
+                    style={templateColor ? { borderColor: templateColor, color: templateColor } : undefined}
+                  >
+                    {templateName}
+                  </Badge>
                 )}
                 {isUrgent && (
                   <span className="text-red-600 text-xs font-medium animate-pulse">⚠️ URGENTE</span>
@@ -299,8 +338,20 @@ const OperationCard: React.FC<OperationCardProps> = ({
                     {comments.length}
                   </span>
                 )}
+                {includeVistoria && (
+                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                    + Vistoria
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                {/* Show check-in date for check-in tasks (shows full date since tasks appear by antecedência) */}
+                {type === 'checkin' && operation.scheduled_date && (
+                  <span className="flex items-center gap-1 font-medium text-blue-600">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Check-in: {new Date(operation.scheduled_date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
                   {operation.scheduled_time || '09:00'}
@@ -317,6 +368,19 @@ const OperationCard: React.FC<OperationCardProps> = ({
                     {guestCount} hóspedes
                   </span>
                 )}
+                {/* Show SLA for cleaning tasks */}
+                {type === 'cleaning' && slaHours > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    SLA: {slaHours}h
+                  </span>
+                )}
+                {/* Show subtask count for cleaning tasks */}
+                {type === 'cleaning' && subtasks.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {subtasks.length} subtarefas
+                  </span>
+                )}
                 {operation.reservation_id && (
                   <Badge variant="outline" className="text-xs">
                     Reserva #{operation.reservation_id.substring(0, 8)}
@@ -327,7 +391,7 @@ const OperationCard: React.FC<OperationCardProps> = ({
           </div>
 
           {/* Status & Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {/* Status Toggle Buttons */}
             <div className="flex items-center border rounded-lg overflow-hidden">
               <Button
@@ -336,13 +400,16 @@ const OperationCard: React.FC<OperationCardProps> = ({
                 className={cn(
                   'gap-1.5 rounded-none border-r h-8 px-3',
                   operation.status === 'pending' 
-                    ? 'bg-slate-200 text-slate-700 shadow-inner' 
-                    : 'hover:bg-slate-100 text-muted-foreground hover:text-slate-600'
+                    ? 'bg-red-500 text-white shadow-lg shadow-red-500/40 ring-2 ring-red-400' 
+                    : 'hover:bg-red-50 text-muted-foreground hover:text-red-600'
                 )}
-                disabled={isCompleting || operation.status === 'pending'}
+                disabled={isCompleting}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onMarkPending?.(operation.id);
+                  e.preventDefault();
+                  if (operation.status !== 'pending') {
+                    onMarkPending?.(operation.id);
+                  }
                 }}
               >
                 {isCompleting && operation.status !== 'pending' ? (
@@ -361,10 +428,13 @@ const OperationCard: React.FC<OperationCardProps> = ({
                     ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 ring-2 ring-emerald-400' 
                     : 'hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600'
                 )}
-                disabled={isCompleting || operation.status === 'completed'}
+                disabled={isCompleting}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onMarkComplete(operation.id);
+                  e.preventDefault();
+                  if (operation.status !== 'completed') {
+                    onMarkComplete(operation.id);
+                  }
                 }}
               >
                 {isCompleting && operation.status !== 'completed' ? (
@@ -455,6 +525,18 @@ const OperationCard: React.FC<OperationCardProps> = ({
                   WhatsApp
                 </Button>
               </div>
+            )}
+
+            {/* Check-in Instructions Card - Only for checkin operations */}
+            {type === 'checkin' && (operation.metadata?.checkin_category || operation.metadata?.checkin_config) && (
+              <CheckinInstructionsCard
+                checkin_category={operation.metadata?.checkin_category}
+                checkin_config={operation.metadata?.checkin_config}
+                guestName={guestName}
+                guestPhone={guestPhone}
+                guestCount={guestCount}
+                propertyName={propertyName}
+              />
             )}
 
             {/* Description */}
@@ -613,6 +695,8 @@ export function OperacoesUnificadasPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [hideOverdueCheckins, setHideOverdueCheckins] = useState(true); // Default: ocultar check-ins atrasados
   
   const queryClient = useQueryClient();
 
@@ -643,6 +727,17 @@ export function OperacoesUnificadasPage() {
   const filteredOperations = useMemo(() => {
     let ops = allOperations;
     
+    // Filter overdue check-ins if enabled
+    if (hideOverdueCheckins) {
+      ops = ops.filter(op => {
+        // Só aplica para check-ins com data ultrapassada
+        if (op._type === 'checkin' && op.metadata?.is_overdue === true) {
+          return false; // Oculta check-ins atrasados
+        }
+        return true;
+      });
+    }
+    
     // Filter by type
     if (activeTab !== 'all') {
       ops = ops.filter(op => op._type === activeTab);
@@ -662,13 +757,37 @@ export function OperacoesUnificadasPage() {
       );
     }
     
-    // Sort by time
+    // ========================================================================
+    // ORDENAÇÃO DINÂMICA POR STATUS
+    // Prioridade: 1. Pendente (topo) → 2. Em andamento → 3. Concluído (baixo)
+    // Dentro de cada grupo, ordena por horário
+    // ========================================================================
+    const getStatusPriority = (status: string): number => {
+      switch (status) {
+        case 'pending': return 1;    // Pendente - prioridade máxima (topo)
+        case 'delayed': return 1;    // Atrasado também fica no topo
+        case 'in_progress': return 2; // Em andamento - meio
+        case 'completed': return 3;   // Concluído - vai para baixo
+        case 'cancelled': return 4;   // Cancelado - último
+        default: return 2;            // Padrão: meio
+      }
+    };
+    
     return ops.sort((a, b) => {
+      // Primeiro: ordenar por prioridade de status
+      const priorityA = getStatusPriority(a.status);
+      const priorityB = getStatusPriority(b.status);
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // Segundo: dentro do mesmo status, ordenar por horário
       const timeA = a.scheduled_time || '00:00';
       const timeB = b.scheduled_time || '00:00';
       return timeA.localeCompare(timeB);
     });
-  }, [allOperations, activeTab, statusFilter, searchQuery]);
+  }, [allOperations, activeTab, statusFilter, searchQuery, hideOverdueCheckins]);
 
   // Calculate counts
   const counts = useMemo(() => ({
@@ -695,20 +814,44 @@ export function OperacoesUnificadasPage() {
         
         console.log(`📝 Atualizando reserva ${reservationId} para status: ${newStatus}`);
         
-        // Atualizar o status da reserva via API
+        // ====================================================================
+        // OTIMIZAÇÃO: Atualização otimista - mudar UI ANTES da API responder
+        // ====================================================================
+        
+        // Salvar estado anterior para rollback em caso de erro
+        const previousCheckIns = queryClient.getQueryData(crmTasksKeys.checkIns(dateStr));
+        const previousCheckOuts = queryClient.getQueryData(crmTasksKeys.checkOuts(dateStr));
+        
+        // Atualizar cache local imediatamente (otimista)
+        if (isCheckin) {
+          queryClient.setQueryData(crmTasksKeys.checkIns(dateStr), (old: any[] | undefined) => 
+            old?.map(item => item.id === id ? { ...item, status: 'completed' } : item) || []
+          );
+        } else {
+          queryClient.setQueryData(crmTasksKeys.checkOuts(dateStr), (old: any[] | undefined) => 
+            old?.map(item => item.id === id ? { ...item, status: 'completed' } : item) || []
+          );
+        }
+        
+        // Mostrar toast imediatamente
+        toast.success(isCheckin ? 'Check-in realizado com sucesso!' : 'Check-out realizado com sucesso!');
+        setCompletingId(null); // Liberar UI imediatamente
+        
+        // Atualizar API em background (não bloqueia UI)
         const response = await reservationsApi.update(reservationId, { status: newStatus });
         
         if (!response.success) {
-          throw new Error(response.error || 'Erro ao atualizar reserva');
+          // Rollback em caso de erro
+          queryClient.setQueryData(crmTasksKeys.checkIns(dateStr), previousCheckIns);
+          queryClient.setQueryData(crmTasksKeys.checkOuts(dateStr), previousCheckOuts);
+          toast.error(response.error || 'Erro ao atualizar reserva');
+          return;
         }
         
-        // Invalidar queries e forçar refetch imediato para atualizar a lista
-        await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
-        await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
-        await queryClient.refetchQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
-        await queryClient.refetchQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
+        // Invalidar queries em background (não await - deixa acontecer naturalmente)
+        queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
+        queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
         
-        toast.success(isCheckin ? 'Check-in realizado com sucesso!' : 'Check-out realizado com sucesso!');
       } else {
         // Para outras operações (limpeza, manutenção), usar o serviço normal
         await markCompleted.mutateAsync({ id });
@@ -731,24 +874,49 @@ export function OperacoesUnificadasPage() {
       
       if (isCheckinCheckout) {
         // Extrair o ID real da reserva
+        const isCheckin = id.endsWith('-checkin');
         const reservationId = id.replace(/-checkin$|-checkout$/, '');
         
         console.log(`📝 Voltando reserva ${reservationId} para status: confirmed`);
         
-        // Voltar o status da reserva para confirmed
+        // ====================================================================
+        // OTIMIZAÇÃO: Atualização otimista
+        // ====================================================================
+        
+        // Salvar estado anterior para rollback
+        const previousCheckIns = queryClient.getQueryData(crmTasksKeys.checkIns(dateStr));
+        const previousCheckOuts = queryClient.getQueryData(crmTasksKeys.checkOuts(dateStr));
+        
+        // Atualizar cache local imediatamente
+        if (isCheckin) {
+          queryClient.setQueryData(crmTasksKeys.checkIns(dateStr), (old: any[] | undefined) => 
+            old?.map(item => item.id === id ? { ...item, status: 'pending' } : item) || []
+          );
+        } else {
+          queryClient.setQueryData(crmTasksKeys.checkOuts(dateStr), (old: any[] | undefined) => 
+            old?.map(item => item.id === id ? { ...item, status: 'pending' } : item) || []
+          );
+        }
+        
+        // Mostrar toast e liberar UI imediatamente
+        toast.success('Operação marcada como pendente!');
+        setCompletingId(null);
+        
+        // Atualizar API em background
         const response = await reservationsApi.update(reservationId, { status: 'confirmed' });
         
         if (!response.success) {
-          throw new Error(response.error || 'Erro ao atualizar reserva');
+          // Rollback em caso de erro
+          queryClient.setQueryData(crmTasksKeys.checkIns(dateStr), previousCheckIns);
+          queryClient.setQueryData(crmTasksKeys.checkOuts(dateStr), previousCheckOuts);
+          toast.error(response.error || 'Erro ao atualizar reserva');
+          return;
         }
         
-        // Invalidar queries e forçar refetch imediato para atualizar a lista
-        await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
-        await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
-        await queryClient.refetchQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
-        await queryClient.refetchQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
+        // Invalidar em background
+        queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
+        queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
         
-        toast.success('Operação marcada como pendente!');
       } else {
         // Para outras operações, atualizar via serviço (se disponível)
         toast.info('Função disponível apenas para check-ins e check-outs');
@@ -785,6 +953,121 @@ export function OperacoesUnificadasPage() {
   };
 
   const allSelected = filteredOperations.length > 0 && selectedIds.size === filteredOperations.length;
+
+  // Bulk action handler - marcar múltiplos como concluído ou pendente
+  const handleBulkAction = async (action: 'completed' | 'pending') => {
+    if (selectedIds.size === 0) return;
+    
+    setBulkActionLoading(true);
+    const successIds: string[] = [];
+    const failedIds: string[] = [];
+    
+    try {
+      // Processar cada operação selecionada
+      for (const id of selectedIds) {
+        try {
+          // IDs de check-in/checkout são compostos: reservationId-checkin ou reservationId-checkout
+          const isCheckinCheckout = id.endsWith('-checkin') || id.endsWith('-checkout');
+          const isGenerated = id.startsWith('generated-');
+          
+          if (isCheckinCheckout) {
+            // Operações de check-in/checkout atualizam status da reserva
+            const isCheckin = id.endsWith('-checkin');
+            const reservationId = id.replace(/-checkin$|-checkout$/, '');
+            
+            if (action === 'completed') {
+              const newStatus = isCheckin ? 'checked_in' : 'checked_out';
+              const response = await reservationsApi.update(reservationId, { status: newStatus });
+              if (response.success) {
+                successIds.push(id);
+              } else {
+                failedIds.push(id);
+              }
+            } else {
+              // Para pendente, voltamos ao status anterior
+              const newStatus = isCheckin ? 'confirmed' : 'checked_in';
+              const response = await reservationsApi.update(reservationId, { status: newStatus });
+              if (response.success) {
+                successIds.push(id);
+              } else {
+                failedIds.push(id);
+              }
+            }
+          } else if (isGenerated) {
+            // Tarefas geradas (limpezas) - precisamos encontrar a tarefa na lista e persistir
+            // ID formato: generated-{reservationId}-{templateId} ou generated-checkin-{reservationId}-{templateId}
+            const operation = allOperations.find(op => op.id === id);
+            
+            if (operation) {
+              // Criar a tarefa no banco de dados com o status desejado
+              const taskData = {
+                organization_id: operation.organization_id,
+                template_id: operation.template_id,
+                title: operation.title,
+                description: operation.description,
+                instructions: operation.instructions,
+                status: action,
+                priority: operation.priority || 'medium',
+                scheduled_date: operation.scheduled_date,
+                scheduled_time: operation.scheduled_time || '10:00',
+                property_id: operation.property_id,
+                reservation_id: operation.reservation_id,
+                triggered_by_event: operation.triggered_by_event || 'checkout_day',
+                metadata: {
+                  ...operation.metadata,
+                  _generated: false, // Agora é persistida
+                  persisted_at: new Date().toISOString(),
+                },
+              };
+              
+              try {
+                await operationalTasksService.create(taskData);
+                console.log(`✅ Tarefa de limpeza persistida: ${operation.title}`);
+                successIds.push(id);
+              } catch (createError) {
+                console.error(`❌ Erro ao persistir tarefa:`, createError);
+                failedIds.push(id);
+              }
+            } else {
+              console.log(`⚠️ Tarefa gerada ${id} não encontrada na lista`);
+              failedIds.push(id);
+            }
+          } else {
+            // Tarefas normais da tabela operational_tasks
+            await markCompleted.mutateAsync({ id, status: action });
+            successIds.push(id);
+          }
+        } catch (error) {
+          console.error(`Erro ao processar ${id}:`, error);
+          failedIds.push(id);
+        }
+      }
+      
+      // Invalidar queries para atualizar a lista
+      await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkIns(dateStr) });
+      await queryClient.invalidateQueries({ queryKey: crmTasksKeys.checkOuts(dateStr) });
+      await queryClient.invalidateQueries({ queryKey: crmTasksKeys.cleanings({ date: dateStr }) });
+      await queryClient.invalidateQueries({ queryKey: crmTasksKeys.maintenances({}) });
+      
+      // Mostrar resultado
+      if (successIds.length > 0 && failedIds.length === 0) {
+        toast.success(`${successIds.length} operação(ões) ${action === 'completed' ? 'concluída(s)' : 'marcada(s) como pendente(s)'} com sucesso!`);
+      } else if (successIds.length > 0 && failedIds.length > 0) {
+        toast.warning(`${successIds.length} sucesso, ${failedIds.length} falha(s)`);
+      } else {
+        toast.error('Nenhuma operação foi atualizada');
+      }
+      
+      // Limpar seleção
+      setSelectedIds(new Set());
+      
+    } catch (error) {
+      console.error('Erro na ação em massa:', error);
+      toast.error('Erro ao processar ação em massa');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
 
   // Comment handler - salva no campo internalComments da reserva
   const handleSaveComment = async (operationId: string, comment: string) => {
@@ -905,6 +1188,17 @@ export function OperacoesUnificadasPage() {
                 <SelectItem value="completed">Concluídos</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Filtro de check-ins atrasados */}
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+              <input
+                type="checkbox"
+                checked={hideOverdueCheckins}
+                onChange={(e) => setHideOverdueCheckins(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <span>Ocultar atrasados</span>
+            </label>
             
             <div className="flex items-center gap-1.5 text-xs text-green-600">
               <Wifi className="h-3.5 w-3.5" />
@@ -1027,9 +1321,43 @@ export function OperacoesUnificadasPage() {
             {filteredOperations.length > 0 && (
               <div className="flex items-center gap-3">
                 {selectedIds.size > 0 && (
-                  <Badge variant="secondary" className="text-sm">
-                    {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
-                  </Badge>
+                  <>
+                    <Badge variant="secondary" className="text-sm">
+                      {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
+                    </Badge>
+                    
+                    {/* Botões de ação em massa */}
+                    <div className="flex items-center gap-2 border-l pl-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkAction('completed')}
+                        disabled={bulkActionLoading}
+                        className="gap-2 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
+                      >
+                        {bulkActionLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4" />
+                        )}
+                        Concluir
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkAction('pending')}
+                        disabled={bulkActionLoading}
+                        className="gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"
+                      >
+                        {bulkActionLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Clock className="h-4 w-4" />
+                        )}
+                        Pendente
+                      </Button>
+                    </div>
+                  </>
                 )}
                 <Button
                   variant="outline"

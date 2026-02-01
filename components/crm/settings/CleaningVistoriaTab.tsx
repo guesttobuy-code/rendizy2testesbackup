@@ -9,7 +9,7 @@
  * 3️⃣ Configurar vistoria de checkout
  * 4️⃣ Configurar notificações
  * 
- * @version 1.0.0
+ * @version 1.3.0 - Persistência via crmTasksService (SERVICE_ROLE_KEY)
  * @date 2026-01-31
  */
 
@@ -48,6 +48,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { operationalTaskTemplatesService } from '@/utils/services/crmTasksService';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -261,34 +262,50 @@ export function CleaningVistoriaTab({ organizationId }: CleaningVistoriaTabProps
   }
 
   async function loadTemplates() {
-    // TODO: Carregar templates reais do banco
-    // Por enquanto, templates mock
-    setTemplates([
-      {
-        id: '1',
-        name: 'Limpeza Pós-Checkout',
-        description: 'Limpeza completa após saída do hóspede',
-        trigger_type: 'reservation_confirmed',
-        linked_to: 'checkout',
-        property_ids: [], // Todos os imóveis por padrão
-        sla_hours: 4,
-        subtasks: DEFAULT_CLEANING_SUBTASKS,
-        is_active: true,
-        include_vistoria: true,
-      },
-      {
-        id: '2',
-        name: 'Limpeza Completa (Check-in + Checkout)',
-        description: 'Limpeza antes do check-in e depois do checkout',
-        trigger_type: 'reservation_confirmed',
-        linked_to: 'both',
-        property_ids: [],
-        sla_hours: 4,
-        subtasks: DEFAULT_CLEANING_SUBTASKS,
-        is_active: false,
-        include_vistoria: true,
-      },
-    ]);
+    try {
+      // Usar o serviço centralizado (com SERVICE_ROLE_KEY para bypass RLS)
+      const data = await operationalTaskTemplatesService.getAll(organizationId);
+      
+      // Filtrar e mapear templates de limpeza
+      const cleaningTemplates: CleaningTemplate[] = (data || [])
+        .filter((t: any) => {
+          // Verificar se é um template de limpeza pelo instructions
+          try {
+            const meta = JSON.parse(t.instructions || '{}');
+            return meta._type === 'cleaning';
+          } catch {
+            return false;
+          }
+        })
+        .map((t: any) => {
+          // Extrair metadata de limpeza do instructions
+          let meta: any = {};
+          try {
+            meta = JSON.parse(t.instructions || '{}');
+          } catch {
+            meta = {};
+          }
+          
+          return {
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            trigger_type: t.trigger_type || 'reservation_confirmed',
+            linked_to: meta.linked_to || 'checkout',
+            property_ids: t.property_ids || [],
+            sla_hours: meta.sla_hours || Math.floor((t.estimated_duration_minutes || 240) / 60),
+            subtasks: meta.subtasks || DEFAULT_CLEANING_SUBTASKS,
+            is_active: t.is_active ?? true,
+            include_vistoria: meta.include_vistoria ?? true,
+          };
+        });
+      
+      setTemplates(cleaningTemplates);
+    } catch (err) {
+      console.error('Erro ao carregar templates:', err);
+      // Se falhar, iniciar com array vazio
+      setTemplates([]);
+    }
   }
 
   // ========== COMPUTED ==========
@@ -384,40 +401,36 @@ export function CleaningVistoriaTab({ organizationId }: CleaningVistoriaTabProps
       const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
       const token = localStorage.getItem('rendizy-token') || '';
       
+      // Usar o novo endpoint batch-update-responsibility
       const updates = Array.from(pendingChanges.entries()).map(([propertyId, changes]) => ({
-        anuncio_id: propertyId,
-        field: 'cleaning_responsibility',
-        value: changes.cleaning_responsibility,
+        property_id: propertyId,
+        cleaning_responsibility: changes.cleaning_responsibility,
       }));
       
-      let successCount = 0;
-      let failCount = 0;
+      console.log('📤 Salvando responsabilidades:', updates);
       
-      for (const update of updates) {
-        try {
-          const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`, {
-            method: 'POST',
-            headers: {
-              'apikey': ANON_KEY,
-              'Authorization': `Bearer ${ANON_KEY}`,
-              'X-Auth-Token': token,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(update),
-          });
-          
-          if (response.ok) {
-            successCount++;
-          } else {
-            const errData = await response.json().catch(() => ({}));
-            console.error('Erro ao salvar imóvel:', update.anuncio_id, errData);
-            failCount++;
-          }
-        } catch (err) {
-          console.error('Erro de rede ao salvar imóvel:', update.anuncio_id, err);
-          failCount++;
-        }
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/batch-update-responsibility`, {
+        method: 'POST',
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Auth-Token': token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ updates }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('❌ Erro ao salvar:', result);
+        toast.error(result.error || 'Erro ao salvar alterações');
+        return;
       }
+      
+      console.log('✅ Resultado do batch:', result);
+      
+      const { summary } = result;
       
       // Atualiza estado local para os que salvaram
       setProperties(prev => prev.map(p => {
@@ -427,10 +440,10 @@ export function CleaningVistoriaTab({ organizationId }: CleaningVistoriaTabProps
       setPendingChanges(new Map());
       setSelectedPropertyIds(new Set());
       
-      if (failCount === 0) {
-        toast.success(`${successCount} imóveis atualizados com sucesso!`);
-      } else if (successCount > 0) {
-        toast.warning(`${successCount} salvos, ${failCount} falharam`);
+      if (summary.failed === 0) {
+        toast.success(`${summary.success} imóveis atualizados com sucesso!`);
+      } else if (summary.success > 0) {
+        toast.warning(`${summary.success} salvos, ${summary.failed} falharam`);
       } else {
         toast.error('Erro ao salvar alterações');
       }
@@ -446,41 +459,150 @@ export function CleaningVistoriaTab({ organizationId }: CleaningVistoriaTabProps
     setTemplateModalOpen(true);
   }
 
-  function handleSaveTemplate(templateData: CleaningTemplate) {
-    if (editingTemplate) {
-      // Editando existente
-      setTemplates(prev => prev.map(t => 
-        t.id === editingTemplate.id ? templateData : t
-      ));
-      toast.success('Modelo atualizado com sucesso!');
-    } else {
-      // Criando novo - o modal já cria o objeto completo
-      setTemplates(prev => [...prev, templateData]);
-      toast.success('Modelo criado com sucesso!');
+  async function handleSaveTemplate(templateData: CleaningTemplate) {
+    try {
+      // Metadata de limpeza armazenado no campo instructions como JSON
+      const cleaningMeta = JSON.stringify({
+        _type: 'cleaning', // Identificador de tipo
+        linked_to: templateData.linked_to,
+        sla_hours: templateData.sla_hours,
+        subtasks: templateData.subtasks,
+        include_vistoria: templateData.include_vistoria,
+      });
+      
+      // Preparar dados para o banco (campos que existem na tabela real)
+      const dbData = {
+        organization_id: organizationId,
+        name: templateData.name,
+        description: templateData.description || null,
+        instructions: cleaningMeta, // JSON com dados de limpeza
+        priority: 'medium',
+        trigger_type: 'event',
+        property_scope: templateData.property_ids.length > 0 ? 'selected' : 'all',
+        property_ids: templateData.property_ids,
+        estimated_duration_minutes: templateData.sla_hours * 60,
+        is_active: templateData.is_active,
+        color: '#10b981', // Verde para limpeza
+        icon: 'sparkles',
+        operation_category: 'cleaning',
+        responsibility_filter: 'company', // Templates de limpeza são para imóveis gerenciados pela empresa
+        // Event trigger config
+        event_trigger: {
+          event: templateData.linked_to === 'checkin' ? 'checkin_day' : 'checkout_day',
+          days_offset: 0,
+          time_mode: 'fixed',
+          fixed_time: '08:00',
+        },
+      };
+
+      if (editingTemplate) {
+        // Atualizar existente usando o serviço
+        await operationalTaskTemplatesService.update(editingTemplate.id, dbData as any);
+        
+        setTemplates(prev => prev.map(t => 
+          t.id === editingTemplate.id ? templateData : t
+        ));
+        toast.success('Modelo atualizado com sucesso!');
+      } else {
+        // Criar novo usando o serviço
+        const created = await operationalTaskTemplatesService.create(dbData as any);
+        
+        // Adicionar com o ID real do banco
+        const newTemplate = { ...templateData, id: created.id };
+        setTemplates(prev => [...prev, newTemplate]);
+        toast.success('Modelo criado com sucesso!');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar template:', err);
+      toast.error('Erro ao salvar modelo');
     }
     setTemplateModalOpen(false);
   }
 
-  function handleDuplicateTemplate(template: CleaningTemplate) {
-    const duplicate: CleaningTemplate = {
-      ...template,
-      id: `temp-${Date.now()}`,
-      name: `${template.name} (Cópia)`,
-    };
-    setTemplates(prev => [...prev, duplicate]);
-    toast.success('Modelo duplicado!');
+  async function handleDuplicateTemplate(template: CleaningTemplate) {
+    try {
+      // Metadata de limpeza
+      const cleaningMeta = JSON.stringify({
+        _type: 'cleaning',
+        linked_to: template.linked_to,
+        sla_hours: template.sla_hours,
+        subtasks: template.subtasks,
+        include_vistoria: template.include_vistoria,
+      });
+      
+      // Dados para duplicação (usando campos reais da tabela)
+      const dbData = {
+        organization_id: organizationId,
+        name: `${template.name} (Cópia)`,
+        description: template.description || null,
+        instructions: cleaningMeta,
+        priority: 'medium',
+        trigger_type: 'event',
+        property_scope: template.property_ids.length > 0 ? 'selected' : 'all',
+        property_ids: template.property_ids,
+        estimated_duration_minutes: template.sla_hours * 60,
+        is_active: false, // Duplicado começa inativo
+        color: '#10b981',
+        icon: 'sparkles',
+        operation_category: 'cleaning',
+        responsibility_filter: 'company',
+        event_trigger: {
+          event: template.linked_to === 'checkin' ? 'checkin_day' : 'checkout_day',
+          days_offset: 0,
+          time_mode: 'fixed',
+          fixed_time: '08:00',
+        },
+      };
+
+      const created = await operationalTaskTemplatesService.create(dbData as any);
+      
+      const duplicate: CleaningTemplate = {
+        ...template,
+        id: created.id,
+        name: `${template.name} (Cópia)`,
+        is_active: false,
+      };
+      setTemplates(prev => [...prev, duplicate]);
+      toast.success('Modelo duplicado!');
+    } catch (err) {
+      console.error('Erro ao duplicar template:', err);
+      toast.error('Erro ao duplicar modelo');
+    }
   }
 
-  function handleToggleTemplateActive(templateId: string) {
-    setTemplates(prev => prev.map(t => 
-      t.id === templateId ? { ...t, is_active: !t.is_active } : t
-    ));
+  async function handleToggleTemplateActive(templateId: string) {
+    try {
+      const template = templates.find(t => t.id === templateId);
+      if (!template) return;
+      
+      const newActive = !template.is_active;
+      
+      // Usar serviço centralizado
+      await operationalTaskTemplatesService.toggleActive(templateId, newActive);
+      
+      setTemplates(prev => prev.map(t => 
+        t.id === templateId ? { ...t, is_active: newActive } : t
+      ));
+      toast.success(newActive ? 'Modelo ativado!' : 'Modelo desativado!');
+    } catch (err) {
+      console.error('Erro ao alternar status:', err);
+      toast.error('Erro ao alternar status');
+    }
   }
 
-  function handleDeleteTemplate(templateId: string) {
+  async function handleDeleteTemplate(templateId: string) {
     if (!confirm('Tem certeza que deseja excluir este modelo?')) return;
-    setTemplates(prev => prev.filter(t => t.id !== templateId));
-    toast.success('Modelo excluído!');
+    
+    try {
+      // Usar serviço centralizado
+      await operationalTaskTemplatesService.delete(templateId);
+      
+      setTemplates(prev => prev.filter(t => t.id !== templateId));
+      toast.success('Modelo excluído!');
+    } catch (err) {
+      console.error('Erro ao excluir template:', err);
+      toast.error('Erro ao excluir modelo');
+    }
   }
 
   // ========== RENDER ==========
@@ -878,6 +1000,7 @@ export function CleaningVistoriaTab({ organizationId }: CleaningVistoriaTabProps
         open={templateModalOpen}
         onOpenChange={setTemplateModalOpen}
         template={editingTemplate}
+        allTemplates={templates}
         onSave={handleSaveTemplate}
       />
     </div>
@@ -892,6 +1015,7 @@ interface CleaningTemplateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   template: CleaningTemplate | null;
+  allTemplates: CleaningTemplate[];
   onSave: (template: CleaningTemplate) => void;
 }
 
@@ -901,7 +1025,17 @@ interface PropertyOption {
   address: string;
 }
 
-function CleaningTemplateModal({ open, onOpenChange, template, onSave }: CleaningTemplateModalProps) {
+// Mapa de eventos conflitantes - quais eventos não podem coexistir
+// 'both' conflita com 'checkout' e 'checkin' pois já cobre ambos
+// 'checkout' conflita com 'both' (já coberto)
+// 'checkin' conflita com 'both' (já coberto)
+const CONFLICTING_EVENTS: Record<'checkout' | 'checkin' | 'both', ('checkout' | 'checkin' | 'both')[]> = {
+  checkout: ['checkout', 'both'], // checkout conflita com outro checkout e com 'both'
+  checkin: ['checkin', 'both'],   // checkin conflita com outro checkin e com 'both'
+  both: ['checkout', 'checkin', 'both'], // 'both' conflita com todos
+};
+
+function CleaningTemplateModal({ open, onOpenChange, template, allTemplates, onSave }: CleaningTemplateModalProps) {
   // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -963,6 +1097,32 @@ function CleaningTemplateModal({ open, onOpenChange, template, onSave }: Cleanin
     }
   }, [open, template]);
 
+  // Quando o tipo de evento muda, limpar imóveis que entraram em conflito
+  useEffect(() => {
+    if (!open) return;
+    
+    // Recalcular conflitos para o novo linkedTo
+    const otherTemplates = allTemplates.filter(t => t.is_active && t.id !== template?.id);
+    const newConflicts = new Set<string>();
+    
+    for (const t of otherTemplates) {
+      const conflictingEvents = CONFLICTING_EVENTS[linkedTo];
+      if (conflictingEvents.includes(t.linked_to)) {
+        t.property_ids.forEach(id => newConflicts.add(id));
+      }
+    }
+    
+    // Remover da seleção os imóveis que agora estão em conflito
+    setSelectedPropertyIds(prev => {
+      const filtered = prev.filter(id => !newConflicts.has(id));
+      if (filtered.length !== prev.length) {
+        const removedCount = prev.length - filtered.length;
+        toast.info(`${removedCount} imóvel(is) removido(s) da seleção por conflito de evento`);
+      }
+      return filtered;
+    });
+  }, [linkedTo, allTemplates, template, open]);
+
   async function loadAvailableProperties() {
     setLoadingProperties(true);
     try {
@@ -1013,7 +1173,42 @@ function CleaningTemplateModal({ open, onOpenChange, template, onSave }: Cleanin
     setSubtasks(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Calcular quais imóveis estão em conflito (já vinculados a outro template com evento conflitante)
+  const propertyConflicts = useMemo(() => {
+    const conflicts = new Map<string, { templateName: string; event: 'checkout' | 'checkin' | 'both' }>();
+    
+    // Outros templates (excluindo o atual se estiver editando)
+    const otherTemplates = allTemplates.filter(t => t.is_active && t.id !== template?.id);
+    
+    // Para cada template ativo
+    for (const t of otherTemplates) {
+      // Verificar se o evento do template conflita com o evento selecionado
+      const conflictingEvents = CONFLICTING_EVENTS[linkedTo];
+      
+      if (conflictingEvents.includes(t.linked_to)) {
+        // Esse template tem evento conflitante, marcar seus imóveis
+        for (const propertyId of t.property_ids) {
+          conflicts.set(propertyId, {
+            templateName: t.name,
+            event: t.linked_to,
+          });
+        }
+      }
+    }
+    
+    return conflicts;
+  }, [allTemplates, template, linkedTo]);
+
   const toggleProperty = (propertyId: string) => {
+    // Se está em conflito, não permitir selecionar
+    if (propertyConflicts.has(propertyId)) {
+      const conflict = propertyConflicts.get(propertyId)!;
+      const eventLabel = conflict.event === 'checkout' ? 'Checkout' : 
+                         conflict.event === 'checkin' ? 'Check-in' : 'Ambos';
+      toast.error(`Este imóvel já está vinculado ao modelo "${conflict.templateName}" (${eventLabel})`);
+      return;
+    }
+    
     setSelectedPropertyIds(prev => 
       prev.includes(propertyId)
         ? prev.filter(id => id !== propertyId)
@@ -1022,7 +1217,9 @@ function CleaningTemplateModal({ open, onOpenChange, template, onSave }: Cleanin
   };
 
   const selectAllProperties = () => {
-    setSelectedPropertyIds(availableProperties.map(p => p.id));
+    // Selecionar apenas os que não estão em conflito
+    const available = availableProperties.filter(p => !propertyConflicts.has(p.id));
+    setSelectedPropertyIds(available.map(p => p.id));
   };
 
   const clearAllProperties = () => {
@@ -1030,12 +1227,18 @@ function CleaningTemplateModal({ open, onOpenChange, template, onSave }: Cleanin
   };
 
   const filteredProperties = useMemo(() => {
-    if (!propertySearch.trim()) return availableProperties;
-    const search = propertySearch.toLowerCase();
-    return availableProperties.filter(p => 
-      p.name.toLowerCase().includes(search) ||
-      p.address.toLowerCase().includes(search)
-    );
+    let result = availableProperties;
+    
+    // Filtro de busca
+    if (propertySearch.trim()) {
+      const search = propertySearch.toLowerCase();
+      result = result.filter(p => 
+        p.name.toLowerCase().includes(search) ||
+        p.address.toLowerCase().includes(search)
+      );
+    }
+    
+    return result;
   }, [availableProperties, propertySearch]);
 
   const handleSave = () => {
@@ -1203,14 +1406,24 @@ function CleaningTemplateModal({ open, onOpenChange, template, onSave }: Cleanin
                 <Label className="text-base">Para quais imóveis?</Label>
                 <p className="text-sm text-muted-foreground">
                   {selectedPropertyIds.length === 0 
-                    ? 'Nenhum selecionado (aplicará a todos)'
+                    ? 'Nenhum selecionado (aplicará a todos disponíveis)'
                     : `${selectedPropertyIds.length} imóvel(is) selecionado(s)`
                   }
+                  {propertyConflicts.size > 0 && (
+                    <span className="text-amber-600 ml-1">
+                      • {propertyConflicts.size} já vinculado(s) a outro template
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={selectAllProperties}>
-                  Selecionar todos
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={selectAllProperties}
+                  disabled={availableProperties.length === propertyConflicts.size}
+                >
+                  Selecionar disponíveis
                 </Button>
                 <Button variant="outline" size="sm" onClick={clearAllProperties}>
                   Limpar seleção
@@ -1239,33 +1452,65 @@ function CleaningTemplateModal({ open, onOpenChange, template, onSave }: Cleanin
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredProperties.map(property => (
-                    <div
-                      key={property.id}
-                      className={cn(
-                        "flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors",
-                        selectedPropertyIds.includes(property.id) && "bg-primary/5"
-                      )}
-                      onClick={() => toggleProperty(property.id)}
-                    >
-                      <div className={cn(
-                        "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
-                        selectedPropertyIds.includes(property.id)
-                          ? "bg-primary border-primary text-primary-foreground"
-                          : "border-muted-foreground/30"
-                      )}>
-                        {selectedPropertyIds.includes(property.id) && (
-                          <Check className="h-3 w-3" />
+                  {filteredProperties.map(property => {
+                    const conflict = propertyConflicts.get(property.id);
+                    const isSelected = selectedPropertyIds.includes(property.id);
+                    const isDisabled = !!conflict;
+                    
+                    const eventLabel = conflict?.event === 'checkout' ? 'Checkout' :
+                                      conflict?.event === 'checkin' ? 'Check-in' : 'Ambos';
+                    
+                    return (
+                      <div
+                        key={property.id}
+                        className={cn(
+                          "flex items-center gap-3 p-3 transition-colors",
+                          isDisabled 
+                            ? "opacity-50 cursor-not-allowed bg-muted/30" 
+                            : "cursor-pointer hover:bg-muted/50",
+                          isSelected && !isDisabled && "bg-primary/5"
                         )}
+                        onClick={() => toggleProperty(property.id)}
+                        title={isDisabled ? `Vinculado a "${conflict?.templateName}" (${eventLabel})` : undefined}
+                      >
+                        <div className={cn(
+                          "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                          isDisabled
+                            ? "bg-muted border-muted-foreground/20"
+                            : isSelected
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "border-muted-foreground/30"
+                        )}>
+                          {isSelected && !isDisabled && (
+                            <Check className="h-3 w-3" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={cn(
+                              "font-medium text-sm truncate",
+                              isDisabled && "text-muted-foreground"
+                            )}>
+                              {property.name}
+                            </p>
+                            {isDisabled && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-800 border-amber-200">
+                                {eventLabel}
+                              </Badge>
+                            )}
+                          </div>
+                          {property.address && (
+                            <p className="text-xs text-muted-foreground truncate">{property.address}</p>
+                          )}
+                          {isDisabled && (
+                            <p className="text-[10px] text-amber-600 truncate">
+                              → Já em "{conflict?.templateName}"
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{property.name}</p>
-                        {property.address && (
-                          <p className="text-xs text-muted-foreground truncate">{property.address}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>

@@ -41,6 +41,7 @@ import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { toast } from 'sonner';
 import { ChatAutomationButton } from '../automations/AutomationTriggerButton';
+import { ActivityLogSection } from './ActivityLogSection';
 // import { getSupabaseClient } from '../../utils/supabase/client'; // TODO: Habilitar quando coluna 'notes' existir
 
 // ============================================
@@ -416,6 +417,11 @@ export function ChatDetailsSidebar({
             💡 Notas internas - não visíveis para o cliente
           </p>
         </div>
+
+        {/* Seção: Histórico de Atividades - Colapsável */}
+        {contact.phone && (
+          <ActivityLogSection contactPhone={contact.phone} />
+        )}
       </div>
 
       {/* Footer: Ações */}

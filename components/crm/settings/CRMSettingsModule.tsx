@@ -7,15 +7,17 @@
  * ║  2. Automações (catálogo de triggers/ações)                              ║
  * ║  3. Gestão de Atividades e Tarefas (inclui Serviços por Imóvel)          ║
  * ║  4. Configurações Gerais                                                 ║
+ * ║                                                                           ║
+ * ║  ✅ URL reflete o caminho: /crm/configuracoes/:mainTab/:subTab           ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * @version 1.3.0
+ * @version 1.4.0
  * @date 2026-01-31
  * 
  * Segue o padrão de SettingsTabsLayout do módulo Financeiro.
  */
 
-
+import { useParams, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { AutomationsSettingsTab } from './AutomationsSettingsTab';
 import { TasksSettingsTab } from './TasksSettingsTab';
@@ -29,7 +31,35 @@ import {
   Target,
 } from 'lucide-react';
 
+// Mapeamento de tabs para slugs de URL
+const TAB_SLUGS = {
+  origens: 'origens-lead',
+  automacoes: 'automacoes',
+  tarefas: 'gestao-tarefas',
+  geral: 'geral',
+} as const;
+
+// Mapeamento inverso (slug -> tab value)
+const SLUG_TO_TAB: Record<string, string> = {
+  'origens-lead': 'origens',
+  'automacoes': 'automacoes',
+  'gestao-tarefas': 'tarefas',
+  'geral': 'geral',
+};
+
 export default function CRMSettingsModule() {
+  const { mainTab, subTab } = useParams<{ mainTab?: string; subTab?: string }>();
+  const navigate = useNavigate();
+  
+  // Determinar a aba ativa baseado na URL
+  const activeTab = mainTab ? (SLUG_TO_TAB[mainTab] || 'origens') : 'origens';
+  
+  // Handler para mudança de tab - atualiza URL
+  const handleTabChange = (value: string) => {
+    const slug = TAB_SLUGS[value as keyof typeof TAB_SLUGS] || value;
+    navigate(`/crm/configuracoes/${slug}`, { replace: true });
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -45,7 +75,7 @@ export default function CRMSettingsModule() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="origens" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full justify-start bg-transparent border-b border-gray-200 dark:border-gray-700 rounded-none h-auto p-0 gap-0 flex-wrap">
             <TabsTrigger
               value="origens"
@@ -94,7 +124,7 @@ export default function CRMSettingsModule() {
             </TabsContent>
 
             <TabsContent value="tarefas" className="mt-0 p-6">
-              <TasksSettingsTab />
+              <TasksSettingsTab subTab={subTab} />
             </TabsContent>
 
             <TabsContent value="geral" className="mt-0 p-6">

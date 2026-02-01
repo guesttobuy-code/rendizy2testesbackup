@@ -99,6 +99,7 @@ import { CreateReservationWizard } from './CreateReservationWizard';
 import { BlockModal } from './BlockModal';
 import { TemplateManagerModal } from './TemplateManagerModal';
 import { ChatTagsModal, ChatTag } from './ChatTagsModal';
+import { CheckinManagementModal } from './modals/CheckinManagementModal';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useChatData, UnifiedConversation as UnifiedConv } from './chat/hooks/useChatData';
 import { useChatFilters } from './chat/hooks/useChatFilters';
@@ -431,6 +432,7 @@ export function ChatInbox() {
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [showTagsManager, setShowTagsManager] = useState(false);
+  const [showCheckinManagement, setShowCheckinManagement] = useState(false);
 
   // Drag & Drop
   const [draggedConversationId, setDraggedConversationId] = useState<string | null>(null);
@@ -1127,6 +1129,8 @@ export function ChatInbox() {
             setShowQuotation(true);
           } else if (action === 'reservation') {
             setShowCreateReservation(true);
+          } else if (action === 'checkin') {
+            setShowCheckinManagement(true);
           }
         }}
       />
@@ -1199,6 +1203,17 @@ export function ChatInbox() {
           await chatApi.tags.delete(tagId, organizationId);
           await loadData();
         }}
+      />
+
+      {/* Modal de Gestão de Check-in */}
+      <CheckinManagementModal
+        open={showCheckinManagement}
+        onOpenChange={setShowCheckinManagement}
+        contact={selectedConversation ? {
+          id: selectedConversation.id,
+          name: selectedConversation.name,
+          phone: selectedConversation.phone,
+        } : undefined}
       />
     </div>
   );

@@ -21,6 +21,7 @@ import {
   tasksService,
   taskCommentsService,
   operationalTasksService,
+  operationalTaskTemplatesService,
   projectsService,
   customFieldsService,
   taskActivitiesService,
@@ -318,15 +319,26 @@ export function useDeleteTaskComment() {
 // ============================================================================
 
 /**
+ * Dados de configuração de check-in do imóvel
+ */
+interface PropertyCheckinData {
+  name: string;
+  address?: string;
+  checkin_category?: string | null;
+  checkin_config?: Record<string, any> | null;
+}
+
+/**
  * Converte uma Reservation em OperationalTask para exibição na tela de operações
  * Permite usar os mesmos componentes visuais mantendo compatibilidade
  */
 function reservationToOperationalTask(
   reservation: Reservation, 
   type: 'checkin' | 'checkout',
-  propertyName?: string,
-  propertyAddress?: string
+  propertyData?: PropertyCheckinData
 ): OperationalTask {
+  const propertyName = propertyData?.name;
+  const propertyAddress = propertyData?.address;
   const checkDate = type === 'checkin' 
     ? (typeof reservation.checkIn === 'string' ? reservation.checkIn : reservation.checkIn?.toISOString().split('T')[0])
     : (typeof reservation.checkOut === 'string' ? reservation.checkOut : reservation.checkOut?.toISOString().split('T')[0]);
@@ -420,65 +432,239 @@ function reservationToOperationalTask(
       hasCheckinToday: type === 'checkin' && isLastMinuteBooking,
       // Comentários internos da equipe operacional
       comments: comments,
+      // ============================================
+      // DADOS DE CONFIGURAÇÃO DE CHECK-IN DO IMÓVEL
+      // ============================================
+      checkin_category: propertyData?.checkin_category || null,
+      checkin_config: propertyData?.checkin_config || null,
     },
   };
 }
 
 /**
- * Hook para buscar Check-ins do dia diretamente da tabela de reservas
- * @param date - Data no formato YYYY-MM-DD (default: hoje)
+ * ============================================================================
+ * HOOK: useCheckIns - TAREFAS DE GESTÃO DE CHECK-IN
+ * ============================================================================
+ * 
+ * LÓGICA DE NEGÓCIO:
+ * - A tarefa de check-in NÃO aparece no dia do check-in, mas sim baseada na 
+ *   ANTECEDÊNCIA configurada no imóvel (checkin_config.notice_type/notice_days)
+ * 
+ * CONFIGURAÇÕES:
+ * - "no_ato" (URGÊNCIA): Tarefa aparece imediatamente quando a reserva é criada
+ * - "dias_antes" (X dias): Tarefa aparece X dias antes da data do check-in
+ * - "livre": Tarefa sempre visível
+ * - Sem config: Default = 3 dias antes do check-in
+ * 
+ * REGRAS:
+ * 1. Só 2 status: Pendente ou Concluído (checked_in)
+ * 2. Pendências acumulam: Se não foi resolvido, aparece hoje (não fica no passado)
+ * 3. Mostrar urgência: Badge com "Faltam X dias" ou "ATRASADO X dias"
+ * 4. Ordenação: Mais próximo do check-in no topo (mais urgente)
+ * 5. Concluídos: Ficam fixos no dia em que foram concluídos (como log)
+ * 
+ * @param date - Não usado mais para filtrar por data de check-in (mantido para compatibilidade)
  */
 export function useCheckIns(date?: string) {
   const { user } = useAuth();
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
 
   return useQuery({
-    queryKey: crmTasksKeys.checkIns(targetDate),
+    queryKey: crmTasksKeys.checkIns(date || today),
     queryFn: async (): Promise<OperationalTask[]> => {
-      // Usar API paginada que suporta checkInFrom/checkInTo
-      const response = await reservationsApi.listPaged({
-        checkInFrom: targetDate,
-        checkInTo: targetDate,
-        status: ['confirmed', 'pending', 'checked_in'],
+      // ========================================================================
+      // PASSO 1: Buscar TODAS as reservas pendentes de check-in
+      // Incluindo: futuras + atrasadas (check-in passou mas não foi concluído)
+      // ========================================================================
+      
+      // Buscar reservas futuras (até 60 dias à frente para cobrir todos os prazos)
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 60);
+      const futureDateStr = futureDate.toISOString().split('T')[0];
+      
+      // Buscar reservas que ainda não fizeram check-in
+      const pendingResponse = await reservationsApi.listPaged({
+        checkInFrom: '2020-01-01', // Data bem no passado para pegar atrasados
+        checkInTo: futureDateStr,
+        status: ['confirmed', 'pending'], // Ainda não fez check-in
+        limit: 500,
+      });
+
+      // Buscar reservas que JÁ fizeram check-in HOJE (para mostrar como concluídas)
+      const completedTodayResponse = await reservationsApi.listPaged({
+        checkInFrom: today,
+        checkInTo: today,
+        status: ['checked_in', 'checked_out'],
         limit: 100,
       });
 
-      if (!response.success || !response.data?.data) {
-        console.error('❌ [useCheckIns] Erro ao buscar check-ins:', response.error);
-        return [];
-      }
-
-      const reservations = response.data.data;
-
-      // Buscar nomes das propriedades para enriquecer os dados
-      const propertiesResponse = await propertiesApi.list();
-      const propertiesMap = new Map<string, { name: string; address?: string }>();
+      const pendingReservations = pendingResponse.success && pendingResponse.data?.data 
+        ? pendingResponse.data.data 
+        : [];
       
-      if (propertiesResponse.success && propertiesResponse.data) {
-        propertiesResponse.data.forEach(p => {
-          propertiesMap.set(p.id, { 
-            name: p.name,
-            address: p.address ? `${p.address.street || ''}, ${p.address.number || ''} - ${p.address.neighborhood || ''}, ${p.address.city || ''}`.trim().replace(/^, |, $|, - ,/g, '') : ''
-          });
+      const completedTodayReservations = completedTodayResponse.success && completedTodayResponse.data?.data
+        ? completedTodayResponse.data.data
+        : [];
+
+      // ========================================================================
+      // PASSO 2: Buscar propriedades COM dados de checkin_config
+      // ========================================================================
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      let propertiesMap = new Map<string, PropertyCheckinData>();
+      
+      try {
+        const propsResponse = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
+            'Content-Type': 'application/json'
+          }
         });
+        
+        if (propsResponse.ok) {
+          const result = await propsResponse.json();
+          const props = result.anuncios || [];
+          
+          props.forEach((p: any) => {
+            const data = p.data || {};
+            const internalName = data.internalId || data.internal_id || p.internalId || '';
+            const addressData = data.address || data.endereco || {};
+            const addressStr = addressData.street 
+              ? `${addressData.street || ''}, ${addressData.number || ''} - ${addressData.neighborhood || ''}, ${addressData.city || ''}`.trim().replace(/^, |, $|, - ,/g, '')
+              : '';
+            
+            propertiesMap.set(p.id, { 
+              name: internalName || `Imóvel ${p.id.slice(0, 8)}`,
+              address: addressStr,
+              checkin_category: p.checkin_category || null,
+              checkin_config: p.checkin_config || null,
+            });
+          });
+          console.log(`✅ [useCheckIns] ${props.length} propriedades carregadas com dados de checkin`);
+        }
+      } catch (err) {
+        console.error('❌ [useCheckIns] Erro ao buscar propriedades com checkin:', err);
       }
 
-      // Converter reservas para OperationalTask
-      const tasks = reservations.map(reservation => {
-        const prop = propertiesMap.get(reservation.propertyId);
-        return reservationToOperationalTask(
-          reservation, 
-          'checkin',
-          prop?.name,
-          prop?.address
-        );
+      // ========================================================================
+      // PASSO 3: Filtrar reservas baseado na configuração de antecedência
+      // ========================================================================
+      const todayDate = new Date(today);
+      
+      const filteredReservations = pendingReservations.filter(reservation => {
+        const propData = propertiesMap.get(reservation.propertyId);
+        const checkinConfig = propData?.checkin_config;
+        const noticeType = checkinConfig?.notice_type || 'dias_antes'; // Default
+        const noticeDays = checkinConfig?.notice_days || 3; // Default: 3 dias
+        
+        // Data do check-in
+        const checkInDateStr = typeof reservation.checkIn === 'string' 
+          ? reservation.checkIn 
+          : reservation.checkIn?.toISOString().split('T')[0];
+        
+        if (!checkInDateStr) return false;
+        
+        const checkInDate = new Date(checkInDateStr);
+        const daysUntilCheckin = Math.floor((checkInDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Regras de visibilidade baseada na antecedência:
+        switch (noticeType) {
+          case 'no_ato':
+            // URGÊNCIA: Sempre visível desde a criação da reserva
+            return true;
+            
+          case 'dias_antes':
+            // Visível X dias antes do check-in OU se já passou (atrasado)
+            return daysUntilCheckin <= noticeDays;
+            
+          case 'livre':
+            // Sempre visível
+            return true;
+            
+          default:
+            // Default: 3 dias antes ou atrasado
+            return daysUntilCheckin <= 3;
+        }
       });
 
-      console.log(`✅ [useCheckIns] ${tasks.length} check-ins encontrados para ${targetDate}`);
+      // ========================================================================
+      // PASSO 4: Converter para OperationalTask com metadados de urgência
+      // ========================================================================
+      const tasks: OperationalTask[] = [];
+      
+      // Adicionar tarefas PENDENTES
+      filteredReservations.forEach(reservation => {
+        const propData = propertiesMap.get(reservation.propertyId);
+        const task = reservationToOperationalTask(reservation, 'checkin', propData);
+        
+        // Calcular dias até o check-in
+        const checkInDateStr = typeof reservation.checkIn === 'string' 
+          ? reservation.checkIn 
+          : reservation.checkIn?.toISOString().split('T')[0];
+        
+        if (checkInDateStr) {
+          const checkInDate = new Date(checkInDateStr);
+          const daysUntilCheckin = Math.floor((checkInDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Adicionar metadados de urgência
+          task.metadata = {
+            ...task.metadata,
+            days_until_checkin: daysUntilCheckin,
+            urgency_label: daysUntilCheckin < 0 
+              ? `ATRASADO ${Math.abs(daysUntilCheckin)} dia${Math.abs(daysUntilCheckin) > 1 ? 's' : ''}`
+              : daysUntilCheckin === 0 
+                ? 'CHECK-IN HOJE!'
+                : daysUntilCheckin === 1 
+                  ? 'Amanhã'
+                  : `Faltam ${daysUntilCheckin} dias`,
+            is_overdue: daysUntilCheckin < 0,
+            is_today: daysUntilCheckin === 0,
+            // Flag antiga de urgência: manter compatibilidade
+            hasCheckinToday: daysUntilCheckin === 0,
+          };
+        }
+        
+        tasks.push(task);
+      });
+      
+      // Adicionar tarefas CONCLUÍDAS HOJE (para histórico)
+      completedTodayReservations.forEach(reservation => {
+        const propData = propertiesMap.get(reservation.propertyId);
+        const task = reservationToOperationalTask(reservation, 'checkin', propData);
+        task.metadata = {
+          ...task.metadata,
+          days_until_checkin: 0,
+          urgency_label: 'Concluído',
+          is_overdue: false,
+          is_today: true,
+        };
+        tasks.push(task);
+      });
+
+      // ========================================================================
+      // PASSO 5: Ordenar por urgência (mais próximo do check-in primeiro)
+      // Atrasados > Hoje > Amanhã > Próximos dias
+      // ========================================================================
+      tasks.sort((a, b) => {
+        const daysA = a.metadata?.days_until_checkin ?? 999;
+        const daysB = b.metadata?.days_until_checkin ?? 999;
+        
+        // Concluídos vão para o final
+        if (a.status === 'completed' && b.status !== 'completed') return 1;
+        if (a.status !== 'completed' && b.status === 'completed') return -1;
+        
+        // Entre pendentes: ordenar por dias até check-in
+        return daysA - daysB;
+      });
+
+      console.log(`✅ [useCheckIns] ${tasks.length} tarefas de gestão de check-in (${filteredReservations.length} pendentes + ${completedTodayReservations.length} concluídas hoje)`);
       return tasks;
     },
     enabled: !!user,
-    refetchInterval: 30000, // Atualiza a cada 30 segundos
+    refetchInterval: 30000,
     staleTime: 30000,
   });
 }
@@ -510,27 +696,63 @@ export function useCheckOuts(date?: string) {
 
       const reservations = response.data.data;
 
-      // Buscar nomes das propriedades para enriquecer os dados
-      const propertiesResponse = await propertiesApi.list();
-      const propertiesMap = new Map<string, { name: string; address?: string }>();
+      // Buscar propriedades COM dados de checkin via API
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      if (propertiesResponse.success && propertiesResponse.data) {
-        propertiesResponse.data.forEach(p => {
-          propertiesMap.set(p.id, { 
-            name: p.name,
-            address: p.address ? `${p.address.street || ''}, ${p.address.number || ''} - ${p.address.neighborhood || ''}, ${p.address.city || ''}`.trim().replace(/^, |, $|, - ,/g, '') : ''
-          });
+      let propertiesMap = new Map<string, PropertyCheckinData>();
+      
+      try {
+        const propsResponse = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Auth-Token': localStorage.getItem('rendizy-token') || '',
+            'Content-Type': 'application/json'
+          }
         });
+        
+        if (propsResponse.ok) {
+          const result = await propsResponse.json();
+          const props = result.anuncios || [];
+          
+          props.forEach((p: any) => {
+            const data = p.data || {};
+            const internalName = data.internalId || data.internal_id || p.internalId || '';
+            const addressData = data.address || data.endereco || {};
+            const addressStr = addressData.street 
+              ? `${addressData.street || ''}, ${addressData.number || ''} - ${addressData.neighborhood || ''}, ${addressData.city || ''}`.trim().replace(/^, |, $|, - ,/g, '')
+              : '';
+            
+            propertiesMap.set(p.id, { 
+              name: internalName || `Imóvel ${p.id.slice(0, 8)}`,
+              address: addressStr,
+              checkin_category: p.checkin_category || null,
+              checkin_config: p.checkin_config || null,
+            });
+          });
+        }
+      } catch (err) {
+        console.error('❌ [useCheckOuts] Erro ao buscar propriedades:', err);
+        // Fallback: usar API antiga
+        const propertiesResponse = await propertiesApi.list();
+        if (propertiesResponse.success && propertiesResponse.data) {
+          propertiesResponse.data.forEach(p => {
+            propertiesMap.set(p.id, { 
+              name: p.name,
+              address: p.address ? `${p.address.street || ''}, ${p.address.number || ''} - ${p.address.neighborhood || ''}, ${p.address.city || ''}`.trim().replace(/^, |, $|, - ,/g, '') : ''
+            });
+          });
+        }
       }
 
       // Converter reservas para OperationalTask
       const tasks = reservations.map(reservation => {
-        const prop = propertiesMap.get(reservation.propertyId);
+        const propData = propertiesMap.get(reservation.propertyId);
         return reservationToOperationalTask(
           reservation, 
           'checkout',
-          prop?.name,
-          prop?.address
+          propData
         );
       });
 
@@ -543,14 +765,106 @@ export function useCheckOuts(date?: string) {
   });
 }
 
+/**
+ * Hook para buscar Limpezas do dia
+ * Combina:
+ * 1. Tarefas já criadas na tabela operational_tasks
+ * 2. Tarefas geradas dinamicamente a partir dos templates de limpeza + checkouts do dia
+ */
 export function useCleanings(filters?: { status?: TaskStatus[]; date?: string }) {
   const { user } = useAuth();
   const orgId = user?.organizationId;
+  const targetDate = filters?.date || new Date().toISOString().split('T')[0];
 
   return useQuery({
-    queryKey: crmTasksKeys.cleanings(filters),
-    queryFn: () => operationalTasksService.getCleanings(orgId!, filters),
+    queryKey: crmTasksKeys.cleanings({ ...filters, date: targetDate }),
+    queryFn: async (): Promise<OperationalTask[]> => {
+      if (!orgId) return [];
+
+      // 1. Buscar tarefas de limpeza já existentes no banco
+      const existingTasks = await operationalTasksService.getCleanings(orgId, { ...filters, date: targetDate });
+      
+      // 2. Buscar checkouts do dia para gerar tarefas a partir dos templates
+      const checkoutsResponse = await reservationsApi.listPaged({
+        checkOutFrom: targetDate,
+        checkOutTo: targetDate,
+        status: ['confirmed', 'pending', 'checked_in', 'checked_out'],
+        limit: 100,
+      });
+
+      // 3. Buscar checkins do dia para gerar tarefas vinculadas a check-in
+      const checkinsResponse = await reservationsApi.listPaged({
+        checkInFrom: targetDate,
+        checkInTo: targetDate,
+        status: ['confirmed', 'pending', 'checked_in'],
+        limit: 100,
+      });
+
+      // Buscar nomes das propriedades
+      const propertiesResponse = await propertiesApi.list();
+      const propertiesMap = new Map<string, string>();
+      if (propertiesResponse.success && propertiesResponse.data) {
+        propertiesResponse.data.forEach(p => propertiesMap.set(p.id, p.name));
+      }
+
+      // 4. Gerar tarefas de limpeza a partir dos checkouts
+      let generatedFromCheckouts: OperationalTask[] = [];
+      if (checkoutsResponse.success && checkoutsResponse.data?.data) {
+        const checkoutData = checkoutsResponse.data.data.map(r => ({
+          id: r.id,
+          propertyId: r.propertyId,
+          propertyName: propertiesMap.get(r.propertyId) || r.propertyId.substring(0, 8),
+          checkOut: r.checkOut,
+          guestName: r.guest?.name || '',
+        }));
+        generatedFromCheckouts = await operationalTaskTemplatesService.generateCleaningTasksFromCheckouts(
+          orgId,
+          checkoutData
+        );
+      }
+
+      // 5. Gerar tarefas de limpeza a partir dos checkins
+      let generatedFromCheckins: OperationalTask[] = [];
+      if (checkinsResponse.success && checkinsResponse.data?.data) {
+        const checkinData = checkinsResponse.data.data.map(r => ({
+          id: r.id,
+          propertyId: r.propertyId,
+          propertyName: propertiesMap.get(r.propertyId) || r.propertyId.substring(0, 8),
+          checkIn: r.checkIn,
+          guestName: r.guest?.name || '',
+        }));
+        generatedFromCheckins = await operationalTaskTemplatesService.generateCleaningTasksFromCheckins(
+          orgId,
+          checkinData
+        );
+      }
+
+      // 6. Filtrar tarefas geradas que já existem no banco (evitar duplicatas)
+      const existingReservationIds = new Set(
+        existingTasks
+          .filter(t => t.reservation_id)
+          .map(t => t.reservation_id)
+      );
+      
+      const newGeneratedTasks = [
+        ...generatedFromCheckouts.filter(t => !existingReservationIds.has(t.reservation_id)),
+        ...generatedFromCheckins.filter(t => !existingReservationIds.has(t.reservation_id)),
+      ];
+
+      // 7. Combinar e retornar
+      const allTasks = [...existingTasks, ...newGeneratedTasks];
+      
+      // Filtrar por status se necessário
+      if (filters?.status?.length) {
+        return allTasks.filter(t => filters.status!.includes(t.status as TaskStatus));
+      }
+
+      console.log(`✅ [useCleanings] ${existingTasks.length} existentes + ${newGeneratedTasks.length} geradas = ${allTasks.length} limpezas`);
+      return allTasks;
+    },
     enabled: !!orgId,
+    refetchInterval: 30000,
+    staleTime: 30000,
   });
 }
 

@@ -4,9 +4,11 @@
  * ║                                                                           ║
  * ║  Configurações de Times, Campos Customizados e Tarefas Operacionais      ║
  * ║  Sistema completo de gestão estilo Asana.                                ║
+ * ║                                                                           ║
+ * ║  ✅ URL reflete a sub-aba: /crm/configuracoes/gestao-tarefas/:subTab     ║
  * ╚═══════════════════════════════════════════════════════════════════════════╝
  * 
- * @version 2.1.0
+ * @version 2.2.0
  * @date 2026-01-31
  * 
  * SIMPLIFICADO: 3 abas apenas
@@ -15,7 +17,7 @@
  * - OperationalTasksConfig: Templates + Responsabilidade (integrados)
  */
 
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { 
   Users, 
@@ -30,21 +32,48 @@ import { TeamsConfig } from './TeamsConfig';
 import { CustomFieldsConfig } from './CustomFieldsConfig';
 import { OperationalTasksConfig } from './OperationalTasksConfig';
 
+// Mapeamento de tabs para slugs de URL
+const SUB_TAB_SLUGS = {
+  teams: 'times-equipes',
+  customFields: 'campos-customizados',
+  operational: 'tarefas-operacionais',
+} as const;
+
+// Mapeamento inverso (slug -> tab value)
+const SLUG_TO_SUB_TAB: Record<string, string> = {
+  'times-equipes': 'teams',
+  'campos-customizados': 'customFields',
+  'tarefas-operacionais': 'operational',
+};
+
 // ============================================================================
 // COMPONENTE PRINCIPAL
 // ============================================================================
 
-export function TasksSettingsTab() {
-  const [activeTab, setActiveTab] = useState('teams');
+interface TasksSettingsTabProps {
+  subTab?: string;
+}
+
+export function TasksSettingsTab({ subTab }: TasksSettingsTabProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   
   // Usar organizationId real do contexto de auth
   const organizationId = user?.organizationId || '';
+  
+  // Determinar a aba ativa baseado na URL
+  const activeTab = subTab ? (SLUG_TO_SUB_TAB[subTab] || 'teams') : 'teams';
+  
+  // Handler para mudança de sub-tab - atualiza URL
+  const handleSubTabChange = (value: string) => {
+    const slug = SUB_TAB_SLUGS[value as keyof typeof SUB_TAB_SLUGS] || value;
+    navigate(`/crm/configuracoes/gestao-tarefas/${slug}`, { replace: true });
+  };
 
   return (
     <div className="space-y-6">
       {/* Sub-tabs para as diferentes seções */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={handleSubTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
           <TabsTrigger value="teams" className="flex items-center gap-2">
             <Users className="h-4 w-4" />

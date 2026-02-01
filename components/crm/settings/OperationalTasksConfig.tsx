@@ -68,7 +68,6 @@ export function OperationalTasksConfig({ organizationId }: OperationalTasksConfi
           <TabsTrigger value="checkin" className="gap-2">
             <LogIn className="h-4 w-4" />
             <span>Check-in</span>
-            <Badge variant="secondary" className="ml-1 text-[10px] px-1">Em breve</Badge>
           </TabsTrigger>
         </TabsList>
 

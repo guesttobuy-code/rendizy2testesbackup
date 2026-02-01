@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { Calendar, DollarSign, Lock, ChevronRight, TrendingUp, Sparkles } from 'lucide-react';
+import { Calendar, DollarSign, Lock, ChevronRight, TrendingUp, Sparkles, LogIn } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface QuickActionsModalProps {
@@ -10,7 +10,7 @@ interface QuickActionsModalProps {
   endDate?: Date;
   propertyId?: string;
   propertyName?: string;
-  onSelectAction: (action: 'reservation' | 'quote' | 'block' | 'tiers' | 'seasonality') => void;
+  onSelectAction: (action: 'reservation' | 'quote' | 'block' | 'tiers' | 'seasonality' | 'checkin') => void;
 }
 
 export function QuickActionsModal({
@@ -116,6 +116,28 @@ export function QuickActionsModal({
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
+            </div>
+          </button>
+
+          {/* Gestão de Check-in */}
+          <button
+            onClick={() => onSelectAction('checkin')}
+            className="w-full p-4 border border-gray-200 rounded-lg hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left group"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-colors">
+                  <LogIn className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-gray-900 mb-1">Gestão de Check-in</div>
+                  <div className="text-sm text-gray-600">
+                    Veja instruções de check-in do imóvel, dados necessários e atualize o status do hóspede.
+                  </div>
+                  <div className="text-xs text-emerald-600 mt-2 hover:underline">Saiba mais</div>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-emerald-600 transition-colors flex-shrink-0" />
             </div>
           </button>
 

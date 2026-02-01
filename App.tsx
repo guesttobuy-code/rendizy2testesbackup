@@ -182,6 +182,11 @@ const CRMTasksV2Demo = React.lazy(() =>
   import('./components/crm/mocks/CRMTasksV2Demo').then((m) => ({ default: m.CRMTasksV2Demo }))
 );
 
+// 🎨 CHECKIN CONFIG DEMO - Mocks de UI para módulo de Check-in
+const CheckinConfigDemo = React.lazy(() =>
+  import('./components/crm/mocks/CheckinConfigDemo').then((m) => ({ default: m.CheckinConfigDemo }))
+);
+
 // Types
 export interface Property {
   id: string;
@@ -1587,6 +1592,13 @@ function App() {
                   </ProtectedRoute>
                 } />
 
+                {/* 🎨 CHECKIN CONFIG DEMO - Mocks de UI para módulo de Check-in */}
+                <Route path="/checkin-config-demo" element={
+                  <ProtectedRoute>
+                    <CheckinConfigDemo />
+                  </ProtectedRoute>
+                } />
+
                 {/* ✅ ROTA LOCATIONS - v1.0.103.253 - PROTEGIDA (ENCAPSULADA) */}
                 <Route path="/locations" element={
                   <ProtectedRoute>
@@ -1843,6 +1855,8 @@ function App() {
                   <Route path="relatorios" element={<ModulePlaceholder module="Relatórios" />} />
                   <Route path="tarefas-arquivadas" element={<ModulePlaceholder module="Tarefas Arquivadas" />} />
                   <Route path="configuracoes" element={<CRMSettingsModule />} />
+                  <Route path="configuracoes/:mainTab" element={<CRMSettingsModule />} />
+                  <Route path="configuracoes/:mainTab/:subTab" element={<CRMSettingsModule />} />
                   <Route path="automacoes" element={<AutomationsPage />} />
                   {/* Rota Unificada de Operações */}
                   <Route path="operacoes" element={<OperacoesUnificadasPage />} />
