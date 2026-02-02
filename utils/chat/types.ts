@@ -21,6 +21,8 @@ export type ChatChannel =
   | 'airbnb'        // Mensagens Airbnb
   | 'booking'       // Mensagens Booking.com
   | 'email'         // Email (futuro)
+  | 'marketplace'   // Chat B2B entre orgs diferentes (Real Estate)
+  | 'team'          // Chat interno da equipe (Real Estate)
   | 'internal';     // Chat interno do sistema
 
 /**

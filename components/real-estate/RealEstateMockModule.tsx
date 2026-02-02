@@ -68,6 +68,9 @@ import {
   Upload,
 } from 'lucide-react';
 
+// Chat Drawer - Para abrir chat inline sem sair da tela
+import { ChatDrawerProvider, useChatDrawer } from '@/components/chat';
+
 // ============================================
 // DADOS MOCK BASEADOS EM MATERIAIS REAIS
 // ============================================
@@ -528,7 +531,16 @@ interface RealEstateMockModuleProps {
   onModuleChange?: (module: string) => void;
 }
 
-export function RealEstateMockModule({
+export function RealEstateMockModule(props: RealEstateMockModuleProps = {}) {
+  // Wrap com ChatDrawerProvider para habilitar chat inline
+  return (
+    <ChatDrawerProvider>
+      <RealEstateMockModuleInner {...props} />
+    </ChatDrawerProvider>
+  );
+}
+
+function RealEstateMockModuleInner({
   sidebarCollapsed,
   setSidebarCollapsed,
   initialLoading,
@@ -540,7 +552,9 @@ export function RealEstateMockModule({
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [selectedDevelopment, setSelectedDevelopment] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-
+  
+  // Hook do Chat Drawer para abrir chat inline
+  const { openB2BChat } = useChatDrawer();
   // Sincronizar view com parâmetro da URL (vindo do MainSidebar)
   useEffect(() => {
     const viewParam = searchParams.get('view');
@@ -664,6 +678,15 @@ export function RealEstateMockModule({
               onViewProfile={(item, type) => {
                 setSelectedItem(item);
                 navigateTo(type === 'construtora' ? 'construtora-perfil' : 'imobiliaria-perfil');
+              }}
+              onProporParceria={(construtora) => {
+                // Abre o Chat Drawer inline sem sair da tela
+                openB2BChat({
+                  targetOrgId: construtora.id, // Em produção seria organization_id real
+                  targetOrgName: construtora.name,
+                  targetOrgLogo: construtora.logo,
+                  initialMessage: `Olá! Tenho interesse em conhecer os empreendimentos da ${construtora.name} e discutir uma possível parceria comercial. Podemos conversar?`
+                });
               }}
             />
           )}
@@ -897,12 +920,13 @@ function SidebarItem({ icon, label, active, collapsed, onClick, badge, highlight
 // VITRINE VIEW
 // ============================================
 
-function VitrineView({ activeTab, setActiveTab, searchTerm, setSearchTerm, onViewProfile }: {
+function VitrineView({ activeTab, setActiveTab, searchTerm, setSearchTerm, onViewProfile, onProporParceria }: {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   onViewProfile: (item: any, type: 'construtora' | 'imobiliaria') => void;
+  onProporParceria?: (construtora: any) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -999,6 +1023,7 @@ function VitrineView({ activeTab, setActiveTab, searchTerm, setSearchTerm, onVie
             key={item.id} 
             construtora={item}
             onViewProfile={() => onViewProfile(item, 'construtora')}
+            onProporParceria={() => onProporParceria?.(item)}
           />
         ))}
         {activeTab === 'imobiliarias' && MOCK_IMOBILIARIAS.map((item) => (
@@ -1041,7 +1066,11 @@ function StatCard({ icon, label, value, trend }: {
   );
 }
 
-function ConstrutoraCard({ construtora, onViewProfile }: { construtora: any; onViewProfile: () => void }) {
+function ConstrutoraCard({ construtora, onViewProfile, onProporParceria }: { 
+  construtora: any; 
+  onViewProfile: () => void;
+  onProporParceria?: () => void;
+}) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow">
       <div className="p-5">
@@ -1105,7 +1134,10 @@ function ConstrutoraCard({ construtora, onViewProfile }: { construtora: any; onV
           <Eye className="h-4 w-4 inline mr-1" />
           Ver Perfil
         </button>
-        <button className="flex-1 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+        <button 
+          onClick={onProporParceria}
+          className="flex-1 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+        >
           <Handshake className="h-4 w-4 inline mr-1" />
           Propor Parceria
         </button>

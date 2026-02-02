@@ -34,6 +34,8 @@ import type {
 import { getWhatsAppChatProvider } from './providers/whatsapp';
 import { getAirbnbChatProvider } from './providers/airbnb';
 import { getBookingChatProvider } from './providers/booking';
+import { getMarketplaceChatProvider } from './providers/marketplace';
+import { getTeamChatProvider } from './providers/team';
 
 // ============================================================
 // REGISTRY IMPLEMENTATION
@@ -144,6 +146,8 @@ class ChatProviderRegistry implements IChatProviderRegistry {
     this.register(getWhatsAppChatProvider());
     this.register(getAirbnbChatProvider());
     this.register(getBookingChatProvider());
+    this.register(getMarketplaceChatProvider());
+    this.register(getTeamChatProvider());
   }
 }
 

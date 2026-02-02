@@ -88,3 +88,22 @@ export type { DeleteMessageDialogProps, DeleteButtonProps } from './DeleteMessag
 // Hook in separate file  
 export { useDeleteMessage } from '../../hooks/useDeleteMessage';
 export type { UseDeleteMessageOptions, UseDeleteMessageReturn } from '../../hooks/useDeleteMessage';
+
+// ============================================
+// CHANNEL BADGE - Multi-Provider Support
+// ============================================
+
+// Channel Badge (visual indicator for chat source)
+export { ChannelBadge, ChannelIcon, CHANNEL_CONFIG, getChannelLabel, getChannelEmoji, getChannelColor } from './ChannelBadge';
+export type { ChatChannelType } from './ChannelBadge';
+
+// ============================================
+// CHAT DRAWER - Inline Chat Panel
+// ============================================
+
+// Chat Drawer (abre chat em qualquer lugar sem sair da tela)
+export { ChatDrawer } from './ChatDrawer';
+export type { ChatDrawerConfig, ChatContext } from './ChatDrawer';
+
+// Chat Drawer Context (provider global + hook)
+export { ChatDrawerProvider, useChatDrawer } from './ChatDrawerContext';

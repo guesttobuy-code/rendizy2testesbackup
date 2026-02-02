@@ -79,7 +79,7 @@ import { toast } from 'sonner';
 
 export type ConversationCategory = 'pinned' | 'urgent' | 'normal' | 'resolved';
 export type ConversationType = 'guest' | 'lead';
-export type ChannelType = 'whatsapp' | 'airbnb' | 'booking' | 'email' | 'sms';
+export type ChannelType = 'whatsapp' | 'airbnb' | 'booking' | 'email' | 'sms' | 'marketplace' | 'team';
 
 export interface WhatsAppInstance {
   id: string;
@@ -159,6 +159,8 @@ const CHANNEL_CONFIG: Record<ChannelType, { icon: typeof MessageCircle; color: s
   sms: { icon: PhoneIcon, color: 'text-blue-500', label: 'SMS' },
   airbnb: { icon: Home, color: 'text-red-500', label: 'Airbnb' },
   booking: { icon: Home, color: 'text-blue-600', label: 'Booking' },
+  marketplace: { icon: MessageSquare, color: 'text-indigo-500', label: 'Marketplace' },
+  team: { icon: Users, color: 'text-violet-500', label: 'Equipe' },
 };
 
 // ============================================

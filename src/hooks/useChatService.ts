@@ -20,7 +20,7 @@ import {
   SendMessagePayload,
   SendMessageResult,
   ChatStats,
-} from '../../services/chat';
+} from '../services/chat';
 
 interface UseChatServiceOptions {
   autoStartRealtime?: boolean;

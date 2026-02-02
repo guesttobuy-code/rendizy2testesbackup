@@ -20,7 +20,7 @@ import {
   MessageStatus,
   ChatContact,
 } from './types';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/rendizy-server`;
 
