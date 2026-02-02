@@ -1,4 +1,4 @@
-# 🚀 PROMPT DE INICIALIZAÇÃO - Rendizy PMS v1.0.103.405
+﻿# 🚀 PROMPT DE INICIALIZAÇÃO - Rendizy PMS v1.0.103.405
 
 **Data da última sessão**: 20/12/2024  
 **Status**: ✅ Sistema operacional com correções críticas aplicadas
@@ -34,13 +34,13 @@
 #### **Issue #48: Lista retornava apenas 2 registros** ✅ RESOLVIDO
 - **Arquivo**: `components/anuncio-ultimate/ListaAnuncios.tsx` (linha 69)
 - **Problema**: REST API direta sem org context → RLS bloqueava
-- **Correção**: Usa Edge Function `/anuncios-ultimate/lista` com X-Auth-Token
+- **Correção**: Usa Edge Function `/properties/lista` com X-Auth-Token
 - **Documento**: `⚡_FIX_LISTA_ANUNCIOS_VIA_BACKEND_v1.0.103.404.md`
 
 #### **Issue #49: URL incorreta + 157 anúncios invisíveis** ✅ RESOLVIDO
 - **Arquivo**: `components/anuncio-ultimate/ListaAnuncios.tsx` (linha 73)
 - **Problema 1**: URL tinha prefixo incorreto `/make-server-67caf26a/`
-- **Correção 1**: URL correta: `/functions/v1/rendizy-server/anuncios-ultimate/lista`
+- **Correção 1**: URL correta: `/functions/v1/rendizy-server/properties/lista`
 - **Problema 2**: 157 anúncios em `properties` (invisíveis no sistema novo)
 - **Correção 2**: Script `migrar-properties-para-anuncios.ps1` executado com sucesso
 - **Resultado**: 159 anúncios migrados (0 erros)
@@ -76,7 +76,7 @@
 
 ### **2. Backend (Edge Functions)**
 - `supabase/functions/rendizy-server/routes-anuncios.ts`
-  - Rota: `/anuncios-ultimate/lista` (linha 16)
+  - Rota: `/properties/lista` (linha 16)
   - Consulta: `anuncios_drafts` com RLS automático
   
 - `supabase/functions/rendizy-server/staysnet-full-sync.ts`
@@ -90,7 +90,7 @@
   
 - `App.tsx`
   - Linha 583: Carregamento de anúncios via Edge Function
-  - Linha 1387: Rota `/anuncios-ultimate/lista`
+  - Linha 1387: Rota `/properties/lista`
 
 ### **4. Scripts de Manutenção**
 - `migrar-properties-para-anuncios.ps1` - Migração executada (159 registros)
@@ -116,8 +116,8 @@
 
 ### **2. Rotas de Anúncios**
 ```
-✅ FRONTEND: /anuncios-ultimate/lista
-✅ BACKEND: /functions/v1/rendizy-server/anuncios-ultimate/lista
+✅ FRONTEND: /properties/lista
+✅ BACKEND: /functions/v1/rendizy-server/properties/lista
 ❌ NUNCA adicionar prefixos como /make-server-67caf26a/
 ```
 
@@ -201,7 +201,7 @@ ANÚNCIO EXEMPLO MIGRADO:
    - Executar: `remover-duplicatas.sql` (query DELETE)
    - OU: Remover manualmente via Supabase Dashboard
    - Verificar: Total deve ficar em 159 anúncios
-   - Confirmação: Recarregar `/anuncios-ultimate/lista` deve mostrar 159
+   - Confirmação: Recarregar `/properties/lista` deve mostrar 159
 
 ### **🟡 IMPORTANTE - Fazer Hoje**
 2. **Commit das correções de duplicatas**
@@ -296,7 +296,7 @@ Se precisar relembrar algo:
 - "Qual era o Issue #49?" → URL incorreta + migração properties
 - "Por que 161 anúncios?" → Duplicatas dos 2 testes
 - "Onde o StaysNet exporta?" → anuncios_drafts (correto)
-- "Qual a URL correta?" → /functions/v1/rendizy-server/anuncios-ultimate/lista
+- "Qual a URL correta?" → /functions/v1/rendizy-server/properties/lista
 
 ### **Validações Rápidas**
 ```sql

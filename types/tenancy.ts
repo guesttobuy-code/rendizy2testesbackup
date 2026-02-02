@@ -14,7 +14,7 @@ export interface Organization {
   isMaster?: boolean; // true se for a organização master RENDIZY
   logo?: string;
   status: 'active' | 'suspended' | 'trial' | 'cancelled';
-  plan: 'free' | 'basic' | 'professional' | 'enterprise';
+  plan: 'free' | 'trial' | 'basic' | 'professional' | 'enterprise'; // Adicionado 'trial'
   
   // Informações da empresa
   tradingName?: string; // Nome fantasia
@@ -77,13 +77,14 @@ export interface Organization {
 // ============================================
 
 export type UserRole = 
-  | 'super_admin'      // Nosso time - acesso total a todas organizações
-  | 'admin'            // Administrador da imobiliária
+  | 'owner'            // Dono da imobiliária - acesso total na organização
+  | 'admin'            // Administrador - acesso amplo, pode gerenciar usuários
   | 'manager'          // Gerente - acesso amplo mas limitado
-  | 'agent'            // Corretor/Agente - acesso a reservas e propriedades
-  | 'guest_services'   // Atendimento ao hóspede
-  | 'finance'          // Financeiro
+  | 'staff'            // Funcionário - acesso básico operacional
   | 'readonly';        // Apenas visualização
+
+// Super Admin é identificado pelo type = 'super_admin' na tabela users,
+// não pelo role (que é usado apenas dentro de organizações)
 
 export interface User {
   id: string;
@@ -172,7 +173,7 @@ export interface Permission {
 
 // Matriz de permissões padrão por role
 export const DEFAULT_PERMISSIONS: Record<UserRole, Permission[]> = {
-  super_admin: [
+  owner: [
     {
       resource: 'dashboard',
       actions: ['create', 'read', 'update', 'delete', 'export']
@@ -294,10 +295,14 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission[]> = {
     {
       resource: 'finance',
       actions: ['read', 'export']
+    },
+    {
+      resource: 'users',
+      actions: ['read']
     }
   ],
   
-  agent: [
+  staff: [
     {
       resource: 'dashboard',
       actions: ['read']
@@ -317,44 +322,14 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission[]> = {
     {
       resource: 'properties',
       actions: ['read']
-    }
-  ],
-  
-  guest_services: [
-    {
-      resource: 'calendar',
-      actions: ['read']
-    },
-    {
-      resource: 'reservations',
-      actions: ['read', 'update']
-    },
-    {
-      resource: 'messages',
-      actions: ['create', 'read', 'update']
     },
     {
       resource: 'tasks',
       actions: ['read', 'update']
-    }
-  ],
-  
-  finance: [
-    {
-      resource: 'dashboard',
-      actions: ['read']
-    },
-    {
-      resource: 'reservations',
-      actions: ['read']
     },
     {
       resource: 'finance',
-      actions: ['create', 'read', 'update', 'export']
-    },
-    {
-      resource: 'reports',
-      actions: ['read', 'export']
+      actions: ['read']
     }
   ],
   

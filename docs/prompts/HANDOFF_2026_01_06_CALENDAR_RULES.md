@@ -1,4 +1,4 @@
-# 🔄 PROMPT DE HANDOFF - RENDIZY - 2026-01-06
+﻿# 🔄 PROMPT DE HANDOFF - RENDIZY - 2026-01-06
 
 > **Use este prompt para iniciar um novo chat e continuar o trabalho.**
 
@@ -106,7 +106,7 @@ Rendizyoficial-main/             # Raiz do projeto React+Vite
 
 ### 1. App.tsx::loadProperties
 - Marcador: `[ZONA_CRITICA]`
-- Função: Carrega propriedades de `anuncios-ultimate/lista`
+- Função: Carrega propriedades de `properties/lista`
 - **NUNCA** alterar lógica de fetch ou filtros
 
 ### 2. routes-anuncios.ts::/lista

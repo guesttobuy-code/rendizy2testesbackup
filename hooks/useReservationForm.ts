@@ -86,7 +86,7 @@ export function useReservationForm(initialPropertyId?: string) {
       const API_BASE = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/rendizy-server`;
       const ANON_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
       
-      const response = await fetch(`${API_BASE}/anuncios-ultimate/${propertyId}`, {
+      const response = await fetch(`${API_BASE}/properties/${propertyId}`, {
         headers: {
           'Authorization': `Bearer ${ANON_KEY}`,
           'Content-Type': 'application/json'

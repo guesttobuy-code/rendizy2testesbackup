@@ -287,12 +287,12 @@ export function CreateReservationWizard({
     setLoadingProperty(true);
     console.log('🏠 Carregando imóvel:', propertyId);
     try {
-      // ✅ FIX: Usar endpoint correto /anuncios-ultimate/:id ao invés de /properties/:id
+      // ✅ FIX: Usar endpoint correto /properties/:id ao invés de /properties/:id
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
       const API_BASE = `${SUPABASE_URL}/functions/v1/rendizy-server`;
       const ANON_KEY = publicAnonKey;
       
-      const response = await fetch(`${API_BASE}/anuncios-ultimate/${propertyId}`, {
+      const response = await fetch(`${API_BASE}/properties/${propertyId}`, {
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,

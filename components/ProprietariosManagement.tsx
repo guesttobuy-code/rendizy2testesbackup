@@ -238,7 +238,7 @@ export function ProprietariosManagement() {
     try {
       const userToken = localStorage.getItem('rendizy-token');
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/lista`,
+        `https://${projectId}.supabase.co/functions/v1/rendizy-server/properties/lista`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,

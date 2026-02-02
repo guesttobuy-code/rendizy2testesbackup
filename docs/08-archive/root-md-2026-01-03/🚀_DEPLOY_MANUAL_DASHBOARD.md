@@ -1,4 +1,4 @@
-# 🚀 DEPLOY MANUAL VIA DASHBOARD
+﻿# 🚀 DEPLOY MANUAL VIA DASHBOARD
 
 **Versão:** V1.0.103.332  
 **Data:** 2025-12-13  
@@ -132,7 +132,7 @@ jobs:
 ### 2. Testar Endpoint
 Abra o DevTools Console e execute:
 ```javascript
-fetch('https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/9f6cad48-42e9-4ed5-b766-82127a62dce2', {
+fetch('https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/properties/9f6cad48-42e9-4ed5-b766-82127a62dce2', {
   headers: {
     'Authorization': 'Bearer ' + localStorage.getItem('auth_token')
   }
@@ -142,7 +142,7 @@ fetch('https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anun
 ```
 
 ### 3. Testar Frontend
-1. Recarregue: http://localhost:3001/anuncios-ultimate/9f6cad48-42e9-4ed5-b766-82127a62dce2/edit
+1. Recarregue: http://localhost:3001/properties/9f6cad48-42e9-4ed5-b766-82127a62dce2/edit
 2. Verifique os logs no console:
    ```
    🔥 NovoAnuncio.tsx CARREGADO - V1.0.103.332

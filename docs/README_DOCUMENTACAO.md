@@ -1,4 +1,4 @@
-# 📚 ÍNDICE DA DOCUMENTAÇÃO RENDIZY
+﻿# 📚 ÍNDICE DA DOCUMENTAÇÃO RENDIZY
 
 > **Como usar este índice:**  
 > Sempre que criar um novo arquivo .md, adicione aqui com link e descrição breve.
@@ -88,7 +88,7 @@ npx supabase functions logs rendizy-server --tail
 | Reservas | `/reservations` | [api/reservations.md](api/reservations.md) | ✅ Ativo |
 | Calendário | `/calendar` | [api/calendar.md](api/calendar.md) | ✅ Ativo |
 | StaysNet | `/staysnet` | [api/staysnet.md](api/staysnet.md) | ✅ Ativo |
-| Anúncios | `/anuncios-ultimate` | [api/anuncios.md](api/anuncios.md) | ✅ Ativo |
+| Anúncios | `/properties` | [api/anuncios.md](api/anuncios.md) | ✅ Ativo |
 
 ---
 

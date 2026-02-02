@@ -1,4 +1,4 @@
-# 🔍 ANÁLISE COMPLETA: Modais do Calendário - Pente Fino
+﻿# 🔍 ANÁLISE COMPLETA: Modais do Calendário - Pente Fino
 **Data**: 19 de Dezembro de 2024  
 **Versão**: v1.0.103.402  
 **Status**: 🔴 CRITICO - Reservas não funcionam
@@ -105,7 +105,7 @@ useEffect(() => {
     setLoadingProperty(true);
     try {
       const response = await propertiesApi.get(propertyId);
-      // 🔴 ROTA: /anuncios-ultimate/:id
+      // 🔴 ROTA: /properties/:id
       
       if (response.success && response.data) {
         setProperty(response.data);
@@ -125,7 +125,7 @@ useEffect(() => {
 ```
 
 **Rota API**: 
-- **Endpoint**: `/anuncios-ultimate/:id`
+- **Endpoint**: `/properties/:id`
 - **Método**: GET
 - **Status**: ⚠️ VERIFICAR SE RETORNA DADOS
 
@@ -323,11 +323,11 @@ const checkAvailability = async (
 
 ## 🔗 ROTAS DA API (utils/api.ts)
 
-### **1. GET /anuncios-ultimate/:id**
+### **1. GET /properties/:id**
 **Linha**: 1234 (aproximada)
 ```typescript
 propertiesApi.get: async (id: string) => {
-  return apiRequest<Property>(`/anuncios-ultimate/${id}`);
+  return apiRequest<Property>(`/properties/${id}`);
 }
 ```
 

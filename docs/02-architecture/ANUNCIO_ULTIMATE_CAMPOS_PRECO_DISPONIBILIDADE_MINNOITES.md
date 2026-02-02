@@ -1,4 +1,4 @@
-# ANÚNCIO ULTIMATE — Campos canônicos: Preço, Disponibilidade, Mínimo de Noites
+﻿# ANÚNCIO ULTIMATE — Campos canônicos: Preço, Disponibilidade, Mínimo de Noites
 
 **Data**: 2026-01-04  
 **Objetivo**: Documentar o contrato de dados mínimo para que qualquer Client Site consiga renderizar catálogo (preço/capacidade/fotos) e regras (mín. noites) sem depender de patches no bundle do site.
@@ -177,5 +177,5 @@ Notas:
 
 - Função pública (DTO): `supabase/functions/rendizy-public/index.ts`
 - Arquitetura do proxy + serve: `docs/02-architecture/ARQUITETURA_CLIENT_SITES_PROXY_SUPABASE_MEDHOME_2026-01-04.md`
-- Backfill de capacidade: `scripts/backfill-anuncios-ultimate-capacity.ps1`
-- Backfill de preço (manual): `scripts/backfill-anuncios-ultimate-pricing.ps1`
+- Backfill de capacidade: `scripts/backfill-properties-capacity.ps1`
+- Backfill de preço (manual): `scripts/backfill-properties-pricing.ps1`

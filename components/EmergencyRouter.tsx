@@ -20,7 +20,7 @@ export function EmergencyRouter() {
       '/',
       // '/properties', // ❌ DEPRECADO v1.0.103.406
       // '/properties/new', // ❌ DEPRECADO v1.0.103.406
-      '/anuncios-ultimate/lista',
+      '/properties/lista',
       '/reservations',
       '/admin',
       '/financeiro',

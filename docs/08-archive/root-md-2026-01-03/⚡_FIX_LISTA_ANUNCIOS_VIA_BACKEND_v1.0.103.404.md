@@ -1,4 +1,4 @@
-# ⚡ FIX: ListaAnuncios carrega via backend v1.0.103.404
+﻿# ⚡ FIX: ListaAnuncios carrega via backend v1.0.103.404
 
 **Data**: 2025-12-20  
 **Versão**: 1.0.103.404  
@@ -32,7 +32,7 @@ const res = await fetch(`${SUPABASE_URL}/rest/v1/anuncios_drafts?select=*`, {
 // ✅ DEPOIS: Edge Function com X-Auth-Token
 const token = localStorage.getItem('rendizy-token');
 
-const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/make-server-67caf26a/anuncios-ultimate/lista`, {
+const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/make-server-67caf26a/properties/lista`, {
   headers: {
     'apikey': ANON_KEY,
     'X-Auth-Token': token || '',  // ✅ Token de usuário autenticado
@@ -72,7 +72,7 @@ app.get("/lista", async (c) => {
 
 ### Como Testar
 
-1. Acessar `/anuncios-ultimate/lista`
+1. Acessar `/properties/lista`
 2. Verificar console: `✅ Anúncios carregados - Total: 159`
 3. Confirmar que anúncios do StaysNet aparecem
 
@@ -92,7 +92,7 @@ app.get("/lista", async (c) => {
 
 ## ⚠️ Nota Importante
 
-Esta correção **não** modifica o backend - apenas muda como o frontend consulta os dados. A rota `/anuncios-ultimate/lista` já estava implementada corretamente no backend com:
+Esta correção **não** modifica o backend - apenas muda como o frontend consulta os dados. A rota `/properties/lista` já estava implementada corretamente no backend com:
 
 - ✅ RLS automático via `getSupabaseClient(c)`
 - ✅ Filtro por organização do usuário

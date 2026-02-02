@@ -1,4 +1,4 @@
-# INVENTÁRIO: Migração properties → properties
+﻿# INVENTÁRIO: Migração properties → properties
 
 **Data:** 2026-01-06  
 **Status:** ✅ **CONCLUÍDO**
@@ -64,7 +64,7 @@ Este arquivo ainda contém `.from('properties')` mas está **marcado como DEPREC
 - CONTRAS: Trabalho extensivo (~2500 linhas)
 
 ### Opção B: Proxy para rotas de anuncios
-- Redirecionar `/properties` → `/anuncios-ultimate`
+- Redirecionar `/properties` → `/properties`
 - Frontend ajusta minimamente
 - PRÓS: Menos código para manter
 - CONTRAS: Pode ter incompatibilidades

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, UserRole, Invitation } from '../types/tenancy';
+import React, { useState, useEffect, useCallback } from 'react';
+import { UserRole } from '../types/tenancy';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -30,129 +30,132 @@ import {
   CheckCircle,
   XCircle,
   Send,
-  Key
+  Key,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from './ui/utils';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  listUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  inviteUser,
+  resendInvitation,
+  cancelInvitation,
+  UserBase,
+  UserStatus,
+  roleLabels as apiRoleLabels,
+  roleColors as apiRoleColors,
+  statusLabels as apiStatusLabels,
+  statusColors as apiStatusColors,
+  UserRole as ApiUserRole
+} from '../utils/api-users';
 
+// Usar os mesmos labels/cores do api-users para consistência
 const roleLabels: Record<UserRole, string> = {
-  super_admin: 'Super Admin',
+  owner: 'Proprietário',
   admin: 'Administrador',
   manager: 'Gerente',
-  agent: 'Corretor/Agente',
-  guest_services: 'Atendimento',
-  finance: 'Financeiro',
+  staff: 'Corretor/Agente',
   readonly: 'Somente Leitura'
 };
 
 const roleColors: Record<UserRole, string> = {
-  super_admin: 'bg-purple-100 text-purple-700',
+  owner: 'bg-purple-100 text-purple-700',
   admin: 'bg-red-100 text-red-700',
   manager: 'bg-blue-100 text-blue-700',
-  agent: 'bg-green-100 text-green-700',
-  guest_services: 'bg-orange-100 text-orange-700',
-  finance: 'bg-emerald-100 text-emerald-700',
+  staff: 'bg-green-100 text-green-700',
   readonly: 'bg-gray-100 text-gray-700'
 };
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
   inactive: 'bg-gray-100 text-gray-700',
   pending: 'bg-yellow-100 text-yellow-700',
-  suspended: 'bg-red-100 text-red-700'
+  suspended: 'bg-red-100 text-red-700',
+  invited: 'bg-blue-100 text-blue-700'
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   active: 'Ativo',
   inactive: 'Inativo',
   pending: 'Pendente',
-  suspended: 'Suspenso'
+  suspended: 'Suspenso',
+  invited: 'Convidado'
 };
-
-// Mock data
-const mockUsers: User[] = [
-  {
-    id: '1',
-    organizationId: '1',
-    email: 'admin@vistamar.com',
-    name: 'Carlos Silva',
-    role: 'admin',
-    status: 'active',
-    emailVerified: true,
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-    phone: '(11) 98765-4321',
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date(),
-    lastLoginAt: new Date('2025-10-28')
-  },
-  {
-    id: '2',
-    organizationId: '1',
-    email: 'maria@vistamar.com',
-    name: 'Maria Santos',
-    role: 'manager',
-    status: 'active',
-    emailVerified: true,
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
-    createdAt: new Date('2024-02-10'),
-    updatedAt: new Date(),
-    lastLoginAt: new Date('2025-10-27')
-  },
-  {
-    id: '3',
-    organizationId: '1',
-    email: 'joao@vistamar.com',
-    name: 'João Oliveira',
-    role: 'agent',
-    status: 'pending',
-    emailVerified: false,
-    createdAt: new Date('2025-10-25'),
-    updatedAt: new Date(),
-    invitedAt: new Date('2025-10-25'),
-    invitedBy: '1'
-  }
-];
-
-const mockInvitations: Invitation[] = [
-  {
-    id: '1',
-    organizationId: '1',
-    email: 'pedro@example.com',
-    role: 'agent',
-    invitedBy: '1',
-    status: 'pending',
-    token: 'abc123',
-    expiresAt: new Date('2025-11-10'),
-    createdAt: new Date('2025-10-25')
-  }
-];
 
 interface UserManagementProps {
   organizationId?: string;
   isSuperAdmin?: boolean;
 }
 
-export function UserManagement({ organizationId, isSuperAdmin = false }: UserManagementProps) {
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [invitations, setInvitations] = useState<Invitation[]>(mockInvitations);
+export function UserManagement({ organizationId: propOrganizationId, isSuperAdmin = false }: UserManagementProps) {
+  // Obter organization_id do contexto de auth se não fornecido via props
+  const { user: authUser, organization } = useAuth();
+  const organizationId = propOrganizationId || organization?.id;
+  
+  // Estados principais
+  const [users, setUsers] = useState<UserBase[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Estados de UI
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<Array<keyof typeof statusLabels>>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [emailVerifiedFilter, setEmailVerifiedFilter] = useState<'all' | 'verified' | 'unverified'>('all');
   const [isRolesOpen, setIsRolesOpen] = useState(true);
   const [isStatusOpen, setIsStatusOpen] = useState(true);
   const [isEmailOpen, setIsEmailOpen] = useState(false);
+  
+  // Estados de dialogs
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserBase | null>(null);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
+  
+  // Estados do formulário de convite
+  const [inviteForm, setInviteForm] = useState({
+    email: '',
+    name: '',
+    role: 'staff' as ApiUserRole
+  });
+  const [inviteLoading, setInviteLoading] = useState(false);
+
+  // Carregar usuários da API
+  const loadUsers = useCallback(async () => {
+    if (!organizationId) {
+      setError('Organization ID não encontrado');
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await listUsers(organizationId);
+      setUsers(data);
+    } catch (err) {
+      console.error('Erro ao carregar usuários:', err);
+      setError('Não foi possível carregar os usuários');
+    } finally {
+      setLoading(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   // Filtrar usuários
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(user.role);
+    const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(user.role as UserRole);
     const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(user.status);
     const matchesEmail =
       emailVerifiedFilter === 'all' ||
@@ -164,30 +167,81 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
   // Stats
   const totalUsers = users.length;
   const activeUsers = users.filter(u => u.status === 'active').length;
-  const pendingUsers = users.filter(u => u.status === 'pending').length;
+  const pendingInvites = users.filter(u => u.status === 'invited' || u.status === 'pending').length;
 
-  const handleInviteUser = (formData: any) => {
-    toast.success('Convite enviado com sucesso!');
-    setInviteDialogOpen(false);
-  };
-
-  const handleUpdateUser = (user: User, updates: Partial<User>) => {
-    toast.success('Usuário atualizado com sucesso!');
-    setEditDialogOpen(false);
-  };
-
-  const handleDeleteUser = (user: User) => {
-    if (confirm(`Tem certeza que deseja remover ${user.name}?`)) {
-      toast.success('Usuário removido com sucesso!');
+  // Handlers com integração API
+  const handleInviteUser = async () => {
+    if (!organizationId) {
+      toast.error('Organization ID não encontrado');
+      return;
+    }
+    
+    if (!inviteForm.email || !inviteForm.name) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    
+    try {
+      setInviteLoading(true);
+      await inviteUser({
+        organizationId,
+        email: inviteForm.email,
+        name: inviteForm.name,
+        role: inviteForm.role
+      });
+      toast.success('Usuário criado com sucesso!');
+      setInviteDialogOpen(false);
+      setInviteForm({ email: '', name: '', role: 'staff' });
+      loadUsers(); // Recarregar lista
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao criar usuário');
+    } finally {
+      setInviteLoading(false);
     }
   };
 
-  const handleResendInvitation = (invitation: Invitation) => {
-    toast.success('Convite reenviado!');
+  const handleUpdateUser = async (user: UserBase, updates: Partial<UserBase>) => {
+    try {
+      await updateUser(user.id, updates);
+      toast.success('Usuário atualizado com sucesso!');
+      setEditDialogOpen(false);
+      loadUsers();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar usuário');
+    }
   };
 
-  const handleCancelInvitation = (invitation: Invitation) => {
-    toast.success('Convite cancelado!');
+  const handleDeleteUser = async (user: UserBase) => {
+    if (confirm(`Tem certeza que deseja remover ${user.name}?`)) {
+      try {
+        await deleteUser(user.id);
+        toast.success('Usuário removido com sucesso!');
+        loadUsers();
+      } catch (err: any) {
+        toast.error(err.message || 'Erro ao remover usuário');
+      }
+    }
+  };
+
+  const handleResendInvitation = async (user: UserBase) => {
+    try {
+      await resendInvitation(user.id);
+      toast.success('Convite reenviado!');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao reenviar convite');
+    }
+  };
+
+  const handleCancelInvitation = async (user: UserBase) => {
+    if (confirm(`Tem certeza que deseja cancelar o convite para ${user.email}?`)) {
+      try {
+        await cancelInvitation(user.id);
+        toast.success('Convite cancelado!');
+        loadUsers();
+      } catch (err: any) {
+        toast.error(err.message || 'Erro ao cancelar convite');
+      }
+    }
   };
 
   const getInitials = (name: string) => {
@@ -479,47 +533,68 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
               </p>
             </div>
             
-            <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <UserPlus className="h-4 w-4" />
-                  Convidar Usuário
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Convidar Novo Usuário</DialogTitle>
-                  <DialogDescription>
-                    Envie um convite por email para adicionar um novo usuário
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Email *</Label>
-                    <Input type="email" placeholder="usuario@email.com" />
-                  </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={loadUsers}
+                disabled={loading}
+              >
+                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              </Button>
+              
+              <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Convidar Usuário
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Convidar Novo Usuário</DialogTitle>
+                    <DialogDescription>
+                      Adicione um novo membro à sua equipe
+                    </DialogDescription>
+                  </DialogHeader>
                   
-                  <div className="space-y-2">
-                    <Label>Nome *</Label>
-                    <Input placeholder="Nome completo" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Função *</Label>
-                    <Select defaultValue="agent">
-                      <SelectTrigger>
-                        <SelectValue />
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Email *</Label>
+                      <Input 
+                        type="email" 
+                        placeholder="usuario@email.com"
+                        value={inviteForm.email}
+                        onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Nome *</Label>
+                      <Input 
+                        placeholder="Nome completo"
+                        value={inviteForm.name}
+                        onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Função *</Label>
+                      <Select 
+                        value={inviteForm.role} 
+                        onValueChange={(value) => setInviteForm(prev => ({ ...prev, role: value as ApiUserRole }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        {/* Owner só pode ser criado pelo SuperAdmin via admin panel */}
                         {isSuperAdmin && (
-                          <SelectItem value="super_admin">Super Admin</SelectItem>
+                          <SelectItem value="owner">Proprietário (Owner)</SelectItem>
                         )}
                         <SelectItem value="admin">Administrador</SelectItem>
                         <SelectItem value="manager">Gerente</SelectItem>
-                        <SelectItem value="agent">Corretor/Agente</SelectItem>
-                        <SelectItem value="guest_services">Atendimento</SelectItem>
-                        <SelectItem value="finance">Financeiro</SelectItem>
+                        <SelectItem value="staff">Corretor/Agente</SelectItem>
                         <SelectItem value="readonly">Somente Leitura</SelectItem>
                       </SelectContent>
                     </Select>
@@ -530,20 +605,44 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
                 </div>
                 
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => setInviteDialogOpen(false)} disabled={inviteLoading}>
                     Cancelar
                   </Button>
-                  <Button onClick={handleInviteUser}>
-                    <Send className="h-4 w-4 mr-2" />
-                    Enviar Convite
+                  <Button onClick={handleInviteUser} disabled={inviteLoading}>
+                    {inviteLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
+                    {inviteLoading ? 'Criando...' : 'Criar Usuário'}
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
           </div>
         </div>
+        </div>
+
+        {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <span className="ml-2 text-gray-500">Carregando usuários...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="mx-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+          <span className="text-red-600">{error}</span>
+          <Button variant="outline" size="sm" onClick={loadUsers}>
+            Tentar novamente
+          </Button>
+        </div>
+      )}
 
       {/* Stats */}
+      {!loading && !error && (
       <div className="px-8 py-6 grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
@@ -574,15 +673,17 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Convites Pendentes</p>
-                <p className="text-2xl mt-1 text-yellow-600">{pendingUsers}</p>
+                <p className="text-2xl mt-1 text-yellow-600">{pendingInvites}</p>
               </div>
               <Clock className="h-8 w-8 text-yellow-500" />
             </div>
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Users Table */}
+      {!loading && !error && (
       <div className="flex-1 px-8 pb-8 overflow-auto">
         <Card>
           <CardContent className="p-0">
@@ -597,6 +698,15 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {filteredUsers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      {searchQuery || selectedRoles.length > 0 || selectedStatuses.length > 0 
+                        ? 'Nenhum usuário encontrado com os filtros aplicados' 
+                        : 'Nenhum usuário cadastrado ainda. Clique em "Convidar Usuário" para começar.'}
+                    </TableCell>
+                  </TableRow>
+                )}
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
@@ -670,8 +780,8 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
           </CardContent>
         </Card>
 
-        {/* Pending Invitations */}
-        {invitations.length > 0 && (
+        {/* Pending Invitations - usuários com status invited */}
+        {users.filter(u => u.status === 'invited' || u.status === 'pending').length > 0 && (
           <Card className="mt-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -679,14 +789,14 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
                 Convites Pendentes
               </CardTitle>
               <CardDescription>
-                Convites enviados aguardando aceitação
+                Usuários aguardando aceitação ou primeiro acesso
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {invitations.map((invitation) => (
+                {users.filter(u => u.status === 'invited' || u.status === 'pending').map((user) => (
                   <div
-                    key={invitation.id}
+                    key={user.id}
                     className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
@@ -694,13 +804,13 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
                         <Mail className="h-5 w-5 text-yellow-600" />
                       </div>
                       <div>
-                        <p className="text-gray-900">{invitation.email}</p>
+                        <p className="text-gray-900">{user.email}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge className={roleColors[invitation.role]}>
-                            {roleLabels[invitation.role]}
+                          <Badge className={roleColors[user.role as UserRole] || 'bg-gray-100 text-gray-700'}>
+                            {roleLabels[user.role as UserRole] || user.role}
                           </Badge>
                           <span className="text-xs text-gray-500">
-                            Enviado em {invitation.createdAt.toLocaleDateString('pt-BR')}
+                            Criado em {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
                       </div>
@@ -709,7 +819,7 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleResendInvitation(invitation)}
+                        onClick={() => handleResendInvitation(user)}
                       >
                         <Send className="h-4 w-4 mr-2" />
                         Reenviar
@@ -717,7 +827,7 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCancelInvitation(invitation)}
+                        onClick={() => handleCancelInvitation(user)}
                       >
                         <XCircle className="h-4 w-4 text-red-600" />
                       </Button>
@@ -729,7 +839,8 @@ export function UserManagement({ organizationId, isSuperAdmin = false }: UserMan
           </Card>
         )}
       </div>
+      )}
     </div>
-  </div>
+    </div>
   );
 }

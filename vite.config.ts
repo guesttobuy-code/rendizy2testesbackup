@@ -19,12 +19,11 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       open: true,
       host: true,
-      // Fix para WebSocket em caminhos com espaços (OneDrive)
+      // Fix para WebSocket - usa porta dinâmica automaticamente
       hmr: {
         protocol: 'ws',
-        host: 'localhost',
-        port: 3000,
-        clientPort: 3000
+        host: 'localhost'
+        // Removido port/clientPort fixo - Vite detecta automaticamente
       },
       watch: {
         // Usar polling para evitar problemas com OneDrive

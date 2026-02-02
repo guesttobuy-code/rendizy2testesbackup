@@ -273,7 +273,7 @@ function PropertyCalendarRowComponent({ data, handlers, style }: PropertyCalenda
                 const { line1, line2 } = splitTwoLines(displayName, 30, 30);
                 return (
                   <a
-                    href={`/anuncios-ultimate/${property.id}/edit`}
+                    href={`/properties/${property.id}/edit`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block text-sm text-gray-900 leading-4 hover:underline"

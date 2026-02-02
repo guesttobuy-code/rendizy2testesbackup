@@ -97,7 +97,7 @@ export function ContactDetailSheet({
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
         const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
         
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,

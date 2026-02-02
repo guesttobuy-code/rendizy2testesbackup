@@ -1,4 +1,4 @@
-# ARQUITETURA: Client Sites (Supabase Storage + Vercel Proxy) — caso MedHome
+﻿# ARQUITETURA: Client Sites (Supabase Storage + Vercel Proxy) — caso MedHome
 
 **Data**: 2026-01-04  
 **Contexto**: `rendizy2testesbackup.vercel.app/site/medhome/`
@@ -162,4 +162,4 @@ Após o “básico funcionar”, os próximos ajustes típicos para qualidade do
 - [api/site.js](../../api/site.js)
 - [supabase/functions/rendizy-public/index.ts](../../supabase/functions/rendizy-public/index.ts)
 - [scripts/deploy-rendizy-public.ps1](../../scripts/deploy-rendizy-public.ps1)
-- [scripts/backfill-anuncios-ultimate-capacity.ps1](../../scripts/backfill-anuncios-ultimate-capacity.ps1)
+- [scripts/backfill-properties-capacity.ps1](../../scripts/backfill-properties-capacity.ps1)

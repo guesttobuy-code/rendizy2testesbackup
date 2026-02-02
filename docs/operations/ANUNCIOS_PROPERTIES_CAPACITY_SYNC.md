@@ -1,4 +1,4 @@
-# 🔁 Sync de Capacidade: `properties` → `properties`
+﻿# 🔁 Sync de Capacidade: `properties` → `properties`
 
 ## Problema (por que “funcionava” e parou)
 
@@ -27,9 +27,9 @@ Sempre que o anúncio atualizar dados que afetam capacidade, o backend deve sinc
 
 No Edge Function `rendizy-server`, em:
 
-- `POST /anuncios-ultimate/save-field`
+- `POST /properties/save-field`
   - Se `field === "rooms"` (e também quando salvar `guests/max_guests`), recalcula capacidade e faz `UPDATE properties`.
-- `PATCH /anuncios-ultimate/:id`
+- `PATCH /properties/:id`
   - Após salvar `data`, se existir `data.rooms`, recalcula capacidade e faz `UPDATE properties`.
 
 ### Regras de cálculo (alinhadas com o frontend)

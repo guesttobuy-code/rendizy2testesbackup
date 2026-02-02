@@ -39,7 +39,7 @@ import { logger } from "npm:hono/logger";
 // - Nunca usar INSERT/UPDATE separados (race condition!)
 // ============================================================================
 import authApp from "./routes-auth.ts";
-import anunciosApp from "./routes-anuncios.ts";
+import propertiesApp from "./routes-properties.ts";
 import clientSitesApp from "./routes-client-sites.ts";
 import * as reservationsRoutes from "./routes-reservations.ts";
 import * as calendarRoutes from "./routes-calendar.ts";
@@ -254,13 +254,13 @@ app.route("/guest", guestAreaApp);
 app.route("/rendizy-server/guest", guestAreaApp);
 
 // ============================================================================
-// ANÚNCIOS ULTIMATE (Properties Drafts/Publishing)
+// PROPERTIES (Imóveis/Propriedades)
 // ============================================================================
-// URL CANÔNICA (externa): /functions/v1/rendizy-server/anuncios-ultimate/*
+// URL CANÔNICA (externa): /functions/v1/rendizy-server/properties/*
 // OBS: em produção, o pathname recebido pelo Hono inclui o nome da function como prefixo.
-// Então montamos o módulo em /rendizy-server/anuncios-ultimate/* para bater com:
-// /functions/v1/rendizy-server/anuncios-ultimate/*
-app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
+// Então montamos o módulo em /rendizy-server/properties/* para bater com:
+// /functions/v1/rendizy-server/properties/*
+app.route("/rendizy-server/properties", propertiesApp);
 
 // ============================================================================
 // CLIENT SITES (Sites dos Clientes)

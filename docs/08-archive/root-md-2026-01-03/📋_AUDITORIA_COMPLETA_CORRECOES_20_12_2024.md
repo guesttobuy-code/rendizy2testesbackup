@@ -1,4 +1,4 @@
-# 🔍 AUDITORIA COMPLETA - CORREÇÕES PERDIDAS E RECUPERADAS
+﻿# 🔍 AUDITORIA COMPLETA - CORREÇÕES PERDIDAS E RECUPERADAS
 **Data da Auditoria:** 20 de Dezembro de 2025  
 **Período Investigado:** 16-20 Dezembro 2025  
 **Total de Documentos Analisados:** 8 documentos prioritários  
@@ -53,7 +53,7 @@ if (!anuncioId) {
       updated_at: new Date().toISOString()
     })
   });
-  navigate(`/anuncios-ultimate/${novoId}`);
+  navigate(`/properties/${novoId}`);
   return;
 }
 // ✅ ANÚNCIO EXISTENTE: Atualizar com PATCH
@@ -85,7 +85,7 @@ if (!anuncioId) {
 import anunciosApp from "./routes-anuncios.ts";
 
 // index.ts linha ~1526
-app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
+app.route("/rendizy-server/properties", anunciosApp);
 
 // Rotas consolidadas:
 // ✅ GET /:id - Busca anúncio
@@ -96,7 +96,7 @@ app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
 
 **Impacto:**
 - ✅ Todas as rotas em um único servidor
-- ✅ URL consistente: `/rendizy-server/anuncios-ultimate/*`
+- ✅ URL consistente: `/rendizy-server/properties/*`
 - ✅ Save fields funciona corretamente
 
 **Status:** ✅ **IMPLEMENTADO E DEPLOYADO**

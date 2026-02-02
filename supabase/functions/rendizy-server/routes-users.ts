@@ -2,16 +2,34 @@ import { Hono } from 'npm:hono';
 import { createHash } from 'node:crypto';
 import * as kv from './kv_store.tsx';
 import { getSupabaseClient } from './kv_store.tsx';
-import { tenancyMiddleware, isSuperAdmin, getTenant } from './utils-tenancy.ts';
+import { tenancyMiddleware, isSuperAdmin, getTenant, isImobiliaria } from './utils-tenancy.ts';
+import { canManageUsers, canManageUsersInOrg, getCurrentUserRole, canAssignRole, type UserRole as PermissionRole } from './utils-permissions.ts';
 
 const app = new Hono();
 
-// 🔒 Proteção: endpoints de users são restritos ao Admin Master
+// 🔒 Proteção: endpoints de users requerem autenticação
 app.use('*', tenancyMiddleware);
+
+// 🔒 Novo middleware: Verificar permissão de gerenciar usuários
+// SuperAdmin: pode tudo
+// Owner/Admin: pode apenas na sua organização
 app.use('*', async (c, next) => {
-  if (!isSuperAdmin(c)) {
-    return c.json({ success: false, error: 'Forbidden' }, 403);
+  const tenant = getTenant(c);
+  
+  // SuperAdmin pode tudo
+  if (tenant.type === 'superadmin') {
+    return await next();
   }
+  
+  // Para imobiliária/staff, verificar se pode gerenciar usuários
+  const canManage = await canManageUsers(c);
+  if (!canManage) {
+    return c.json({ 
+      success: false, 
+      error: 'Você não tem permissão para gerenciar usuários. Apenas Owner e Admin podem fazer isso.' 
+    }, 403);
+  }
+  
   await next();
 });
 
@@ -103,10 +121,26 @@ function isValidEmail(email: string): boolean {
 }
 
 // GET /users - Listar todos os usuários (opcional: filtrar por organização)
+// SuperAdmin: pode ver todos ou filtrar por org
+// Owner/Admin: só vê usuários da própria organização
 app.get('/', async (c) => {
   try {
-    const organizationId = c.req.query('organizationId');
+    const tenant = getTenant(c);
+    let organizationId = c.req.query('organizationId');
     const supabase = getSupabaseClient();
+
+    // Se não é SuperAdmin, forçar filtro pela organização do usuário
+    if (tenant.type !== 'superadmin') {
+      // Verificar se está tentando acessar outra organização
+      if (organizationId && organizationId !== tenant.organizationId) {
+        return c.json({
+          success: false,
+          error: 'Você só pode ver usuários da sua própria organização'
+        }, 403);
+      }
+      // Forçar filtro pela organização do tenant
+      organizationId = tenant.organizationId;
+    }
 
     // Construir query base
     let query = supabase
@@ -223,6 +257,8 @@ app.get('/email/:email', async (c) => {
 });
 
 // POST /users - Criar novo usuário
+// SuperAdmin: pode criar em qualquer organização
+// Owner/Admin: só pode criar na própria organização
 app.post('/', async (c) => {
   try {
     const body = await c.req.json();
@@ -245,6 +281,25 @@ app.post('/', async (c) => {
         success: false,
         error: 'organizationId, name, and email are required'
       }, 400);
+    }
+
+    // 🔒 Verificar permissão: Owner/Admin só pode criar na própria organização
+    if (tenant.type !== 'superadmin') {
+      if (organizationId !== tenant.organizationId) {
+        return c.json({
+          success: false,
+          error: 'Você só pode criar usuários na sua própria organização'
+        }, 403);
+      }
+      
+      // Verificar se o role que está tentando criar é permitido
+      const currentRole = await getCurrentUserRole(c);
+      if (!canAssignRole(currentRole, role as PermissionRole)) {
+        return c.json({
+          success: false,
+          error: `Você não tem permissão para criar usuários com role "${role}". Seu role: ${currentRole}`
+        }, 403);
+      }
     }
 
     const emailNormalized = normalizeEmail(email);
@@ -382,20 +437,51 @@ app.post('/', async (c) => {
 });
 
 // PATCH /users/:id - Atualizar usuário
+// SuperAdmin: pode atualizar qualquer usuário
+// Owner/Admin: só pode atualizar usuários da própria organização
 app.patch('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
     const supabase = getSupabaseClient();
+    const tenant = getTenant(c);
 
     console.log(`[PATCH] Updating user ${id}`, body);
 
-    // 1. Tentar atualizar no SQL
+    // 1. Buscar usuário para verificar permissões
     const { data: sqlUser, error: fetchError } = await supabase
       .from('users')
       .select('*')
       .eq('id', id)
       .maybeSingle();
+
+    if (!sqlUser) {
+      return c.json({
+        success: false,
+        error: 'User not found'
+      }, 404);
+    }
+
+    // 🔒 Verificar permissão: Owner/Admin só pode editar usuários da própria org
+    if (tenant.type !== 'superadmin') {
+      if (sqlUser.organization_id !== tenant.organizationId) {
+        return c.json({
+          success: false,
+          error: 'Você só pode editar usuários da sua própria organização'
+        }, 403);
+      }
+      
+      // Não permitir editar o próprio tipo/role para algo maior
+      if (body.role) {
+        const currentRole = await getCurrentUserRole(c);
+        if (!canAssignRole(currentRole, body.role as PermissionRole)) {
+          return c.json({
+            success: false,
+            error: `Você não tem permissão para alterar o role para "${body.role}"`
+          }, 403);
+        }
+      }
+    }
 
     if (sqlUser) {
       // Preparar updates para SQL
@@ -485,11 +571,23 @@ app.patch('/:id', async (c) => {
 });
 
 // DELETE /users/:id - Deletar usuário
+// SuperAdmin: pode deletar qualquer usuário
+// Owner/Admin: só pode deletar usuários da própria organização
 app.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
+    const tenant = getTenant(c);
+    const supabase = getSupabaseClient();
 
-    const user = await kv.get(`user:${id}`);
+    // Buscar usuário primeiro (SQL ou KV)
+    const { data: sqlUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    const user = sqlUser || await kv.get(`user:${id}`);
+    
     if (!user) {
       return c.json({
         success: false,
@@ -497,24 +595,63 @@ app.delete('/:id', async (c) => {
       }, 404);
     }
 
-    // Não permitir deletar owners (deve ter pelo menos 1 owner por org)
-    if (user.role === 'owner') {
-      const allUsers = await kv.getByPrefix('user:');
-      const orgOwners = allUsers.filter((u: User) =>
-        u.organizationId === user.organizationId && u.role === 'owner'
-      );
-
-      if (orgOwners.length <= 1) {
+    // 🔒 Verificar permissão: Owner/Admin só pode deletar usuários da própria org
+    const userOrgId = sqlUser?.organization_id || user.organizationId;
+    if (tenant.type !== 'superadmin') {
+      if (userOrgId !== tenant.organizationId) {
         return c.json({
           success: false,
-          error: 'Cannot delete the last owner of an organization'
+          error: 'Você só pode remover usuários da sua própria organização'
+        }, 403);
+      }
+      
+      // Não permitir deletar a si mesmo
+      if (id === tenant.userId) {
+        return c.json({
+          success: false,
+          error: 'Você não pode remover sua própria conta'
         }, 403);
       }
     }
 
+    // Não permitir deletar owners (deve ter pelo menos 1 owner por org)
+    const userRole = sqlUser?.type === 'imobiliaria' ? 'owner' : user.role;
+    if (userRole === 'owner' || sqlUser?.type === 'imobiliaria') {
+      // Contar owners restantes na organização
+      const { count: ownersCount } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', userOrgId)
+        .eq('type', 'imobiliaria');
+
+      if ((ownersCount || 0) <= 1) {
+        return c.json({
+          success: false,
+          error: 'Não é possível remover o único administrador da organização'
+        }, 403);
+      }
+    }
+
+    // Deletar do SQL
+    if (sqlUser) {
+      const { error: deleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        console.error('❌ Erro ao deletar usuário do SQL:', deleteError);
+        return c.json({
+          success: false,
+          error: `Failed to delete user: ${deleteError.message}`
+        }, 500);
+      }
+    }
+
+    // Deletar do KV também (caso exista)
     await kv.del(`user:${id}`);
 
-    console.log(`✅ User deleted: ${user.email} (${id})`);
+    console.log(`✅ User deleted: ${sqlUser?.email || user.email} (${id})`);
 
     return c.json({
       success: true,

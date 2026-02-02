@@ -1,4 +1,4 @@
-# 🎓 Aprendizado: As 5 Camadas de Análise em Desenvolvimento
+﻿# 🎓 Aprendizado: As 5 Camadas de Análise em Desenvolvimento
 
 ## 📍 Contexto
 Durante o debugging de uma issue onde o modal de reserva mostrava "R$ 0.00" (bug de pricing), foi necessário investigar através de múltiplas camadas do sistema. O aprendizado não foi apenas técnico, mas arquitetural.
@@ -27,7 +27,7 @@ Durante o debugging de uma issue onde o modal de reserva mostrava "R$ 0.00" (bug
 
 ```javascript
 // ✅ Teste direto
-fetch('https://supabase.com/functions/v1/rendizy-server/anuncios-ultimate/ID')
+fetch('https://supabase.com/functions/v1/rendizy-server/properties/ID')
   .then(r => r.json())
   .then(d => console.log('Preço:', d.anuncio.pricing))
 ```

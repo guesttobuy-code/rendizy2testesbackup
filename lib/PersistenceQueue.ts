@@ -132,7 +132,7 @@ export class PersistenceQueue {
           window.history.replaceState(
             null, 
             '', 
-            `/anuncios-ultimate/${result.id}/edit`
+            `/properties/${result.id}/edit`
           );
         }
       }

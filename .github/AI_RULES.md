@@ -34,7 +34,7 @@
 **Marcador:** `[ZONA_CRITICA]`
 
 **PROIBIDO:**
-- ❌ Alterar a lógica de fetch de `anuncios-ultimate/lista`
+- ❌ Alterar a lógica de fetch de `properties/lista`
 - ❌ Adicionar filtros extras que possam excluir propriedades
 - ❌ Modificar `setProperties()` ou `setSelectedProperties()` sem validação
 - ❌ Remover logs de diagnóstico `[ZONA_CRITICA]`
@@ -47,10 +47,10 @@
 
 ---
 
-### 2. Rota de Listagem de Anúncios (routes-anuncios.ts)
+### 2. Rota de Listagem de Anúncios (routes-properties.ts)
 
-**Arquivo:** `supabase/functions/rendizy-server/routes-anuncios.ts`  
-**Rota:** `GET /anuncios-ultimate/lista`  
+**Arquivo:** `supabase/functions/rendizy-server/routes-properties.ts`  
+**Rota:** `GET /properties/lista`  
 **Marcador:** `[ZONA_CRITICA]`
 
 **PROIBIDO:**

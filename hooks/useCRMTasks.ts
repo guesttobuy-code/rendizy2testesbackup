@@ -515,7 +515,7 @@ export function useCheckIns(date?: string) {
       let propertiesMap = new Map<string, PropertyCheckinData>();
       
       try {
-        const propsResponse = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+        const propsResponse = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
@@ -703,7 +703,7 @@ export function useCheckOuts(date?: string) {
       let propertiesMap = new Map<string, PropertyCheckinData>();
       
       try {
-        const propsResponse = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+        const propsResponse = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,

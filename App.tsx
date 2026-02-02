@@ -31,6 +31,7 @@ import { MainSidebar } from './components/MainSidebar';
 import { VersionBadge } from './components/VersionBadge';
 import { BuildLogger } from './components/BuildLogger';
 import LoginPage from './components/LoginPage';
+import SignupPage from './src/components/SignupPage';
 import { Calendar } from './components/CalendarGrid';
 import { PriceEditModal } from './components/PriceEditModal';
 import { PropertySidebar } from './components/PropertySidebar';
@@ -888,7 +889,7 @@ function App() {
   // ║ 🚨🚨🚨 ZONA CRÍTICA - NÃO MODIFICAR SEM AUTORIZAÇÃO EXPLÍCITA 🚨🚨🚨        ║
   // ║                                                                              ║
   // ║ REGRAS DE BLOQUEIO PARA AI/COPILOT:                                          ║
-  // ║ 1. NÃO alterar a lógica de fetch de anuncios-ultimate/lista                  ║
+  // ║ 1. NÃO alterar a lógica de fetch de properties/lista                         ║
   // ║ 2. NÃO adicionar filtros extras que possam excluir propriedades              ║
   // ║ 3. NÃO modificar setProperties() ou setSelectedProperties() aqui             ║
   // ║ 4. NÃO remover logs de diagnóstico                                           ║
@@ -900,16 +901,16 @@ function App() {
   // ║                                                                              ║
   // ║ SE PRECISAR ALTERAR: Peça confirmação explícita ao usuário primeiro!         ║
   // ╚══════════════════════════════════════════════════════════════════════════════╝
-  // Load properties from Anúncios Ultimate - ✅ HABILITADO v1.0.103.335
+  // Load properties - ✅ HABILITADO v1.0.103.335
   const loadProperties = useCallback(async () => {
       setLoadingProperties(true);
-      console.log('🔄 [ZONA_CRITICA] Carregando imóveis de Anúncios Ultimate...');
+      console.log('🔄 [ZONA_CRITICA] Carregando imóveis de Properties...');
 
       try {
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
         const ANON_KEY = publicAnonKey;
         
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
@@ -1433,6 +1434,11 @@ function App() {
                 {/* ✅ ROTA LOGIN - v1.0.103.259 - Sistema Multi-Tenant */}
                 <Route path="/login" element={<LoginPage />} />
 
+                {/* ✅ ROTA SIGNUP - Self-signup para novas imobiliárias com trial */}
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/cadastro" element={<SignupPage />} />
+                <Route path="/criar-conta" element={<SignupPage />} />
+
                 {/* 🧪 ROTA TESTE FIGMA - v1.0.103.311 - Criação de Imóvel de Teste - PROTEGIDA */}
                 <Route path="/test/figma-property" element={
                   <ProtectedRoute>
@@ -1816,8 +1822,8 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* ✅ ROTA SETTINGS - v1.0.103.253 - PROTEGIDA (ENCAPSULADA) */}
-                <Route path="/settings" element={
+                {/* ✅ ROTA SETTINGS - v1.0.103.336 - PROTEGIDA COM SUB-ROTAS */}
+                <Route path="/settings/:tab?" element={
                   <ProtectedRoute>
                     <SettingsModule
                       sidebarCollapsed={sidebarCollapsed}
@@ -2020,10 +2026,10 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* ⭐ ROTAS ANUNCIO ULTIMATE - v1.0.103.332 */}
+                {/* ⭐ ROTAS PROPERTIES (Imóveis) - v1.0.103.332 */}
                 
-                {/* Lista de Anúncios */}
-                <Route path="/anuncios-ultimate/lista" element={
+                {/* Lista de Imóveis */}
+                <Route path="/properties/lista" element={
                   <ProtectedRoute>
                     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
                       <LoadingProgress isLoading={initialLoading} />
@@ -2044,8 +2050,8 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* Criar Novo Anúncio - Tabs Simplificado */}
-                <Route path="/anuncios-ultimate/novo" element={
+                {/* Criar Novo Imóvel - Tabs Simplificado */}
+                <Route path="/properties/novo" element={
                   <ProtectedRoute>
                     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
                       <LoadingProgress isLoading={initialLoading} />
@@ -2066,8 +2072,8 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* Editar Anúncio Existente - Wizard 12 Steps */}
-                <Route path="/anuncios-ultimate/:id/edit" element={
+                {/* Editar Imóvel Existente - Wizard 12 Steps */}
+                <Route path="/properties/:id/edit" element={
                   <ProtectedRoute>
                     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
                       <LoadingProgress isLoading={initialLoading} />
@@ -2088,8 +2094,11 @@ function App() {
                   </ProtectedRoute>
                 } />
 
-                {/* Redirect antigo /anuncio-ultimate -> /anuncios-ultimate/lista */}
-                <Route path="/anuncio-ultimate" element={<Navigate to="/anuncios-ultimate/lista" replace />} />
+                {/* Redirects legados -> /properties/lista */}
+                <Route path="/anuncio-ultimate" element={<Navigate to="/properties/lista" replace />} />
+                <Route path="/anuncios-ultimate/lista" element={<Navigate to="/properties/lista" replace />} />
+                <Route path="/anuncios-ultimate/novo" element={<Navigate to="/properties/novo" replace />} />
+                <Route path="/anuncios-ultimate/:id/edit" element={<Navigate to="/properties/:id/edit" replace />} />
 
                 {/* 🏗️ REAL ESTATE MARKETPLACE MOCK - v1.0.0 - Protótipo visual do marketplace B2B */}
                 <Route path="/real-estate-mock" element={

@@ -1,4 +1,4 @@
-# ⚡ RESUMO EXECUTIVO - CONSOLIDAÇÃO COMPLETA
+﻿# ⚡ RESUMO EXECUTIVO - CONSOLIDAÇÃO COMPLETA
 
 **Data:** 2025-12-13 18:01  
 **Versão:** V1.0.103.332  
@@ -27,7 +27,7 @@
 
 ## 📋 ROTAS CONSOLIDADAS
 
-Todas em `/rendizy-server/anuncios-ultimate/`:
+Todas em `/rendizy-server/properties/`:
 
 | Endpoint | Método | Função |
 |----------|--------|--------|
@@ -51,7 +51,7 @@ Todas em `/rendizy-server/anuncios-ultimate/`:
 - Confirme a exclusão
 
 ### 3️⃣ **Testar Frontend**
-- Recarregue: http://localhost:3001/anuncios-ultimate/9f6cad48-42e9-4ed5-b766-82127a62dce2/edit
+- Recarregue: http://localhost:3001/properties/9f6cad48-42e9-4ed5-b766-82127a62dce2/edit
 - Verifique o log: `🔥 NovoAnuncio.tsx CARREGADO - V1.0.103.332`
 - Edite título e tipo de local
 - Clique em **SALVAR AGORA!**

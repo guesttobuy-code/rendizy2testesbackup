@@ -1,4 +1,4 @@
-# 🔍 ANÁLISE CRÍTICA - CRIAÇÃO DE RESERVA
+﻿# 🔍 ANÁLISE CRÍTICA - CRIAÇÃO DE RESERVA
 
 **Data**: 2024-12-16  
 **Versão**: v1.0.103.352  
@@ -77,7 +77,7 @@ if (!guest) {
 **✅ DEVERIA SER:**
 
 ```typescript
-// ✅ CORRETO: Buscar guest do SQL (como anuncios-ultimate faz)
+// ✅ CORRETO: Buscar guest do SQL (como properties faz)
 let guestQuery = client
   .from('guests')
   .select('*')
@@ -105,15 +105,15 @@ console.log('✅ [createReservation] Hóspede encontrado:', guestRow.id, guestRo
 
 ---
 
-## 2. COMPARAÇÃO: ANUNCIOS-ULTIMATE (Funciona) vs RESERVATIONS (Não funciona)
+## 2. COMPARAÇÃO: properties (Funciona) vs RESERVATIONS (Não funciona)
 
-### ✅ Anuncios-Ultimate (FormularioAnuncio.tsx)
+### ✅ properties (FormularioAnuncio.tsx)
 
 **Persistência via save-field endpoint:**
 
 ```typescript
 const saveAddressFields = async () => {
-  const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+  const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
   
   const fieldsToSave = [
     { field: 'pais', value: formData.pais },

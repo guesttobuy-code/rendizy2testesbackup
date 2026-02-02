@@ -57,7 +57,7 @@ import { photosApi } from '../../utils/api';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
 const ANON_KEY = publicAnonKey;
 
-const SETTINGS_LOCATIONS_LISTINGS_URL = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/settings/locations-listings`;
+const SETTINGS_LOCATIONS_LISTINGS_URL = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/settings/locations-listings`;
 const CUSTOM_DESCRIPTION_VALUES_FIELD = 'custom_description_fields_values';
 const DISCOUNT_PACKAGES_OVERRIDE_FIELD = 'discount_packages_override';
 const CLIENT_SITES_BASE_URL = 'https://rendizy2testesbackup.vercel.app/site';
@@ -620,7 +620,7 @@ export default function FormularioAnuncio() {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('rendizy-token');
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncioId}`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/${anuncioId}`, {
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
@@ -1238,7 +1238,7 @@ export default function FormularioAnuncio() {
     console.log('✅ Todas validações OK, iniciando save...');
     
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       // Salvar 9 campos de endereço base
       const fieldsToSave = [
@@ -1302,7 +1302,7 @@ export default function FormularioAnuncio() {
     console.log('✅ Validação OK, iniciando save...');
     
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       // Salvar campos 10-17 (características)
       const fieldsToSave = [
@@ -1635,7 +1635,7 @@ export default function FormularioAnuncio() {
     }
     
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -1680,7 +1680,7 @@ export default function FormularioAnuncio() {
     }
 
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -1727,7 +1727,7 @@ export default function FormularioAnuncio() {
     }
     
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -1772,7 +1772,7 @@ export default function FormularioAnuncio() {
     }
     
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -1817,7 +1817,7 @@ export default function FormularioAnuncio() {
     }
     
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       // Salvar cada campo multilíngue separadamente
       const ids = new Set<string>([
@@ -1889,7 +1889,7 @@ export default function FormularioAnuncio() {
     }
     
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const fields = [
         { field: 'titular_imovel', value: titularImovel },
@@ -1962,7 +1962,7 @@ export default function FormularioAnuncio() {
     }
 
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const fields = [
         { field: 'title', value: formData.title },
@@ -2020,7 +2020,7 @@ export default function FormularioAnuncio() {
     }
 
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const fields = [
         { field: 'tipo_negocio', value: tipoNegocio },
@@ -2080,7 +2080,7 @@ export default function FormularioAnuncio() {
     }
 
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const fields = [
         { field: 'modo_config_preco', value: modoConfigPreco },
@@ -2143,7 +2143,7 @@ export default function FormularioAnuncio() {
     }
 
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const fields = [
         { field: 'preco_base_noite', value: precoBaseNoite },
@@ -2263,7 +2263,7 @@ export default function FormularioAnuncio() {
     }
 
     try {
-      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`;
+      const url = `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`;
       
       const fields = [
         { field: 'variacao_por_hospedes', value: variacaoPorHospedes },
@@ -2395,7 +2395,7 @@ export default function FormularioAnuncio() {
 
         const initialData = normalizeForStorage(formData, {});
 
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/create`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/create`, {
           method: 'POST',
           headers: {
             'apikey': ANON_KEY,
@@ -2417,7 +2417,7 @@ export default function FormularioAnuncio() {
         calculateProgress(formData);
         
         // Redirecionar para a URL de edição com o ID
-        navigate(`/anuncios-ultimate/${novoId}`);
+        navigate(`/properties/${novoId}`);
         return;
       }
       
@@ -2426,7 +2426,7 @@ export default function FormularioAnuncio() {
 
       // IMPORTANT: PATCH replaces `data`. We must merge with existing data to avoid wiping
       // fields that are not currently hydrated in formData.
-      const currentResp = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncioId}`, {
+      const currentResp = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/${anuncioId}`, {
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
@@ -2444,7 +2444,7 @@ export default function FormularioAnuncio() {
       const existingData = currentPayload?.anuncio?.data || {};
       const mergedData = normalizeForStorage(formData, existingData);
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncioId}`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/${anuncioId}`, {
         method: 'PATCH',
         headers: {
           'apikey': ANON_KEY,
@@ -2577,7 +2577,7 @@ export default function FormularioAnuncio() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/anuncios-ultimate')}
+              onClick={() => navigate('/properties')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar

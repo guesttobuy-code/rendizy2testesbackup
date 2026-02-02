@@ -1,4 +1,4 @@
-# ⚡ TESTE: SALVAR CAMPO "IDENTIFICAÇÃO INTERNA"
+﻿# ⚡ TESTE: SALVAR CAMPO "IDENTIFICAÇÃO INTERNA"
 
 **Versão:** v1.0.103.326  
 **Data:** 2025-12-13  
@@ -68,7 +68,7 @@ Se tudo der certo, você verá:
 📊 [SAVE] Título length: 18
 📊 [SAVE] Título trimmed: Teste Rafa EDITADO
 📋 [SAVE] Título preparado: Teste Rafa EDITADO
-📤 [SAVE] URL do endpoint: https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/save-field
+📤 [SAVE] URL do endpoint: https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/properties/save-field
 📤 [SAVE] Método: POST
 📤 [SAVE] Payload JSON: {
   "anuncio_id": "9f6cad48-42e9-4ed5-b766-82127a62dce2",
@@ -171,7 +171,7 @@ console.log('Key:', import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20));
 
 ### 3. Teste endpoint direto via cURL
 ```bash
-curl -X POST https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/save-field \
+curl -X POST https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/properties/save-field \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer SEU_TOKEN" \
   -d '{

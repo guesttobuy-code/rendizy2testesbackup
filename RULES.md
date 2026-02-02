@@ -179,7 +179,7 @@ Antes de criar QUALQUER arquivo novo, responda:
 2. ✅ Executou git status (0 arquivos não rastreados antes)
 3. ✅ Editou 2 arquivos existentes:
    - components/anuncio-ultimate/ListaAnuncios.tsx
-   - supabase/functions/rendizy-server/routes-anuncios.ts
+   - supabase/functions/rendizy-server/routes-properties.ts
 4. ✅ Atualizou CHANGELOG.md com Issue#
 5. ✅ Criou 1 doc em /docs/07-sessions/2024-12-20/ (pasta datada)
 6. ✅ Rodou scripts/validar-regras.ps1 (0 erros)
@@ -462,17 +462,17 @@ git status
 
 ### ✅ Regra: URL canônica (Anúncios Ultimate)
 
-- **Canônico:** `/functions/v1/rendizy-server/anuncios-ultimate/*`
-- **Regra (Supabase Edge Functions):** o `pathname` recebido pelo Hono inclui o nome da function como prefixo. Portanto, dentro do `index.ts`, o módulo `anunciosApp` deve ser montado em `/rendizy-server/anuncios-ultimate/*`.
-- **Proibido (clientes/scripts):** chamar com prefixo duplicado (`/functions/v1/rendizy-server/rendizy-server/anuncios-ultimate/*`).
+- **Canônico:** `/functions/v1/rendizy-server/properties/*`
+- **Regra (Supabase Edge Functions):** o `pathname` recebido pelo Hono inclui o nome da function como prefixo. Portanto, dentro do `index.ts`, o módulo `propertiesApp` deve ser montado em `/rendizy-server/properties/*`.
+- **Proibido (clientes/scripts):** chamar com prefixo duplicado (`/functions/v1/rendizy-server/rendizy-server/properties/*`).
   - Motivo: isso incentiva caminhos “duplos” e pode gerar URLs confusas do tipo `.../functions/v1/rendizy-server/rendizy-server/...`.
   - Como o ambiente é 100% testes hoje, manteremos **um único padrão** para evitar dívida técnica.
 
 ```typescript
 // Backend (Edge Functions)
-/functions/v1/rendizy-server/anuncios-ultimate/lista
-/functions/v1/rendizy-server/anuncios-ultimate/save-field
-/functions/v1/rendizy-server/anuncios-ultimate/delete
+/functions/v1/rendizy-server/properties/lista
+/functions/v1/rendizy-server/properties/save-field
+/functions/v1/rendizy-server/properties/delete
 /functions/v1/rendizy-server/staysnet/full-sync
 /functions/v1/rendizy-server/staysnet/test-connection
 /functions/v1/rendizy-server/reservations/create
@@ -480,8 +480,8 @@ git status
 /functions/v1/rendizy-server/blocks/create
 
 // Frontend (rotas React Router)
-/rendizy-server/anuncios-ultimate
-/rendizy-server/anuncios-ultimate/lista
+/rendizy-server/properties
+/rendizy-server/properties/lista
 /calendario
 /reservas
 /configuracoes
@@ -517,7 +517,7 @@ git status
 
 ```typescript
 const response = await fetch(
-  `${supabaseUrl}/functions/v1/rendizy-server/anuncios-ultimate/lista`,
+  `${supabaseUrl}/functions/v1/rendizy-server/properties/lista`,
   {
     headers: {
       'X-Auth-Token': localStorage.getItem('rendizy-token'),
@@ -542,7 +542,7 @@ const { data, error } = await supabase
 ```typescript
 // ❌ NUNCA fazer isso
 const response = await fetch(
-  `${supabaseUrl}/functions/v1/rendizy-server/anuncios-ultimate/lista`,
+  `${supabaseUrl}/functions/v1/rendizy-server/properties/lista`,
   {
     headers: {
       'Authorization': `Bearer ${token}`, // ❌ Errado para Edge Function custom

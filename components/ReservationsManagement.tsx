@@ -646,7 +646,7 @@ export function ReservationsManagement({
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`;
       const ANON_KEY = publicAnonKey;
       
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,

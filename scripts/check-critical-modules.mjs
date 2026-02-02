@@ -43,8 +43,8 @@ const mustInclude = (content, needle) => {
 
 const checks = [
   {
-    name: 'Properties: routes-anuncios.ts invariants',
-    file: 'supabase/functions/rendizy-server/routes-anuncios.ts',
+    name: 'Properties: routes-properties.ts invariants',
+    file: 'supabase/functions/rendizy-server/routes-properties.ts',
     needles: [
       'app.post("/save-field"',
       'supabase.rpc("save_anuncio_field"',

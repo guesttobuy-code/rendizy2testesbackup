@@ -1,4 +1,4 @@
-# 📚 Documentação - Rendizy PMS
+﻿# 📚 Documentação - Rendizy PMS
 
 > **Portal Central de Documentação do Projeto**
 > 
@@ -160,7 +160,7 @@ docs/
 
 ```
 04-modules/
-├── anuncios-ultimate/    → Sistema de anúncios (tabs + wizard deprecated)
+├── properties/    → Sistema de anúncios (tabs + wizard deprecated)
 ├── staysnet/             → Integração Stays.net
 ├── calendario/           → Calendário de reservas e bloqueios
 ├── reservas/             → Sistema de reservas
@@ -351,7 +351,7 @@ Não use código daqui sem validar primeiro.
 - `/docs/03-conventions/BOAS_PRATICAS_LOGIN_MULTI_TENANT.md`
 
 **Anúncios:**
-- `/docs/04-modules/anuncios-ultimate/`
+- `/docs/04-modules/properties/`
 - `/RULES.md` - Seção 1
 
 **StaysNet:**
@@ -440,7 +440,7 @@ RESUMO_SESSAO_[DATA].md
 
 ### Controles de Módulos
 
-- [Anúncios Ultimate](04-modules/anuncios-ultimate/README.md)
+- [Anúncios Ultimate](04-modules/properties/README.md)
 - [StaysNet](04-modules/staysnet/README.md)
 - [Calendário](04-modules/calendario/README.md)
 

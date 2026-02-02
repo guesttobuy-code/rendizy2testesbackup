@@ -1,4 +1,4 @@
-# 🎯 LIMPEZA DEFINITIVA CONCLUÍDA - 15/12/2025
+﻿# 🎯 LIMPEZA DEFINITIVA CONCLUÍDA - 15/12/2025
 
 ## ✅ MISSÃO CUMPRIDA
 
@@ -61,9 +61,9 @@ Rendizyoficial-main/
 ## 🎯 Rotas Anúncios Ultimate Configuradas
 
 ```typescript
-/anuncios-ultimate/lista      → Lista de anúncios
-/anuncios-ultimate/novo       → Wizard 12 steps (criar)
-/anuncios-ultimate/:id/edit   → Wizard 12 steps (editar)
+/properties/lista      → Lista de anúncios
+/properties/novo       → Wizard 12 steps (criar)
+/properties/:id/edit   → Wizard 12 steps (editar)
 /anuncio-ultimate             → Redirect para /lista
 ```
 

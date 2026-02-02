@@ -1,4 +1,4 @@
-# Multi-Tenancy (Canônico)
+﻿# Multi-Tenancy (Canônico)
 
 Este documento define as **regras canônicas** de isolamento multi-tenant no Rendizy.
 
@@ -52,12 +52,12 @@ Padrão recomendado:
 
 - **Tabela canônica**: `public.properties`
 - Endpoints canônicos:
-  - `GET  /functions/v1/rendizy-server/anuncios-ultimate/lista`
-  - `GET  /functions/v1/rendizy-server/anuncios-ultimate/:id`
-  - `POST /functions/v1/rendizy-server/anuncios-ultimate/create`
-  - `POST /functions/v1/rendizy-server/anuncios-ultimate/save-field`
-  - `PATCH /functions/v1/rendizy-server/anuncios-ultimate/:id`
-  - `DELETE /functions/v1/rendizy-server/anuncios-ultimate/:id`
+  - `GET  /functions/v1/rendizy-server/properties/lista`
+  - `GET  /functions/v1/rendizy-server/properties/:id`
+  - `POST /functions/v1/rendizy-server/properties/create`
+  - `POST /functions/v1/rendizy-server/properties/save-field`
+  - `PATCH /functions/v1/rendizy-server/properties/:id`
+  - `DELETE /functions/v1/rendizy-server/properties/:id`
 
 Registros internos:
 - Configurações internas do módulo podem ficar em `properties.data` com:

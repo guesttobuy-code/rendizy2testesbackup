@@ -1,4 +1,4 @@
-# 🗑️ LIMPEZA DE EDGE FUNCTIONS OBSOLETAS
+﻿# 🗑️ LIMPEZA DE EDGE FUNCTIONS OBSOLETAS
 
 **Data:** 2025-12-13  
 **Versão:** V1.0.103.332
@@ -25,10 +25,10 @@ Todas essas rotas estão em `rendizy-server`:
 
 | Método | Rota | Função |
 |--------|------|--------|
-| GET | `/rendizy-server/anuncios-ultimate/:id` | Buscar anúncio por ID |
-| POST | `/rendizy-server/anuncios-ultimate/create` | Criar novo anúncio draft |
-| POST | `/rendizy-server/anuncios-ultimate/save-field` | Salvar campo individual |
-| GET | `/rendizy-server/anuncios-ultimate/lista` | Listar todos os drafts |
+| GET | `/rendizy-server/properties/:id` | Buscar anúncio por ID |
+| POST | `/rendizy-server/properties/create` | Criar novo anúncio draft |
+| POST | `/rendizy-server/properties/save-field` | Salvar campo individual |
+| GET | `/rendizy-server/properties/lista` | Listar todos os drafts |
 
 ---
 
@@ -71,14 +71,14 @@ supabase functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc
 ### 1. Testar GET (buscar anúncio)
 ```bash
 curl -X GET \
-  "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/9f6cad48-42e9-4ed5-b766-82127a62dce2" \
+  "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/properties/9f6cad48-42e9-4ed5-b766-82127a62dce2" \
   -H "Authorization: Bearer SEU_ANON_KEY"
 ```
 
 ### 2. Testar POST (salvar campo)
 ```bash
 curl -X POST \
-  "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/save-field" \
+  "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/properties/save-field" \
   -H "Authorization: Bearer SEU_ANON_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -89,7 +89,7 @@ curl -X POST \
 ```
 
 ### 3. Testar Frontend
-1. Abra: http://localhost:3001/anuncios-ultimate/9f6cad48-42e9-4ed5-b766-82127a62dce2/edit
+1. Abra: http://localhost:3001/properties/9f6cad48-42e9-4ed5-b766-82127a62dce2/edit
 2. Edite o título e tipo de local
 3. Clique em **SALVAR AGORA!**
 4. Aguarde o reload

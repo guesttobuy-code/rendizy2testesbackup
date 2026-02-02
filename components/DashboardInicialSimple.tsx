@@ -227,7 +227,7 @@ export function DashboardInicialSimple({
             </div>
           </CardHeader>
           <CardContent>
-            <a href="/anuncios-ultimate/lista">
+            <a href="/properties/lista">
               <Button className="w-full">
                 <Plus className="h-4 w-4 mr-2" />
                 Cadastrar Imóvel
@@ -399,7 +399,7 @@ export function DashboardInicialSimple({
             <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
               Comece cadastrando sua primeira propriedade para começar a gerenciar suas reservas
             </p>
-            <a href="/anuncios-ultimate/lista">
+            <a href="/properties/lista">
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Cadastrar Primeira Propriedade

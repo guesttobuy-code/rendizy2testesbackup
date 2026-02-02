@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Settings,
   Globe,
@@ -123,6 +124,21 @@ export function SettingsManager({
   listingId?: string;
   mode?: 'global' | 'individual';
 }) {
+  // ============================================================================
+  // URL SYNC - Sincroniza aba ativa com URL
+  // ============================================================================
+  const { tab: urlTab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+  
+  // Lista de abas válidas para navegação por URL
+  const validTabs = ['properties', 'reservas', 'precificacao', 'chat', 'integracoes', 'agentes-ia', 'gerais'];
+  const currentTab = urlTab && validTabs.includes(urlTab) ? urlTab : 'integracoes';
+  
+  // Handler para mudança de aba - atualiza a URL
+  const handleTabChange = (newTab: string) => {
+    navigate(`/settings/${newTab}`, { replace: true });
+  };
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
@@ -782,12 +798,12 @@ export function SettingsManager({
         </div>
       </div>
 
-      {/* Tabs - Organizadas por temas */}
-      <Tabs defaultValue="gerais" className="w-full">
+      {/* Tabs - Organizadas por temas - Sincronizadas com URL */}
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
         <div className="border-b border-border bg-muted">
           <TabsList className="w-full max-w-full overflow-x-hidden flex-col sm:flex-row items-stretch justify-start bg-transparent rounded-none h-auto p-0">
             <TabsTrigger
-              value="anuncios-ultimate"
+              value="properties"
               className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-3 sm:px-6 py-2.5 sm:py-3"
             >
               <Home className="h-4 w-4 mr-2" />
@@ -892,7 +908,7 @@ export function SettingsManager({
           return (
             <>
               {/* Anúncios Ultimate */}
-              <TabsContent value="anuncios-ultimate" className="mt-6">
+              <TabsContent value="properties" className="mt-6">
                 <Tabs defaultValue="locations-listings" className="w-full">
                   <div className="border-b border-border bg-muted/50">
                     <TabsList className="w-full max-w-full overflow-x-hidden flex-col sm:flex-row items-stretch justify-start bg-transparent rounded-none h-auto p-0">

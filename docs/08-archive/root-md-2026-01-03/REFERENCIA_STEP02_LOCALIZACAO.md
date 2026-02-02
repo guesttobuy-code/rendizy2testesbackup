@@ -1,4 +1,4 @@
-# 📍 REFERÊNCIA: Step 02 - Localização
+﻿# 📍 REFERÊNCIA: Step 02 - Localização
 ## Análise do código existente em LocationsAndListings.tsx
 
 ---
@@ -18,7 +18,7 @@ const handleChange = (value) => {
 
 // 3. Salvamento via RPC save_anuncio_field
 const saveCampo = async () => {
-  await fetch('/anuncios-ultimate/save-field', {
+  await fetch('/properties/save-field', {
     method: 'POST',
     body: JSON.stringify({
       anuncio_id: anuncioId,

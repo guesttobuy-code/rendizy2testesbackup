@@ -53,7 +53,7 @@ export function useProperties() {
       let response: Response;
 
       try {
-        response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+        response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,

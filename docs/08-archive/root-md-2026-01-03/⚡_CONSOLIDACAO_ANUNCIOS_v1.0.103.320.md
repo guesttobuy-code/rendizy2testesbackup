@@ -1,4 +1,4 @@
-# ✅ CONSOLIDAÇÃO COMPLETA: Anúncios Ultimate no Rendizy Server
+﻿# ✅ CONSOLIDAÇÃO COMPLETA: Anúncios Ultimate no Rendizy Server
 
 **Data**: 2025-12-13  
 **Versão**: v1.0.103.320  
@@ -38,8 +38,8 @@ Frontend chamava:
 └─────────────────────────┘
 
 Frontend agora chama:
-✅ /functions/v1/rendizy-server/anuncios-ultimate/save-field
-✅ /functions/v1/rendizy-server/anuncios-ultimate/:id
+✅ /functions/v1/rendizy-server/properties/save-field
+✅ /functions/v1/rendizy-server/properties/:id
 ```
 
 ---
@@ -66,7 +66,7 @@ Frontend agora chama:
 import anunciosApp from "./routes-anuncios.ts";
 
 // ROTA MONTADA (linha ~1526)
-app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
+app.route("/rendizy-server/properties", anunciosApp);
 ```
 
 ### 3. **NovoAnuncio.tsx** (MODIFICADO)
@@ -79,8 +79,8 @@ app.route("/rendizy-server/anuncios-ultimate", anunciosApp);
 ❌ `/functions/v1/anuncio-ultimate/save-field`
 
 // DEPOIS:
-✅ `/functions/v1/rendizy-server/anuncios-ultimate/${id}`
-✅ `/functions/v1/rendizy-server/anuncios-ultimate/save-field`
+✅ `/functions/v1/rendizy-server/properties/${id}`
+✅ `/functions/v1/rendizy-server/properties/save-field`
 ```
 
 ---
@@ -103,7 +103,7 @@ npx supabase functions deploy rendizy-server --project-ref odcgnzfremrqnvtitpcc 
 
 ### 1. Testar Save Field:
 ```bash
-POST https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/save-field
+POST https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/properties/save-field
 Content-Type: application/json
 apikey: [ANON_KEY]
 
@@ -127,7 +127,7 @@ apikey: [ANON_KEY]
 ```
 
 ### 2. Testar no Frontend:
-1. Abrir http://localhost:3000/anuncios-ultimate/novo
+1. Abrir http://localhost:3000/properties/novo
 2. Criar novo anúncio (vai gerar ID)
 3. Preencher campo "Título"
 4. Clicar em "SALVAR"
@@ -159,7 +159,7 @@ apikey: [ANON_KEY]
 │     SUPABASE EDGE FUNCTION (Deno + Hono)    │
 │         rendizy-server/index.ts             │
 ├─────────────────────────────────────────────┤
-│  app.route("/anuncios-ultimate", anunciosApp)│
+│  app.route("/properties", anunciosApp)│
 │           ↓                                 │
 │  routes-anuncios.ts                         │
 │    POST /save-field                         │
@@ -194,7 +194,7 @@ apikey: [ANON_KEY]
 1. ✅ **Consolidação**: COMPLETO
 2. ⏳ **Teste Save**: Pendente (usuário deve testar agora)
 3. ⏳ **Opcional**: Deletar edge function `anuncio-ultimate` se save funcionar
-4. ⏳ **Opcional**: Migrar lista de anúncios para usar `/rendizy-server/anuncios-ultimate/lista`
+4. ⏳ **Opcional**: Migrar lista de anúncios para usar `/rendizy-server/properties/lista`
 
 ---
 
@@ -215,7 +215,7 @@ apikey: [ANON_KEY]
 
 Quando usuário clicar em **SALVAR**:
 1. ✅ Console mostra logs detalhados
-2. ✅ POST enviado para `/rendizy-server/anuncios-ultimate/save-field`
+2. ✅ POST enviado para `/rendizy-server/properties/save-field`
 3. ✅ RPC `save_anuncio_field` executado com sucesso
 4. ✅ Dados salvos em `anuncios_drafts`
 5. ✅ Página recarrega automaticamente

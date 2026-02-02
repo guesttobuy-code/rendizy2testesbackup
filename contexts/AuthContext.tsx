@@ -142,7 +142,9 @@ export * from '../src/contexts/AuthContext';
           email: backendUser.email,
           name: backendUser.name,
           username: backendUser.username,
-          role: backendUser.type === 'superadmin' ? 'super_admin' : (backendUser.type === 'imobiliaria' ? 'admin' : 'staff'),
+          // SuperAdmin é identificado pelo type='superadmin' na tabela users
+          // Para roles dentro de organizações usamos: owner, admin, manager, staff, readonly
+          role: backendUser.type === 'superadmin' ? 'super_admin' : (backendUser.role || (backendUser.type === 'imobiliaria' ? 'owner' : 'staff')),
           status: backendUser.status || 'active',
           emailVerified: true,
           createdAt: new Date(),
@@ -408,7 +410,9 @@ export * from '../src/contexts/AuthContext';
         email: backendUser.email,
         name: backendUser.name,
         username: backendUser.username,
-        role: backendUser.type === 'superadmin' ? 'super_admin' : (backendUser.type === 'imobiliaria' ? 'admin' : 'staff'),
+        // SuperAdmin é identificado pelo type='superadmin' na tabela users
+        // Para roles dentro de organizações usamos: owner, admin, manager, staff, readonly
+        role: backendUser.type === 'superadmin' ? 'super_admin' : (backendUser.role || (backendUser.type === 'imobiliaria' ? 'owner' : 'staff')),
         status: backendUser.status || 'active',
         emailVerified: true,
         createdAt: new Date(),
@@ -586,8 +590,11 @@ export * from '../src/contexts/AuthContext';
     canUpdate,
     canDelete,
     canExport,
+    // super_admin é mapeado do type='superadmin' na tabela users (não é uma role de organização)
     isSuperAdmin: user?.role === 'super_admin',
-    isAdmin: user?.role === 'admin',
+    // owner é o dono da organização (imobiliária)
+    isOwner: user?.role === 'owner',
+    isAdmin: user?.role === 'admin' || user?.role === 'owner', // owner também tem permissões de admin
     isManager: user?.role === 'manager'
   };
 

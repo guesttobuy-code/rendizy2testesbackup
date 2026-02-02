@@ -1,4 +1,4 @@
-# ✅ SOLUÇÃO IMPLEMENTADA - CRIAÇÃO DE RESERVA
+﻿# ✅ SOLUÇÃO IMPLEMENTADA - CRIAÇÃO DE RESERVA
 
 **Data**: 2024-12-16 17:55  
 **Versão**: v1.0.103.352  
@@ -172,15 +172,15 @@ http://localhost:3000/calendario
 
 ---
 
-## 🔍 COMPARAÇÃO COM ANUNCIOS-ULTIMATE
+## 🔍 COMPARAÇÃO COM properties
 
-### Por que Anuncios-Ultimate funciona?
+### Por que properties funciona?
 
 **Persistência campo por campo:**
 ```typescript
 // Salva cada campo individualmente via /save-field
 for (const { field, value } of fieldsToSave) {
-  await fetch('/rendizy-server/anuncios-ultimate/save-field', {
+  await fetch('/rendizy-server/properties/save-field', {
     method: 'POST',
     body: JSON.stringify({ anuncio_id, field, value })
   });
@@ -239,7 +239,7 @@ return success(reservation);
 
 1. **⚡_ANALISE_CRIACAO_RESERVA_v1.0.103.352.md**
    - Análise completa do problema
-   - Comparação com anuncios-ultimate
+   - Comparação com properties
    - Root cause analysis
 
 2. **⚡_TESTE_CRIACAO_RESERVA_v1.0.103.352.md**

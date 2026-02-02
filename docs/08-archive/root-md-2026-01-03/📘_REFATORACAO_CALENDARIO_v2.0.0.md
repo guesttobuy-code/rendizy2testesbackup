@@ -1,4 +1,4 @@
-# 🚀 REFATORAÇÃO CALENDÁRIO - v2.0.0
+﻿# 🚀 REFATORAÇÃO CALENDÁRIO - v2.0.0
 ## Melhorias de Arquitetura Invisíveis
 
 **Data:** 16 de dezembro de 2025
@@ -229,7 +229,7 @@ Tecla: Shift + Ctrl + Q
 # Depois: 5-8 requests (cache funciona)
 
 # Verificar:
-- Menos chamadas /anuncios-ultimate/lista
+- Menos chamadas /properties/lista
 - Menos chamadas /reservations
 - Headers incluem cache indicators
 ```

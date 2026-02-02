@@ -1,4 +1,4 @@
-# ⚡ CORREÇÃO: Blob URLs e React DOM Errors - v1.0.103.335
+﻿# ⚡ CORREÇÃO: Blob URLs e React DOM Errors - v1.0.103.335
 
 **Data:** 2025-12-14  
 **Severidade:** 🔴 CRÍTICO  
@@ -192,7 +192,7 @@ Fazendo upload da foto 3/3...
 
 1. **Abrir anúncio existente com fotos antigas:**
    ```
-   http://localhost:3000/anuncios-ultimate/9f6cad48-42e9-4ed5-b766-82127a62dce2/edit
+   http://localhost:3000/properties/9f6cad48-42e9-4ed5-b766-82127a62dce2/edit
    ```
 
 2. **Ir para Step 03 (Cômodos e Fotos)**

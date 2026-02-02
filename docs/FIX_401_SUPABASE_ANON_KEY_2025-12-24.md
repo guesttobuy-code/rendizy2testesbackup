@@ -1,8 +1,8 @@
-# FIX 401 (Supabase) + "Invalid JWT" — 2025-12-24
+﻿# FIX 401 (Supabase) + "Invalid JWT" — 2025-12-24
 
 ## Sintoma
 - Frontend recebendo `401` em:
-  - `.../functions/v1/rendizy-server/*` (ex.: `anuncios-ultimate/lista`, `guests`, `reservations`, `calendar`)
+  - `.../functions/v1/rendizy-server/*` (ex.: `properties/lista`, `guests`, `reservations`, `calendar`)
   - `.../rest/v1/*` (ex.: `properties?select=*`)
 - Login falhando com mensagem do app sobre `VITE_SUPABASE_ANON_KEY`.
 

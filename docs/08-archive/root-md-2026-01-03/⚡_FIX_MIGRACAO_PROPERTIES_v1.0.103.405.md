@@ -1,4 +1,4 @@
-# ⚡ FIX: Migração properties → anuncios_drafts v1.0.103.405
+﻿# ⚡ FIX: Migração properties → anuncios_drafts v1.0.103.405
 
 **Data**: 20/12/2024 22:30  
 **Issue**: #49 - 157 anúncios na tabela antiga não aparecem em Anúncios Ultimate  
@@ -10,7 +10,7 @@
 
 ### **Sintoma 1: URL incorreta em ListaAnuncios.tsx**
 ```
-GET .../rendizy-server/make-server-67caf26a/anuncios-ultimate/lista
+GET .../rendizy-server/make-server-67caf26a/properties/lista
 ❌ HTTP 404 (Not Found)
 ```
 
@@ -30,7 +30,7 @@ GET .../rendizy-server/make-server-67caf26a/anuncios-ultimate/lista
 **URL ERRADA** (v1.0.103.404):
 ```typescript
 const res = await fetch(
-  `${SUPABASE_URL}/functions/v1/rendizy-server/make-server-67caf26a/anuncios-ultimate/lista`,
+  `${SUPABASE_URL}/functions/v1/rendizy-server/make-server-67caf26a/properties/lista`,
   //                                             ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
   //                                        Prefixo incorreto!
   { headers: { 'X-Auth-Token': token } }
@@ -40,7 +40,7 @@ const res = await fetch(
 **URL CORRETA** (v1.0.103.405):
 ```typescript
 const res = await fetch(
-  `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`,
+  `${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`,
   //                                             ↑↑↑↑↑↑↑↑↑↑↑↑
   //                                        SEM prefixo extra
   { headers: { 'X-Auth-Token': token } }
@@ -51,7 +51,7 @@ const res = await fetch(
 ```typescript
 // App.tsx linha 583 - FUNCIONA ✅
 const response = await fetch(
-  `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`,
+  `${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`,
   { headers: { 'Authorization': `Bearer ${ANON_KEY}` } }
 );
 ```
@@ -89,8 +89,8 @@ anuncios_drafts (tabela nova - Anúncios Ultimate)
 
 **Mudança**:
 ```diff
-- const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/make-server-67caf26a/anuncios-ultimate/lista`, {
-+ const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+- const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/make-server-67caf26a/properties/lista`, {
++ const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
 ```
 
 **Resultado Esperado**:
@@ -159,10 +159,10 @@ anuncios_drafts (tabela nova - Anúncios Ultimate)
 ### **Passo 1: Verificar URL corrigida**
 
 1. Abrir DevTools (F12)
-2. Acessar `/anuncios-ultimate/lista`
+2. Acessar `/properties/lista`
 3. Verificar logs:
    ```
-   ✅ GET /functions/v1/rendizy-server/anuncios-ultimate/lista
+   ✅ GET /functions/v1/rendizy-server/properties/lista
    ✅ 200 OK
    ✅ Anúncios carregados - Total: 2
    ```
@@ -196,7 +196,7 @@ cd "c:\Users\rafae\OneDrive\Desktop\Rendizyoficial-main arquivos mais atualizado
 ```
 
 **Verificar**:
-1. Acessar `/anuncios-ultimate/lista`
+1. Acessar `/properties/lista`
 2. Deve mostrar **3 anúncios** (2 antigos + 1 migrado)
 
 ### **Passo 4: Migrar todos**
@@ -250,14 +250,14 @@ SELECT COUNT(*) FROM anuncios_drafts;
 
 ### **Antes da Correção** (URL errada):
 ```
-GET https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/anuncios-ultimate/lista
+GET https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/make-server-67caf26a/properties/lista
 ❌ 404 (Not Found)
 ❌ Erro ao carregar anúncios: Error: HTTP 404
 ```
 
 ### **Depois da Correção** (URL correta):
 ```
-GET https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/lista
+GET https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/properties/lista
 ✅ 200 OK
 ✅ Resposta: {ok: true, anuncios: Array(2)}
 ✅ Anúncios carregados - Total: 2
@@ -265,7 +265,7 @@ GET https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncio
 
 ### **Após Migração** (com dados):
 ```
-GET https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncios-ultimate/lista
+GET https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/properties/lista
 ✅ 200 OK
 ✅ Resposta: {ok: true, anuncios: Array(159)}
 ✅ Anúncios carregados - Total: 159
@@ -294,7 +294,7 @@ GET https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server/anuncio
 
 ### **1. Consistência de URLs**
 - ❌ Não adicionar prefixos personalizados nas rotas
-- ✅ Usar rotas padrão do Hono: `/anuncios-ultimate/lista`
+- ✅ Usar rotas padrão do Hono: `/properties/lista`
 - ✅ Validar URL testando no App.tsx (funciona lá)
 
 ### **2. Migração de Schemas**

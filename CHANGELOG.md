@@ -184,14 +184,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Mudança de tabela: `properties` (abandonado) → `properties` (oficial; tabela única)
 - 🔴 **Issue #48**: ListaAnuncios retornava apenas 2 anúncios ao invés de 159
   - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 69
-  - Frontend mudou de REST API direta → Edge Function `/anuncios-ultimate/lista`
+  - Frontend mudou de REST API direta → Edge Function `/properties/lista`
   - Adiciona header `X-Auth-Token` para aplicar RLS corretamente
   - Agora retorna TODOS os anúncios da organização (filtrado via token)
   - Documento: `⚡_FIX_LISTA_ANUNCIOS_VIA_BACKEND_v1.0.103.404.md`
 - 🔴 **Issue #49**: URL incorreta em ListaAnuncios + 157 anúncios invisíveis em tabela antiga ✅ RESOLVIDO
   - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 73
   - **Problema 1 (URL)**: Removido prefixo incorreto `/make-server-67caf26a/` da URL
-  - URL corrigida: `/functions/v1/rendizy-server/anuncios-ultimate/lista` (sem prefixo)
+  - URL corrigida: `/functions/v1/rendizy-server/properties/lista` (sem prefixo)
   - **Problema 2 (Dados)**: 157 anúncios em `properties` (tabela antiga) não apareciam
   - **Solução**: Criado script `migrar-properties-para-anuncios.ps1`
   - Migra `properties` → `properties` preservando IDs originais
@@ -204,7 +204,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Verificado: StaysNet agora exporta corretamente para `properties` (Issue #47)
   - Documento: `⚡_FIX_MIGRACAO_PROPERTIES_v1.0.103.405.md`
   - Estrutura adaptada: campos SQL → campo JSONB `data` flexível
-  - Anúncios importados agora aparecem em `/anuncios-ultimate/lista`
+  - Anúncios importados agora aparecem em `/properties/lista`
   - Query de deduplicação: `contains('data', { externalIds: { stays_net_id } })`
   - Documento: `⚡_FIX_STAYSNET_TARGET_properties_v1.0.103.403.md`
 - 🔴 **Issue #48**: Lista Anúncios Ultimate retornava apenas 2 registros ao invés de 159
@@ -212,7 +212,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Causa raiz: rotas de `/reservations` estavam sem `tenancyMiddleware`, gerando `TenantContext não encontrado`
 
 - 🔒 **Multi-tenant (Anúncios Ultimate): remover uso de tabela legada**
-  - `supabase/functions/rendizy-server/routes-anuncios.ts`: rotas `GET /:id`, `POST /create`, `PATCH /:id`, `DELETE /:id` agora usam somente `properties`
+  - `supabase/functions/rendizy-server/routes-properties.ts`: rotas `GET /:id`, `POST /create`, `PATCH /:id`, `DELETE /:id` agora usam somente `properties`
   - Mantém filtro obrigatório por `organization_id` (isolamento de tenants) e valida UUID em rotas por `:id`
   - Documento canônico: `docs/03-conventions/MULTI_TENANCY_CANONICAL.md`
   - `supabase/functions/rendizy-server/index.ts`: aplicado `tenancyMiddleware` em GET/POST/PUT/DELETE de reservas
@@ -221,7 +221,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Frontend: filtro por propriedade não descarta reservas com `propertyId` desconhecido (corrige cenário: contador mostra 100, mas lista ficava vazia)
   - `components/anuncio-ultimate/ListaAnuncios.tsx` linha 69
   - Frontend consultava REST API direta (sem org context) → RLS bloqueava registros
-  - Corrigido: usa Edge Function `/anuncios-ultimate/lista` com X-Auth-Token
+  - Corrigido: usa Edge Function `/properties/lista` com X-Auth-Token
   - Resposta mudou: `data` array → `response.anuncios` array
   - Agora retorna TODOS os anúncios da organização (159+ registros)
   - Documento: `⚡_FIX_LISTA_ANUNCIOS_VIA_BACKEND_v1.0.103.404.md`
@@ -235,7 +235,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - 🟡 **Cards de unidades/anúncios não refletiam edição interna (quartos/banheiros/camas/hóspedes)**
   - Sintoma: após editar `properties.data.rooms`, os cards continuavam mostrando valores antigos
   - Causa raiz: cards leem `properties.bedrooms/bathrooms/beds/max_guests`, mas a edição interna salva no JSON `properties.data`
-  - Corrigido: `POST /anuncios-ultimate/save-field` e `PATCH /anuncios-ultimate/:id` agora sincronizam capacidade derivada `rooms[]` → tabela `properties` (com filtro por `organization_id`)
+  - Corrigido: `POST /properties/save-field` e `PATCH /properties/:id` agora sincronizam capacidade derivada `rooms[]` → tabela `properties` (com filtro por `organization_id`)
   - Documento operacional: `docs/operations/ANUNCIOS_PROPERTIES_CAPACITY_SYNC.md`
 
 ### Changed

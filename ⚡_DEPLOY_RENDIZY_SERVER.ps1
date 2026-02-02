@@ -90,10 +90,10 @@ if (-not $deleted) {
 Write-Host ""
 
 Write-Host "📊 ROTAS DISPONÍVEIS:" -ForegroundColor Cyan
-Write-Host "  GET    /rendizy-server/anuncios-ultimate/:id" -ForegroundColor White
-Write-Host "  POST   /rendizy-server/anuncios-ultimate/create" -ForegroundColor White
-Write-Host "  POST   /rendizy-server/anuncios-ultimate/save-field" -ForegroundColor White
-Write-Host "  GET    /rendizy-server/anuncios-ultimate/lista" -ForegroundColor White
+Write-Host "  GET    /rendizy-server/properties/:id" -ForegroundColor White
+Write-Host "  POST   /rendizy-server/properties/create" -ForegroundColor White
+Write-Host "  POST   /rendizy-server/properties/save-field" -ForegroundColor White
+Write-Host "  GET    /rendizy-server/properties/lista" -ForegroundColor White
 Write-Host ""
 Write-Host "🌐 URL Base:" -ForegroundColor Cyan
 Write-Host "  https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/rendizy-server" -ForegroundColor White

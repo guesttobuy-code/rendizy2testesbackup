@@ -1,4 +1,4 @@
-# ⚡ FIX: StaysNet Exporta para Anúncios Ultimate v1.0.103.403
+﻿# ⚡ FIX: StaysNet Exporta para Anúncios Ultimate v1.0.103.403
 
 **Data**: 2025-12-20  
 **Versão**: 1.0.103.403  
@@ -16,7 +16,7 @@ A integração StaysNet estava **funcionando corretamente** ao importar anúncio
 | Aspecto | Properties (Wizard Antigo) | Anuncios Ultimate (Modelo Oficial) |
 |---------|---------------------------|-----------------------------------|
 | **Tabela** | `properties` | `anuncios_drafts` |
-| **Rota** | `/properties` | `/anuncios-ultimate/lista` |
+| **Rota** | `/properties` | `/properties/lista` |
 | **Estrutura** | Campos individuais SQL | Campo JSONB `data` flexível |
 | **Status** | ⚠️ Abandonado | ✅ Modelo oficial |
 
@@ -120,12 +120,12 @@ if (existing) {
 
 1. **Configurar StaysNet**: Painel → Configurações → Integrações → StaysNet
 2. **Importar Anúncios**: Selecionar propriedades e clicar em "Importar"
-3. **Verificar Destino**: Acessar `/anuncios-ultimate/lista`
+3. **Verificar Destino**: Acessar `/properties/lista`
 4. **Conferir Anúncios**: Devem aparecer na lista de Anúncios Ultimate
 
 ### Checklist de Validação
 
-- [ ] Anúncios aparecem em `/anuncios-ultimate/lista`
+- [ ] Anúncios aparecem em `/properties/lista`
 - [ ] **NÃO** aparecem em `/properties` (wizard antigo)
 - [ ] Campo `data.externalIds.stays_net_id` preservado
 - [ ] Status correto (`active` ou `draft`)

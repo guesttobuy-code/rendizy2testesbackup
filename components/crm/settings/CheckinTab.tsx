@@ -884,7 +884,7 @@ export function CheckinTab({ organizationId }: CheckinTabProps) {
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
         const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
         
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
           headers: {
             'apikey': ANON_KEY,
             'Authorization': `Bearer ${ANON_KEY}`,
@@ -947,7 +947,7 @@ export function CheckinTab({ organizationId }: CheckinTabProps) {
       
       if (updates.length === 0) return;
       
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/batch-update-responsibility`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/batch-update-responsibility`, {
         method: 'POST',
         headers: {
           'apikey': ANON_KEY,
@@ -981,7 +981,7 @@ export function CheckinTab({ organizationId }: CheckinTabProps) {
       const property = properties.find(p => p.id === propertyId);
       const mergedConfig = { ...property?.checkin_config, ...config };
       
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/batch-update-responsibility`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/batch-update-responsibility`, {
         method: 'POST',
         headers: {
           'apikey': ANON_KEY,
@@ -1022,7 +1022,7 @@ export function CheckinTab({ organizationId }: CheckinTabProps) {
       checkin_config: u.config,
     }));
     
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/batch-update-responsibility`, {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/batch-update-responsibility`, {
       method: 'POST',
       headers: {
         'apikey': ANON_KEY,

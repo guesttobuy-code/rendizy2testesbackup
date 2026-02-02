@@ -286,6 +286,22 @@ export default function LoginPage() {
           </CardContent>
 
           <CardFooter className="flex flex-col space-y-4 pt-0">
+            {/* Link para cadastro */}
+            <div className="w-full text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Ainda não tem conta?{' '}
+                <a 
+                  href="/signup" 
+                  className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
+                >
+                  Cadastre-se grátis
+                </a>
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                14 dias de teste gratuito • Sem cartão de crédito
+              </p>
+            </div>
+
             {/* Credenciais de Teste */}
             <div className="w-full space-y-2">
               <p className="text-xs text-center text-gray-500 dark:text-gray-400">

@@ -1190,6 +1190,216 @@ app.post('/register-guest', async (c) => {
   }
 });
 
+// ============================================================================
+// POST /auth/signup - Self-signup para novas imobiliárias (com trial)
+// ============================================================================
+// Fluxo: Cria organização + usuário owner com período de trial
+// ============================================================================
+app.post('/signup', async (c) => {
+  console.log('📝 [Auth] Iniciando self-signup para nova imobiliária');
+  
+  try {
+    const body = await c.req.json();
+    const { 
+      name,           // Nome do usuário (proprietário)
+      email, 
+      password, 
+      organizationName,  // Nome da imobiliária
+      phone,             // Telefone (opcional)
+      referralCode       // Código de indicação (opcional)
+    } = body;
+
+    // Validações básicas
+    if (!name || !email || !password || !organizationName) {
+      return c.json({ 
+        success: false, 
+        error: 'Campos obrigatórios: name, email, password, organizationName' 
+      }, 400);
+    }
+
+    // Validar formato do email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return c.json({ success: false, error: 'Email inválido' }, 400);
+    }
+
+    // Validar senha (mínimo 6 caracteres)
+    if (password.length < 6) {
+      return c.json({ success: false, error: 'Senha deve ter no mínimo 6 caracteres' }, 400);
+    }
+
+    const supabase = getSupabaseClient();
+    const emailLower = email.toLowerCase().trim();
+
+    // Verificar se email já existe
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', emailLower)
+      .single();
+
+    if (existingUser) {
+      return c.json({ success: false, error: 'Este email já está cadastrado' }, 409);
+    }
+
+    // Gerar slug único para a organização
+    const baseSlug = organizationName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    
+    // Verificar se slug já existe e adicionar número se necessário
+    let slug = baseSlug;
+    let slugCounter = 1;
+    while (true) {
+      const { data: existingOrg } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+      
+      if (!existingOrg) break;
+      slug = `${baseSlug}-${slugCounter++}`;
+    }
+
+    // Calcular data de fim do trial (14 dias)
+    const trialDays = 14;
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
+    // Criar organização com status trial
+    const orgId = crypto.randomUUID();
+    const { error: orgError } = await supabase
+      .from('organizations')
+      .insert({
+        id: orgId,
+        name: organizationName.trim(),
+        slug,
+        plan: 'trial',
+        status: 'active',
+        signup_source: referralCode ? 'referral' : 'self_signup',
+        trial_ends_at: trialEndsAt.toISOString(),
+        settings: {
+          trial_days: trialDays,
+          referral_code: referralCode || null
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    if (orgError) {
+      console.error('❌ Erro ao criar organização:', orgError);
+      return c.json({ success: false, error: 'Erro ao criar organização' }, 500);
+    }
+
+    // Hash da senha
+    const passwordHash = createHash('sha256').update(password).digest('hex');
+
+    // Criar usuário owner
+    const userId = crypto.randomUUID();
+    const username = emailLower.split('@')[0] + '-' + Math.random().toString(36).substring(2, 6);
+    
+    const { error: userError } = await supabase
+      .from('users')
+      .insert({
+        id: userId,
+        organization_id: orgId,
+        name: name.trim(),
+        email: emailLower,
+        username,
+        password_hash: passwordHash,
+        phone: phone || null,
+        type: 'imobiliaria',
+        role: 'owner',
+        status: 'active',
+        email_verified: false, // Precisa verificar email
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    if (userError) {
+      console.error('❌ Erro ao criar usuário:', userError);
+      // Rollback: deletar organização criada
+      await supabase.from('organizations').delete().eq('id', orgId);
+      return c.json({ success: false, error: 'Erro ao criar usuário' }, 500);
+    }
+
+    // Gerar token de sessão
+    const token = crypto.randomUUID() + '-' + crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // Token válido por 7 dias
+
+    await supabase
+      .from('sessions')
+      .insert({
+        id: crypto.randomUUID(),
+        user_id: userId,
+        token,
+        expires_at: expiresAt.toISOString(),
+        created_at: new Date().toISOString()
+      });
+
+    console.log(`✅ [Auth] Self-signup completo: ${emailLower} → org: ${slug}`);
+
+    // TODO: Enviar email de boas-vindas e verificação
+
+    return c.json({
+      success: true,
+      message: 'Conta criada com sucesso! Você tem 14 dias de teste gratuito.',
+      data: {
+        token,
+        user: {
+          id: userId,
+          name: name.trim(),
+          email: emailLower,
+          username,
+          role: 'owner',
+          type: 'imobiliaria',
+          status: 'active',
+          organizationId: orgId
+        },
+        organization: {
+          id: orgId,
+          name: organizationName.trim(),
+          slug,
+          plan: 'trial',
+          status: 'active',
+          trialEndsAt: trialEndsAt.toISOString()
+        }
+      }
+    }, 201);
+
+  } catch (error) {
+    console.error('❌ Erro no self-signup:', error);
+    return c.json({ success: false, error: 'Erro interno ao processar cadastro' }, 500);
+  }
+});
+
+// ============================================================================
+// GET /auth/check-email - Verificar se email já está cadastrado
+// ============================================================================
+app.get('/check-email', async (c) => {
+  const email = c.req.query('email');
+  
+  if (!email) {
+    return c.json({ success: false, error: 'Email é obrigatório' }, 400);
+  }
+
+  const supabase = getSupabaseClient();
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', email.toLowerCase().trim())
+    .single();
+
+  return c.json({
+    success: true,
+    available: !existingUser
+  });
+});
+
 export default app;
 
 

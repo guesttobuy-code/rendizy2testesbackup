@@ -17,13 +17,13 @@
 ## Critical Zones - DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
 
 ### 1. Property Loading (App.tsx::loadProperties)
-- DO NOT alter the fetch logic for `anuncios-ultimate/lista`
+- DO NOT alter the fetch logic for `properties/lista`
 - DO NOT add filters that may exclude properties
 - DO NOT modify setProperties() or setSelectedProperties() without validation
 - DO NOT remove diagnostic logs marked with [ZONA_CRITICA]
 - ALWAYS keep the validation: if apiProperties.length === 0 && anuncios.length > 0, don't clear
 
-### 2. Anuncios Listing Route (routes-anuncios.ts::/lista)
+### 2. Anuncios Listing Route (routes-properties.ts::/lista)
 - DO NOT add filters that may exclude valid announcements
 - DO NOT alter .eq('organization_id', organizationId)
 - DO NOT remove fields from the select statement

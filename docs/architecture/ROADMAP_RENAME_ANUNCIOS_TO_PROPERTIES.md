@@ -1,4 +1,4 @@
-# 📋 ROADMAP: Renomear `anuncios_ultimate` → `properties`
+﻿# 📋 ROADMAP: Renomear `anuncios_ultimate` → `properties`
 
 **Objetivo:** Tornar o nome da tabela intuitivo para desenvolvedores e IAs.
 
@@ -151,7 +151,7 @@ supabase/migrations/archive/20251221_rename_anuncios_drafts_to_ultimate.sql → 
 - [ ] `.github/AI_RULES.md`
 
 **Documentos para ARQUIVAR:**
-Mover para `docs/08-archive/legacy-anuncios-ultimate/`:
+Mover para `docs/08-archive/legacy-properties/`:
 - `MAPEAMENTO-CAMPOS-STAYSNET.md`
 - `📋_MAPEAMENTO_CAMPOS_INTEGRACAO_UNIVERSAL.md`
 - `🔍_ANALISE_IMPORT_STAYSNET_PROPERTIES_v1.0.105.md`

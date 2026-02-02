@@ -118,8 +118,13 @@ export function MainSidebar({
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  // Seções colapsáveis - CONFIGURAÇÕES GERAIS vem fechada por padrão
-  const [collapsedSections, setCollapsedSections] = useState<string[]>(['CONFIGURAÇÕES GERAIS']);
+  // Seções colapsáveis - TODAS as seções vem fechadas por padrão para melhor usabilidade
+  const [collapsedSections, setCollapsedSections] = useState<string[]>([
+    'TEMPORADA, ALUGUEL E VENDAS',
+    'COMUNICAÇÃO',
+    'MÓDULOS AVANÇADOS',
+    'CONFIGURAÇÕES GERAIS'
+  ]);
   const [customLogo, setCustomLogo] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState<number>(7);
 
@@ -168,8 +173,7 @@ export function MainSidebar({
   const organizationSlug = organization?.slug ?? '';
   const isMasterUser = isSuperAdmin && (!organizationSlug || organizationSlug.startsWith('rendizy'));
 
-  console.log('� [MainSidebar] RENDERIZANDO - v1.0.103.334 - REBUILD');
-  console.log('🚨 [MainSidebar] isMasterUser:', isMasterUser);
+  // Debug logs removidos para melhorar performance (v1.0.103.335)
 
   // Função para toggle de seção colapsável
   const toggleSectionCollapse = (sectionTitle: string) => {
@@ -206,7 +210,7 @@ export function MainSidebar({
     {
       title: 'TEMPORADA, ALUGUEL E VENDAS',
       collapsible: true,
-      defaultExpanded: true,
+      defaultExpanded: false,
       items: [
         {
           id: 'calendario',
@@ -217,7 +221,7 @@ export function MainSidebar({
           badge: '12'
         },
         {
-          id: 'anuncio-ultimate',
+          id: 'properties',
           label: 'Propriedades e anúncios',
           icon: Plus,
           iconColor: 'text-white',
@@ -232,11 +236,11 @@ export function MainSidebar({
         }
       ]
     },
-    // SEÇÃO COLAPSÁVEL - Comunicação (padrão aberto)
+    // SEÇÃO COLAPSÁVEL - Comunicação (padrão fechado)
     {
       title: 'COMUNICAÇÃO',
       collapsible: true,
-      defaultExpanded: true,
+      defaultExpanded: false,
       items: [
         {
           id: 'central-mensagens',
@@ -272,11 +276,11 @@ export function MainSidebar({
         }
       ]
     },
-    // SEÇÃO COLAPSÁVEL - Módulos Avançados (padrão aberto)
+    // SEÇÃO COLAPSÁVEL - Módulos Avançados (padrão fechado)
     {
       title: 'MÓDULOS AVANÇADOS',
       collapsible: true,
-      defaultExpanded: true,
+      defaultExpanded: false,
       items: [
         {
           id: 'financeiro',
@@ -408,7 +412,7 @@ export function MainSidebar({
     'motor-reservas-componentes-dados': '/sites-clientes/componentes-dados',
     'motor-reservas-area-interna': '/sites-clientes/area-interna',
     'precos-em-lote': '/pricing',
-    'anuncio-ultimate': '/anuncios-ultimate/lista',
+    'properties': '/properties/lista',
     'promocoes': '/calendar',
     'financeiro': '/financeiro',
     'hospedes': '/guests',
@@ -539,14 +543,14 @@ export function MainSidebar({
         await onSearchReservation(result.data.id || result.id);
       }
     } else if (result.type === 'property' && result.data) {
-      // Abrir anúncio/Imóvel (Anúncios Ultimate)
+      // Abrir Imóvel (Properties)
       const propertyId = result.data.id || result.id;
       if (propertyId) {
-        onModuleChange('anuncio-ultimate');
+        onModuleChange('properties');
         try {
-          navigate(`/anuncios-ultimate/${propertyId}/edit`);
+          navigate(`/properties/${propertyId}/edit`);
         } catch (e) {
-          window.location.href = `/anuncios-ultimate/${propertyId}/edit`;
+          window.location.href = `/properties/${propertyId}/edit`;
         }
       }
     } else if (result.type === 'guest' && result.data) {

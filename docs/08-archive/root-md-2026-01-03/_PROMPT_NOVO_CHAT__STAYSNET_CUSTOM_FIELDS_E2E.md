@@ -1,4 +1,4 @@
-# Prompt de continuidade (novo chat) — StaysNet → Rendizy — Campos personalizados (Anúncios Ultimate)
+﻿# Prompt de continuidade (novo chat) — StaysNet → Rendizy — Campos personalizados (Anúncios Ultimate)
 
 > **Idioma**: PT-BR (responder sempre em português)
 >
@@ -11,7 +11,7 @@
 ## 0) TL;DR do que foi feito (vitórias)
 
 1. **URL canônica única** para Anúncios Ultimate definida e documentada.
-   - Frontend e scripts devem chamar **somente**: `/functions/v1/rendizy-server/anuncios-ultimate/*`.
+   - Frontend e scripts devem chamar **somente**: `/functions/v1/rendizy-server/properties/*`.
    - Corrigido o 404 de settings (causa raiz: mount/`pathname` prefixado no runtime do Supabase).
 
 2. **Endpoints de settings** funcionando (200) e com estrutura default estável.
@@ -36,13 +36,13 @@
 
 ### 1.1 URL canônica (externa)
 
-- **CANÔNICA (única)**: `/functions/v1/rendizy-server/anuncios-ultimate/*`
+- **CANÔNICA (única)**: `/functions/v1/rendizy-server/properties/*`
 
 ### 1.2 Mount interno (runtime Supabase + Hono)
 
 - Internamente, o Supabase pode entregar ao Hono um `pathname` prefixado com o nome da Edge Function.
 - Portanto, o app de Anúncios Ultimate deve estar montado em:
-  - `/rendizy-server/anuncios-ultimate/*`
+  - `/rendizy-server/properties/*`
 
 ### 1.3 Proibições
 
@@ -88,7 +88,7 @@
 
 - `Rendizyoficial-main/supabase/functions/rendizy-server/index.ts`
   - Mount definitivo:
-    - `app.route("/rendizy-server/anuncios-ultimate", anunciosApp);`
+    - `app.route("/rendizy-server/properties", anunciosApp);`
   - Comentário explicando:
     - URL canônica externa
     - Por que o mount interno precisa do prefixo `/rendizy-server`.
@@ -97,9 +97,9 @@
 
 - `Rendizyoficial-main/supabase/functions/rendizy-server/routes-anuncios.ts`
   - Endpoints relevantes:
-    - `GET /anuncios-ultimate/lista` (exclui registros de settings)
-    - `GET /anuncios-ultimate/settings/locations-listings`
-    - `POST /anuncios-ultimate/settings/locations-listings`
+    - `GET /properties/lista` (exclui registros de settings)
+    - `GET /properties/settings/locations-listings`
+    - `POST /properties/settings/locations-listings`
   - Default de settings inclui:
     - `customDescriptionFields: []`
 

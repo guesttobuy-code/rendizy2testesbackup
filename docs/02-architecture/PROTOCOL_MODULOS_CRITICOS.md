@@ -1,4 +1,4 @@
-# Protocolo de Defesa — Módulos Críticos (Tripé)
+﻿# Protocolo de Defesa — Módulos Críticos (Tripé)
 
 Este protocolo existe para garantir que alterações em **Anúncios Ultimate**, **Reservas** e **Calendário** não gerem regressões silenciosas.
 
@@ -50,9 +50,9 @@ Se o guard falhar:
 
 ### Anúncios Ultimate
 
-- `PATCH /anuncios-ultimate/:id` **não pode** sobrescrever `data` inteiro com objeto parcial.
+- `PATCH /properties/:id` **não pode** sobrescrever `data` inteiro com objeto parcial.
   - Deve fazer merge server-side.
-- `POST /anuncios-ultimate/save-field` deve manter idempotência/audit.
+- `POST /properties/save-field` deve manter idempotência/audit.
   - Se a RPC do banco evoluir, o sistema precisa continuar rastreável.
 
 ### Reservas

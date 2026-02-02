@@ -98,13 +98,13 @@ export function PropertyServiceConfig({ organizationId }: PropertyServiceConfigP
   async function loadProperties() {
     setLoading(true);
     try {
-      console.log('[PropertyServiceConfig] Carregando imóveis via anuncios-ultimate/lista...');
+      console.log('[PropertyServiceConfig] Carregando imóveis via properties/lista...');
       
       // Usar a mesma API que a tela de Anúncios Ultimate usa
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista`, {
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
@@ -233,7 +233,7 @@ export function PropertyServiceConfig({ organizationId }: PropertyServiceConfigP
         try {
           // Save cleaning_responsibility
           if (update.cleaning_responsibility) {
-            await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`, {
+            await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`, {
               method: 'POST',
               headers: {
                 'apikey': ANON_KEY,
@@ -251,7 +251,7 @@ export function PropertyServiceConfig({ organizationId }: PropertyServiceConfigP
           
           // Save maintenance_responsibility
           if (update.maintenance_responsibility) {
-            await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`, {
+            await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`, {
               method: 'POST',
               headers: {
                 'apikey': ANON_KEY,

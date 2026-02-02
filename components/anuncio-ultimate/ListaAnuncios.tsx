@@ -386,7 +386,7 @@ export const ListaAnuncios = () => {
     setLoading(true);
     try {
       // ✅ v1.0.103.405: Corrigida URL da Edge Function (removido /make-server-67caf26a/)
-      // URL correta: /functions/v1/rendizy-server/anuncios-ultimate/lista
+      // URL correta: /functions/v1/rendizy-server/properties/lista
       // 📄 PAGINAÇÃO: Enviamos page e limit para o servidor
       const token = localStorage.getItem('rendizy-token');
       
@@ -404,7 +404,7 @@ export const ListaAnuncios = () => {
       if (appliedPropertiesFilter.length > 0) params.set('properties', appliedPropertiesFilter.join(','));
       if (appliedSearchQuery) params.set('q', appliedSearchQuery);
       
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/lista?${params.toString()}`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/lista?${params.toString()}`, {
         headers: {
           'apikey': ANON_KEY,
           'Authorization': `Bearer ${ANON_KEY}`,
@@ -644,11 +644,11 @@ export const ListaAnuncios = () => {
   }, [calculatedTotalPages, currentPage]);
 
   const handleCreateNew = () => {
-    navigate('/anuncios-ultimate/novo');
+    navigate('/properties/novo');
   };
 
   const handleEdit = (anuncio: AnuncioUltimate) => {
-    navigate(`/anuncios-ultimate/${anuncio.id}/edit`);
+    navigate(`/properties/${anuncio.id}/edit`);
   };
 
   const handleView = (anuncio: AnuncioUltimate) => {
@@ -659,7 +659,7 @@ export const ListaAnuncios = () => {
     try {
       const token = localStorage.getItem('rendizy-token');
 
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncio.id}`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/${anuncio.id}`, {
         method: 'PATCH',
         headers: {
           'apikey': ANON_KEY,
@@ -691,7 +691,7 @@ export const ListaAnuncios = () => {
 
     try {
       const token = localStorage.getItem('rendizy-token');
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/${anuncio.id}`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/rendizy-server/properties/${anuncio.id}`, {
         method: 'DELETE',
         headers: {
           'apikey': ANON_KEY,

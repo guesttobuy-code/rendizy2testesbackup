@@ -1,4 +1,4 @@
-# ✅ STEP 02 - LOCALIZAÇÃO: MIGRAÇÃO COMPLETA
+﻿# ✅ STEP 02 - LOCALIZAÇÃO: MIGRAÇÃO COMPLETA
 
 **Versão:** 1.0.103.343  
 **Data:** 2025-12-16 09:45 BRT  
@@ -108,7 +108,7 @@ onChange={(e) => updateField('cep', formatarCep(e.target.value))}
   7. rua → `rua`
   8. numero → `numero`
   9. complemento → `complemento`
-- **Endpoint:** `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/save-field`
+- **Endpoint:** `${SUPABASE_URL}/functions/v1/rendizy-server/properties/save-field`
 - **Body:** `{ anuncio_id, field, value }`
 - **Response handling:** Throw error se `!response.ok`
 - **Callbacks:**

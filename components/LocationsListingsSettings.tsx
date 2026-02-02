@@ -138,7 +138,7 @@ interface LocationsListingsSettingsConfig {
 
 export const LocationsListingsSettings = () => {
   const settingsUrl = useMemo(
-    () => `${SUPABASE_URL}/functions/v1/rendizy-server/anuncios-ultimate/settings/locations-listings`,
+    () => `${SUPABASE_URL}/functions/v1/rendizy-server/properties/settings/locations-listings`,
     [],
   );
 

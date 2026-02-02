@@ -1,4 +1,4 @@
-# 🧭 CONTEXTO DE CONTINUAÇÃO - Sessão 18/12/2024
+﻿# 🧭 CONTEXTO DE CONTINUAÇÃO - Sessão 18/12/2024
 
 > **Para a IA que continuar este trabalho**: Este documento contém TUDO que você precisa saber para dar continuidade ao desenvolvimento sem perder contexto.
 
@@ -112,7 +112,7 @@ Invoke-RestMethod -Uri "https://odcgnzfremrqnvtitpcc.supabase.co/rest/v1/anuncio
 
 **Solução**:
 1. Se `!anuncioId` → POST com `crypto.randomUUID()`
-2. Redireciona para `/anuncios-ultimate/{novoId}` após criar
+2. Redireciona para `/properties/{novoId}` após criar
 3. Se `anuncioId` existe → PATCH para atualizar
 
 **Problema Adicional**: 400 Bad Request por falta de `organization_id` e `user_id`
@@ -230,7 +230,7 @@ CREATE TABLE blocks (
 - localStorage para user/organization/token
 
 **Principais Hooks**:
-- `useProperties()` - Carrega lista de imóveis de `/anuncios-ultimate/lista`
+- `useProperties()` - Carrega lista de imóveis de `/properties/lista`
 - `useReservations()` - Carrega reservas (filtra canceladas)
 - `useQuery` direto para bloqueios em CalendarPage
 
@@ -315,7 +315,7 @@ CREATE TABLE blocks (
 7. Card verde aparece no calendário
 
 ### Criar Draft de Imóvel
-1. Usuário vai em `/anuncios-ultimate/novo`
+1. Usuário vai em `/properties/novo`
 2. Preenche "Identificação Interna" (mínimo)
 3. Clica "Salvar Tudo"
 4. Frontend gera UUID com `crypto.randomUUID()`
@@ -323,7 +323,7 @@ CREATE TABLE blocks (
    - `id`, `organization_id`, `user_id`
    - `title` (top-level) ✅
    - `data` (JSONB com formData)
-6. Redireciona para `/anuncios-ultimate/{uuid}` para edição
+6. Redireciona para `/properties/{uuid}` para edição
 
 ---
 

@@ -1,4 +1,4 @@
-# 🚨 RECUPERAÇÃO DO TRABALHO - Sessão 18/12/2024
+﻿# 🚨 RECUPERAÇÃO DO TRABALHO - Sessão 18/12/2024
 
 > **STATUS**: As mudanças NÃO foram commitadas e se perderam. Este documento contém TODAS as alterações necessárias para recuperar o trabalho.
 
@@ -103,7 +103,7 @@ const handleSaveAll = async () => {
       calculateProgress(formData);
       
       // Redirecionar para a URL de edição com o ID
-      navigate(`/anuncios-ultimate/${novoId}`);
+      navigate(`/properties/${novoId}`);
       return;
     }
     
@@ -552,7 +552,7 @@ Invoke-RestMethod -Uri "https://odcgnzfremrqnvtitpcc.supabase.co/functions/v1/re
 ## 🧪 TESTES APÓS RECUPERAÇÃO
 
 ### Teste 1: Criar Draft
-1. Ir em `/anuncios-ultimate/novo`
+1. Ir em `/properties/novo`
 2. Preencher "Identificação Interna"
 3. Clicar "Salvar Tudo"
 4. ✅ Deve criar e redirecionar para URL de edição
