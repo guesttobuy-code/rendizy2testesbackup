@@ -118,6 +118,8 @@ export function MainSidebar({
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // Seções colapsáveis - CONFIGURAÇÕES GERAIS vem fechada por padrão
+  const [collapsedSections, setCollapsedSections] = useState<string[]>(['CONFIGURAÇÕES GERAIS']);
   const [customLogo, setCustomLogo] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState<number>(7);
 
@@ -169,6 +171,15 @@ export function MainSidebar({
   console.log('� [MainSidebar] RENDERIZANDO - v1.0.103.334 - REBUILD');
   console.log('🚨 [MainSidebar] isMasterUser:', isMasterUser);
 
+  // Função para toggle de seção colapsável
+  const toggleSectionCollapse = (sectionTitle: string) => {
+    setCollapsedSections(prev =>
+      prev.includes(sectionTitle)
+        ? prev.filter(t => t !== sectionTitle)
+        : [...prev, sectionTitle]
+    );
+  };
+
   // Organizar menu items em seções com design monocromático (fundo escuro, ícone branco)
   const menuSections = [
     {
@@ -188,7 +199,15 @@ export function MainSidebar({
           icon: LayoutDashboard,
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
-        },
+        }
+      ]
+    },
+    // SEÇÃO COLAPSÁVEL - Temporada, Aluguel e Vendas (logo abaixo do Dashboard)
+    {
+      title: 'TEMPORADA, ALUGUEL E VENDAS',
+      collapsible: true,
+      defaultExpanded: true,
+      items: [
         {
           id: 'calendario',
           label: 'Calendário',
@@ -198,12 +217,27 @@ export function MainSidebar({
           badge: '12'
         },
         {
+          id: 'anuncio-ultimate',
+          label: 'Propriedades e anúncios',
+          icon: Plus,
+          iconColor: 'text-white',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
+        },
+        {
           id: 'central-reservas',
           label: 'Reservas',
           icon: ClipboardList,
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
-        },
+        }
+      ]
+    },
+    // SEÇÃO COLAPSÁVEL - Comunicação (padrão aberto)
+    {
+      title: 'COMUNICAÇÃO',
+      collapsible: true,
+      defaultExpanded: true,
+      items: [
         {
           id: 'central-mensagens',
           label: 'Chat',
@@ -219,9 +253,31 @@ export function MainSidebar({
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           badge: 'BETA',
-          isExternalModule: true,
-          externalPath: '/crm'
+          submenu: [
+            { id: 'contatos', label: 'Contatos', icon: Users },
+            { id: 'empresas', label: 'Empresas', icon: Building2 }
+          ]
         },
+        {
+          id: 'notificacoes',
+          label: 'Notificações',
+          icon: Bell,
+          iconColor: 'text-white',
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
+          badge: '14',
+          submenu: [
+            { id: 'notificacoes-central', label: 'Central', icon: Inbox },
+            { id: 'notificacoes-templates', label: 'Templates', icon: FileEdit }
+          ]
+        }
+      ]
+    },
+    // SEÇÃO COLAPSÁVEL - Módulos Avançados (padrão aberto)
+    {
+      title: 'MÓDULOS AVANÇADOS',
+      collapsible: true,
+      defaultExpanded: true,
+      items: [
         {
           id: 'financeiro',
           label: 'Finanças',
@@ -229,21 +285,6 @@ export function MainSidebar({
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
           badge: 'BETA'
-        },
-        // ❌ DEPRECADO v1.0.103.406 - Wizard antigo removido, usar apenas Anúncios Ultimate
-        // {
-        //   id: 'imoveis',
-        //   label: 'Locais e Anúncios',
-        //   icon: Building2,
-        //   iconColor: 'text-white',
-        //   iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
-        // },
-        {
-          id: 'anuncio-ultimate',
-          label: 'Propriedades e anúncios',
-          icon: Plus,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         },
         {
           id: 'motor-reservas',
@@ -258,43 +299,40 @@ export function MainSidebar({
           ]
         },
         {
-          id: 'precos-em-lote',
-          label: 'Preços em Lote',
-          icon: TrendingUp,
+          id: 'modulo-bi',
+          label: 'BI & Relatórios',
+          icon: BarChart3,
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
-          badge: 'NEW'
+          badge: 'BETA',
+          isExternalModule: true,
+          externalPath: '/bi'
         },
+        // 🏗️ REAL ESTATE MODULE - v1.0.0 - Marketplace B2B Imobiliário (Submenu no MainSidebar, arquitetura encapsulada)
         {
-          id: 'promocoes',
-          label: 'Promoções',
-          icon: Star,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
-        }
-      ]
-    },
-    {
-      title: '📇 CADASTROS',
-      items: [
-        {
-          id: 'contatos',
-          label: 'Contatos',
-          icon: Users,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
-        },
-        {
-          id: 'empresas',
-          label: 'Empresas',
+          id: 'modulo-real-estate',
+          label: 'Real Estate B2B',
           icon: Building2,
           iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
+          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
+          badge: 'BETA',
+          submenu: [
+            { id: 're-vitrine', label: 'Vitrine', icon: Home },
+            { id: 're-demandas', label: 'Demandas', icon: FileText },
+            { id: 're-estoque', label: 'Estoque', icon: FolderOpen },
+            { id: 're-reservas', label: 'Reservas', icon: Calendar },
+            { id: 're-parcerias', label: 'Parcerias', icon: Users },
+            { id: 're-contratos', label: 'Contratos', icon: FileText },
+            { id: 're-cadastros', label: 'Cadastros', icon: Plus }
+          ]
         }
       ]
     },
+    // SEÇÃO COLAPSÁVEL - Configurações Gerais (padrão FECHADO - pouco usado no dia a dia)
     {
-      title: 'Operacional',
+      title: 'CONFIGURAÇÕES GERAIS',
+      collapsible: true,
+      defaultExpanded: false,
       items: [
         {
           id: 'usuarios-usuarios',
@@ -302,18 +340,6 @@ export function MainSidebar({
           icon: UserCircle,
           iconColor: 'text-white',
           iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
-        },
-        {
-          id: 'notificacoes',
-          label: 'Notificações',
-          icon: Bell,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
-          badge: '14',
-          submenu: [
-            { id: 'notificacoes-central', label: 'Central', icon: Inbox },
-            { id: 'notificacoes-templates', label: 'Templates', icon: FileEdit }
-          ]
         },
         {
           id: 'catalogo',
@@ -329,43 +355,6 @@ export function MainSidebar({
             { id: 'catalogo-impressao', label: 'Modelos para Impressão', icon: Printer },
             { id: 'catalogo-midia', label: 'Gerenciador de Mídia', icon: Image }
           ]
-        }
-      ]
-    },
-    {
-      title: '⚡ MÓDULOS AVANÇADOS',
-      items: [
-        {
-          id: 'modulo-automacoes',
-          label: 'Automações',
-          icon: Zap,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
-          badge: 'BETA',
-          isExternalModule: true,
-          externalPath: '/crm/automacoes-chat'
-        },
-        {
-          id: 'modulo-bi',
-          label: 'BI & Relatórios',
-          icon: BarChart3,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]',
-          badge: 'BETA',
-          isExternalModule: true,
-          externalPath: '/bi'
-        }
-      ]
-    },
-    {
-      title: 'Avançado',
-      items: [
-        {
-          id: 'app-center',
-          label: 'Loja de apps',
-          icon: Grid3x3,
-          iconColor: 'text-white',
-          iconBg: 'bg-[#1a1a1a] dark:bg-[#0f0f0f]'
         },
         {
           id: 'configuracoes',
@@ -388,7 +377,7 @@ export function MainSidebar({
             { id: 'assistentes-atividade', label: 'Atividade dos Usuários', icon: Activity },
             { id: 'assistentes-historico', label: 'Histórico de Login', icon: LogIn }
           ]
-        },
+        }
       ]
     }
   ];
@@ -436,6 +425,15 @@ export function MainSidebar({
     // ✅ ROTAS CADASTROS CRM - v1.0.104
     'contatos': '/contatos',
     'empresas': '/empresas',
+    // 🏗️ REAL ESTATE MODULE - v1.0.0 (Submenu integrado ao MainSidebar)
+    'modulo-real-estate': '/realestate',
+    're-vitrine': '/realestate?view=vitrine',
+    're-demandas': '/realestate?view=demandas',
+    're-estoque': '/realestate?view=estoque',
+    're-reservas': '/realestate?view=reservas',
+    're-parcerias': '/realestate?view=parcerias',
+    're-contratos': '/realestate?view=contratos',
+    're-cadastros': '/realestate?view=cadastros',
   };
 
   const handleMenuClick = (menuId: string, hasSubmenu: boolean, item?: MenuItem) => {
@@ -676,7 +674,7 @@ export function MainSidebar({
         
         {!collapsed && (
           <>
-            <span className={cn("flex-1 text-left text-sm", isDark ? "text-gray-200" : "text-gray-700")}>{item.label}</span>
+            <span className={cn("flex-1 text-left text-sm font-medium", isDark ? "text-gray-200" : "text-[#1a1a1a]")}>{item.label}</span>
             
             {item.badge && (
               <span className={cn(
@@ -733,7 +731,7 @@ export function MainSidebar({
 
         {/* Submenu */}
         {hasSubmenu && isExpanded && !collapsed && (
-          <div className="ml-8 mt-1 mb-2 space-y-0.5">
+          <div className="ml-8 mt-1 mb-2 space-y-1">
             {item.submenu!.map(subItem => {
               const SubIcon = subItem.icon;
               const isSubActive = activeModule === subItem.id;
@@ -743,15 +741,15 @@ export function MainSidebar({
                   key={subItem.id}
                   onClick={() => handleSubmenuClick(subItem.id)}
                   className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm",
-                    "hover:bg-white/5",
-                    isSubActive && "bg-white/10 text-white hover:bg-white/15",
-                    !isSubActive && "text-gray-400"
+                    "w-full flex items-center gap-2 px-3 py-2.5 rounded-md transition-all text-sm",
+                    isDark ? "hover:bg-white/10" : "hover:bg-gray-100",
+                    isSubActive && (isDark ? "bg-white/10 text-white" : "bg-gray-200 text-gray-900"),
+                    !isSubActive && (isDark ? "text-gray-400" : "text-gray-600")
                   )}
                 >
                   <SubIcon className={cn(
                     "h-4 w-4 flex-shrink-0",
-                    isSubActive ? "text-white" : "text-gray-500"
+                    isSubActive ? (isDark ? "text-white" : "text-gray-900") : (isDark ? "text-gray-500" : "text-gray-500")
                   )} />
                   <span className="truncate">{subItem.label}</span>
                 </button>
@@ -867,21 +865,53 @@ export function MainSidebar({
       {/* Navigation - Com Scroll */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
         <nav className="space-y-6">
-          {filteredSections.map((section, sectionIndex) => (
-            <div key={section.title}>
-              {!collapsed && (
-                <div className={cn(
-                  "px-3 mb-2 text-xs uppercase tracking-wider",
-                  isDark ? "text-gray-500" : "text-gray-500"
-                )}>
-                  {section.title}
-                </div>
-              )}
-              <div className="space-y-0.5">
-                {section.items.map(item => renderMenuItem(item, isDark))}
+          {filteredSections.map((section, sectionIndex) => {
+            const isCollapsible = (section as any).collapsible;
+            const isSectionCollapsed = collapsedSections.includes(section.title);
+            
+            return (
+              <div key={section.title}>
+                {!collapsed && (
+                  isCollapsible ? (
+                    // Seção colapsável - título clicável
+                    <button
+                      onClick={() => toggleSectionCollapse(section.title)}
+                      className={cn(
+                        "w-full pl-3 pr-3 mb-2 flex items-center justify-between group cursor-pointer",
+                        "hover:bg-white/5 rounded-md py-1.5 transition-colors"
+                      )}
+                    >
+                      <span className={cn(
+                        "text-xs uppercase tracking-wider font-semibold text-left",
+                        isDark ? "text-gray-500 group-hover:text-gray-400" : "text-gray-400 group-hover:text-gray-500"
+                      )}>
+                        {section.title}
+                      </span>
+                      <ChevronRight className={cn(
+                        "h-3.5 w-3.5 transition-transform flex-shrink-0 ml-2",
+                        isDark ? "text-gray-600 group-hover:text-gray-500" : "text-gray-400 group-hover:text-gray-500",
+                        !isSectionCollapsed && "rotate-90"
+                      )} />
+                    </button>
+                  ) : (
+                    // Seção normal - título estático
+                    <div className={cn(
+                      "pl-3 pr-3 mb-2 text-xs uppercase tracking-wider font-semibold text-left",
+                      isDark ? "text-gray-500" : "text-gray-400"
+                    )}>
+                      {section.title}
+                    </div>
+                  )
+                )}
+                {/* Itens da seção - esconde se colapsada */}
+                {(!isCollapsible || !isSectionCollapsed) && (
+                  <div className="space-y-0.5">
+                    {section.items.map(item => renderMenuItem(item, isDark))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
       </div>
 

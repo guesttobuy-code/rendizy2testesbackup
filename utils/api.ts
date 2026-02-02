@@ -2040,6 +2040,148 @@ export const integrationsApi = {
 };
 
 // ============================================================================
+// AI AGENTS - Agentes de IA para coleta automatizada
+// ============================================================================
+
+export interface AIAgentTestScraperRequest {
+  linktree_url: string;
+  construtora_name: string;
+  api_key?: string; // Opcional - se não passar, usa a configurada
+}
+
+export interface ScrapedEmpreendimento {
+  nome: string;
+  localizacao?: string;
+  tipologias?: string[];
+  preco_min?: number;
+  preco_max?: number;
+  status?: string;
+  link_original?: string;
+  dados_raw?: Record<string, unknown>;
+}
+
+export interface AIAgentExecutionLog {
+  agent_id: string;
+  status: 'started' | 'running' | 'completed' | 'failed';
+  message: string;
+  data?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AIAgentScraperResponse {
+  success: boolean;
+  empreendimentos: ScrapedEmpreendimento[];
+  logs: AIAgentExecutionLog[];
+  error?: string;
+  tokensUsed?: number;
+  message?: string;
+}
+
+export interface AIAgentLogEntry {
+  id: string;
+  organization_id: string;
+  agent_type: string;
+  input_data: Record<string, unknown>;
+  output_data: Record<string, unknown>;
+  status: string;
+  tokens_used: number;
+  error_message?: string;
+  created_at: string;
+}
+
+// Tipo para Construtora cadastrada
+export interface AIAgentConstrutora {
+  id: string;
+  organization_id: string;
+  name: string;
+  linktree_url: string;
+  website_url?: string;
+  notes?: string;
+  is_active: boolean;
+  last_scraped_at?: string;
+  empreendimentos_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export const aiAgentsApi = {
+  // Testar scraping de uma construtora (não salva no banco)
+  testScraper: async (data: AIAgentTestScraperRequest): Promise<ApiResponse<AIAgentScraperResponse>> => {
+    return apiRequest<AIAgentScraperResponse>('/ai-agents/test-scraper', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Executar scraping e salvar no banco
+  scrapeConstrutora: async (data: {
+    linktree_url: string;
+    construtora_name: string;
+    construtora_id?: string;
+  }): Promise<ApiResponse<AIAgentScraperResponse>> => {
+    return apiRequest<AIAgentScraperResponse>('/ai-agents/scrape-construtora', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Listar logs de execução
+  getLogs: async (): Promise<ApiResponse<{ logs: AIAgentLogEntry[] }>> => {
+    return apiRequest<{ logs: AIAgentLogEntry[] }>('/ai-agents/logs');
+  },
+
+  // ============================================================================
+  // CONSTRUTORAS CRUD
+  // ============================================================================
+
+  // Listar construtoras cadastradas
+  listConstrutoras: async (): Promise<ApiResponse<{ construtoras: AIAgentConstrutora[] }>> => {
+    return apiRequest<{ construtoras: AIAgentConstrutora[] }>('/ai-agents/construtoras');
+  },
+
+  // Cadastrar nova construtora
+  createConstrutora: async (data: {
+    name: string;
+    linktree_url: string;
+    website_url?: string;
+    notes?: string;
+  }): Promise<ApiResponse<{ construtora: AIAgentConstrutora }>> => {
+    return apiRequest<{ construtora: AIAgentConstrutora }>('/ai-agents/construtoras', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Atualizar construtora
+  updateConstrutora: async (id: string, data: {
+    name?: string;
+    linktree_url?: string;
+    website_url?: string;
+    notes?: string;
+    is_active?: boolean;
+  }): Promise<ApiResponse<{ construtora: AIAgentConstrutora }>> => {
+    return apiRequest<{ construtora: AIAgentConstrutora }>(`/ai-agents/construtoras/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Remover construtora
+  deleteConstrutora: async (id: string): Promise<ApiResponse<{ message: string }>> => {
+    return apiRequest<{ message: string }>(`/ai-agents/construtoras/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Executar scraping de uma construtora específica
+  scrapeConstrutoraCadastrada: async (id: string): Promise<ApiResponse<AIAgentScraperResponse>> => {
+    return apiRequest<AIAgentScraperResponse>(`/ai-agents/construtoras/${id}/scrape`, {
+      method: 'POST',
+    });
+  },
+};
+
+// ============================================================================
 // AUTOMAÇÕES - LAB IA
 // ============================================================================
 

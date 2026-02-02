@@ -82,6 +82,8 @@ import { guestAreaApp } from "./routes-guest-area.ts"; // 🏠 CÁPSULA: Área d
 import * as automationsRoutes from "./routes-automations.ts"; // ✅ Automações: CRUD
 import * as automationsAiRoutes from "./routes-automations-ai.ts"; // ✅ Automações: AI (linguagem natural)
 import * as automationsTriggerRoutes from "./routes-automations-trigger.ts"; // ✅ Automações: Trigger/Execução
+import aiAgentsApp from "./routes-ai-agents.ts"; // ✅ AI Agents: Scraping automatizado com IA
+import { realEstateRoutes } from "./routes-real-estate.ts"; // 🏗️ REAL ESTATE: Marketplace B2B Imobiliário
 
 // ============================================================================
 // 📊 CRM MODULAR (Arquitetura separada por módulo)
@@ -594,6 +596,15 @@ app.put("/make-server-67caf26a/photos/:photoId", photosRoutes.updatePhoto);
 app.put("/rendizy-server/make-server-67caf26a/photos/:photoId", photosRoutes.updatePhoto);
 
 // ============================================================================
+// 🏗️ REAL ESTATE MODULE - Marketplace B2B Imobiliário
+// ============================================================================
+// Módulo encapsulado - pode ser removido sem afetar o Rendizy
+// Frontend: /realestate/*
+// Tabelas: re_companies, re_developments, re_units, re_partnerships, re_reservations, etc.
+app.route("/realestate", realEstateRoutes);
+app.route("/rendizy-server/realestate", realEstateRoutes);
+
+// ============================================================================
 // CHAT / CHANNELS (WhatsApp Evolution + outros canais)
 // ============================================================================
 // Frontend atual usa: /chat/channels/*
@@ -1073,6 +1084,42 @@ app.post("/automations/trigger", tenancyMiddleware, automationsTriggerRoutes.tri
 app.post("/automations/trigger/message", tenancyMiddleware, automationsTriggerRoutes.triggerMessageAutomation);
 app.post("/automations/trigger/reservation", tenancyMiddleware, automationsTriggerRoutes.triggerReservationAutomation);
 app.get("/automations/test-trigger", automationsTriggerRoutes.testTrigger);
+
+// ============================================================================
+// 🔌 AI PROVIDER CONFIG - Configuração de provedores de IA (Groq, OpenAI, etc)
+// ============================================================================
+import * as aiProviderRoutes from "./routes-ai.ts";
+
+// Com prefixo /rendizy-server E /make-server-67caf26a (compatibilidade)
+app.get("/rendizy-server/make-server-67caf26a/integrations/ai/config", tenancyMiddleware, aiProviderRoutes.getAIProviderConfig);
+app.get("/rendizy-server/make-server-67caf26a/integrations/ai/configs", tenancyMiddleware, aiProviderRoutes.listAIProviderConfigs);
+app.put("/rendizy-server/make-server-67caf26a/integrations/ai/config", tenancyMiddleware, aiProviderRoutes.upsertAIProviderConfig);
+app.patch("/rendizy-server/make-server-67caf26a/integrations/ai/config/:id/status", tenancyMiddleware, aiProviderRoutes.toggleAIConfigStatus);
+app.delete("/rendizy-server/make-server-67caf26a/integrations/ai/config/:id", tenancyMiddleware, aiProviderRoutes.deleteAIProviderConfig);
+app.post("/rendizy-server/make-server-67caf26a/integrations/ai/test", tenancyMiddleware, aiProviderRoutes.testAIProviderConfig);
+
+// Rotas espelho sem /make-server-67caf26a
+app.get("/rendizy-server/integrations/ai/config", tenancyMiddleware, aiProviderRoutes.getAIProviderConfig);
+app.get("/rendizy-server/integrations/ai/configs", tenancyMiddleware, aiProviderRoutes.listAIProviderConfigs);
+app.put("/rendizy-server/integrations/ai/config", tenancyMiddleware, aiProviderRoutes.upsertAIProviderConfig);
+app.patch("/rendizy-server/integrations/ai/config/:id/status", tenancyMiddleware, aiProviderRoutes.toggleAIConfigStatus);
+app.delete("/rendizy-server/integrations/ai/config/:id", tenancyMiddleware, aiProviderRoutes.deleteAIProviderConfig);
+app.post("/rendizy-server/integrations/ai/test", tenancyMiddleware, aiProviderRoutes.testAIProviderConfig);
+
+// Alias sem prefixo /rendizy-server
+app.get("/integrations/ai/config", tenancyMiddleware, aiProviderRoutes.getAIProviderConfig);
+app.get("/integrations/ai/configs", tenancyMiddleware, aiProviderRoutes.listAIProviderConfigs);
+app.put("/integrations/ai/config", tenancyMiddleware, aiProviderRoutes.upsertAIProviderConfig);
+app.patch("/integrations/ai/config/:id/status", tenancyMiddleware, aiProviderRoutes.toggleAIConfigStatus);
+app.delete("/integrations/ai/config/:id", tenancyMiddleware, aiProviderRoutes.deleteAIProviderConfig);
+app.post("/integrations/ai/test", tenancyMiddleware, aiProviderRoutes.testAIProviderConfig);
+
+// ============================================================================
+// 🤖 AI AGENTS - Agentes de IA para coleta automatizada
+// ============================================================================
+// Coletor de Construtoras - Scraping de Linktrees com IA
+app.route("/rendizy-server/ai-agents", aiAgentsApp);
+app.route("/ai-agents", aiAgentsApp);
 
 // ============================================================================
 // 📊 CRM MODULAR - VENDAS (SALES)

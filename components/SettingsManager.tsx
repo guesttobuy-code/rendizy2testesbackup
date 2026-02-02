@@ -39,7 +39,15 @@ import {
   XCircle,
   RefreshCw,
   Trash2,
-  Copy
+  Copy,
+  Bot,
+  Play,
+  Pause,
+  Activity,
+  Database,
+  FileSearch,
+  Sparkles,
+  Plus
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -53,6 +61,7 @@ import { Separator } from './ui/separator';
 import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { channelsApi, OrganizationChannelConfig } from '../utils/chatApi';
+import { aiAgentsApi } from '../utils/api';
 import { PropertyTypesManager } from './PropertyTypesManager';
 import { LocationsListingsSettings } from './LocationsListingsSettings';
 import { LocationAmenitiesSettings } from './LocationAmenitiesSettings';
@@ -813,6 +822,13 @@ export function SettingsManager({
               Integrações
             </TabsTrigger>
             <TabsTrigger
+              value="agentes-ia"
+              className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-purple-500 px-3 sm:px-6 py-2.5 sm:py-3"
+            >
+              <Bot className="h-4 w-4 mr-2" />
+              Agentes IA
+            </TabsTrigger>
+            <TabsTrigger
               value="gerais"
               className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 px-3 sm:px-6 py-2.5 sm:py-3"
             >
@@ -989,6 +1005,11 @@ export function SettingsManager({
                     <DataReconciliationManager />
                   </TabsContent>
                 </Tabs>
+              </TabsContent>
+
+              {/* Agentes de IA */}
+              <TabsContent value="agentes-ia" className="mt-6">
+                <AIAgentsSettings />
               </TabsContent>
 
               {/* Configurações gerais ("caixa de entrada" temporária) */}
@@ -2510,3 +2531,656 @@ function PendingReservationSettingsCard({ organizationId }: { organizationId: st
     </div>
   );
 }
+
+// ============================================================================
+// AI AGENTS SETTINGS COMPONENT - ARQUITETURA MODULAR
+// ============================================================================
+
+// Definição dos agentes disponíveis
+interface AgentDefinition {
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  status: 'active' | 'beta' | 'coming_soon' | 'new';
+  category: 'coleta' | 'comunicacao' | 'analise' | 'automacao';
+  color: string;
+}
+
+const AVAILABLE_AGENTS: AgentDefinition[] = [
+  {
+    id: 'construtora-scraper',
+    name: 'Coletor de Construtoras',
+    description: 'Coleta dados de empreendimentos via Linktree e sites públicos',
+    icon: <FileSearch className="h-6 w-6" />,
+    status: 'active',
+    category: 'coleta',
+    color: 'purple',
+  },
+  {
+    id: 'whatsapp-responder',
+    name: 'Resposta WhatsApp',
+    description: 'Responde mensagens automaticamente com IA',
+    icon: <MessageCircle className="h-6 w-6" />,
+    status: 'coming_soon',
+    category: 'comunicacao',
+    color: 'green',
+  },
+  {
+    id: 'lead-qualifier',
+    name: 'Qualificador de Leads',
+    description: 'Analisa e classifica leads por potencial de compra',
+    icon: <Filter className="h-6 w-6" />,
+    status: 'coming_soon',
+    category: 'analise',
+    color: 'blue',
+  },
+  {
+    id: 'price-monitor',
+    name: 'Monitor de Preços',
+    description: 'Acompanha variações de preço da concorrência',
+    icon: <DollarSign className="h-6 w-6" />,
+    status: 'coming_soon',
+    category: 'coleta',
+    color: 'amber',
+  },
+  {
+    id: 'email-responder',
+    name: 'Resposta Email',
+    description: 'Responde emails de clientes automaticamente',
+    icon: <MessageSquare className="h-6 w-6" />,
+    status: 'coming_soon',
+    category: 'comunicacao',
+    color: 'indigo',
+  },
+  {
+    id: 'document-analyzer',
+    name: 'Analisador de Documentos',
+    description: 'Extrai dados de contratos, propostas e fichas',
+    icon: <FileText className="h-6 w-6" />,
+    status: 'coming_soon',
+    category: 'analise',
+    color: 'rose',
+  },
+];
+
+// Componente do Card do Agente na lista
+function AgentCard({ agent, onClick }: { agent: AgentDefinition; onClick: () => void }) {
+  const colorMap: Record<string, string> = {
+    purple: 'from-purple-500 to-indigo-600',
+    green: 'from-green-500 to-emerald-600',
+    blue: 'from-blue-500 to-cyan-600',
+    amber: 'from-amber-500 to-orange-600',
+    indigo: 'from-indigo-500 to-violet-600',
+    rose: 'from-rose-500 to-pink-600',
+  };
+
+  const statusMap: Record<string, { label: string; className: string }> = {
+    active: { label: 'Ativo', className: 'bg-green-500/10 text-green-500 border-green-500/30' },
+    beta: { label: 'Beta', className: 'bg-blue-500/10 text-blue-500 border-blue-500/30' },
+    new: { label: 'Novo', className: 'bg-purple-500/10 text-purple-500 border-purple-500/30' },
+    coming_soon: { label: 'Em breve', className: 'bg-gray-500/10 text-gray-400 border-gray-500/30' },
+  };
+
+  const isDisabled = agent.status === 'coming_soon';
+
+  return (
+    <Card 
+      className={`bg-card border-border transition-all duration-200 ${
+        isDisabled 
+          ? 'opacity-60 cursor-not-allowed' 
+          : 'hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10 cursor-pointer'
+      }`}
+      onClick={isDisabled ? undefined : onClick}
+    >
+      <CardContent className="pt-6">
+        <div className="flex items-start gap-4">
+          <div className={`h-14 w-14 bg-gradient-to-br ${colorMap[agent.color]} rounded-xl flex items-center justify-center text-white shadow-lg`}>
+            {agent.icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-foreground truncate">{agent.name}</h3>
+              <Badge className={statusMap[agent.status].className}>
+                {statusMap[agent.status].label}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground line-clamp-2">{agent.description}</p>
+          </div>
+          {!isDisabled && (
+            <ChevronDown className="h-5 w-5 text-muted-foreground rotate-[-90deg]" />
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Componente do Agente Coletor de Construtoras
+function ConstrutoraScraper({ onBack }: { onBack: () => void }) {
+  const [construtoras, setConstrutoras] = useState<any[]>([]);
+  const [isLoadingList, setIsLoadingList] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+  const [newNotes, setNewNotes] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Estados para teste/scraping
+  const [scrapingId, setScrapingId] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [testLogs, setTestLogs] = useState<any[]>([]);
+
+  // Carregar construtoras ao montar
+  useEffect(() => {
+    loadConstrutoras();
+  }, []);
+
+  const loadConstrutoras = async () => {
+    setIsLoadingList(true);
+    try {
+      const response = await aiAgentsApi.listConstrutoras();
+      if (response.success && response.data) {
+        setConstrutoras(response.data.construtoras || []);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar construtoras:', error);
+    } finally {
+      setIsLoadingList(false);
+    }
+  };
+
+  const handleAddConstrutora = async () => {
+    if (!newName || !newUrl) {
+      toast.error('Nome e URL do Linktree são obrigatórios');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await aiAgentsApi.createConstrutora({
+        name: newName,
+        linktree_url: newUrl,
+        notes: newNotes || undefined,
+      });
+
+      if (response.success) {
+        toast.success('Construtora cadastrada com sucesso!');
+        setNewName('');
+        setNewUrl('');
+        setNewNotes('');
+        setShowAddForm(false);
+        loadConstrutoras();
+      } else {
+        toast.error(response.error || 'Erro ao cadastrar');
+      }
+    } catch (error: any) {
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteConstrutora = async (id: string, name: string) => {
+    if (!confirm(`Remover "${name}" da lista?`)) return;
+
+    try {
+      const response = await aiAgentsApi.deleteConstrutora(id);
+      if (response.success) {
+        toast.success('Construtora removida');
+        loadConstrutoras();
+      } else {
+        toast.error(response.error || 'Erro ao remover');
+      }
+    } catch (error: any) {
+      toast.error(`Erro: ${error.message}`);
+    }
+  };
+
+  const handleScrape = async (construtora: any) => {
+    setScrapingId(construtora.id);
+    setTestResult(null);
+    setTestLogs([{
+      status: 'running',
+      message: `Iniciando coleta para ${construtora.name}...`,
+      created_at: new Date().toISOString()
+    }]);
+
+    try {
+      const response = await aiAgentsApi.scrapeConstrutoraCadastrada(construtora.id);
+
+      if (response.success && response.data) {
+        setTestResult(response.data);
+        setTestLogs(response.data.logs || []);
+        
+        if (response.data.success) {
+          toast.success(`${response.data.empreendimentos?.length || 0} empreendimentos encontrados!`);
+          loadConstrutoras(); // Recarregar para atualizar contadores
+        } else {
+          toast.error(response.data.error || 'Erro na coleta');
+        }
+      } else {
+        toast.error(response.error || 'Erro ao executar agente');
+        setTestLogs(prev => [...prev, {
+          status: 'failed',
+          message: response.error || 'Erro desconhecido',
+          created_at: new Date().toISOString()
+        }]);
+      }
+    } catch (error: any) {
+      toast.error(`Erro: ${error.message}`);
+      setTestLogs(prev => [...prev, {
+        status: 'failed',
+        message: error.message,
+        created_at: new Date().toISOString()
+      }]);
+    } finally {
+      setScrapingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header com botão voltar */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-2">
+          <ChevronDown className="h-4 w-4 rotate-90" />
+          Voltar
+        </Button>
+        <div className="h-6 w-px bg-border" />
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center text-white">
+            <FileSearch className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Coletor de Construtoras</h2>
+            <p className="text-sm text-muted-foreground">Coleta automática via Linktree</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-card border-border">
+          <CardContent className="pt-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-purple-500">{construtoras.length}</p>
+              <p className="text-xs text-muted-foreground">Construtoras</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="pt-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-500">
+                {construtoras.reduce((acc, c) => acc + (c.empreendimentos_count || 0), 0)}
+              </p>
+              <p className="text-xs text-muted-foreground">Empreendimentos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="pt-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-500">{testResult?.tokensUsed || 0}</p>
+              <p className="text-xs text-muted-foreground">Tokens Usados</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="pt-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-amber-500">14.4K</p>
+              <p className="text-xs text-muted-foreground">Tokens/dia (grátis)</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Lista de Construtoras Cadastradas */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-card-foreground flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-purple-400" />
+                Construtoras Cadastradas
+              </CardTitle>
+              <CardDescription>
+                Gerencie as construtoras que deseja monitorar
+              </CardDescription>
+            </div>
+            <Button 
+              onClick={() => setShowAddForm(!showAddForm)}
+              variant={showAddForm ? "outline" : "default"}
+              className={showAddForm ? "" : "bg-purple-600 hover:bg-purple-700"}
+            >
+              {showAddForm ? (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancelar
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Formulário de Adicionar */}
+          {showAddForm && (
+            <div className="p-4 rounded-lg bg-purple-500/5 border border-purple-500/20 space-y-4">
+              <h4 className="font-medium text-foreground flex items-center gap-2">
+                <Plus className="h-4 w-4 text-purple-400" />
+                Nova Construtora
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-name">Nome da Construtora *</Label>
+                  <Input
+                    id="new-name"
+                    placeholder="Ex: Cyrela, MRV, Tegra..."
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-url">URL do Linktree *</Label>
+                  <Input
+                    id="new-url"
+                    placeholder="https://linktr.ee/construtora"
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-notes">Observações (opcional)</Label>
+                <Input
+                  id="new-notes"
+                  placeholder="Anotações sobre esta construtora..."
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
+                />
+              </div>
+              <Button 
+                onClick={handleAddConstrutora}
+                disabled={isSaving || !newName || !newUrl}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Salvar Construtora
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Lista */}
+          {isLoadingList ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : construtoras.length === 0 ? (
+            <div className="text-center py-8">
+              <Building2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground">Nenhuma construtora cadastrada</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Clique em "Adicionar" para começar
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {construtoras.map((construtora) => (
+                <div 
+                  key={construtora.id} 
+                  className="p-4 rounded-lg bg-muted/30 border border-border hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-foreground">{construtora.name}</h4>
+                        {construtora.empreendimentos_count > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {construtora.empreendimentos_count} empreendimentos
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate mt-1">
+                        {construtora.linktree_url}
+                      </p>
+                      {construtora.last_scraped_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Última coleta: {new Date(construtora.last_scraped_at).toLocaleString('pt-BR')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleScrape(construtora)}
+                        disabled={scrapingId === construtora.id}
+                        className="gap-1"
+                      >
+                        {scrapingId === construtora.id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                        Coletar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteConstrutora(construtora.id, construtora.name)}
+                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Logs do Teste */}
+      {testLogs.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-card-foreground flex items-center gap-2">
+              <Activity className="h-5 w-5 text-blue-400" />
+              Logs de Execução
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {testLogs.map((log, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm">
+                  <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${
+                    log.status === 'completed' ? 'bg-green-500' :
+                    log.status === 'failed' ? 'bg-red-500' :
+                    log.status === 'running' ? 'bg-blue-500 animate-pulse' :
+                    'bg-gray-400'
+                  }`} />
+                  <span className="text-muted-foreground">{log.message}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Resultado */}
+      {testResult?.empreendimentos && testResult.empreendimentos.length > 0 && (
+        <Card className="bg-card border-border border-green-500/30">
+          <CardHeader>
+            <CardTitle className="text-card-foreground flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Empreendimentos Encontrados ({testResult.empreendimentos.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {testResult.empreendimentos.map((emp: any, i: number) => (
+                <div key={i} className="p-4 rounded-lg bg-muted/50 border border-border">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="font-semibold text-foreground">{emp.nome}</p>
+                      {emp.localizacao && (
+                        <p className="text-sm text-muted-foreground">{emp.localizacao}</p>
+                      )}
+                    </div>
+                    {emp.status && (
+                      <Badge variant="outline" className="text-xs">{emp.status}</Badge>
+                    )}
+                  </div>
+                  {emp.tipologias && emp.tipologias.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {emp.tipologias.map((tip: string, j: number) => (
+                        <Badge key={j} variant="secondary" className="text-xs">{tip}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  {emp.links && Object.keys(emp.links).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-border">
+                      {emp.links.disponibilidade && (
+                        <a href={emp.links.disponibilidade} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:underline">📊 Disponibilidade</a>
+                      )}
+                      {emp.links.tabela_precos && (
+                        <a href={emp.links.tabela_precos} target="_blank" rel="noopener noreferrer" className="text-xs text-green-400 hover:underline">💰 Tabela</a>
+                      )}
+                      {emp.links.decorado_virtual && (
+                        <a href={emp.links.decorado_virtual} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">🏠 Decorado</a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// Componente Principal
+function AIAgentsSettings() {
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+
+  // Se um agente está selecionado, mostrar a view específica
+  if (selectedAgent === 'construtora-scraper') {
+    return <ConstrutoraScraper onBack={() => setSelectedAgent(null)} />;
+  }
+
+  // Tela principal - Lista de agentes
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+            <Bot className="h-5 w-5 text-purple-500" />
+            Agentes de IA
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Configure agentes inteligentes para automatizar coleta e processamento de dados
+          </p>
+        </div>
+      </div>
+
+      {/* Aviso Groq */}
+      <div className="p-4 rounded-lg bg-green-500/5 border border-green-500/20">
+        <div className="flex items-start gap-3">
+          <Sparkles className="h-5 w-5 text-green-400 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">
+              💰 Comece GRÁTIS com Groq!
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              O <span className="text-green-500 font-medium">Groq</span> oferece <span className="text-green-500 font-medium">14.400 tokens/dia grátis</span> - suficiente para ~10-20 coletas diárias sem custo!
+              Configure em <span className="text-purple-400 font-medium">Integrações → Provedor de IA</span>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Categorias de Agentes */}
+      <div className="space-y-6">
+        {/* Coleta de Dados */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Coleta de Dados
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {AVAILABLE_AGENTS.filter(a => a.category === 'coleta').map(agent => (
+              <AgentCard 
+                key={agent.id} 
+                agent={agent} 
+                onClick={() => setSelectedAgent(agent.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Comunicação */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <MessageCircle className="h-4 w-4" />
+            Comunicação
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {AVAILABLE_AGENTS.filter(a => a.category === 'comunicacao').map(agent => (
+              <AgentCard 
+                key={agent.id} 
+                agent={agent} 
+                onClick={() => setSelectedAgent(agent.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Análise */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Análise
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {AVAILABLE_AGENTS.filter(a => a.category === 'analise').map(agent => (
+              <AgentCard 
+                key={agent.id} 
+                agent={agent} 
+                onClick={() => setSelectedAgent(agent.id)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Rodapé informativo */}
+      <div className="p-4 rounded-lg bg-muted/30 border border-border">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Sparkles className="h-4 w-4 text-purple-400" />
+          <span>Novos agentes são adicionados regularmente. Tem uma ideia? Entre em contato!</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+

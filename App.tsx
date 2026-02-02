@@ -187,6 +187,17 @@ const CheckinConfigDemo = React.lazy(() =>
   import('./components/crm/mocks/CheckinConfigDemo').then((m) => ({ default: m.CheckinConfigDemo }))
 );
 
+// 🏗️ REAL ESTATE MARKETPLACE MOCK - v1.0.0 - Protótipo visual do marketplace B2B
+const RealEstateMockModule = React.lazy(() =>
+  import('./components/real-estate/RealEstateMockModule').then((m) => ({ default: m.RealEstateMockModule }))
+);
+
+// 🏗️ REAL ESTATE MODULE ENCAPSULADO - v1.0.0 - Módulo plug & play para marketplace B2B
+// Importação do módulo encapsulado que pode ser desplugado se vendido separadamente
+const RealEstateModule = React.lazy(() =>
+  import('../real-estate-module/frontend/RealEstateModule').then((m) => ({ default: m.RealEstateModule }))
+);
+
 // Types
 export interface Property {
   id: string;
@@ -2079,6 +2090,30 @@ function App() {
 
                 {/* Redirect antigo /anuncio-ultimate -> /anuncios-ultimate/lista */}
                 <Route path="/anuncio-ultimate" element={<Navigate to="/anuncios-ultimate/lista" replace />} />
+
+                {/* 🏗️ REAL ESTATE MARKETPLACE MOCK - v1.0.0 - Protótipo visual do marketplace B2B */}
+                <Route path="/real-estate-mock" element={
+                  <ProtectedRoute>
+                    <React.Suspense fallback={<LoadingProgress isLoading={true} />}>
+                      <RealEstateMockModule />
+                    </React.Suspense>
+                  </ProtectedRoute>
+                } />
+
+                {/* 🏗️ REAL ESTATE MODULE - v1.0.0 - Módulo encapsulado plug & play */}
+                {/* Rota principal do módulo Real Estate B2B Marketplace */}
+                <Route path="/realestate/*" element={
+                  <ProtectedRoute>
+                    <React.Suspense fallback={<LoadingProgress isLoading={true} />}>
+                      <RealEstateModule 
+                        sidebarCollapsed={sidebarCollapsed}
+                        setSidebarCollapsed={setSidebarCollapsed}
+                        initialLoading={initialLoading}
+                        onModuleChange={setActiveModule}
+                      />
+                    </React.Suspense>
+                  </ProtectedRoute>
+                } />
 
                 {/* ⚡ Rota raiz - Renderiza Dashboard diretamente para evitar falta de rota */}
                 <Route path="/" element={

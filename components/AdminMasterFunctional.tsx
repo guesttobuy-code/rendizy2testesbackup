@@ -22,7 +22,9 @@ import {
   Server,
   HardDrive,
   RefreshCw,
-  Calendar
+  Calendar,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -49,7 +51,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription } from './ui/alert';
 import { Label } from './ui/label';
 import { CreateOrganizationModal } from './CreateOrganizationModal';
-import { CreateUserModal } from './CreateUserModal';
+import { CreateUserModal, ModulePermissions, DEFAULT_MODULE_PERMISSIONS } from './CreateUserModal';
+import { Checkbox } from './ui/checkbox';
 import { ReservationsManagement } from './ReservationsManagement';
 import { PropertyTypesSeedTool } from './PropertyTypesSeedTool';
 import { toast } from 'sonner';
@@ -109,6 +112,25 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [selectedOrgForUser, setSelectedOrgForUser] = useState<string | undefined>(undefined);
+
+  // Estado para modal de edição de permissões
+  const [showEditPermissionsModal, setShowEditPermissionsModal] = useState(false);
+  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<User | null>(null);
+  const [editingPermissions, setEditingPermissions] = useState<ModulePermissions>(DEFAULT_MODULE_PERMISSIONS);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+  const [permissionExpandedSections, setPermissionExpandedSections] = useState({
+    temporada: true,
+    comunicacao: true,
+    modulosAvancados: true,
+    configuracoes: true
+  });
+
+  const togglePermissionSection = (section: keyof typeof permissionExpandedSections) => {
+    setPermissionExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   // Load data
   useEffect(() => {
@@ -232,6 +254,56 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
     setSelectedUserForPassword(user);
     setNewPassword('');
     setShowChangePasswordModal(true);
+  };
+
+  const handleOpenEditPermissions = (user: User) => {
+    setSelectedUserForPermissions(user);
+    // Carregar permissões existentes ou usar default
+    const existingPermissions = (user as any).modulePermissions || DEFAULT_MODULE_PERMISSIONS;
+    setEditingPermissions(existingPermissions);
+    setShowEditPermissionsModal(true);
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedUserForPermissions) return;
+
+    setSavingPermissions(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rendizy-token') : null;
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/rendizy-server/users/${selectedUserForPermissions.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+            ...(token ? { 'X-Auth-Token': token } : {})
+          },
+          body: JSON.stringify({ modulePermissions: editingPermissions })
+        }
+      );
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result?.error || 'Erro ao salvar permissões');
+      }
+
+      toast.success('Permissões atualizadas com sucesso');
+      setShowEditPermissionsModal(false);
+      setSelectedUserForPermissions(null);
+
+      if (selectedOrgForUsers?.id) {
+        loadUsers(selectedOrgForUsers.id);
+      }
+    } catch (error) {
+      console.error('Error saving permissions:', error);
+      toast.error('Erro ao salvar permissões', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    } finally {
+      setSavingPermissions(false);
+    }
   };
 
   const handleSavePassword = async () => {
@@ -743,7 +815,10 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
                       <TableCell className="text-sm text-gray-500">
                         {new Date(u.createdAt).toLocaleDateString('pt-BR')}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => handleOpenEditPermissions(u)}>
+                          Permissões
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => handleOpenChangePassword(u)}>
                           Mudar Senha
                         </Button>
@@ -812,6 +887,238 @@ export function AdminMasterFunctional({ onNavigate }: AdminMasterProps) {
             </Button>
             <Button onClick={handleSavePassword} disabled={changingPassword}>
               {changingPassword ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Edição de Permissões */}
+      <Dialog
+        open={showEditPermissionsModal}
+        onOpenChange={(open) => {
+          setShowEditPermissionsModal(open);
+          if (!open) {
+            setSelectedUserForPermissions(null);
+            setEditingPermissions(DEFAULT_MODULE_PERMISSIONS);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Permissões de Módulos</DialogTitle>
+            <DialogDescription>
+              {selectedUserForPermissions ? selectedUserForPermissions.email : 'Selecione um usuário'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Grupo 1: Temporada, Aluguel e Vendas */}
+            <div className="border rounded-lg p-3">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => togglePermissionSection('temporada')}
+              >
+                <div className="flex items-center gap-2">
+                  {permissionExpandedSections.temporada ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <span className="font-medium">Temporada, Aluguel e Vendas</span>
+                </div>
+                <Badge variant={editingPermissions.temporadaAluguelVendas ? "default" : "secondary"}>
+                  {editingPermissions.temporadaAluguelVendas ? "Ativo" : "Inativo"}
+                </Badge>
+              </div>
+              {permissionExpandedSections.temporada && (
+                <div className="mt-3 pl-6 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="perm-temporada"
+                      checked={editingPermissions.temporadaAluguelVendas}
+                      onCheckedChange={(checked) => 
+                        setEditingPermissions(prev => ({ ...prev, temporadaAluguelVendas: !!checked }))
+                      }
+                      disabled={savingPermissions}
+                    />
+                    <label htmlFor="perm-temporada" className="text-sm">
+                      Calendário, Reservas, CRM, Tarefas, Imóveis
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Grupo 2: Comunicação */}
+            <div className="border rounded-lg p-3">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => togglePermissionSection('comunicacao')}
+              >
+                <div className="flex items-center gap-2">
+                  {permissionExpandedSections.comunicacao ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <span className="font-medium">Comunicação</span>
+                </div>
+                <Badge variant={editingPermissions.comunicacao ? "default" : "secondary"}>
+                  {editingPermissions.comunicacao ? "Ativo" : "Inativo"}
+                </Badge>
+              </div>
+              {permissionExpandedSections.comunicacao && (
+                <div className="mt-3 pl-6 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="perm-comunicacao"
+                      checked={editingPermissions.comunicacao}
+                      onCheckedChange={(checked) => 
+                        setEditingPermissions(prev => ({ ...prev, comunicacao: !!checked }))
+                      }
+                      disabled={savingPermissions}
+                    />
+                    <label htmlFor="perm-comunicacao" className="text-sm">
+                      Chat WhatsApp, Mensagens
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Grupo 3: Módulos Avançados */}
+            <div className="border rounded-lg p-3">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => togglePermissionSection('modulosAvancados')}
+              >
+                <div className="flex items-center gap-2">
+                  {permissionExpandedSections.modulosAvancados ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <span className="font-medium">Módulos Avançados</span>
+                </div>
+              </div>
+              {permissionExpandedSections.modulosAvancados && (
+                <div className="mt-3 pl-6 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="perm-financas"
+                      checked={editingPermissions.modulosAvancados.financas}
+                      onCheckedChange={(checked) => 
+                        setEditingPermissions(prev => ({
+                          ...prev,
+                          modulosAvancados: { ...prev.modulosAvancados, financas: !!checked }
+                        }))
+                      }
+                      disabled={savingPermissions}
+                    />
+                    <label htmlFor="perm-financas" className="text-sm">Finanças</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="perm-bi"
+                      checked={editingPermissions.modulosAvancados.biRelatorios}
+                      onCheckedChange={(checked) => 
+                        setEditingPermissions(prev => ({
+                          ...prev,
+                          modulosAvancados: { ...prev.modulosAvancados, biRelatorios: !!checked }
+                        }))
+                      }
+                      disabled={savingPermissions}
+                    />
+                    <label htmlFor="perm-bi" className="text-sm">BI & Relatórios</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="perm-site"
+                      checked={editingPermissions.modulosAvancados.edicaoSite}
+                      onCheckedChange={(checked) => 
+                        setEditingPermissions(prev => ({
+                          ...prev,
+                          modulosAvancados: { ...prev.modulosAvancados, edicaoSite: !!checked }
+                        }))
+                      }
+                      disabled={savingPermissions}
+                    />
+                    <label htmlFor="perm-site" className="text-sm">Edição Site</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="perm-realestate"
+                      checked={editingPermissions.modulosAvancados.realEstateB2B}
+                      onCheckedChange={(checked) => 
+                        setEditingPermissions(prev => ({
+                          ...prev,
+                          modulosAvancados: { ...prev.modulosAvancados, realEstateB2B: !!checked }
+                        }))
+                      }
+                      disabled={savingPermissions}
+                    />
+                    <label htmlFor="perm-realestate" className="text-sm">Real Estate B2B</label>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Grupo 4: Configurações */}
+            <div className="border rounded-lg p-3">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => togglePermissionSection('configuracoes')}
+              >
+                <div className="flex items-center gap-2">
+                  {permissionExpandedSections.configuracoes ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <span className="font-medium">Configurações</span>
+                </div>
+              </div>
+              {permissionExpandedSections.configuracoes && (
+                <div className="mt-3 pl-6 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="perm-integracoes"
+                      checked={editingPermissions.configuracoes.integracoes}
+                      onCheckedChange={(checked) => 
+                        setEditingPermissions(prev => ({
+                          ...prev,
+                          configuracoes: { ...prev.configuracoes, integracoes: !!checked }
+                        }))
+                      }
+                      disabled={savingPermissions}
+                    />
+                    <label htmlFor="perm-integracoes" className="text-sm">Integrações</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="perm-agentes"
+                      checked={editingPermissions.configuracoes.agentesIA}
+                      onCheckedChange={(checked) => 
+                        setEditingPermissions(prev => ({
+                          ...prev,
+                          configuracoes: { ...prev.configuracoes, agentesIA: !!checked }
+                        }))
+                      }
+                      disabled={savingPermissions}
+                    />
+                    <label htmlFor="perm-agentes" className="text-sm">Agentes IA</label>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowEditPermissionsModal(false)} disabled={savingPermissions}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSavePermissions} disabled={savingPermissions}>
+              {savingPermissions ? 'Salvando...' : 'Salvar Permissões'}
             </Button>
           </DialogFooter>
         </DialogContent>

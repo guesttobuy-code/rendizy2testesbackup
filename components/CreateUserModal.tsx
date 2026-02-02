@@ -5,7 +5,8 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { UserPlus, AlertCircle, Loader2, Building2 } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
+import { UserPlus, AlertCircle, Loader2, Building2, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 
@@ -15,6 +16,45 @@ interface Organization {
   name: string;
   status: string;
 }
+
+// Estrutura de permissões de módulos
+export interface ModulePermissions {
+  // Grupo 1: Temporada, Aluguel e Vendas (toggle único para todo o grupo)
+  temporadaAluguelVendas: boolean;
+  
+  // Grupo 2: Comunicação (toggle único para todo o grupo)
+  comunicacao: boolean;
+  
+  // Grupo 3: Módulos Avançados (cada um individual)
+  modulosAvancados: {
+    financas: boolean;
+    biRelatorios: boolean;
+    edicaoSite: boolean;
+    realEstateB2B: boolean;
+  };
+  
+  // Grupo 4: Configurações (opções separadas)
+  configuracoes: {
+    integracoes: boolean;
+    agentesIA: boolean;
+  };
+}
+
+// Valores padrão para novos usuários
+export const DEFAULT_MODULE_PERMISSIONS: ModulePermissions = {
+  temporadaAluguelVendas: true,
+  comunicacao: true,
+  modulosAvancados: {
+    financas: true,
+    biRelatorios: true,
+    edicaoSite: false,
+    realEstateB2B: false,
+  },
+  configuracoes: {
+    integracoes: true,
+    agentesIA: false,
+  },
+};
 
 interface CreateUserModalProps {
   open: boolean;
@@ -28,6 +68,10 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    modulosAvancados: true,
+    configuracoes: true,
+  });
   
   const [formData, setFormData] = useState({
     organizationId: preselectedOrgId || '',
@@ -35,6 +79,8 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
     email: '',
     role: 'staff'
   });
+
+  const [modulePermissions, setModulePermissions] = useState<ModulePermissions>(DEFAULT_MODULE_PERMISSIONS);
 
   // Carregar organizações
   useEffect(() => {
@@ -49,6 +95,13 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
       setFormData(prev => ({ ...prev, organizationId: preselectedOrgId }));
     }
   }, [preselectedOrgId]);
+
+  // Reset permissions quando modal abre
+  useEffect(() => {
+    if (open) {
+      setModulePermissions(DEFAULT_MODULE_PERMISSIONS);
+    }
+  }, [open]);
 
   const loadOrganizations = async () => {
     setLoadingOrgs(true);
@@ -81,6 +134,10 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
     }
   };
 
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -105,7 +162,8 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
           body: JSON.stringify({
             ...formData,
             status: 'invited',
-            createdBy: 'user_master_rendizy' // ID do usuário master
+            createdBy: 'user_master_rendizy',
+            modulePermissions: modulePermissions // Enviar permissões de módulos
           })
         }
       );
@@ -127,6 +185,7 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
         email: '',
         role: 'staff'
       });
+      setModulePermissions(DEFAULT_MODULE_PERMISSIONS);
 
       onSuccess();
       onClose();
@@ -149,6 +208,7 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
         email: '',
         role: 'staff'
       });
+      setModulePermissions(DEFAULT_MODULE_PERMISSIONS);
       setError(null);
       onClose();
     }
@@ -158,7 +218,7 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -319,6 +379,204 @@ export function CreateUserModal({ open, onClose, onSuccess, preselectedOrgId }: 
                   </SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* SEÇÃO DE MÓDULOS VISÍVEIS */}
+            <div className="border-t pt-4 mt-4">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                Módulos Visíveis
+              </h4>
+              <p className="text-xs text-gray-500 mb-4">
+                Selecione quais módulos estarão disponíveis para este usuário
+              </p>
+
+              <div className="space-y-3">
+                {/* Grupo 1: Temporada, Aluguel e Vendas */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="temporadaAluguelVendas"
+                      checked={modulePermissions.temporadaAluguelVendas}
+                      onCheckedChange={(checked) => 
+                        setModulePermissions(prev => ({ ...prev, temporadaAluguelVendas: !!checked }))
+                      }
+                      disabled={loading}
+                    />
+                    <div>
+                      <Label htmlFor="temporadaAluguelVendas" className="font-medium cursor-pointer">
+                        Temporada, Aluguel e Vendas
+                      </Label>
+                      <p className="text-xs text-gray-500">
+                        Calendário, Propriedades e Anúncios, Reservas
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grupo 2: Comunicação */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="comunicacao"
+                      checked={modulePermissions.comunicacao}
+                      onCheckedChange={(checked) => 
+                        setModulePermissions(prev => ({ ...prev, comunicacao: !!checked }))
+                      }
+                      disabled={loading}
+                    />
+                    <div>
+                      <Label htmlFor="comunicacao" className="font-medium cursor-pointer">
+                        Comunicação
+                      </Label>
+                      <p className="text-xs text-gray-500">
+                        Chat, CRM & Tasks, Notificações
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grupo 3: Módulos Avançados (expansível) */}
+                <div className="border rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection('modulosAvancados')}
+                    className="flex items-center justify-between w-full p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <span className="font-medium text-sm">Módulos Avançados</span>
+                    {expandedSections.modulosAvancados ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+                  
+                  {expandedSections.modulosAvancados && (
+                    <div className="p-3 space-y-2 bg-white dark:bg-gray-900">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="financas"
+                          checked={modulePermissions.modulosAvancados.financas}
+                          onCheckedChange={(checked) => 
+                            setModulePermissions(prev => ({
+                              ...prev,
+                              modulosAvancados: { ...prev.modulosAvancados, financas: !!checked }
+                            }))
+                          }
+                          disabled={loading}
+                        />
+                        <Label htmlFor="financas" className="cursor-pointer text-sm">
+                          Finanças
+                        </Label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="biRelatorios"
+                          checked={modulePermissions.modulosAvancados.biRelatorios}
+                          onCheckedChange={(checked) => 
+                            setModulePermissions(prev => ({
+                              ...prev,
+                              modulosAvancados: { ...prev.modulosAvancados, biRelatorios: !!checked }
+                            }))
+                          }
+                          disabled={loading}
+                        />
+                        <Label htmlFor="biRelatorios" className="cursor-pointer text-sm">
+                          BI & Relatórios
+                        </Label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="edicaoSite"
+                          checked={modulePermissions.modulosAvancados.edicaoSite}
+                          onCheckedChange={(checked) => 
+                            setModulePermissions(prev => ({
+                              ...prev,
+                              modulosAvancados: { ...prev.modulosAvancados, edicaoSite: !!checked }
+                            }))
+                          }
+                          disabled={loading}
+                        />
+                        <Label htmlFor="edicaoSite" className="cursor-pointer text-sm">
+                          Edição de Site
+                        </Label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="realEstateB2B"
+                          checked={modulePermissions.modulosAvancados.realEstateB2B}
+                          onCheckedChange={(checked) => 
+                            setModulePermissions(prev => ({
+                              ...prev,
+                              modulosAvancados: { ...prev.modulosAvancados, realEstateB2B: !!checked }
+                            }))
+                          }
+                          disabled={loading}
+                        />
+                        <Label htmlFor="realEstateB2B" className="cursor-pointer text-sm">
+                          Real Estate B2B
+                        </Label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Grupo 4: Configurações (expansível) */}
+                <div className="border rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection('configuracoes')}
+                    className="flex items-center justify-between w-full p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <span className="font-medium text-sm">Configurações</span>
+                    {expandedSections.configuracoes ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+                  
+                  {expandedSections.configuracoes && (
+                    <div className="p-3 space-y-2 bg-white dark:bg-gray-900">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="integracoes"
+                          checked={modulePermissions.configuracoes.integracoes}
+                          onCheckedChange={(checked) => 
+                            setModulePermissions(prev => ({
+                              ...prev,
+                              configuracoes: { ...prev.configuracoes, integracoes: !!checked }
+                            }))
+                          }
+                          disabled={loading}
+                        />
+                        <Label htmlFor="integracoes" className="cursor-pointer text-sm">
+                          Integrações
+                        </Label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id="agentesIA"
+                          checked={modulePermissions.configuracoes.agentesIA}
+                          onCheckedChange={(checked) => 
+                            setModulePermissions(prev => ({
+                              ...prev,
+                              configuracoes: { ...prev.configuracoes, agentesIA: !!checked }
+                            }))
+                          }
+                          disabled={loading}
+                        />
+                        <Label htmlFor="agentesIA" className="cursor-pointer text-sm">
+                          Agentes IA
+                        </Label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

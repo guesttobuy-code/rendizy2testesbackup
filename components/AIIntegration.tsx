@@ -36,7 +36,7 @@ import {
 import { toast } from 'sonner';
 import { integrationsApi, type AIProviderConfigResponse, type AIProviderConfigListItem } from '../utils/api';
 
-type ProviderId = 'openai' | 'azure-openai' | 'huggingface' | 'deepseek' | 'anthropic' | 'google-gemini' | 'groq' | 'together' | 'custom';
+type ProviderId = 'openai' | 'azure-openai' | 'huggingface' | 'deepseek' | 'anthropic' | 'google-gemini' | 'groq' | 'groq-compound' | 'together' | 'custom';
 
 interface ProviderMeta {
   id: ProviderId;
@@ -61,11 +61,11 @@ const PROVIDERS: ProviderMeta[] = [
   {
     id: 'deepseek',
     name: 'DeepSeek',
-    description: 'Modelo de IA de alta performance e custo-benefício (DeepSeek Chat, DeepSeek Coder).',
+    description: 'Excelente custo-benefício: $0.14/1M tokens input, $0.28/1M output. Qualidade próxima ao GPT-4.',
     baseUrl: 'https://api.deepseek.com/v1',
     defaultModel: 'deepseek-chat',
     docsUrl: 'https://platform.deepseek.com/docs',
-    labelVariant: 'success',
+    labelVariant: 'default',
   },
   {
     id: 'anthropic',
@@ -88,11 +88,20 @@ const PROVIDERS: ProviderMeta[] = [
   {
     id: 'groq',
     name: 'Groq',
-    description: 'Inferência ultra-rápida com modelos Llama, Mixtral e outros (gratuito até certo limite).',
+    description: 'Inferência ultra-rápida (280-560 tok/s). Tier gratuito generoso: 14.4K tokens/dia. Ideal para começar!',
     baseUrl: 'https://api.groq.com/openai/v1',
-    defaultModel: 'llama-3.1-70b-versatile',
+    defaultModel: 'llama-3.3-70b-versatile',
     docsUrl: 'https://console.groq.com/docs',
-    labelVariant: 'default',
+    labelVariant: 'success',
+  },
+  {
+    id: 'groq-compound',
+    name: 'Groq Compound (Agentic)',
+    description: 'Sistema agentic com Web Search, Browser e Code Execution integrados. Perfeito para agentes!',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    defaultModel: 'groq/compound',
+    docsUrl: 'https://console.groq.com/docs/compound',
+    labelVariant: 'success',
   },
   {
     id: 'together',
