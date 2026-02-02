@@ -195,7 +195,7 @@ const RealEstateMockModule = React.lazy(() =>
 // 🏗️ REAL ESTATE MODULE ENCAPSULADO - v1.0.0 - Módulo plug & play para marketplace B2B
 // Importação do módulo encapsulado que pode ser desplugado se vendido separadamente
 const RealEstateModule = React.lazy(() =>
-  import('../real-estate-module/frontend/RealEstateModule').then((m) => ({ default: m.RealEstateModule }))
+  import('./components/real-estate/RealEstateMockModule').then((m) => ({ default: m.RealEstateMockModule }))
 );
 
 // Types
