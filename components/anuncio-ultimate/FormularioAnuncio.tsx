@@ -36,6 +36,7 @@ import { Card, CardContent, CardHeader } from '../ui/card';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
+import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { ScrollArea } from '../ui/scroll-area';
@@ -5373,6 +5374,156 @@ export default function FormularioAnuncio() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* ⚠️ NOVOS CAMPOS - MOCK PARA VALIDAÇÃO */}
+                
+                {/* Card: Estadia Máxima */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Estadia máxima (máximo de noites)</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox id="max-nights-override-mock" />
+                      <Label htmlFor="max-nights-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs">⚠️ Qual a estadia máxima permitida?</Label>
+                      <div className="mt-1 flex items-stretch max-w-md">
+                        <div className="px-3 flex items-center rounded-l-md border border-border bg-muted text-xs text-muted-foreground">
+                          Max
+                        </div>
+                        <Input
+                          type="number"
+                          defaultValue={30}
+                          className="rounded-none border-l-0 border-r-0 bg-input border-border"
+                          min={1}
+                        />
+                        <div className="px-3 flex items-center rounded-r-md border border-border bg-muted text-xs text-muted-foreground">
+                          noites
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Usando padrão da organização: 30 noites
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Antecedência de Reserva */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Antecedência de Reserva</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="antecedencia-override-mock" />
+                      <Label htmlFor="antecedencia-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Antecedência mínima (última hora)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            defaultValue={1}
+                            className="w-20"
+                            min={0}
+                          />
+                          <span className="text-sm text-slate-500">dia(s) antes do check-in</span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          Reservas de última hora: quantos dias antes do check-in ainda aceita reservas?
+                        </p>
+                        <p className="text-xs text-slate-500">Usando padrão da organização: 1 dia</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Antecedência máxima (janela de reserva)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            defaultValue={365}
+                            className="w-20"
+                            min={1}
+                          />
+                          <span className="text-sm text-slate-500">dias no futuro</span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          Período de disponibilidade: até quantos dias no futuro aceita reservas?
+                        </p>
+                        <p className="text-xs text-slate-500">Usando padrão da organização: 365 dias</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Reserva Instantânea */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Reserva Instantânea</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="instant-override-mock" />
+                      <Label htmlFor="instant-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <Label className="font-medium">⚠️ Aceitar reservas instantâneas?</Label>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Se ativo, hóspedes podem reservar sem aprovação prévia
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400">Usando padrão (Sim)</span>
+                        <Switch defaultChecked />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Política de Cancelamento */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Política de Cancelamento Padrão</h4>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Checkbox id="cancel-policy-override-mock" />
+                        <Label htmlFor="cancel-policy-override-mock" className="cursor-pointer">
+                          ⚠️ Usar política específica neste anúncio
+                        </Label>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Selecione a política de cancelamento</Label>
+                        <select className="w-full p-2 border rounded-md text-sm">
+                          <option value="">Usar padrão da organização (Flexível)</option>
+                          <option value="flexible">🟢 Flexível - Cancela até 1 dia antes, reembolso total</option>
+                          <option value="moderate">🟡 Moderada - Cancela até 5 dias antes, reembolso total</option>
+                          <option value="strict">🔴 Rígida - Cancela até 14 dias antes, reembolso 50%</option>
+                          <option value="non_refundable">⚫ Não reembolsável - Sem reembolso</option>
+                        </select>
+                        <p className="text-xs text-slate-400">
+                          Esta política será usada como padrão. Pode ser sobrescrita por canal em "📺 Canais"
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="outline" className="text-amber-600 border-amber-300">
+                    ⚠️ Campos em validação - Mock sem backend
+                  </Button>
+                </div>
               </div>
             </TabsContent>
 
@@ -5385,8 +5536,286 @@ export default function FormularioAnuncio() {
                     Configure horários e procedimentos de entrada/saída
                   </p>
                 </div>
-                <div className="text-center py-12 text-slate-400">
-                  <p>🚧 Em desenvolvimento - Campos do wizard serão migrados aqui</p>
+                
+                {/* ⚠️ NOVOS CAMPOS - MOCK */}
+                
+                {/* Card: Horários */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Horários de Check-in / Check-out</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="horarios-override-mock" />
+                      <Label htmlFor="horarios-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Horário de Check-in</Label>
+                        <div className="flex items-center gap-2">
+                          <select className="p-2 border rounded-md text-sm w-24">
+                            <option value="14:00">14:00</option>
+                            <option value="15:00" selected>15:00</option>
+                            <option value="16:00">16:00</option>
+                            <option value="17:00">17:00</option>
+                            <option value="18:00">18:00</option>
+                          </select>
+                          <span className="text-sm text-slate-500">até</span>
+                          <select className="p-2 border rounded-md text-sm w-24">
+                            <option value="20:00">20:00</option>
+                            <option value="21:00">21:00</option>
+                            <option value="22:00" selected>22:00</option>
+                            <option value="23:00">23:00</option>
+                            <option value="flexible">Flexível</option>
+                          </select>
+                        </div>
+                        <p className="text-xs text-slate-400">Usando padrão: 15:00 - 22:00</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Horário de Check-out</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-500">Até</span>
+                          <select className="p-2 border rounded-md text-sm w-24">
+                            <option value="10:00">10:00</option>
+                            <option value="11:00" selected>11:00</option>
+                            <option value="12:00">12:00</option>
+                          </select>
+                        </div>
+                        <p className="text-xs text-slate-400">Usando padrão: até 11:00</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Método de Check-in */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Como você recepciona os hóspedes?</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="metodo-checkin-override-mock" />
+                      <Label htmlFor="metodo-checkin-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização: Recepção/Portaria</p>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Método de check-in padrão</Label>
+                        <select className="w-full p-2 border rounded-md text-sm">
+                          <option value="reception">🏨 Recepção/Portaria - Chaves na recepção</option>
+                          <option value="lockbox">🔐 Lockbox - Cofre com senha</option>
+                          <option value="smart_lock">📱 Fechadura digital - Código ou app</option>
+                          <option value="key_handoff">🤝 Entrega pessoal - Encontro com anfitrião</option>
+                          <option value="self_checkin">🚪 Self check-in - Acesso autônomo</option>
+                        </select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Onde fica o acesso?</Label>
+                        <div className="flex gap-2">
+                          <Button type="button" variant="outline" size="sm" className="flex-1">
+                            No local
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" className="flex-1">
+                            Em local diferente
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Marca/modelo da fechadura ou lockbox (opcional)</Label>
+                        <Input placeholder="Ex: Yale, August, Nuki, KeySafe..." />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Instruções de Check-in / Check-out */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Instruções de Check-in / Check-out</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="instrucoes-override-mock" />
+                      <Label htmlFor="instrucoes-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização (se definido)</p>
+                    
+                    <div className="space-y-4">
+                      {/* Instruções Gerais de Check-in */}
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Instruções de Check-in (enviadas antes da chegada)</Label>
+                        <textarea 
+                          className="w-full p-3 border rounded-md text-sm min-h-[100px]"
+                          placeholder="Ex: Ao chegar, procure a caixa de chaves ao lado da porta principal. O código é enviado 24h antes do check-in. Wifi: NomeRede / Senha: 12345..."
+                        />
+                        <p className="text-xs text-slate-400">Campo: checkin_instructions (Expedia/Booking/Airbnb)</p>
+                      </div>
+                      
+                      {/* Instruções Especiais de Check-in */}
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Instruções Especiais (late check-in, sem recepção, etc)</Label>
+                        <textarea 
+                          className="w-full p-3 border rounded-md text-sm min-h-[80px]"
+                          placeholder="Ex: Não há recepção 24h. Para check-ins após 22h, entre em contato antecipadamente pelo WhatsApp..."
+                        />
+                        <p className="text-xs text-slate-400">Campo: checkin_special_instructions (Expedia: special_instructions)</p>
+                      </div>
+                      
+                      {/* Instruções de Check-out */}
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Instruções de Check-out</Label>
+                        <textarea 
+                          className="w-full p-3 border rounded-md text-sm min-h-[80px]"
+                          placeholder="Ex: Deixe as chaves na caixa ao lado da porta. Feche todas as janelas e portas. Coloque o lixo na lixeira externa..."
+                        />
+                        <p className="text-xs text-slate-400">Campo: checkout_instructions (Expedia/VRBO: California law compliance)</p>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="send-instructions-auto" defaultChecked />
+                        <Label htmlFor="send-instructions-auto" className="text-xs cursor-pointer">
+                          ⚠️ Enviar instruções automaticamente 24h antes do check-in
+                        </Label>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Tempo de Preparação */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Tempo de Preparação (Turnaround)</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="turnaround-override-mock" />
+                      <Label htmlFor="turnaround-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização: 1 dia</p>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs">⚠️ Tempo necessário entre check-out e próximo check-in</Label>
+                      <select className="w-full max-w-xs p-2 border rounded-md text-sm">
+                        <option value="0">Nenhum - Check-in no mesmo dia</option>
+                        <option value="1" selected>1 dia de preparação</option>
+                        <option value="2">2 dias de preparação</option>
+                        <option value="3">3 dias de preparação</option>
+                      </select>
+                      <p className="text-xs text-slate-400">
+                        Bloqueia automaticamente o calendário para limpeza/manutenção
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Early Check-in / Late Checkout */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Taxas de Horário Especial</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="horario-especial-override-mock" />
+                      <Label htmlFor="horario-especial-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Early Check-in */}
+                      <div className="p-4 border rounded-lg space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-medium text-sm">⚠️ Early Check-in</Label>
+                          <Switch id="early-checkin-toggle" />
+                        </div>
+                        <p className="text-xs text-slate-500">Cobrar taxa para entrada antecipada?</p>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs">Horário disponível</Label>
+                          <div className="flex items-center gap-2">
+                            <select className="p-1.5 border rounded text-xs w-20">
+                              <option>06:00</option>
+                              <option>07:00</option>
+                              <option>08:00</option>
+                              <option>09:00</option>
+                              <option selected>10:00</option>
+                            </select>
+                            <span className="text-xs">até</span>
+                            <select className="p-1.5 border rounded text-xs w-20">
+                              <option selected>14:00</option>
+                              <option>15:00</option>
+                            </select>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs">Tipo de cobrança</Label>
+                          <div className="flex items-center gap-2">
+                            <select className="p-1.5 border rounded text-xs">
+                              <option>Valor fixo</option>
+                              <option>Porcentagem da diária</option>
+                            </select>
+                            <Input type="number" className="w-20 h-7 text-xs" defaultValue={80} />
+                            <span className="text-xs">R$</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Late Checkout */}
+                      <div className="p-4 border rounded-lg space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="font-medium text-sm">⚠️ Late Checkout</Label>
+                          <Switch id="late-checkout-toggle" />
+                        </div>
+                        <p className="text-xs text-slate-500">Cobrar taxa para saída tardia?</p>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs">Horário disponível</Label>
+                          <div className="flex items-center gap-2">
+                            <select className="p-1.5 border rounded text-xs w-20">
+                              <option selected>12:00</option>
+                              <option>13:00</option>
+                            </select>
+                            <span className="text-xs">até</span>
+                            <select className="p-1.5 border rounded text-xs w-20">
+                              <option>14:00</option>
+                              <option>15:00</option>
+                              <option>16:00</option>
+                              <option selected>17:00</option>
+                              <option>18:00</option>
+                            </select>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs">Tipo de cobrança</Label>
+                          <div className="flex items-center gap-2">
+                            <select className="p-1.5 border rounded text-xs">
+                              <option>Valor fixo</option>
+                              <option>Porcentagem da diária</option>
+                            </select>
+                            <Input type="number" className="w-20 h-7 text-xs" defaultValue={60} />
+                            <span className="text-xs">R$</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="outline" className="text-amber-600 border-amber-300">
+                    ⚠️ Campos em validação - Mock sem backend
+                  </Button>
                 </div>
               </div>
             </TabsContent>
@@ -5400,8 +5829,243 @@ export default function FormularioAnuncio() {
                     Configure regras sobre pets, fumantes, eventos, etc
                   </p>
                 </div>
-                <div className="text-center py-12 text-slate-400">
-                  <p>🚧 Em desenvolvimento - Campos do wizard serão migrados aqui</p>
+                
+                {/* ⚠️ NOVOS CAMPOS - MOCK */}
+                
+                {/* Card: Ocupação e Idade Mínima */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Ocupação e Requisitos de Idade</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="ocupacao-override-mock" />
+                      <Label htmlFor="ocupacao-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização: 4 adultos / 18 anos</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Máximo de adultos</Label>
+                        <Input type="number" defaultValue={4} min={1} className="w-24" />
+                        <p className="text-xs text-slate-400">Baseado na configuração de camas</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Idade mínima para check-in</Label>
+                        <Input type="number" defaultValue={18} min={18} max={25} className="w-24" />
+                        <p className="text-xs text-slate-400">Campo: min_age_checkin (Expedia/Booking)</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Máximo de hóspedes total</Label>
+                        <Input type="number" defaultValue={6} min={1} className="w-24" />
+                        <p className="text-xs text-slate-400">Adultos + crianças + bebês</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Crianças e Bebês */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Crianças e Bebês</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="criancas-override-mock" />
+                      <Label htmlFor="criancas-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização: Aceita crianças e bebês</p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Aceita crianças (2-12 anos)?</Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Input type="number" placeholder="Max" className="w-20" defaultValue={2} />
+                          <Switch defaultChecked />
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Aceita bebês (0-2 anos)?</Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Input type="number" placeholder="Max" className="w-20" defaultValue={1} />
+                          <Switch defaultChecked />
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Berços disponíveis?</Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Input type="number" placeholder="Qtd" className="w-20" defaultValue={1} />
+                          <Switch defaultChecked />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Regras de Comportamento */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Regras de Comportamento</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="comportamento-override-mock" />
+                      <Label htmlFor="comportamento-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização</p>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Permitido fumar?</Label>
+                        </div>
+                        <Switch />
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Aceita animais de estimação?</Label>
+                          <p className="text-xs text-slate-500">Se sim, pode cobrar taxa adicional</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select className="p-1 border rounded text-xs">
+                            <option value="no">Não</option>
+                            <option value="yes_free">Sim, grátis</option>
+                            <option value="yes_paid">Sim, com taxa</option>
+                            <option value="request">Mediante solicitação</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Permite eventos/festas?</Label>
+                        </div>
+                        <Switch />
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Horário de silêncio?</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch defaultChecked />
+                          <select className="p-1 border rounded text-xs">
+                            <option>22:00</option>
+                            <option>23:00</option>
+                          </select>
+                          <span className="text-xs">às</span>
+                          <select className="p-1 border rounded text-xs">
+                            <option>07:00</option>
+                            <option>08:00</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Regras Adicionais */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Regras Adicionais</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="regras-adicionais-override-mock" />
+                      <Label htmlFor="regras-adicionais-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização (se definido)</p>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs">⚠️ Outras regras importantes (texto livre)</Label>
+                      <textarea 
+                        className="w-full p-3 border rounded-md text-sm min-h-[100px]"
+                        placeholder="Ex: Não é permitido o uso da piscina após 22h. Favor retirar os sapatos ao entrar. Lixo reciclável separado..."
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Know Before You Go (Informações Importantes) */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Informações Importantes (Know Before You Go)</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="know-before-override-mock" />
+                      <Label htmlFor="know-before-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Exibido nas OTAs antes da reserva ser confirmada</p>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ O que o hóspede precisa saber antes de reservar</Label>
+                        <textarea 
+                          className="w-full p-3 border rounded-md text-sm min-h-[100px]"
+                          placeholder="Ex: Reservas para tratamentos spa devem ser feitas com antecedência. Crianças menores de 12 anos ficam de graça usando cama existente. O estacionamento tem altura máxima de 2m..."
+                        />
+                        <p className="text-xs text-slate-400">Campo: know_before_you_go (Expedia/VRBO policies)</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Taxas e Fees */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Descrição de Taxas (Fees)</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="fees-override-mock" />
+                      <Label htmlFor="fees-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Descrição textual das taxas cobradas (além dos valores configurados em Preços)</p>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Taxas Obrigatórias (mandatory fees)</Label>
+                        <textarea 
+                          className="w-full p-3 border rounded-md text-sm min-h-[80px]"
+                          placeholder="Ex: Depósito reembolsável de R$ 500 por dia. Taxa de resort R$ 50 por noite (inclui academia, piscina, Wi-Fi)..."
+                        />
+                        <p className="text-xs text-slate-400">Campo: mandatory_fees_description (Expedia fees.mandatory)</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Taxas Opcionais (optional fees)</Label>
+                        <textarea 
+                          className="w-full p-3 border rounded-md text-sm min-h-[80px]"
+                          placeholder="Ex: Internet premium: R$ 15/hora. Transfer aeroporto: R$ 350 (ida). Cama extra: R$ 80/noite..."
+                        />
+                        <p className="text-xs text-slate-400">Campo: optional_fees_description (Expedia fees.optional)</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="outline" className="text-amber-600 border-amber-300">
+                    ⚠️ Campos em validação - Mock sem backend
+                  </Button>
                 </div>
               </div>
             </TabsContent>
@@ -5410,28 +6074,637 @@ export default function FormularioAnuncio() {
             <TabsContent value="config-politicas" className="mt-0">
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Políticas de Cancelamento</h3>
+                  <h3 className="text-lg font-semibold mb-4">Políticas de Pagamento e Garantias</h3>
                   <p className="text-sm text-slate-500 mb-6">
-                    Configure políticas de cancelamento e reembolso
+                    Configure políticas de pagamento, depósito e danos
                   </p>
                 </div>
-                <div className="text-center py-12 text-slate-400">
-                  <p>🚧 Em desenvolvimento - Campos do wizard serão migrados aqui</p>
+                
+                {/* ⚠️ NOVOS CAMPOS - MOCK */}
+                
+                {/* Card: Garantia de Reserva */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Garantia de Reserva (Sinal)</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="sinal-override-mock" />
+                      <Label htmlFor="sinal-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização: 30%</p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Exigir sinal para confirmar reserva?</Label>
+                          <p className="text-xs text-slate-500">Hóspede paga % do total para garantir</p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Percentual do sinal</Label>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" defaultValue={30} min={0} max={100} className="w-20" />
+                          <span className="text-sm">% do valor total</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Depósito Caução */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Depósito Caução (Segurança)</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="caucao-override-mock" />
+                      <Label htmlFor="caucao-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização: R$ 500</p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <Label className="font-medium">⚠️ Cobrar depósito caução?</Label>
+                          <p className="text-xs text-slate-500">Valor retido e devolvido após check-out sem danos</p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">⚠️ Valor do depósito</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">R$</span>
+                          <Input type="number" defaultValue={500} min={0} className="w-28" />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Política de Danos */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Política de Danos</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="danos-override-mock" />
+                      <Label htmlFor="danos-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização: Descontar do depósito</p>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs">⚠️ Como lidar com danos à propriedade?</Label>
+                      <select className="w-full p-2 border rounded-md text-sm">
+                        <option value="deposit">Descontar do depósito caução</option>
+                        <option value="airbnb_protection">Usar proteção do Airbnb (AirCover)</option>
+                        <option value="insurance">Seguro próprio da imobiliária</option>
+                        <option value="direct_charge">Cobrar diretamente do hóspede</option>
+                      </select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: Pagamentos Diretos */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Pagamentos Diretos (Site próprio)</h4>
+                    
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Checkbox id="pagamentos-override-mock" />
+                      <Label htmlFor="pagamentos-override-mock" className="cursor-pointer">
+                        ⚠️ Usar configuração personalizada neste anúncio
+                      </Label>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-4">Usando padrão da organização: Não mostrar</p>
+                    
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <Label className="font-medium">⚠️ Mostrar dados bancários no site?</Label>
+                        <p className="text-xs text-slate-500">Para reservas via site próprio/booking engine</p>
+                      </div>
+                      <Switch />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="outline" className="text-amber-600 border-amber-300">
+                    ⚠️ Campos em validação - Mock sem backend
+                  </Button>
                 </div>
               </div>
             </TabsContent>
 
-            {/* TAB: INTEGRAÇÃO */}
+            {/* TAB: CANAIS (CHANNEL MANAGER POR ANÚNCIO) */}
             <TabsContent value="config-integracao" className="mt-0">
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Configurações de Integração</h3>
-                  <p className="text-sm text-slate-500 mb-6">
-                    Configure integrações com Airbnb, Booking, etc
-                  </p>
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-1">📺 Canais de Distribuição</h3>
+                    <p className="text-sm text-slate-500">
+                      Gerencie a publicação deste anúncio nos canais OTA conectados.
+                      <span className="text-amber-600 ml-1">⚠️ Tela em validação</span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400">Configurações globais em:</p>
+                    <a href="/settings/channels" className="text-xs text-blue-600 hover:underline">Settings → Channel Managers</a>
+                  </div>
                 </div>
-                <div className="text-center py-12 text-slate-400">
-                  <p>🚧 Em desenvolvimento - Campos do wizard serão migrados aqui</p>
+
+                {/* Resumo de Status */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-green-600">2</p>
+                    <p className="text-xs text-green-700">Publicados</p>
+                  </div>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-amber-600">1</p>
+                    <p className="text-xs text-amber-700">Pausados</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-slate-600">2</p>
+                    <p className="text-xs text-slate-700">Não conectados</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-blue-600">5</p>
+                    <p className="text-xs text-blue-700">Total de Canais</p>
+                  </div>
+                </div>
+                
+                {/* Lista de Canais */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Status nos Canais</h4>
+                    
+                    <div className="space-y-3">
+                      {/* ========== AIRBNB ========== */}
+                      <div className="border rounded-lg overflow-hidden">
+                        <div className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#FF5A5F] rounded-lg flex items-center justify-center text-white font-bold">A</div>
+                            <div>
+                              <Label className="font-medium">⚠️ Airbnb</Label>
+                              <p className="text-xs text-green-600">✅ Publicado • ID: 53841297</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400">Sync: há 5 min</span>
+                            <Button type="button" variant="outline" size="sm">⚙️ Configurar</Button>
+                            <Button type="button" variant="outline" size="sm" className="text-amber-600">⏸️ Pausar</Button>
+                            <Button type="button" variant="ghost" size="sm" className="text-blue-600">Ver ↗</Button>
+                          </div>
+                        </div>
+                        {/* Configurações Expandidas Airbnb */}
+                        <div className="border-t bg-slate-50 p-4 space-y-4">
+                          <p className="text-xs text-slate-500 italic">Clique em "Configurar" para expandir. Abaixo está a prévia dos campos:</p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            {/* Coluna 1 */}
+                            <div className="space-y-3">
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Correção de Preço</Label>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <input type="radio" name="airbnb-markup" id="airbnb-markup-global" defaultChecked className="w-3 h-3" />
+                                  <label htmlFor="airbnb-markup-global" className="text-xs">Usar global (+5%)</label>
+                                  <input type="radio" name="airbnb-markup" id="airbnb-markup-custom" className="w-3 h-3 ml-2" />
+                                  <label htmlFor="airbnb-markup-custom" className="text-xs">Individual:</label>
+                                  <Input type="number" className="w-16 h-6 text-xs" defaultValue={5} />
+                                  <span className="text-xs">%</span>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Política de Cancelamento</Label>
+                                <div className="mt-1">
+                                  <select className="w-full p-1.5 border rounded text-xs">
+                                    <option>🌐 Usar padrão do anúncio (Flexível)</option>
+                                    <option>🟢 Flexível - Cancela até 1 dia antes</option>
+                                    <option>🟡 Moderada - Cancela até 5 dias antes</option>
+                                    <option>🔴 Rígida - Cancela até 14 dias antes</option>
+                                    <option>⚫ Não reembolsável</option>
+                                  </select>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Reserva Instantânea</Label>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <input type="radio" name="airbnb-instant" id="airbnb-instant-global" defaultChecked className="w-3 h-3" />
+                                  <label htmlFor="airbnb-instant-global" className="text-xs">Usar global (Sim)</label>
+                                  <input type="radio" name="airbnb-instant" id="airbnb-instant-custom" className="w-3 h-3 ml-2" />
+                                  <label htmlFor="airbnb-instant-custom" className="text-xs">Individual:</label>
+                                  <select className="p-1 border rounded text-xs">
+                                    <option>Sim - Todos</option>
+                                    <option>Sim - Bem avaliados</option>
+                                    <option>Não</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Coluna 2 */}
+                            <div className="space-y-3">
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Check-in Flexível</Label>
+                                <div className="mt-1 space-y-1">
+                                  <label className="flex items-center gap-2 text-xs">
+                                    <Checkbox defaultChecked /> Horário início flexível
+                                  </label>
+                                  <label className="flex items-center gap-2 text-xs">
+                                    <Checkbox /> Horário fim flexível (24h)
+                                  </label>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Instruções Checkout (Tags Airbnb)</Label>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs cursor-pointer">✓ Devolver chaves</span>
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs cursor-pointer">✓ Desligar tudo</span>
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-xs cursor-pointer">Tirar lixo</span>
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs cursor-pointer">✓ Trancar</span>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Sincronização</Label>
+                                <div className="mt-1 flex flex-wrap gap-2">
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Fotos</label>
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Descrição</label>
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Amenidades</label>
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Preços</label>
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Caução</label>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* ========== BOOKING.COM ========== */}
+                      <div className="border rounded-lg overflow-hidden">
+                        <div className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#003580] rounded-lg flex items-center justify-center text-white font-bold">B</div>
+                            <div>
+                              <Label className="font-medium">⚠️ Booking.com</Label>
+                              <p className="text-xs text-green-600">✅ Publicado • ID: 12713526</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400">Sync: há 3 min</span>
+                            <Button type="button" variant="outline" size="sm">⚙️ Configurar</Button>
+                            <Button type="button" variant="outline" size="sm" className="text-amber-600">⏸️ Pausar</Button>
+                            <Button type="button" variant="ghost" size="sm" className="text-blue-600">Ver ↗</Button>
+                          </div>
+                        </div>
+                        {/* Configurações Expandidas Booking */}
+                        <div className="border-t bg-slate-50 p-4 space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            {/* Coluna 1 */}
+                            <div className="space-y-3">
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Correção de Preço</Label>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <input type="radio" name="booking-markup" defaultChecked className="w-3 h-3" />
+                                  <label className="text-xs">Usar global (-4%)</label>
+                                  <input type="radio" name="booking-markup" className="w-3 h-3 ml-2" />
+                                  <label className="text-xs">Individual:</label>
+                                  <Input type="number" className="w-16 h-6 text-xs" defaultValue={-4} />
+                                  <span className="text-xs">%</span>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Política de Cancelamento (Mapeada)</Label>
+                                <div className="mt-1 space-y-1">
+                                  <select className="w-full p-1.5 border rounded text-xs">
+                                    <option>🌐 Padrão (Flexível) → Cancela 1 dia antes</option>
+                                    <option>📅 Reservas antecipadas → Cancela 21 dias antes</option>
+                                    <option>✅ Isenção total → Cancela qualquer momento</option>
+                                    <option>⛔ Não reembolsável → Cobrar total</option>
+                                  </select>
+                                  <p className="text-xs text-slate-400">Mapeamento definido em Settings → Channel Managers</p>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Exige Garantia de Pagamento?</Label>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <input type="radio" name="booking-garantia" defaultChecked className="w-3 h-3" />
+                                  <label className="text-xs">Usar global (Sim)</label>
+                                  <input type="radio" name="booking-garantia" className="w-3 h-3 ml-2" />
+                                  <select className="p-1 border rounded text-xs">
+                                    <option>Sim</option>
+                                    <option>Não</option>
+                                  </select>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Regras No-Show</Label>
+                                <div className="mt-1">
+                                  <select className="w-full p-1.5 border rounded text-xs">
+                                    <option>🌐 Usar padrão (Cobrar 1ª noite)</option>
+                                    <option>💰 Cobrar valor total</option>
+                                    <option>🔢 Cobrar 1ª noite</option>
+                                    <option>⚙️ Padrão do Booking</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Coluna 2 */}
+                            <div className="space-y-3">
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Método de Check-in</Label>
+                                <div className="mt-1">
+                                  <select className="w-full p-1.5 border rounded text-xs">
+                                    <option>🌐 Usar padrão do anúncio</option>
+                                    <option>🔐 Lockbox - Cofre com senha</option>
+                                    <option>🏨 Recepção/Portaria</option>
+                                    <option>📱 Fechadura digital</option>
+                                    <option>🤝 Entrega pessoal</option>
+                                  </select>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Status Reservas Importadas</Label>
+                                <div className="mt-1">
+                                  <select className="w-full p-1.5 border rounded text-xs">
+                                    <option>🌐 Usar padrão (Reserva confirmada)</option>
+                                    <option>✅ Reserva confirmada</option>
+                                    <option>⏳ Pré-reserva</option>
+                                  </select>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Sincronização</Label>
+                                <div className="mt-1 flex flex-wrap gap-2">
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Fotos</label>
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Conteúdo</label>
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Amenidades quartos</label>
+                                  <label className="flex items-center gap-1 text-xs"><Checkbox defaultChecked /> Políticas/Taxas</label>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Linha 2: Promoções e Refeições (específico Booking) */}
+                          <div className="border-t pt-4 mt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                              {/* Promoção Mobile */}
+                              <div className="p-3 border rounded-lg bg-white">
+                                <div className="flex items-center justify-between mb-2">
+                                  <Label className="text-xs font-medium">📱 Promoção Mobile (Booking.com)</Label>
+                                  <Switch id="booking-mobile-promo" />
+                                </div>
+                                <p className="text-xs text-slate-500 mb-2">
+                                  Aumenta visibilidade com desconto para reservas via app/celular
+                                </p>
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-xs w-20">Desconto:</Label>
+                                    <Input type="number" className="w-16 h-6 text-xs" defaultValue={10} min={10} />
+                                    <span className="text-xs text-slate-500">% (mín. 10%)</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-xs w-20">Público:</Label>
+                                    <select className="p-1 border rounded text-xs flex-1">
+                                      <option>App e site mobile</option>
+                                      <option>Apenas pelo app</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Períodos de exceção:</Label>
+                                    <Button type="button" variant="outline" size="sm" className="w-full mt-1 h-6 text-xs">
+                                      + Adicionar período bloqueado
+                                    </Button>
+                                    <p className="text-xs text-slate-400 mt-1">Campo: mobile_promo_excluded_periods</p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Planos de Refeição */}
+                              <div className="p-3 border rounded-lg bg-white">
+                                <Label className="text-xs font-medium">🍽️ Planos de Refeições (Booking.com)</Label>
+                                <p className="text-xs text-slate-500 mb-2 mt-1">
+                                  Informe quais refeições estão incluídas no valor da diária
+                                </p>
+                                <div className="space-y-2">
+                                  <div className="flex flex-wrap gap-2">
+                                    <label className="flex items-center gap-1 text-xs border rounded px-2 py-1 cursor-pointer hover:bg-slate-50">
+                                      <Checkbox /> Café da manhã
+                                    </label>
+                                    <label className="flex items-center gap-1 text-xs border rounded px-2 py-1 cursor-pointer hover:bg-slate-50">
+                                      <Checkbox /> Almoço
+                                    </label>
+                                    <label className="flex items-center gap-1 text-xs border rounded px-2 py-1 cursor-pointer hover:bg-slate-50">
+                                      <Checkbox /> Jantar
+                                    </label>
+                                    <label className="flex items-center gap-1 text-xs border rounded px-2 py-1 cursor-pointer hover:bg-slate-50">
+                                      <Checkbox /> All-inclusive
+                                    </label>
+                                  </div>
+                                  <div className="pt-2 border-t">
+                                    <Label className="text-xs">Valor adicional por refeição (opcional):</Label>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Input type="number" placeholder="Café" className="w-20 h-6 text-xs" />
+                                      <Input type="number" placeholder="Almoço" className="w-20 h-6 text-xs" />
+                                      <Input type="number" placeholder="Jantar" className="w-20 h-6 text-xs" />
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1">Campo: meal_plan_prices</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* ========== EXPEDIA ========== */}
+                      <div className="border rounded-lg overflow-hidden border-amber-200">
+                        <div className="flex items-center justify-between p-4 bg-amber-50 hover:bg-amber-100 cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#FFCC00] rounded-lg flex items-center justify-center text-black font-bold">E</div>
+                            <div>
+                              <Label className="font-medium">⚠️ Expedia Group</Label>
+                              <p className="text-xs text-amber-600">⏸️ Pausado • ID: EXP-789456</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400">Última sync: 2 dias</span>
+                            <Button type="button" variant="outline" size="sm">⚙️ Configurar</Button>
+                            <Button type="button" variant="default" size="sm" className="bg-green-600 hover:bg-green-700">▶️ Ativar</Button>
+                            <Button type="button" variant="ghost" size="sm" className="text-blue-600">Ver ↗</Button>
+                          </div>
+                        </div>
+                        <div className="border-t bg-slate-50 p-4 space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="space-y-3">
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Canais Expedia Ativos</Label>
+                                <div className="mt-1 space-y-1">
+                                  <label className="flex items-center gap-2 text-xs"><Checkbox defaultChecked /> Expedia.com</label>
+                                  <label className="flex items-center gap-2 text-xs"><Checkbox defaultChecked /> Hotels.com</label>
+                                  <label className="flex items-center gap-2 text-xs"><Checkbox /> VRBO (Listing ID: ___)</label>
+                                  <label className="flex items-center gap-2 text-xs"><Checkbox /> Trivago</label>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Rate Plan</Label>
+                                <select className="w-full p-1.5 border rounded text-xs mt-1">
+                                  <option>Standard - Pague no Hotel</option>
+                                  <option>Non-refundable - Pré-pago</option>
+                                  <option>Package - Inclui benefícios</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Modelo de Pagamento</Label>
+                                <select className="w-full p-1.5 border rounded text-xs mt-1">
+                                  <option>🌐 Usar padrão (Expedia Collect)</option>
+                                  <option>💳 Expedia Collect - Expedia cobra</option>
+                                  <option>🏨 Property Collect - Você cobra</option>
+                                </select>
+                              </div>
+                              <div>
+                                <Label className="text-xs font-medium">⚠️ Room Type Mapping</Label>
+                                <div className="mt-1 p-2 bg-white border rounded text-xs">
+                                  <p className="text-slate-500 mb-1">Mapeamento dos quartos:</p>
+                                  <div className="flex items-center gap-2">
+                                    <span>Suíte Master</span>
+                                    <span className="text-slate-400">→</span>
+                                    <select className="p-1 border rounded text-xs">
+                                      <option>KING_SUITE</option>
+                                      <option>DELUXE_ROOM</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* ========== DECOLAR ========== */}
+                      <div className="border rounded-lg overflow-hidden opacity-60">
+                        <div className="flex items-center justify-between p-4 hover:bg-slate-50">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#7B2D8E] rounded-lg flex items-center justify-center text-white font-bold">D</div>
+                            <div>
+                              <Label className="font-medium">⚠️ Decolar</Label>
+                              <p className="text-xs text-slate-500">❌ Não conectado na organização</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button type="button" variant="default" size="sm">Conectar em Settings</Button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* ========== GOOGLE VR ========== */}
+                      <div className="border rounded-lg overflow-hidden opacity-60">
+                        <div className="flex items-center justify-between p-4 hover:bg-slate-50">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#4285F4] rounded-lg flex items-center justify-center text-white font-bold">G</div>
+                            <div>
+                              <Label className="font-medium">⚠️ Google Vacation Rentals</Label>
+                              <p className="text-xs text-slate-500">❌ Não conectado na organização</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button type="button" variant="default" size="sm">Conectar em Settings</Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card: iCal - Import/Export */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <h4 className="font-semibold text-base mb-4">⚠️ Calendário iCal (Sincronização Manual)</h4>
+                    <p className="text-xs text-slate-500 mb-4">Use iCal como última alternativa. Atualizações podem levar 15-25 minutos.</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Export */}
+                      <div className="p-4 border rounded-lg space-y-2">
+                        <Label className="text-xs font-medium">⚠️ Exportar Calendário (outros podem importar)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            readOnly 
+                            value="https://rendizy.com/ical/abc123..."
+                            className="text-xs"
+                          />
+                          <Button type="button" variant="outline" size="sm">📋 Copiar</Button>
+                        </div>
+                      </div>
+                      
+                      {/* Import */}
+                      <div className="p-4 border rounded-lg space-y-2">
+                        <Label className="text-xs font-medium">⚠️ Importar Calendário Externo</Label>
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            placeholder="Cole URL do iCal externo..."
+                            className="text-xs"
+                          />
+                          <Button type="button" variant="outline" size="sm">+ Adicionar</Button>
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          <p>Calendários importados:</p>
+                          <ul className="list-disc list-inside">
+                            <li>AirbnbCalendar-Backup (última sync: 1h)</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Legenda dos 3 níveis */}
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="pt-4 pb-4">
+                    <h5 className="font-medium text-sm mb-2">📐 Hierarquia de Configurações (3 Níveis)</h5>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="p-2 bg-white rounded border">
+                        <p className="font-medium text-blue-700">🏢 GLOBAL</p>
+                        <p className="text-slate-500">Settings → Channel Managers</p>
+                        <p className="text-slate-400">Padrão da organização</p>
+                      </div>
+                      <div className="p-2 bg-white rounded border">
+                        <p className="font-medium text-green-700">🏠 INDIVIDUAL</p>
+                        <p className="text-slate-500">Anúncio → Configurações</p>
+                        <p className="text-slate-400">Override por imóvel</p>
+                      </div>
+                      <div className="p-2 bg-white rounded border">
+                        <p className="font-medium text-purple-700">📺 POR CANAL</p>
+                        <p className="text-slate-500">Anúncio → Canais → [OTA]</p>
+                        <p className="text-slate-400">Override por OTA</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="outline" className="text-amber-600 border-amber-300">
+                    ⚠️ Campos em validação - Mock sem backend
+                  </Button>
                 </div>
               </div>
             </TabsContent>

@@ -13,6 +13,7 @@
 
 | Documento | Propósito | Link |
 |-----------|-----------|------|
+| **🎯 Mapeamento Funcional** | **Dados → Funcionalidades de Produto** | [FUNCTIONAL_MAPPING_OTA_FIELDS.md](roadmaps/FUNCTIONAL_MAPPING_OTA_FIELDS.md) |
 | Gap Analysis Expedia | Diagnóstico completo | [ROADMAP_EXPEDIA_GAP_ANALYSIS.md](../../Expedia%20Group%20API/ROADMAP_EXPEDIA_GAP_ANALYSIS.md) |
 | ADR-001 Arquitetura | Princípios de design | [ADR-001-OTA-UNIVERSAL-ARCHITECTURE.md](architecture/ADR-001-OTA-UNIVERSAL-ARCHITECTURE.md) |
 | ADR-002 Schema | Mapeamento de campos | [ADR-002-OTA-UNIVERSAL-SCHEMA.md](architecture/ADR-002-OTA-UNIVERSAL-SCHEMA.md) |

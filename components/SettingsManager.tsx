@@ -48,7 +48,8 @@ import {
   Database,
   FileSearch,
   Sparkles,
-  Plus
+  Plus,
+  Tv
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -992,17 +993,24 @@ export function SettingsManager({
                 <ChatSettingsTab organizationId={organizationId} />
               </TabsContent>
 
-              {/* Integrações (inclui Conciliação de Dados) */}
+              {/* Integrações (inclui Conciliação de Dados e Channel Managers) */}
               <TabsContent value="integracoes" className="mt-6">
-                <Tabs defaultValue="integrations" className="w-full">
+                <Tabs defaultValue="channel-managers" className="w-full">
                   <div className="border-b border-border bg-muted/50">
                     <TabsList className="w-full max-w-full overflow-x-hidden flex-col sm:flex-row items-stretch justify-start bg-transparent rounded-none h-auto p-0">
+                      <TabsTrigger
+                        value="channel-managers"
+                        className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-purple-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
+                      >
+                        <Globe className="h-4 w-4 mr-2" />
+                        📺 Channel Managers
+                      </TabsTrigger>
                       <TabsTrigger
                         value="integrations"
                         className="w-full sm:w-auto min-w-0 justify-start whitespace-normal sm:whitespace-nowrap data-[state=active]:bg-background data-[state=active]:text-foreground rounded-none border-b-2 border-transparent data-[state=active]:border-green-500 px-3 sm:px-6 py-2 sm:py-2.5 text-sm"
                       >
                         <Zap className="h-4 w-4 mr-2" />
-                        Integrações
+                        🔧 Integrações (API)
                       </TabsTrigger>
                       <TabsTrigger
                         value="data-reconciliation"
@@ -1013,6 +1021,11 @@ export function SettingsManager({
                       </TabsTrigger>
                     </TabsList>
                   </div>
+
+                  {/* NOVA ABA: Channel Managers - Configurações do USUÁRIO */}
+                  <TabsContent value="channel-managers" className="mt-6">
+                    <ChannelManagersSettings />
+                  </TabsContent>
 
                   <TabsContent value="integrations" className="mt-6">
                     <IntegrationsManager />
@@ -3200,3 +3213,553 @@ function AIAgentsSettings() {
   );
 }
 
+// ============================================================================
+// CHANNEL MANAGERS SETTINGS COMPONENT (MOCK - OTA)
+// ============================================================================
+
+function ChannelManagersSettings() {
+  const [activeChannel, setActiveChannel] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xl text-foreground flex items-center gap-3">
+            <Globe className="h-5 w-5 text-purple-400" />
+            📺 Channel Managers - Configurações Globais
+          </h3>
+          <p className="text-muted-foreground text-sm mt-1">
+            Configure as regras PADRÃO para cada canal OTA. Anúncios individuais podem sobrescrever.
+            <span className="text-amber-500 ml-2">⚠️ Tela em validação (Mock)</span>
+          </p>
+        </div>
+        <Button className="bg-blue-600 hover:bg-blue-700">
+          <Save className="h-4 w-4 mr-2" />
+          Salvar Configurações
+        </Button>
+      </div>
+
+      {/* Legenda 3 níveis */}
+      <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+        <CardContent className="pt-4 pb-4">
+          <h5 className="font-medium text-sm mb-2 text-foreground">📐 Hierarquia de Configurações (3 Níveis)</h5>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="p-2 bg-background rounded border">
+              <p className="font-medium text-purple-600 dark:text-purple-400">🏢 GLOBAL (Você está aqui)</p>
+              <p className="text-muted-foreground">Settings → Channel Managers</p>
+              <p className="text-muted-foreground/70">Padrão da organização</p>
+            </div>
+            <div className="p-2 bg-background rounded border opacity-60">
+              <p className="font-medium text-green-600 dark:text-green-400">🏠 INDIVIDUAL</p>
+              <p className="text-muted-foreground">Anúncio → Configurações</p>
+              <p className="text-muted-foreground/70">Override por imóvel</p>
+            </div>
+            <div className="p-2 bg-background rounded border opacity-60">
+              <p className="font-medium text-orange-600 dark:text-orange-400">📺 POR CANAL</p>
+              <p className="text-muted-foreground">Anúncio → Canais → [OTA]</p>
+              <p className="text-muted-foreground/70">Override por OTA</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lista de Canais */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* ========== AIRBNB ========== */}
+        <Card className="border-border hover:border-[#FF5A5F]/50 transition-colors">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#FF5A5F] rounded-lg flex items-center justify-center text-white font-bold">A</div>
+                <div>
+                  <CardTitle className="text-base">⚠️ Airbnb</CardTitle>
+                  <p className="text-xs text-green-500">✅ Conta conectada • OAuth ativo</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setActiveChannel(activeChannel === 'airbnb' ? null : 'airbnb')}>
+                {activeChannel === 'airbnb' ? 'Fechar' : 'Configurar'}
+              </Button>
+            </div>
+          </CardHeader>
+          {activeChannel === 'airbnb' && (
+            <CardContent className="pt-0 space-y-4 border-t">
+              <div className="pt-4 space-y-4">
+                {/* Financeiro */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <DollarSign className="h-3 w-3" />
+                    ⚠️ Correção de Preço (Markup Global)
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" className="w-24 h-8 text-sm" defaultValue={5} />
+                    <span className="text-sm text-muted-foreground">%</span>
+                    <span className="text-xs text-muted-foreground ml-2">Aplicado a todos os anúncios neste canal</span>
+                  </div>
+                </div>
+
+                {/* Política Cancelamento */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <Ban className="h-3 w-3" />
+                    ⚠️ Política de Cancelamento Padrão
+                  </Label>
+                  <Select defaultValue="moderate">
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="flexible">🟢 Flexível - Cancela até 1 dia antes</SelectItem>
+                      <SelectItem value="moderate">🟡 Moderada - Cancela até 5 dias antes</SelectItem>
+                      <SelectItem value="strict">🔴 Rígida - Cancela até 14 dias antes</SelectItem>
+                      <SelectItem value="non_refundable">⚫ Não reembolsável</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Reserva Instantânea */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <Zap className="h-3 w-3" />
+                    ⚠️ Reserva Instantânea
+                  </Label>
+                  <Select defaultValue="all">
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Sim - Todos os hóspedes</SelectItem>
+                      <SelectItem value="verified">Sim - Apenas verificados</SelectItem>
+                      <SelectItem value="no">Não - Request to Book</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Check-in Flexível */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <Clock className="h-3 w-3" />
+                    ⚠️ Check-in Flexível
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-xs">
+                      <Switch defaultChecked /> Horário início flexível
+                    </label>
+                    <label className="flex items-center gap-2 text-xs">
+                      <Switch /> Horário fim flexível (24h)
+                    </label>
+                  </div>
+                </div>
+
+                {/* Sincronização */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <RefreshCw className="h-3 w-3" />
+                    ⚠️ O que sincronizar automaticamente?
+                  </Label>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Fotos</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Descrições</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Amenidades</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Preços</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Caução</label>
+                  </div>
+                </div>
+
+                {/* Instruções Checkout */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ Tags de Checkout (Airbnb)</Label>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="secondary" className="cursor-pointer">✓ Devolver chaves</Badge>
+                    <Badge variant="secondary" className="cursor-pointer">✓ Desligar tudo</Badge>
+                    <Badge variant="outline" className="cursor-pointer opacity-50">Tirar lixo</Badge>
+                    <Badge variant="secondary" className="cursor-pointer">✓ Trancar portas</Badge>
+                    <Badge variant="outline" className="cursor-pointer opacity-50">Recolher toalhas</Badge>
+                  </div>
+                </div>
+
+                <div className="pt-2 text-xs text-muted-foreground border-t">
+                  <p>✅ Permite override individual: Sim • Última sync: há 5 min</p>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* ========== BOOKING.COM ========== */}
+        <Card className="border-border hover:border-[#003580]/50 transition-colors">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#003580] rounded-lg flex items-center justify-center text-white font-bold">B</div>
+                <div>
+                  <CardTitle className="text-base">⚠️ Booking.com</CardTitle>
+                  <p className="text-xs text-green-500">✅ Conectado via Stays.net</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setActiveChannel(activeChannel === 'booking' ? null : 'booking')}>
+                {activeChannel === 'booking' ? 'Fechar' : 'Configurar'}
+              </Button>
+            </div>
+          </CardHeader>
+          {activeChannel === 'booking' && (
+            <CardContent className="pt-0 space-y-4 border-t">
+              <div className="pt-4 space-y-4">
+                {/* Financeiro */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <DollarSign className="h-3 w-3" />
+                    ⚠️ Correção de Preço
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" className="w-24 h-8 text-sm" defaultValue={-4} />
+                    <span className="text-sm text-muted-foreground">%</span>
+                    <span className="text-xs text-muted-foreground ml-2">(Negativo = desconto)</span>
+                  </div>
+                </div>
+
+                {/* Política Cancelamento com Mapeamento */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <Ban className="h-3 w-3" />
+                    ⚠️ Mapeamento de Políticas de Cancelamento
+                  </Label>
+                  <div className="space-y-2 p-3 bg-muted/30 rounded-lg text-xs">
+                    <div className="flex items-center justify-between">
+                      <span>Política Rendizy: <strong>Padrão (Flexível)</strong></span>
+                      <span>→</span>
+                      <Select defaultValue="flex">
+                        <SelectTrigger className="w-40 h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="flex">Cancela 1 dia antes</SelectItem>
+                          <SelectItem value="early">Cancela 21 dias antes</SelectItem>
+                          <SelectItem value="free">Cancela qualquer momento</SelectItem>
+                          <SelectItem value="non">Não reembolsável</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Política Rendizy: <strong>Rígida</strong></span>
+                      <span>→</span>
+                      <Select defaultValue="early">
+                        <SelectTrigger className="w-40 h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="flex">Cancela 1 dia antes</SelectItem>
+                          <SelectItem value="early">Cancela 21 dias antes</SelectItem>
+                          <SelectItem value="free">Cancela qualquer momento</SelectItem>
+                          <SelectItem value="non">Não reembolsável</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Garantia Pagamento */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <DollarSign className="h-3 w-3" />
+                    ⚠️ Exigir Garantia de Pagamento?
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" name="booking-garantia" defaultChecked /> Sim
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="radio" name="booking-garantia" /> Não
+                    </label>
+                  </div>
+                </div>
+
+                {/* No-Show */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <Ban className="h-3 w-3" />
+                    ⚠️ Regras de No-Show
+                  </Label>
+                  <Select defaultValue="first">
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Padrão do Booking</SelectItem>
+                      <SelectItem value="first">Cobrar 1ª noite</SelectItem>
+                      <SelectItem value="total">Cobrar valor total</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Método Check-in */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <Home className="h-3 w-3" />
+                    ⚠️ Método de Check-in Padrão
+                  </Label>
+                  <Select defaultValue="lockbox">
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="reception">🏨 Recepção/Portaria</SelectItem>
+                      <SelectItem value="lockbox">🔐 Lockbox - Cofre com senha</SelectItem>
+                      <SelectItem value="smart">📱 Fechadura digital</SelectItem>
+                      <SelectItem value="handoff">🤝 Entrega pessoal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sincronização */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <RefreshCw className="h-3 w-3" />
+                    ⚠️ O que sincronizar automaticamente?
+                  </Label>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Fotos</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Conteúdo</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Amenidades quartos</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Políticas/Taxas</label>
+                  </div>
+                </div>
+
+                <div className="pt-2 text-xs text-muted-foreground border-t">
+                  <p>✅ Permite override individual: Sim • Última sync: há 3 min</p>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* ========== EXPEDIA ========== */}
+        <Card className="border-border hover:border-[#FFCC00]/50 transition-colors">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#FFCC00] rounded-lg flex items-center justify-center text-black font-bold">E</div>
+                <div>
+                  <CardTitle className="text-base">⚠️ Expedia Group</CardTitle>
+                  <p className="text-xs text-green-500">✅ Conectado • API Rapid</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setActiveChannel(activeChannel === 'expedia' ? null : 'expedia')}>
+                {activeChannel === 'expedia' ? 'Fechar' : 'Configurar'}
+              </Button>
+            </div>
+          </CardHeader>
+          {activeChannel === 'expedia' && (
+            <CardContent className="pt-0 space-y-4 border-t">
+              <div className="pt-4 space-y-4">
+                {/* Canais Ativos */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ Canais Expedia Ativos</Label>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2 text-xs"><Switch defaultChecked /> Expedia.com</label>
+                    <label className="flex items-center gap-2 text-xs"><Switch defaultChecked /> Hotels.com</label>
+                    <label className="flex items-center gap-2 text-xs"><Switch /> VRBO</label>
+                    <label className="flex items-center gap-2 text-xs"><Switch /> Trivago</label>
+                  </div>
+                </div>
+
+                {/* Correção Preço */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ Correção de Preço</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" className="w-24 h-8 text-sm" defaultValue={3} />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+
+                {/* Modelo Pagamento */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ Modelo de Pagamento</Label>
+                  <Select defaultValue="expedia">
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="expedia">💳 Expedia Collect - Expedia cobra</SelectItem>
+                      <SelectItem value="property">🏨 Property Collect - Você cobra</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Rate Plan */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ Rate Plan Padrão</Label>
+                  <Select defaultValue="standard">
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Standard - Pague no Hotel</SelectItem>
+                      <SelectItem value="nonref">Non-refundable - Pré-pago</SelectItem>
+                      <SelectItem value="package">Package - Com benefícios</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sincronização */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ Sincronização</Label>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Conteúdo</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Fotos</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Preços</label>
+                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Disponibilidade</label>
+                  </div>
+                </div>
+
+                <div className="pt-2 text-xs text-muted-foreground border-t">
+                  <p>✅ Permite override individual: Sim • Última sync: há 10 min</p>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* ========== DECOLAR ========== */}
+        <Card className="border-border opacity-60">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#7B2D8E] rounded-lg flex items-center justify-center text-white font-bold">D</div>
+                <div>
+                  <CardTitle className="text-base">⚠️ Decolar</CardTitle>
+                  <p className="text-xs text-muted-foreground">❌ Não conectado</p>
+                </div>
+              </div>
+              <Button variant="default" size="sm">Conectar</Button>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* ========== GOOGLE VR ========== */}
+        <Card className="border-border opacity-60">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#4285F4] rounded-lg flex items-center justify-center text-white font-bold">G</div>
+                <div>
+                  <CardTitle className="text-base">⚠️ Google Vacation Rentals</CardTitle>
+                  <p className="text-xs text-muted-foreground">❌ Não conectado</p>
+                </div>
+              </div>
+              <Button variant="default" size="sm">Conectar</Button>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* ========== SITE PRÓPRIO ========== */}
+        <Card className="border-border hover:border-green-500/50 transition-colors">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold">S</div>
+                <div>
+                  <CardTitle className="text-base">⚠️ Site Próprio (Booking Engine)</CardTitle>
+                  <p className="text-xs text-green-500">✅ Ativo</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setActiveChannel(activeChannel === 'site' ? null : 'site')}>
+                {activeChannel === 'site' ? 'Fechar' : 'Configurar'}
+              </Button>
+            </div>
+          </CardHeader>
+          {activeChannel === 'site' && (
+            <CardContent className="pt-0 space-y-4 border-t">
+              <div className="pt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ URL do Booking Engine</Label>
+                  <Input className="h-8 text-sm" defaultValue="https://suacasa.rendizy.com/reservar" readOnly />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ Desconto Site Próprio (vs OTAs)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" className="w-24 h-8 text-sm" defaultValue={-5} />
+                    <span className="text-sm text-muted-foreground">% (incentiva reservas diretas)</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">⚠️ Formas de Pagamento</Label>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2 text-xs"><Switch defaultChecked /> Cartão de Crédito (Stripe)</label>
+                    <label className="flex items-center gap-2 text-xs"><Switch defaultChecked /> PIX</label>
+                    <label className="flex items-center gap-2 text-xs"><Switch /> Boleto</label>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      </div>
+
+      {/* Mapeamento de Taxas */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            ⚠️ Mapeamento de Taxas para OTAs
+          </CardTitle>
+          <CardDescription>Relacione suas taxas cadastradas com as taxas de cada canal</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div>
+                <p className="text-sm font-medium">Taxa de Limpeza</p>
+                <p className="text-xs text-muted-foreground">R$ 150 (por reserva)</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Airbnb:</span> <Badge variant="secondary">CLEANING_FEE</Badge>
+                </div>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Booking:</span> <Badge variant="secondary">CLEANING</Badge>
+                </div>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Expedia:</span> <Badge variant="secondary">CleaningFee</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div>
+                <p className="text-sm font-medium">Taxa Pet</p>
+                <p className="text-xs text-muted-foreground">R$ 50 (por noite)</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Airbnb:</span> <Badge variant="secondary">PET_FEE</Badge>
+                </div>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Booking:</span> <Badge variant="outline">Não suportado</Badge>
+                </div>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Expedia:</span> <Badge variant="secondary">PetFee</Badge>
+                </div>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              Gerenciar Taxas
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Rodapé */}
+      <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+        <div className="flex items-center gap-2 text-sm">
+          <AlertCircle className="h-4 w-4 text-amber-400" />
+          <span className="text-amber-700 dark:text-amber-300">
+            <strong>⚠️ Mock de Validação:</strong> Estes campos serão conectados ao backend após validação da UX.
+            Cada configuração aqui é o PADRÃO GLOBAL da organização.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
