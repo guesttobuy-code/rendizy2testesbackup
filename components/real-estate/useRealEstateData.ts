@@ -153,7 +153,8 @@ export function useRealEstateData() {
         ...d,
         constructor: d.company?.name || 'Construtora',
         constructorLogo: d.company?.logo_url || 'https://ui-avatars.com/api/?name=C&background=1e40af&color=fff',
-        image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop',
+        // ✅ Usar imagem real do banco (array images[0]) ou fallback
+        image: d.images?.[0] || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop',
         priceRange: d.price_range ? 
           `R$ ${(d.price_range.min || 0).toLocaleString('pt-BR')} - R$ ${(d.price_range.max || 0).toLocaleString('pt-BR')}` : 
           'Consulte',

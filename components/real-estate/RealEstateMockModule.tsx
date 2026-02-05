@@ -2072,7 +2072,13 @@ function EstoqueView({ empreendimentos, onSelectDevelopment, isLoading = false }
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {empreendimentos.map((emp) => {
           // Normalizar dados - suporta tanto mock quanto dados reais do DB
-          const coverImage = emp.image || (emp.images && emp.images.length > 0 ? emp.images[0] : null);
+          // 📸 Prioriza: images[0] do banco > image formatado > fallback
+          const coverImage = (emp.images && emp.images.length > 0 ? emp.images[0] : null) || emp.image;
+          
+          // Debug log para verificar imagens
+          if (typeof window !== 'undefined' && (window as any).__RE_DEBUG_IMAGES) {
+            console.log(`[RE Card] ${emp.name}:`, { images: emp.images, image: emp.image, coverImage });
+          }
           const totalUnits = emp.totalUnits || emp.total_units || 0;
           const availableUnits = emp.availableUnits || emp.available_units || 0;
           const priceRange = emp.priceRange || emp.price_range || '';
@@ -2109,7 +2115,8 @@ function EstoqueView({ empreendimentos, onSelectDevelopment, isLoading = false }
             onClick={() => onSelectDevelopment(emp)}
             className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-lg transition-shadow group"
           >
-            <div className="relative h-48 overflow-hidden">
+            {/* 📸 Área da imagem - aumentada para maior destaque */}
+            <div className="relative h-56 overflow-hidden">
               {coverImage ? (
                 <img 
                   src={coverImage} 
