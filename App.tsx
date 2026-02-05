@@ -118,6 +118,9 @@ import { CRMSettingsModule } from './components/crm/settings';
 import { AutomationsPage } from './components/crm/automations';
 // Novas páginas do CRM Tasks v2
 import { EquipesPage, CalendarioTarefasPage, TodasTarefasPage, CheckInsPage, CheckOutsPage, LimpezasPage, ManutencoesPage, OperacoesUnificadasPage, ProjetosPage, ProjectTasksPage } from './components/crm/pages';
+
+// 🕷️ POC SCRAPING - Sergio Castro Imóveis
+import { SergioCastroPage } from './src/components/scraping/SergioCastroPage';
 import { ChevronLeft, ChevronRight, Plus, Filter, Download, Tag, Sparkles, TrendingUp, Database, AlertTriangle } from 'lucide-react';
 import { detectConflicts } from './utils/conflictDetection';
 import { initializeEvolutionContactsService, getEvolutionContactsService } from './utils/services/evolutionContactsService';
@@ -1428,6 +1431,10 @@ function App() {
 
             <Suspense fallback={<LoadingProgress isLoading={true} />}>
               <Routes>
+                {/* 🕷️ POC SCRAPING - Sergio Castro Imóveis (pública, sem sidebar) */}
+                <Route path="/sergiocastro" element={<SergioCastroPage />} />
+                <Route path="/sergiocastro/:code" element={<SergioCastroPage />} />
+
                 {/* 🏠 CÁPSULA GUEST AREA - v1.0.0 - Área do Hóspede (pública, sem sidebar) */}
                 <Route path="/guest-area" element={<GuestAreaPage />} />
 
