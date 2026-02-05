@@ -10,10 +10,12 @@
  * Criado em: 01/02/2026
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '../ui/utils';
 import { MainSidebar } from '../MainSidebar';
+import { useRealEstateData } from './useRealEstateData';
+import { getSupabaseClient } from '../../utils/supabase/client';
 import { 
   Building2, 
   Home, 
@@ -54,7 +56,7 @@ import {
   Download,
   Play,
   Image,
-  Map,
+  Map as MapIcon,
   Calculator,
   Percent,
   TrendingUp,
@@ -66,6 +68,8 @@ import {
   Share2,
   Copy,
   Upload,
+  Edit,
+  Save,
 } from 'lucide-react';
 
 // Chat Drawer - Para abrir chat inline sem sair da tela
@@ -519,7 +523,7 @@ const MOCK_UNITS = [
   { id: '402', unit: '402', tower: 'B', floor: 4, typology: '2 quartos', area: 65, price: 485000, status: 'available' },
 ];
 
-type ViewType = 'vitrine' | 'construtora-perfil' | 'imobiliaria-perfil' | 'estoque' | 'empreendimento-detail' | 'reserva' | 'parcerias' | 'contratos' | 'demandas' | 'criar-demanda' | 'demanda-detalhes' | 'cadastros' | 'cadastro-construtora' | 'cadastro-imobiliaria' | 'cadastro-empreendimento' | 'cadastro-corretor';
+type ViewType = 'vitrine' | 'construtora-perfil' | 'imobiliaria-perfil' | 'estoque' | 'empreendimento-detail' | 'reserva' | 'parcerias' | 'contratos' | 'demandas' | 'criar-demanda' | 'demanda-detalhes' | 'cadastros' | 'cadastro-construtora' | 'cadastro-imobiliaria' | 'cadastro-empreendimento' | 'cadastro-corretor' | 'lista-empreendimentos';
 type TabType = 'construtoras' | 'imobiliarias' | 'corretores';
 type CadastroStep = 1 | 2 | 3 | 4 | 5;
 
@@ -552,6 +556,30 @@ function RealEstateMockModuleInner({
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [selectedDevelopment, setSelectedDevelopment] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [developmentUnits, setDevelopmentUnits] = useState<any[]>([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  
+  // 🔥 DADOS REAIS DO BANCO (substitui MOCK)
+  const { construtoras, imobiliarias, developments, stats, isLoading: dataLoading, getUnitsByDevelopment } = useRealEstateData();
+  
+  // Buscar unidades quando selecionar um empreendimento
+  useEffect(() => {
+    async function fetchUnits() {
+      if (selectedDevelopment?.id) {
+        setLoadingUnits(true);
+        try {
+          const units = await getUnitsByDevelopment(selectedDevelopment.id);
+          setDevelopmentUnits(units || []);
+        } catch (err) {
+          console.error('Erro ao buscar unidades:', err);
+          setDevelopmentUnits([]);
+        } finally {
+          setLoadingUnits(false);
+        }
+      }
+    }
+    fetchUnits();
+  }, [selectedDevelopment?.id, getUnitsByDevelopment]);
   
   // Hook do Chat Drawer para abrir chat inline
   const { openB2BChat } = useChatDrawer();
@@ -675,6 +703,9 @@ function RealEstateMockModuleInner({
               setActiveTab={setActiveTab}
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
+              construtoras={construtoras}
+              imobiliarias={imobiliarias}
+              stats={stats}
               onViewProfile={(item, type) => {
                 setSelectedItem(item);
                 navigateTo(type === 'construtora' ? 'construtora-perfil' : 'imobiliaria-perfil');
@@ -707,7 +738,7 @@ function RealEstateMockModuleInner({
           
           {currentView === 'estoque' && (
             <EstoqueView 
-              empreendimentos={MOCK_EMPREENDIMENTOS}
+              empreendimentos={developments.length > 0 ? developments : MOCK_EMPREENDIMENTOS}
               onSelectDevelopment={(dev) => {
                 setSelectedDevelopment(dev);
                 navigateTo('empreendimento-detail');
@@ -718,8 +749,9 @@ function RealEstateMockModuleInner({
           {currentView === 'empreendimento-detail' && selectedDevelopment && (
             <EmpreendimentoDetailView 
               empreendimento={selectedDevelopment}
-              units={MOCK_UNITS}
+              units={developmentUnits}
               espelho={MOCK_ESPELHO_VENDAS}
+              loadingUnits={loadingUnits}
               onReservar={(unit) => {
                 setSelectedItem(unit);
                 navigateTo('reserva');
@@ -784,7 +816,7 @@ function RealEstateMockModuleInner({
 
                 {/* Card Empreendimento */}
                 <button
-                  onClick={() => navigateTo('cadastro-empreendimento')}
+                  onClick={() => navigateTo('lista-empreendimentos')}
                   className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-lg transition-all group text-left"
                 >
                   <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -853,8 +885,15 @@ function RealEstateMockModuleInner({
 
           {currentView === 'cadastro-empreendimento' && (
             <CadastroEmpreendimentoView 
-              onConcluir={() => navigateTo('cadastros')}
-              onCancelar={() => navigateTo('cadastros')}
+              onConcluir={() => navigateTo('lista-empreendimentos')}
+              onCancelar={() => navigateTo('lista-empreendimentos')}
+            />
+          )}
+
+          {currentView === 'lista-empreendimentos' && (
+            <ListaEmpreendimentosView 
+              onVoltar={() => navigateTo('cadastros')}
+              onNovoEmpreendimento={() => navigateTo('cadastro-empreendimento')}
             />
           )}
 
@@ -920,14 +959,37 @@ function SidebarItem({ icon, label, active, collapsed, onClick, badge, highlight
 // VITRINE VIEW
 // ============================================
 
-function VitrineView({ activeTab, setActiveTab, searchTerm, setSearchTerm, onViewProfile, onProporParceria }: {
+function VitrineView({ activeTab, setActiveTab, searchTerm, setSearchTerm, onViewProfile, onProporParceria, construtoras, imobiliarias, stats }: {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   onViewProfile: (item: any, type: 'construtora' | 'imobiliaria') => void;
   onProporParceria?: (construtora: any) => void;
+  construtoras?: any[];
+  imobiliarias?: any[];
+  stats?: { totalConstrutoras: number; totalImobiliarias: number; totalDevelopments: number; totalUnits: number; availableUnits: number };
 }) {
+  // DEBUG: Log para verificar dados recebidos
+  console.log('[VitrineView] Props recebidas:', { 
+    construtoras: construtoras?.length, 
+    imobiliarias: imobiliarias?.length, 
+    stats 
+  });
+  
+  // Usar APENAS dados reais - sem fallback para MOCK
+  const displayConstrutoras = construtoras || [];
+  const displayImobiliarias = imobiliarias || [];
+  
+  // Default stats se não fornecido
+  const displayStats = stats || {
+    totalConstrutoras: displayConstrutoras.length,
+    totalImobiliarias: displayImobiliarias.length,
+    totalDevelopments: 0,
+    totalUnits: 0,
+    availableUnits: 0
+  };
+  
   return (
     <div className="space-y-6">
       {/* Tabs e Busca */}
@@ -993,32 +1055,39 @@ function VitrineView({ activeTab, setActiveTab, searchTerm, setSearchTerm, onVie
         <StatCard 
           icon={<Building2 className="h-5 w-5 text-indigo-600" />}
           label="Construtoras"
-          value="156"
-          trend="+12 este mês"
+          value={displayStats.totalConstrutoras.toString()}
+          trend="Cadastradas"
         />
         <StatCard 
           icon={<Home className="h-5 w-5 text-green-600" />}
           label="Imobiliárias"
-          value="1.234"
-          trend="+48 este mês"
+          value={displayStats.totalImobiliarias.toString()}
+          trend="Cadastradas"
         />
         <StatCard 
           icon={<Package className="h-5 w-5 text-orange-600" />}
-          label="Lançamentos Ativos"
-          value="892"
-          trend="45.000 unidades"
+          label="Empreendimentos"
+          value={displayStats.totalDevelopments.toString()}
+          trend={`${displayStats.totalUnits.toLocaleString('pt-BR')} unidades`}
         />
         <StatCard 
           icon={<Handshake className="h-5 w-5 text-purple-600" />}
-          label="Parcerias Ativas"
-          value="3.456"
-          trend="+234 este mês"
+          label="Unidades Disponíveis"
+          value={displayStats.availableUnits.toString()}
+          trend="Disponíveis para venda"
         />
       </div>
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {activeTab === 'construtoras' && MOCK_CONSTRUTORAS.map((item) => (
+        {activeTab === 'construtoras' && displayConstrutoras.length === 0 && (
+          <div className="col-span-full text-center py-12 text-gray-500">
+            <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Nenhuma construtora cadastrada ainda.</p>
+            <p className="text-sm mt-2">Os dados serão exibidos aqui quando disponíveis.</p>
+          </div>
+        )}
+        {activeTab === 'construtoras' && displayConstrutoras.map((item) => (
           <ConstrutoraCard 
             key={item.id} 
             construtora={item}
@@ -1026,7 +1095,14 @@ function VitrineView({ activeTab, setActiveTab, searchTerm, setSearchTerm, onVie
             onProporParceria={() => onProporParceria?.(item)}
           />
         ))}
-        {activeTab === 'imobiliarias' && MOCK_IMOBILIARIAS.map((item) => (
+        {activeTab === 'imobiliarias' && displayImobiliarias.length === 0 && (
+          <div className="col-span-full text-center py-12 text-gray-500">
+            <Home className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Nenhuma imobiliária cadastrada ainda.</p>
+            <p className="text-sm mt-2">Os dados serão exibidos aqui quando disponíveis.</p>
+          </div>
+        )}
+        {activeTab === 'imobiliarias' && displayImobiliarias.map((item) => (
           <ImobiliariaCard 
             key={item.id} 
             imobiliaria={item}
@@ -1066,6 +1142,26 @@ function StatCard({ icon, label, value, trend }: {
   );
 }
 
+// Helper para formatar location (pode ser string ou objeto {city, state, neighborhood, address})
+function formatLocation(location: any, full: boolean = false): string {
+  if (!location) return 'Localização não informada';
+  if (typeof location === 'string') return location;
+  if (typeof location === 'object') {
+    if (full) {
+      // Formato completo: Bairro, Cidade - UF
+      const parts = [location.neighborhood, location.city].filter(Boolean);
+      if (parts.length > 0 && location.state) {
+        return `${parts.join(', ')} - ${location.state}`;
+      }
+      return parts.length > 0 ? parts.join(', ') : 'Localização não informada';
+    }
+    // Formato curto (padrão)
+    const parts = [location.neighborhood || location.city, location.state].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : 'Localização não informada';
+  }
+  return String(location);
+}
+
 function ConstrutoraCard({ construtora, onViewProfile, onProporParceria }: { 
   construtora: any; 
   onViewProfile: () => void;
@@ -1086,7 +1182,7 @@ function ConstrutoraCard({ construtora, onViewProfile, onProporParceria }: {
             </h3>
             <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
               <MapPin className="h-3 w-3" />
-              {construtora.location}
+              {formatLocation(construtora.location)}
             </div>
             <div className="flex items-center gap-1 mt-1">
               <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
@@ -1101,7 +1197,7 @@ function ConstrutoraCard({ construtora, onViewProfile, onProporParceria }: {
         </p>
 
         <div className="flex flex-wrap gap-1 mt-3">
-          {construtora.segments.map((seg: string) => (
+          {(construtora.segments || []).map((seg: string) => (
             <span key={seg} className="text-xs px-2 py-1 bg-indigo-50 text-indigo-600 rounded-full dark:bg-indigo-900/30 dark:text-indigo-400">
               {seg}
             </span>
@@ -1162,7 +1258,7 @@ function ImobiliariaCard({ imobiliaria, onViewProfile }: { imobiliaria: any; onV
             </h3>
             <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
               <MapPin className="h-3 w-3" />
-              {imobiliaria.location}
+              {formatLocation(imobiliaria.location)}
             </div>
             <div className="flex items-center gap-1 mt-1">
               <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
@@ -1177,7 +1273,7 @@ function ImobiliariaCard({ imobiliaria, onViewProfile }: { imobiliaria: any; onV
         </p>
 
         <div className="flex flex-wrap gap-1 mt-3">
-          {imobiliaria.segments.map((seg: string) => (
+          {(imobiliaria.segments || []).map((seg: string) => (
             <span key={seg} className="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded-full dark:bg-purple-900/30 dark:text-purple-400">
               {seg}
             </span>
@@ -1188,11 +1284,11 @@ function ImobiliariaCard({ imobiliaria, onViewProfile }: { imobiliaria: any; onV
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-gray-400" />
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              {imobiliaria.brokersCount.toLocaleString()} corretores
+              {(imobiliaria.brokersCount || 0).toLocaleString()} corretores
             </span>
           </div>
           <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full dark:bg-blue-900/30 dark:text-blue-400">
-            Divisão: {imobiliaria.partnershipModel}
+            Divisão: {imobiliaria.partnershipModel || '50/50'}
           </span>
         </div>
       </div>
@@ -1311,6 +1407,48 @@ function CorretorCard({ corretor }: { corretor: any }) {
 // ============================================
 
 function ConstrutoraPerfilView({ construtora, onProporParceria }: { construtora: any; onProporParceria: () => void }) {
+  const [empreendimentos, setEmpreendimentos] = React.useState<any[]>([]);
+  const [loadingEmpreendimentos, setLoadingEmpreendimentos] = React.useState(true);
+
+  // Buscar empreendimentos reais da construtora
+  React.useEffect(() => {
+    async function fetchEmpreendimentos() {
+      try {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase
+          .from('re_developments')
+          .select('*')
+          .eq('company_id', construtora.id)
+          .order('name');
+
+        if (error) {
+          console.error('Erro ao buscar empreendimentos:', error);
+        } else {
+          setEmpreendimentos(data || []);
+        }
+      } catch (err) {
+        console.error('Erro:', err);
+      } finally {
+        setLoadingEmpreendimentos(false);
+      }
+    }
+
+    if (construtora?.id) {
+      fetchEmpreendimentos();
+    }
+  }, [construtora?.id]);
+
+  // Helper para formatar location
+  const formatLocation = (loc: any): string => {
+    if (!loc) return 'Brasil';
+    if (typeof loc === 'string') return loc;
+    if (typeof loc === 'object') {
+      const parts = [loc.neighborhood, loc.city, loc.state].filter(Boolean);
+      return parts.length > 0 ? parts.join(', ') : 'Brasil';
+    }
+    return String(loc);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1324,20 +1462,22 @@ function ConstrutoraPerfilView({ construtora, onProporParceria }: { construtora:
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{construtora.name}</h1>
-              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                ✓ Verificada
-              </span>
+              {construtora.verified && (
+                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                  ✓ Verificada
+                </span>
+              )}
             </div>
             <p className="text-gray-600 dark:text-gray-400 mt-2">{construtora.description}</p>
             <div className="flex items-center gap-4 mt-3">
               <div className="flex items-center gap-1">
                 <MapPin className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-600">{construtora.location}</span>
+                <span className="text-sm text-gray-600">{formatLocation(construtora.location)}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                <span className="text-sm font-medium">{construtora.rating}</span>
-                <span className="text-sm text-gray-400">({construtora.reviewsCount} avaliações)</span>
+                <span className="text-sm font-medium">{construtora.rating || 4.5}</span>
+                <span className="text-sm text-gray-400">({construtora.reviewsCount || 0} avaliações)</span>
               </div>
             </div>
           </div>
@@ -1358,21 +1498,25 @@ function ConstrutoraPerfilView({ construtora, onProporParceria }: { construtora:
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold mb-4">Sobre a Construtora</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">CNPJ</p>
-                <p className="font-medium">00.000.000/0001-00</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Fundação</p>
-                <p className="font-medium">1995</p>
-              </div>
+              {construtora.cnpj && (
+                <div>
+                  <p className="text-sm text-gray-500">CNPJ</p>
+                  <p className="font-medium">{construtora.cnpj}</p>
+                </div>
+              )}
               <div>
                 <p className="text-sm text-gray-500">Lançamentos Ativos</p>
-                <p className="font-medium">{construtora.launchesCount}</p>
+                <p className="font-medium">{empreendimentos.length || construtora.launchesCount || 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Unidades Entregues</p>
-                <p className="font-medium">15.000+</p>
+                <p className="text-sm text-gray-500">Unidades Disponíveis</p>
+                <p className="font-medium">
+                  {empreendimentos.reduce((acc: number, e: any) => acc + (e.available_units || 0), 0)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Localização</p>
+                <p className="font-medium">{formatLocation(construtora.location)}</p>
               </div>
             </div>
           </div>
@@ -1380,19 +1524,130 @@ function ConstrutoraPerfilView({ construtora, onProporParceria }: { construtora:
           {/* Lançamentos */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold mb-4">Lançamentos Disponíveis</h2>
-            <div className="space-y-3">
-              {MOCK_EMPREENDIMENTOS.slice(0, 2).map((emp) => (
-                <div key={emp.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <img src={emp.image} alt={emp.name} className="w-20 h-16 rounded-lg object-cover" />
-                  <div className="flex-1">
-                    <h3 className="font-medium">{emp.name}</h3>
-                    <p className="text-sm text-gray-500">{emp.location}</p>
-                    <p className="text-sm text-indigo-600 font-medium">{emp.availableUnits} unidades disponíveis</p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </div>
-              ))}
-            </div>
+            {loadingEmpreendimentos ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin h-6 w-6 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+                <span className="ml-2 text-gray-500">Carregando...</span>
+              </div>
+            ) : empreendimentos.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Building2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Nenhum empreendimento cadastrado</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {empreendimentos.map((emp) => {
+                  // Obter imagem real do array images ou usar fallback
+                  const coverImage = emp.images && emp.images.length > 0 
+                    ? emp.images[0] 
+                    : null;
+                  const hasVirtualTour = !!emp.virtual_tour_url;
+                  const totalUnits = emp.total_units || 0;
+                  const availableUnits = emp.available_units || 0;
+                  const soldPercentage = emp.sold_percentage || (totalUnits > 0 ? Math.round(((totalUnits - availableUnits) / totalUnits) * 100) : 0);
+                  
+                  return (
+                    <div 
+                      key={emp.id} 
+                      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-all cursor-pointer group"
+                    >
+                      {/* Imagem de Capa */}
+                      <div className="relative h-40 overflow-hidden">
+                        {coverImage ? (
+                          <img 
+                            src={coverImage}
+                            alt={emp.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              // Fallback se imagem falhar
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).parentElement!.classList.add('bg-gradient-to-br', 'from-indigo-500', 'to-purple-600');
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                            <span className="text-4xl font-bold text-white/80">
+                              {emp.name?.substring(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Badges no topo */}
+                        <div className="absolute top-2 left-2 flex gap-2">
+                          {emp.phase === 'launch' && (
+                            <span className="px-2 py-1 bg-green-500 text-white text-xs font-medium rounded-full shadow">
+                              🚀 Lançamento
+                            </span>
+                          )}
+                          {emp.phase === 'construction' && (
+                            <span className="px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-full shadow">
+                              🏗️ Em Obras
+                            </span>
+                          )}
+                          {emp.phase === 'ready' && (
+                            <span className="px-2 py-1 bg-blue-500 text-white text-xs font-medium rounded-full shadow">
+                              ✅ Pronto
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Badge Tour Virtual */}
+                        {hasVirtualTour && (
+                          <div className="absolute top-2 right-2">
+                            <span className="px-2 py-1 bg-purple-600 text-white text-xs font-medium rounded-full shadow flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              Tour 360°
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Overlay com % vendido */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                          <div className="flex items-center justify-between text-white">
+                            <span className="text-sm font-medium">
+                              {soldPercentage}% vendido
+                            </span>
+                            <div className="w-20 h-1.5 bg-white/30 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-green-400 rounded-full"
+                                style={{ width: `${soldPercentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Info */}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                          {emp.name}
+                        </h3>
+                        <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {formatLocation(emp.location)}
+                        </div>
+                        
+                        {/* Stats */}
+                        <div className="grid grid-cols-2 gap-3 text-center">
+                          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              {totalUnits}
+                            </p>
+                            <p className="text-xs text-gray-500">Total</p>
+                          </div>
+                          <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-2">
+                            <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                              {availableUnits}
+                            </p>
+                            <p className="text-xs text-gray-500">Disponíveis</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1403,12 +1658,12 @@ function ConstrutoraPerfilView({ construtora, onProporParceria }: { construtora:
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-gray-500">Modelo de Comissão</p>
-                <p className="font-medium text-lg text-green-600">{construtora.commissionModel}</p>
+                <p className="font-medium text-lg text-green-600">{construtora.commissionModel || '5% sobre VGV'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Segmentos</p>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {construtora.segments.map((seg: string) => (
+                  {(construtora.segments || ['Médio', 'Alto Padrão']).map((seg: string) => (
                     <span key={seg} className="text-xs px-2 py-1 bg-indigo-50 text-indigo-600 rounded-full">
                       {seg}
                     </span>
@@ -1435,13 +1690,15 @@ function ConstrutoraPerfilView({ construtora, onProporParceria }: { construtora:
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
-            <Shield className="h-8 w-8 mb-3" />
-            <h3 className="font-semibold mb-2">Parceiro Verificado</h3>
-            <p className="text-sm opacity-90">
-              Esta construtora passou por verificação de documentos e histórico.
-            </p>
-          </div>
+          {construtora.verified && (
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
+              <Shield className="h-8 w-8 mb-3" />
+              <h3 className="font-semibold mb-2">Parceiro Verificado</h3>
+              <p className="text-sm opacity-90">
+                Esta construtora passou por verificação de documentos e histórico.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2219,14 +2476,61 @@ function EstoqueView({ empreendimentos, onSelectDevelopment }: {
 
       {/* Grid de Empreendimentos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {empreendimentos.map((emp) => (
+        {empreendimentos.map((emp) => {
+          // Normalizar dados - suporta tanto mock quanto dados reais do DB
+          const coverImage = emp.image || (emp.images && emp.images.length > 0 ? emp.images[0] : null);
+          const totalUnits = emp.totalUnits || emp.total_units || 0;
+          const availableUnits = emp.availableUnits || emp.available_units || 0;
+          const priceRange = emp.priceRange || emp.price_range || '';
+          const deliveryDate = emp.deliveryDate || emp.delivery_date || '';
+          const typologies = emp.typologies || [];
+          
+          // Formatar localização - Bairro, Cidade - UF (formato compacto para card)
+          const formatLocationForCard = (loc: any): string => {
+            if (!loc) return '';
+            if (typeof loc === 'string') return loc;
+            if (typeof loc === 'object') {
+              // Prioriza: Bairro, Cidade - UF
+              const neighborhood = loc.neighborhood || '';
+              const city = loc.city || '';
+              const state = loc.state || '';
+              
+              if (neighborhood && city && state) {
+                return `${neighborhood}, ${city} - ${state}`;
+              } else if (neighborhood && state) {
+                return `${neighborhood} - ${state}`;
+              } else if (city && state) {
+                return `${city}, ${state}`;
+              }
+              return city || state || 'Brasil';
+            }
+            return String(loc);
+          };
+          
+          const locationDisplay = formatLocationForCard(emp.location);
+          
+          return (
           <div 
             key={emp.id}
             onClick={() => onSelectDevelopment(emp)}
             className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-lg transition-shadow group"
           >
-            <div className="relative">
-              <img src={emp.image} alt={emp.name} className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
+            <div className="relative h-48 overflow-hidden">
+              {coverImage ? (
+                <img 
+                  src={coverImage} 
+                  alt={emp.name} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).parentElement!.classList.add('bg-gradient-to-br', 'from-indigo-500', 'to-purple-600');
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                  <span className="text-4xl font-bold text-white/30">{emp.name?.substring(0, 2).toUpperCase()}</span>
+                </div>
+              )}
               <span className={cn(
                 "absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-medium",
                 emp.phase === 'launch' ? "bg-green-500 text-white" :
@@ -2236,46 +2540,52 @@ function EstoqueView({ empreendimentos, onSelectDevelopment }: {
                 {emp.phase === 'launch' ? '🚀 Lançamento' : 
                  emp.phase === 'construction' ? '🏗️ Em construção' : '✅ Pronto'}
               </span>
-              {/* Tags de destaque */}
-              <div className="absolute top-3 right-3 flex flex-col gap-1">
-                <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs rounded-full">☀️ Sol manhã</span>
-                <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">⚡ Vaga EV</span>
-              </div>
+              {/* Tour Virtual badge */}
+              {emp.virtual_tour_url && (
+                <div className="absolute top-3 right-3">
+                  <span className="px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full">🎯 Tour 360°</span>
+                </div>
+              )}
             </div>
             <div className="p-5">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{emp.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{emp.constructor}</p>
-              <div className="flex items-center gap-1 text-sm text-gray-500 mt-2">
-                <MapPin className="h-3 w-3" />
-                {emp.location}
-              </div>
+              <p className="text-sm text-gray-500 mt-1">{emp.constructor || 'Construtora Calper'}</p>
+              {locationDisplay && (
+                <div className="flex items-center gap-1 text-sm text-gray-500 mt-2">
+                  <MapPin className="h-3 w-3" />
+                  {locationDisplay}
+                </div>
+              )}
               
               <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-500">Disponíveis</span>
-                  <span className="font-medium text-green-600">{emp.availableUnits} de {emp.totalUnits}</span>
+                  <span className="font-medium text-green-600">{availableUnits} de {totalUnits}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
                     className="bg-green-500 h-2 rounded-full" 
-                    style={{ width: `${(emp.availableUnits / emp.totalUnits) * 100}%` }}
+                    style={{ width: `${totalUnits > 0 ? (availableUnits / totalUnits) * 100 : 0}%` }}
                   />
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-1">
-                {emp.typologies.map((t: string) => (
-                  <span key={t} className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
-                    {t}
-                  </span>
-                ))}
-              </div>
+              {typologies.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-1">
+                  {typologies.map((t: string) => (
+                    <span key={t} className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
 
-              <p className="mt-3 text-indigo-600 font-semibold">{emp.priceRange}</p>
-              <p className="text-xs text-gray-400 mt-1">Entrega: {emp.deliveryDate}</p>
+              {priceRange && <p className="mt-3 text-indigo-600 font-semibold">{priceRange}</p>}
+              {deliveryDate && <p className="text-xs text-gray-400 mt-1">Entrega: {typeof deliveryDate === 'string' && deliveryDate.includes('-') ? new Date(deliveryDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : deliveryDate}</p>}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -2292,11 +2602,13 @@ function EmpreendimentoDetailView({
   empreendimento, 
   units, 
   espelho,
+  loadingUnits = false,
   onReservar 
 }: { 
   empreendimento: any; 
   units: any[];
   espelho: typeof MOCK_ESPELHO_VENDAS;
+  loadingUnits?: boolean;
   onReservar: (unit: any) => void;
 }) {
   const [activeTab, setActiveTab] = useState<EmpreendimentoTabType>('disponibilidade');
@@ -2304,6 +2616,60 @@ function EmpreendimentoDetailView({
   const [selectedBloco, setSelectedBloco] = useState(espelho.blocos[0]?.nome || 'A');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  // ✨ FASE 3.6 - Modal de condições de pagamento
+  const [selectedUnitForDetails, setSelectedUnitForDetails] = useState<any>(null);
+
+  // 📦 Normalizar unidades do banco para o formato esperado
+  const normalizedUnits = useMemo(() => {
+    if (!units || units.length === 0) return [];
+    return units.map((unit: any) => ({
+      id: unit.id,
+      number: unit.unit_number || unit.number || '-',
+      floor: unit.floor || '-',
+      block: unit.block || 'A',
+      typology: unit.typology || '-',
+      area: unit.area_sqm || unit.area || 0,
+      price: unit.price || 0,
+      status: unit.status || 'available',
+      broker: unit.broker_name || null,
+      reservationDate: unit.reserved_at || null,
+      // ✨ FASE 3.6 - Campos de condições de pagamento
+      priceSource: unit.price_source || null,
+      priceUpdatedAt: unit.price_updated_at || null,
+      paymentConditions: unit.payment_conditions || null,
+    }));
+  }, [units]);
+
+  // 📦 Agrupar unidades por bloco
+  const blocos = useMemo(() => {
+    const blocoMap = new Map<string, any[]>();
+    normalizedUnits.forEach(unit => {
+      const bloco = unit.block || 'A';
+      if (!blocoMap.has(bloco)) blocoMap.set(bloco, []);
+      blocoMap.get(bloco)!.push(unit);
+    });
+    return Array.from(blocoMap.entries()).map(([nome, unidades]) => ({
+      nome,
+      unidades: unidades.sort((a, b) => {
+        // Ordenar por andar (desc) e depois por número
+        const floorA = parseInt(a.floor) || 0;
+        const floorB = parseInt(b.floor) || 0;
+        if (floorB !== floorA) return floorB - floorA;
+        return (a.number || '').localeCompare(b.number || '', undefined, { numeric: true });
+      })
+    })).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [normalizedUnits]);
+
+  // Usar blocos reais se existirem, senão mock
+  const activeBlocos = blocos.length > 0 ? blocos : espelho.blocos;
+  const activeBloco = activeBlocos.find(b => b.nome === selectedBloco) || activeBlocos[0];
+  
+  // Atualizar bloco selecionado quando mudam os blocos
+  useEffect(() => {
+    if (blocos.length > 0 && !blocos.find(b => b.nome === selectedBloco)) {
+      setSelectedBloco(blocos[0].nome);
+    }
+  }, [blocos, selectedBloco]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -2536,131 +2902,208 @@ function EmpreendimentoDetailView({
           {/* View Tabela */}
           {viewMode === 'table' && (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidade</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Torre</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Andar</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipologia</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Área</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Preço</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {units.map((unit) => (
-                    <tr key={unit.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-4 py-3 font-medium">{unit.unit}</td>
-                      <td className="px-4 py-3">{unit.tower}</td>
-                      <td className="px-4 py-3">{unit.floor}º</td>
-                      <td className="px-4 py-3">{unit.typology}</td>
-                      <td className="px-4 py-3">{unit.area}m²</td>
-                      <td className="px-4 py-3 font-medium">R$ {unit.price.toLocaleString()}</td>
-                      <td className="px-4 py-3">
-                        <span className={cn("px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit", getStatusColor(unit.status))}>
-                          <span className={cn(
-                            "w-2 h-2 rounded-full",
-                            unit.status === 'available' ? "bg-green-500" : unit.status === 'reserved' ? "bg-yellow-500" : "bg-red-500"
-                          )} />
-                          {getStatusLabel(unit.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {unit.status === 'available' && (
-                          <button 
-                            onClick={() => onReservar(unit)}
-                            className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
-                          >
-                            Reservar
-                          </button>
-                        )}
-                      </td>
+              {loadingUnits ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full" />
+                  <span className="ml-3 text-gray-600">Carregando unidades...</span>
+                </div>
+              ) : normalizedUnits.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                  <Package className="h-12 w-12 mb-3 opacity-50" />
+                  <p className="text-lg font-medium">Nenhuma unidade cadastrada</p>
+                  <p className="text-sm">As unidades serão exibidas quando forem importadas</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidade</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bloco</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Andar</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipologia</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Área</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Preço</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {normalizedUnits.map((unit) => (
+                      <tr key={unit.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-4 py-3 font-medium">{unit.number}</td>
+                        <td className="px-4 py-3">{unit.block}</td>
+                        <td className="px-4 py-3">{unit.floor}</td>
+                        <td className="px-4 py-3">{unit.typology}</td>
+                        <td className="px-4 py-3">{unit.area ? `${unit.area}m²` : '-'}</td>
+                        <td className="px-4 py-3">
+                          {/* ✨ FASE 3.6 - Preço com indicador de fonte */}
+                          {unit.price > 0 ? (
+                            <div className="flex flex-col">
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                R$ {unit.price.toLocaleString('pt-BR')}
+                              </span>
+                              {unit.priceSource && (
+                                <span className="text-[10px] text-indigo-600 dark:text-indigo-400">
+                                  📊 {unit.priceSource}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={cn("px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit", getStatusColor(unit.status))}>
+                            <span className={cn(
+                              "w-2 h-2 rounded-full",
+                              unit.status === 'available' ? "bg-green-500" : unit.status === 'reserved' ? "bg-yellow-500" : "bg-red-500"
+                            )} />
+                            {getStatusLabel(unit.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {/* ✨ FASE 3.6 - Botão de ver condições de pagamento */}
+                            {unit.paymentConditions && (
+                              <button 
+                                onClick={() => setSelectedUnitForDetails(unit)}
+                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                                title="Ver condições de pagamento"
+                              >
+                                <Calculator className="h-4 w-4" />
+                              </button>
+                            )}
+                            {unit.status === 'available' && (
+                              <button 
+                                onClick={() => onReservar(unit)}
+                                className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+                              >
+                                Reservar
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 
           {/* View Grid (Espelho) */}
           {viewMode === 'grid' && (
             <div className="space-y-4">
-              {/* Seleção de Bloco */}
-              <div className="flex gap-2">
-                {espelho.blocos.map((bloco) => (
-                  <button
-                    key={bloco.nome}
-                    onClick={() => setSelectedBloco(bloco.nome)}
-                    className={cn(
-                      "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                      selectedBloco === bloco.nome
-                        ? "bg-indigo-600 text-white"
-                        : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-                    )}
-                  >
-                    Bloco {bloco.nome}
-                  </button>
-                ))}
-              </div>
-
-              {/* Grid Visual */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 overflow-x-auto">
-                <div className="min-w-[600px]">
-                  {espelho.blocos
-                    .filter(b => b.nome === selectedBloco)
-                    .map((bloco) => (
-                      <div key={bloco.nome} className="space-y-2">
-                        {bloco.andares.map((andar) => (
-                          <div key={andar.andar} className="flex items-center gap-2">
-                            <div className="w-12 text-right text-sm font-medium text-gray-500">
-                              {andar.andar}º
-                            </div>
-                            <div className="flex gap-1 flex-1">
-                              {andar.unidades.map((unidade: any, idx: number) => {
-                                const statusItem = espelho.legenda.find(l => l.status === unidade.status);
-                                const isAvailable = unidade.status === 'disponivel';
-                                return (
-                                  <div
-                                    key={idx}
-                                    className={cn(
-                                      "flex-1 h-16 rounded-lg flex flex-col items-center justify-center text-xs transition-all",
-                                      isAvailable ? "cursor-pointer hover:scale-105 hover:shadow-lg" : "opacity-70"
-                                    )}
-                                    style={{ backgroundColor: statusItem?.cor || '#e5e7eb' }}
-                                    onClick={() => isAvailable && onReservar({ 
-                                      ...unidade, 
-                                      floor: andar.andar,
-                                      tower: bloco.nome
-                                    })}
-                                  >
-                                    {unidade.id !== '-' && (
-                                      <>
-                                        <span className="font-bold text-white">{unidade.id}</span>
-                                        <span className="text-white/80 text-[10px]">{unidade.tipologia}</span>
-                                      </>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+              {loadingUnits ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 flex items-center justify-center">
+                  <div className="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full" />
+                  <span className="ml-3 text-gray-600">Carregando unidades...</span>
+                </div>
+              ) : blocos.length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 flex flex-col items-center justify-center py-12 text-gray-500">
+                  <Package className="h-12 w-12 mb-3 opacity-50" />
+                  <p className="text-lg font-medium">Nenhuma unidade cadastrada</p>
+                  <p className="text-sm">O espelho de vendas será exibido quando as unidades forem importadas</p>
+                </div>
+              ) : (
+                <>
+                  {/* Seleção de Bloco */}
+                  <div className="flex gap-2">
+                    {blocos.map((bloco) => (
+                      <button
+                        key={bloco.nome}
+                        onClick={() => setSelectedBloco(bloco.nome)}
+                        className={cn(
+                          "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                          selectedBloco === bloco.nome
+                            ? "bg-indigo-600 text-white"
+                            : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                        )}
+                      >
+                        Bloco {bloco.nome} ({bloco.unidades.length})
+                      </button>
                     ))}
-                </div>
+                  </div>
 
-                {/* Legenda do Grid */}
-                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-4">
-                  {espelho.legenda.filter(l => l.status !== 'vazio').map((item) => (
-                    <div key={item.status} className="flex items-center gap-2 text-sm">
-                      <div className="w-4 h-4 rounded" style={{ backgroundColor: item.cor }} />
-                      <span className="text-gray-600 dark:text-gray-300">{item.label}</span>
+                  {/* Grid Visual - Agrupado por andar */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 overflow-x-auto">
+                    <div className="min-w-[600px]">
+                      {(() => {
+                        const currentBloco = blocos.find(b => b.nome === selectedBloco) || blocos[0];
+                        if (!currentBloco) return null;
+                        
+                        // Agrupar por andar
+                        const andarMap = new Map<string, any[]>();
+                        currentBloco.unidades.forEach((u: any) => {
+                          const andar = u.floor || '0';
+                          if (!andarMap.has(andar)) andarMap.set(andar, []);
+                          andarMap.get(andar)!.push(u);
+                        });
+                        
+                        // Ordenar andares (do maior para menor)
+                        const andares = Array.from(andarMap.entries())
+                          .map(([andar, unidades]) => ({ andar, unidades }))
+                          .sort((a, b) => parseInt(b.andar) - parseInt(a.andar));
+                        
+                        return (
+                          <div className="space-y-2">
+                            {andares.map(({ andar, unidades }) => (
+                              <div key={andar} className="flex items-center gap-2">
+                                <div className="w-12 text-right text-sm font-medium text-gray-500">
+                                  {andar}º
+                                </div>
+                                <div className="flex gap-1 flex-1 flex-wrap">
+                                  {unidades.map((unit: any) => {
+                                    const isAvailable = unit.status === 'available';
+                                    const statusColor = unit.status === 'available' ? '#22c55e' 
+                                      : unit.status === 'reserved' ? '#eab308' 
+                                      : '#ef4444';
+                                    return (
+                                      <div
+                                        key={unit.id}
+                                        className={cn(
+                                          "min-w-[80px] h-16 rounded-lg flex flex-col items-center justify-center text-xs transition-all px-2",
+                                          isAvailable ? "cursor-pointer hover:scale-105 hover:shadow-lg" : "opacity-70"
+                                        )}
+                                        style={{ backgroundColor: statusColor }}
+                                        onClick={() => isAvailable && onReservar(unit)}
+                                      >
+                                        <span className="font-bold text-white">{unit.number}</span>
+                                        <span className="text-white/80 text-[10px]">{unit.typology || '-'}</span>
+                                        {unit.price > 0 && (
+                                          <span className="text-white/90 text-[9px] font-medium">
+                                            R$ {(unit.price / 1000).toFixed(0)}k
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
-                  ))}
-                </div>
-              </div>
+
+                    {/* Legenda do Grid */}
+                    <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-4">
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#22c55e' }} />
+                        <span className="text-gray-600 dark:text-gray-300">Disponível</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#eab308' }} />
+                        <span className="text-gray-600 dark:text-gray-300">Reservada</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#ef4444' }} />
+                        <span className="text-gray-600 dark:text-gray-300">Vendida</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -2915,6 +3358,155 @@ function EmpreendimentoDetailView({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ✨ FASE 3.6 - Modal de Condições de Pagamento */}
+      {selectedUnitForDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSelectedUnitForDetails(null)}>
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold">Condições de Pagamento</h2>
+                  <p className="text-white/80 text-sm">
+                    Unidade {selectedUnitForDetails.number} • Bloco {selectedUnitForDetails.block}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedUnitForDetails(null)}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="mt-4 pt-4 border-t border-white/20">
+                <p className="text-sm text-white/70">Valor Total</p>
+                <p className="text-3xl font-bold">R$ {selectedUnitForDetails.price?.toLocaleString('pt-BR')}</p>
+                {selectedUnitForDetails.priceSource && (
+                  <span className="inline-block mt-2 px-2 py-1 bg-white/20 rounded text-xs">
+                    📊 Tabela: {selectedUnitForDetails.priceSource}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Body - Condições */}
+            <div className="p-6 overflow-y-auto max-h-[50vh]">
+              {selectedUnitForDetails.paymentConditions ? (
+                <div className="space-y-4">
+                  {/* Sinal */}
+                  {selectedUnitForDetails.paymentConditions.sinal && (
+                    <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white">
+                          <DollarSign className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Sinal</p>
+                          <p className="text-sm text-gray-500">{selectedUnitForDetails.paymentConditions.sinal.percentual}% do valor</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-green-600">
+                        R$ {selectedUnitForDetails.paymentConditions.sinal.valor?.toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Mensais */}
+                  {selectedUnitForDetails.paymentConditions.mensais && (
+                    <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
+                          <Calendar className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Mensais</p>
+                          <p className="text-sm text-gray-500">
+                            {selectedUnitForDetails.paymentConditions.mensais.quantidade}x de {selectedUnitForDetails.paymentConditions.mensais.percentual}%
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-blue-600">
+                        R$ {selectedUnitForDetails.paymentConditions.mensais.valor_parcela?.toLocaleString('pt-BR')}/mês
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Intermediárias */}
+                  {selectedUnitForDetails.paymentConditions.intermediarias && (
+                    <div className="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white">
+                          <Timer className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Intermediárias</p>
+                          <p className="text-sm text-gray-500">
+                            {selectedUnitForDetails.paymentConditions.intermediarias.quantidade}x de {selectedUnitForDetails.paymentConditions.intermediarias.percentual}%
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-purple-600">
+                        R$ {selectedUnitForDetails.paymentConditions.intermediarias.valor_parcela?.toLocaleString('pt-BR')}/parc.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Balão Final */}
+                  {selectedUnitForDetails.paymentConditions.balao_final && (
+                    <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white">
+                          <Zap className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Balão Final</p>
+                          <p className="text-sm text-gray-500">
+                            {selectedUnitForDetails.paymentConditions.balao_final.percentual}% na entrega das chaves
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-orange-600">
+                        R$ {selectedUnitForDetails.paymentConditions.balao_final.valor?.toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Calculator className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Condições de pagamento não disponíveis</p>
+                  <p className="text-sm">Entre em contato com a construtora</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setSelectedUnitForDetails(null)}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Fechar
+                </button>
+                <button 
+                  onClick={() => {
+                    onReservar(selectedUnitForDetails);
+                    setSelectedUnitForDetails(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700"
+                >
+                  Reservar Unidade
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -6923,7 +7515,7 @@ function CadastroEmpreendimentoView({ onConcluir, onCancelar }: {
                 </div>
                 <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                   <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 flex items-center gap-2">
-                    <Map className="h-4 w-4" />
+                    <MapIcon className="h-4 w-4" />
                     Faixa de Área
                   </h4>
                   <div className="grid grid-cols-2 gap-3">
@@ -8302,6 +8894,412 @@ function CadastroCorretorView({ onConcluir, onCancelar }: {
             <CheckCircle2 className="h-5 w-5" />
             Cadastrar Corretor
           </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// LISTA DE EMPREENDIMENTOS COM EDIÇÃO
+// ==========================================
+function ListaEmpreendimentosView({ onVoltar, onNovoEmpreendimento }: {
+  onVoltar: () => void;
+  onNovoEmpreendimento: () => void;
+}) {
+  const [empreendimentos, setEmpreendimentos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Carregar empreendimentos do banco
+  useEffect(() => {
+    const fetchEmpreendimentos = async () => {
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/re_developments?select=id,name,images,location,total_units,available_units,phase,expected_delivery,description,tour_360_url&order=name.asc`,
+          {
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          setEmpreendimentos(data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar empreendimentos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchEmpreendimentos();
+  }, []);
+
+  const startEdit = (emp: any) => {
+    setEditingId(emp.id);
+    setEditForm({
+      name: emp.name || '',
+      images: emp.images?.[0] || '',
+      address: emp.location?.address || '',
+      neighborhood: emp.location?.neighborhood || '',
+      city: emp.location?.city || 'Rio de Janeiro',
+      state: emp.location?.state || 'RJ',
+      phase: emp.phase || 'launch',
+      expected_delivery: emp.expected_delivery || '',
+      description: emp.description || '',
+      tour_360_url: emp.tour_360_url || '',
+    });
+    setMessage(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({});
+    setMessage(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editingId) return;
+    
+    setSaving(true);
+    setMessage(null);
+    
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const updateData = {
+        name: editForm.name,
+        images: editForm.images ? [editForm.images] : [],
+        location: {
+          address: editForm.address,
+          neighborhood: editForm.neighborhood,
+          city: editForm.city,
+          state: editForm.state,
+        },
+        phase: editForm.phase,
+        expected_delivery: editForm.expected_delivery || null,
+        description: editForm.description || null,
+        tour_360_url: editForm.tour_360_url || null,
+      };
+      
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/re_developments?id=eq.${editingId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify(updateData),
+        }
+      );
+      
+      if (response.ok) {
+        const [updated] = await response.json();
+        setEmpreendimentos(prev => prev.map(e => e.id === editingId ? updated : e));
+        setEditingId(null);
+        setEditForm({});
+        setMessage({ type: 'success', text: 'Empreendimento atualizado com sucesso!' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        const error = await response.text();
+        setMessage({ type: 'error', text: `Erro ao salvar: ${error}` });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: `Erro: ${error}` });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const phaseLabels: Record<string, string> = {
+    'launch': 'Lançamento',
+    'construction': 'Em Obras',
+    'ready': 'Pronto',
+    'pre_launch': 'Pré-Lançamento',
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onVoltar}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          </button>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Empreendimentos</h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              {empreendimentos.length} empreendimentos cadastrados
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onNovoEmpreendimento}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+        >
+          <Plus className="h-5 w-5" />
+          Novo Empreendimento
+        </button>
+      </div>
+
+      {/* Mensagem de feedback */}
+      {message && (
+        <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'}`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Lista */}
+      <div className="space-y-4">
+        {empreendimentos.map((emp) => (
+          <div
+            key={emp.id}
+            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+          >
+            {editingId === emp.id ? (
+              /* Modo Edição */
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Edit className="h-5 w-5 text-indigo-500" />
+                    Editando: {emp.name}
+                  </h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={cancelEdit}
+                      className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={saveEdit}
+                      disabled={saving}
+                      className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {saving ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                          Salvando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4" />
+                          Salvar
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Nome */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Fase */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fase</label>
+                    <select
+                      value={editForm.phase}
+                      onChange={(e) => setEditForm({ ...editForm, phase: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="pre_launch">Pré-Lançamento</option>
+                      <option value="launch">Lançamento</option>
+                      <option value="construction">Em Obras</option>
+                      <option value="ready">Pronto</option>
+                    </select>
+                  </div>
+
+                  {/* Imagem de Capa (URL) */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL da Imagem de Capa</label>
+                    <input
+                      type="url"
+                      value={editForm.images}
+                      onChange={(e) => setEditForm({ ...editForm, images: e.target.value })}
+                      placeholder="https://exemplo.com/imagem.jpg"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    {editForm.images && (
+                      <div className="mt-2">
+                        <img src={editForm.images} alt="Preview" className="h-20 rounded-lg object-cover" onError={(e) => (e.target as HTMLImageElement).style.display = 'none'} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Endereço */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
+                    <input
+                      type="text"
+                      value={editForm.address}
+                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                      placeholder="Rua, número"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Bairro */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bairro</label>
+                    <input
+                      type="text"
+                      value={editForm.neighborhood}
+                      onChange={(e) => setEditForm({ ...editForm, neighborhood: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Cidade/Estado */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cidade</label>
+                      <input
+                        type="text"
+                        value={editForm.city}
+                        onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF</label>
+                      <input
+                        type="text"
+                        value={editForm.state}
+                        onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                        maxLength={2}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Data Entrega */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Previsão de Entrega</label>
+                    <input
+                      type="text"
+                      value={editForm.expected_delivery}
+                      onChange={(e) => setEditForm({ ...editForm, expected_delivery: e.target.value })}
+                      placeholder="Dez/2027"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Tour 360 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL Tour 360°</label>
+                    <input
+                      type="url"
+                      value={editForm.tour_360_url}
+                      onChange={(e) => setEditForm({ ...editForm, tour_360_url: e.target.value })}
+                      placeholder="https://tour360.exemplo.com"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  {/* Descrição */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Modo Visualização */
+              <div className="flex items-center gap-4 p-4">
+                {/* Imagem */}
+                <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  {emp.images?.[0] ? (
+                    <img src={emp.images[0]} alt={emp.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Building2 className="h-8 w-8 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{emp.name}</h3>
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${
+                      emp.phase === 'launch' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                      emp.phase === 'construction' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                      emp.phase === 'ready' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                    }`}>
+                      {phaseLabels[emp.phase] || emp.phase}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {emp.location?.neighborhood ? `${emp.location.neighborhood}, ` : ''}{emp.location?.city || 'Rio de Janeiro'} - {emp.location?.state || 'RJ'}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                    {emp.available_units || 0} disponíveis de {emp.total_units || 0} unidades
+                    {emp.expected_delivery && ` • Entrega: ${emp.expected_delivery}`}
+                  </p>
+                </div>
+
+                {/* Ações */}
+                <div className="flex-shrink-0">
+                  <button
+                    onClick={() => startEdit(emp)}
+                    className="flex items-center gap-2 px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Editar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {empreendimentos.length === 0 && (
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Nenhum empreendimento cadastrado</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">Clique no botão acima para cadastrar o primeiro</p>
+          </div>
         )}
       </div>
     </div>

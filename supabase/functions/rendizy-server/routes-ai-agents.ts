@@ -137,7 +137,62 @@ async function callGroqAPI(
 }
 
 // ============================================================================
-// FETCH URL CONTENT (Simple scraping)
+// VPS SCRAPER SERVICE (Puppeteer-based)
+// ============================================================================
+
+const VPS_SCRAPER_URL = 'http://76.13.82.60:3100';
+const VPS_SCRAPER_API_KEY = 'rendizy-scraper-2026';
+
+interface VpsScraperResponse {
+  success: boolean;
+  url: string;
+  data?: {
+    title: string;
+    description: string;
+    links: Array<{ url: string; text: string; type: string }>;
+    bodyText: string;
+    extractedAt: string;
+  };
+  error?: string;
+  linksCount?: number;
+}
+
+/**
+ * Chama o serviço de scraping no VPS (Puppeteer com headless Chrome)
+ * Necessário para páginas renderizadas com JavaScript como Linktree
+ */
+async function fetchViaVpsScraper(url: string): Promise<VpsScraperResponse> {
+  try {
+    console.log(`[AI-AGENTS] Chamando VPS Scraper para: ${url}`);
+    
+    const response = await fetch(`${VPS_SCRAPER_URL}/scrape/linktree`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': VPS_SCRAPER_API_KEY,
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[AI-AGENTS] VPS Scraper erro HTTP ${response.status}:`, errorText);
+      return { success: false, url, error: `VPS Scraper HTTP ${response.status}` };
+    }
+
+    const result = await response.json();
+    console.log(`[AI-AGENTS] VPS Scraper retornou ${result.linksCount || 0} links`);
+    return result;
+    
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[AI-AGENTS] Erro ao chamar VPS Scraper:`, errMessage);
+    return { success: false, url, error: `VPS Scraper error: ${errMessage}` };
+  }
+}
+
+// ============================================================================
+// FETCH URL CONTENT (Fallback - simple fetch)
 // ============================================================================
 
 async function fetchUrlContent(url: string): Promise<{ success: boolean; html?: string; error?: string }> {
@@ -308,19 +363,40 @@ async function runConstrutoraScraper(
   };
 
   try {
-    // Step 1: Fetch Linktree page
+    // Step 1: Fetch Linktree page via VPS Puppeteer (JavaScript rendering)
     addLog('started', `Iniciando coleta para ${construtoraName}`);
-    addLog('running', `Acessando Linktree: ${linktreeUrl}`);
+    addLog('running', `Acessando Linktree via VPS Puppeteer: ${linktreeUrl}`);
 
-    const linktreeResult = await fetchUrlContent(linktreeUrl);
-    if (!linktreeResult.success) {
-      addLog('failed', `Erro ao acessar Linktree: ${linktreeResult.error}`);
-      return { success: false, empreendimentos: [], logs, error: linktreeResult.error };
+    // Usar VPS Scraper com Puppeteer para páginas com JavaScript
+    const vpsResult = await fetchViaVpsScraper(linktreeUrl);
+    
+    if (!vpsResult.success || !vpsResult.data) {
+      addLog('failed', `Erro ao acessar Linktree via VPS: ${vpsResult.error}`);
+      return { success: false, empreendimentos: [], logs, error: vpsResult.error };
     }
 
-    // Step 2: Extract links com categorização
-    const links = extractLinksFromHtml(linktreeResult.html!);
-    addLog('running', `Encontrados ${links.length} links externos`, { 
+    // Os links já vêm estruturados do VPS Scraper
+    const vpsLinks = vpsResult.data.links || [];
+    const bodyText = vpsResult.data.bodyText || '';
+    
+    addLog('running', `VPS Scraper retornou ${vpsLinks.length} links`, {
+      title: vpsResult.data.title,
+      linksCount: vpsLinks.length,
+    });
+
+    if (vpsLinks.length === 0) {
+      addLog('completed', 'Nenhum link externo encontrado no Linktree');
+      return { success: true, empreendimentos: [], logs };
+    }
+
+    // Categorizar os links do VPS
+    const links: ExtractedLink[] = vpsLinks.map(l => ({
+      url: l.url,
+      text: l.text,
+      category: categorizeLink(l.text, l.url),
+    }));
+
+    addLog('running', `Links categorizados`, { 
       total: links.length,
       por_categoria: links.reduce((acc, l) => {
         acc[l.category || 'outro'] = (acc[l.category || 'outro'] || 0) + 1;
@@ -328,12 +404,7 @@ async function runConstrutoraScraper(
       }, {} as Record<string, number>)
     });
 
-    if (links.length === 0) {
-      addLog('completed', 'Nenhum link externo encontrado no Linktree');
-      return { success: true, empreendimentos: [], logs };
-    }
-
-    // Step 3: Use AI to analyze the Linktree content and links
+    // Step 2: Use AI to analyze the content and links
     addLog('running', 'Analisando conteúdo com IA (Groq)...');
 
     // Formatar links de forma estruturada para a IA
@@ -345,10 +416,13 @@ async function runConstrutoraScraper(
 
 Analise o conteúdo de um Linktree da construtora "${construtoraName}" e extraia informações sobre seus empreendimentos.
 
-CONTEÚDO DO LINKTREE (resumido):
-${linktreeResult.html?.substring(0, 8000)}
+TÍTULO DA PÁGINA: ${vpsResult.data.title}
+DESCRIÇÃO: ${vpsResult.data.description}
 
-LINKS CATEGORIZADOS ENCONTRADOS:
+CONTEÚDO DA PÁGINA:
+${bodyText.substring(0, 6000)}
+
+LINKS CATEGORIZADOS ENCONTRADOS (${links.length} total):
 ${linksFormatted}
 
 INSTRUÇÕES:
@@ -455,6 +529,173 @@ Responda APENAS o JSON, sem explicações.`;
     return { success: false, empreendimentos: [], logs, error: errMessage };
   }
 }
+
+/**
+ * POST /ai-agents/dev/scrape-and-save
+ * ENDPOINT DE DESENVOLVIMENTO - Aceita x-organization-id header
+ * Executa scraping e salva empreendimentos sem autenticação de usuário
+ */
+app.post('/dev/scrape-and-save', async (c: Context) => {
+  try {
+    const supabaseUrl = SUPABASE_URL;
+    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Aceita organization_id via header para desenvolvimento
+    const orgId = c.req.header('x-organization-id');
+    if (!orgId) {
+      return c.json(errorResponse('x-organization-id header é obrigatório para endpoint dev'), 400);
+    }
+
+    const body = await c.req.json();
+    const { construtora_id, api_key } = body;
+
+    if (!construtora_id) {
+      return c.json(errorResponse('construtora_id é obrigatório'), 400);
+    }
+
+    // Buscar construtora
+    const { data: construtora, error: fetchError } = await supabase
+      .from('ai_agent_construtoras')
+      .select('*')
+      .eq('id', construtora_id)
+      .eq('organization_id', orgId)
+      .single();
+
+    if (fetchError || !construtora) {
+      return c.json(errorResponse('Construtora não encontrada'), 404);
+    }
+
+    // Usar API key passada ou buscar do banco
+    let groqApiKey = api_key;
+
+    if (!groqApiKey) {
+      const { data: config } = await supabase
+        .from('ai_provider_configs')
+        .select('api_key_encrypted')
+        .eq('organization_id', orgId)
+        .eq('is_active', true)
+        .in('provider', ['groq', 'groq-compound'])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (config?.api_key_encrypted) {
+        groqApiKey = await decryptSensitive(config.api_key_encrypted);
+      }
+    }
+
+    if (!groqApiKey) {
+      return c.json(errorResponse('API Key do Groq não configurada'), 400);
+    }
+
+    console.log('[AI-AGENTS DEV] Iniciando scrape-and-save para:', construtora.name);
+
+    // Executar agente
+    const result = await runConstrutoraScraper(groqApiKey, construtora.linktree_url, construtora.name);
+
+    if (!result.success) {
+      return c.json(errorResponse('Erro no scraping', { 
+        error: result.error,
+        logs: result.logs,
+      }), 500);
+    }
+
+    // SALVAR EMPREENDIMENTOS
+    const savedEmpreendimentos = [];
+    const errors = [];
+
+    for (const emp of result.empreendimentos) {
+      try {
+        const { data: existing } = await supabase
+          .from('ai_agent_empreendimentos')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('construtora_id', construtora_id)
+          .eq('nome', emp.nome)
+          .single();
+
+        const slug = emp.nome
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
+        const empreendimentoData = {
+          organization_id: orgId,
+          construtora_id: construtora_id,
+          nome: emp.nome,
+          slug,
+          bairro: emp.localizacao?.split(',')[0]?.trim() || null,
+          cidade: emp.localizacao?.split(',')[1]?.trim() || 'Rio de Janeiro',
+          tipologias: emp.tipologias || [],
+          preco_min: emp.preco_min || null,
+          preco_max: emp.preco_max || null,
+          status: emp.status?.toLowerCase().replace(/ /g, '_') || null,
+          links: emp.links || {},
+          dados_raw: emp.dados_raw || emp,
+          last_scraped_at: new Date().toISOString(),
+          is_active: true,
+        };
+
+        if (existing) {
+          const { data: updated, error: updateError } = await supabase
+            .from('ai_agent_empreendimentos')
+            .update(empreendimentoData)
+            .eq('id', existing.id)
+            .select()
+            .single();
+
+          if (updateError) {
+            errors.push({ nome: emp.nome, error: updateError.message, action: 'update' });
+          } else {
+            savedEmpreendimentos.push({ ...updated, action: 'updated' });
+          }
+        } else {
+          const { data: inserted, error: insertError } = await supabase
+            .from('ai_agent_empreendimentos')
+            .insert(empreendimentoData)
+            .select()
+            .single();
+
+          if (insertError) {
+            errors.push({ nome: emp.nome, error: insertError.message, action: 'insert' });
+          } else {
+            savedEmpreendimentos.push({ ...inserted, action: 'inserted' });
+          }
+        }
+      } catch (saveError: unknown) {
+        const errMsg = saveError instanceof Error ? saveError.message : 'Unknown error';
+        errors.push({ nome: emp.nome, error: errMsg });
+      }
+    }
+
+    // Atualizar construtora
+    await supabase
+      .from('ai_agent_construtoras')
+      .update({ 
+        last_scraped_at: new Date().toISOString(),
+        empreendimentos_count: savedEmpreendimentos.length,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', construtora_id);
+
+    return c.json(successResponse({
+      message: `${savedEmpreendimentos.length} empreendimentos salvos!`,
+      construtora: construtora.name,
+      empreendimentos: savedEmpreendimentos,
+      errors: errors.length > 0 ? errors : undefined,
+      logs: result.logs,
+      tokensUsed: result.tokensUsed,
+    }));
+
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[AI-AGENTS DEV] Erro no scrape-and-save:', error);
+    return c.json(errorResponse('Erro interno', { details: errMessage }), 500);
+  }
+});
 
 // ============================================================================
 // ROUTES
@@ -566,10 +807,10 @@ app.post('/scrape-construtora', async (c: Context) => {
       return c.json(errorResponse('linktree_url e construtora_name são obrigatórios'), 400);
     }
 
-    // Buscar API key configurada
+    // Buscar API key configurada (campo criptografado)
     const { data: config } = await supabase
       .from('ai_provider_configs')
-      .select('api_key')
+      .select('api_key_encrypted')
       .eq('organization_id', orgId)
       .eq('is_active', true)
       .in('provider', ['groq', 'groq-compound'])
@@ -577,12 +818,18 @@ app.post('/scrape-construtora', async (c: Context) => {
       .limit(1)
       .single();
 
-    if (!config?.api_key) {
+    if (!config?.api_key_encrypted) {
       return c.json(errorResponse('Configure o Groq em Integrações → Provedor de IA'), 400);
     }
 
+    // Decriptar API key
+    const apiKey = await decryptSensitive(config.api_key_encrypted);
+    if (!apiKey) {
+      return c.json(errorResponse('Erro ao decriptar API key'), 500);
+    }
+
     // Executar agente
-    const result = await runConstrutoraScraper(config.api_key, linktree_url, construtora_name);
+    const result = await runConstrutoraScraper(apiKey, linktree_url, construtora_name);
 
     // Salvar logs de execução
     await supabase.from('ai_agent_execution_logs').insert({
@@ -878,11 +1125,13 @@ app.post('/construtoras/:id/scrape', async (c: Context) => {
       return c.json(errorResponse('Configure o Groq em Integrações → Provedor de IA'), 400);
     }
 
-    // Decriptar API key
-    const apiKey = decryptSensitive(config.api_key_encrypted);
+    // Decriptar API key (IMPORTANTE: await é necessário pois é async)
+    const apiKey = await decryptSensitive(config.api_key_encrypted);
     if (!apiKey) {
       return c.json(errorResponse('Erro ao decriptar API key'), 500);
     }
+
+    console.log('[AI-AGENTS] API Key decriptada com sucesso, iniciando scraper...');
 
     // Executar agente
     const result = await runConstrutoraScraper(apiKey, construtora.linktree_url, construtora.name);
@@ -966,6 +1215,567 @@ app.post('/setup', async (c: Context) => {
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[AI-AGENTS] Erro no setup:', error);
+    return c.json(errorResponse('Erro interno', { details: errMessage }), 500);
+  }
+});
+
+// ============================================================================
+// EMPREENDIMENTOS - CRUD E SCRAPING COMPLETO
+// ============================================================================
+
+/**
+ * Helper: Gerar slug a partir do nome
+ */
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * POST /ai-agents/construtoras/:id/scrape-and-save
+ * Executa scraping de uma construtora e SALVA os empreendimentos no banco
+ */
+app.post('/construtoras/:id/scrape-and-save', async (c: Context) => {
+  try {
+    const supabaseUrl = SUPABASE_URL;
+    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const orgId = await getOrganizationId(c);
+    if (!orgId) {
+      return c.json(errorResponse('Organização não encontrada'), 401);
+    }
+
+    const id = c.req.param('id');
+
+    // Buscar construtora
+    const { data: construtora, error: fetchError } = await supabase
+      .from('ai_agent_construtoras')
+      .select('*')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .single();
+
+    if (fetchError || !construtora) {
+      return c.json(errorResponse('Construtora não encontrada'), 404);
+    }
+
+    // Buscar API key configurada
+    const { data: config } = await supabase
+      .from('ai_provider_configs')
+      .select('api_key_encrypted')
+      .eq('organization_id', orgId)
+      .eq('is_active', true)
+      .in('provider', ['groq', 'groq-compound'])
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!config?.api_key_encrypted) {
+      return c.json(errorResponse('Configure o Groq em Integrações → Provedor de IA'), 400);
+    }
+
+    const apiKey = await decryptSensitive(config.api_key_encrypted);
+    if (!apiKey) {
+      return c.json(errorResponse('Erro ao decriptar API key'), 500);
+    }
+
+    console.log('[AI-AGENTS] Iniciando scrape-and-save para:', construtora.name);
+
+    // Executar agente
+    const result = await runConstrutoraScraper(apiKey, construtora.linktree_url, construtora.name);
+
+    if (!result.success) {
+      return c.json(errorResponse('Erro no scraping', { 
+        error: result.error,
+        logs: result.logs,
+      }), 500);
+    }
+
+    // SALVAR EMPREENDIMENTOS NO BANCO
+    const savedEmpreendimentos = [];
+    const errors = [];
+
+    for (const emp of result.empreendimentos) {
+      try {
+        // Verificar se já existe (por nome e construtora)
+        const { data: existing } = await supabase
+          .from('ai_agent_empreendimentos')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('construtora_id', id)
+          .eq('nome', emp.nome)
+          .single();
+
+        const empreendimentoData = {
+          organization_id: orgId,
+          construtora_id: id,
+          nome: emp.nome,
+          slug: generateSlug(emp.nome),
+          bairro: emp.localizacao?.split(',')[0]?.trim() || null,
+          cidade: emp.localizacao?.split(',')[1]?.trim() || 'Rio de Janeiro',
+          tipologias: emp.tipologias || [],
+          preco_min: emp.preco_min || null,
+          preco_max: emp.preco_max || null,
+          status: emp.status?.toLowerCase().replace(/ /g, '_') || null,
+          links: emp.links || {},
+          dados_raw: emp.dados_raw || emp,
+          last_scraped_at: new Date().toISOString(),
+          is_active: true,
+        };
+
+        if (existing) {
+          // Atualizar existente
+          const { data: updated, error: updateError } = await supabase
+            .from('ai_agent_empreendimentos')
+            .update(empreendimentoData)
+            .eq('id', existing.id)
+            .select()
+            .single();
+
+          if (updateError) {
+            errors.push({ nome: emp.nome, error: updateError.message, action: 'update' });
+          } else {
+            savedEmpreendimentos.push({ ...updated, action: 'updated' });
+          }
+        } else {
+          // Inserir novo
+          const { data: inserted, error: insertError } = await supabase
+            .from('ai_agent_empreendimentos')
+            .insert(empreendimentoData)
+            .select()
+            .single();
+
+          if (insertError) {
+            errors.push({ nome: emp.nome, error: insertError.message, action: 'insert' });
+          } else {
+            savedEmpreendimentos.push({ ...inserted, action: 'inserted' });
+          }
+        }
+      } catch (saveError: unknown) {
+        const errMsg = saveError instanceof Error ? saveError.message : 'Unknown error';
+        errors.push({ nome: emp.nome, error: errMsg });
+      }
+    }
+
+    // Atualizar contador na construtora
+    await supabase
+      .from('ai_agent_construtoras')
+      .update({ 
+        last_scraped_at: new Date().toISOString(),
+        empreendimentos_count: savedEmpreendimentos.length,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    // Salvar log de execução
+    await supabase.from('ai_agent_execution_logs').insert({
+      organization_id: orgId,
+      agent_type: 'construtora-scraper-save',
+      input_data: { construtora_id: id, linktree_url: construtora.linktree_url },
+      output_data: { 
+        scraped: result.empreendimentos.length,
+        saved: savedEmpreendimentos.length,
+        errors: errors.length,
+      },
+      status: errors.length === 0 ? 'completed' : 'partial',
+      tokens_used: result.tokensUsed || 0,
+    });
+
+    return c.json(successResponse({
+      message: `${savedEmpreendimentos.length} empreendimentos salvos!`,
+      construtora: construtora.name,
+      empreendimentos: savedEmpreendimentos,
+      errors: errors.length > 0 ? errors : undefined,
+      logs: result.logs,
+      tokensUsed: result.tokensUsed,
+    }));
+
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[AI-AGENTS] Erro no scrape-and-save:', error);
+    return c.json(errorResponse('Erro interno', { details: errMessage }), 500);
+  }
+});
+
+/**
+ * GET /ai-agents/empreendimentos
+ * Lista empreendimentos coletados
+ */
+app.get('/empreendimentos', async (c: Context) => {
+  try {
+    const supabaseUrl = SUPABASE_URL;
+    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const orgId = await getOrganizationId(c);
+    if (!orgId) {
+      return c.json(errorResponse('Organização não encontrada'), 401);
+    }
+
+    const construtoraId = c.req.query('construtora_id');
+
+    let query = supabase
+      .from('ai_agent_empreendimentos')
+      .select('*, construtora:ai_agent_construtoras(id, name)')
+      .eq('organization_id', orgId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (construtoraId) {
+      query = query.eq('construtora_id', construtoraId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      if (error.code === '42P01') {
+        return c.json(successResponse({ empreendimentos: [] }));
+      }
+      return c.json(errorResponse('Erro ao buscar empreendimentos', { details: error.message }), 500);
+    }
+
+    return c.json(successResponse({ empreendimentos: data || [] }));
+
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[AI-AGENTS] Erro ao buscar empreendimentos:', error);
+    return c.json(errorResponse('Erro interno', { details: errMessage }), 500);
+  }
+});
+
+/**
+ * GET /ai-agents/empreendimentos/:id
+ * Detalhes de um empreendimento
+ */
+app.get('/empreendimentos/:id', async (c: Context) => {
+  try {
+    const supabaseUrl = SUPABASE_URL;
+    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const orgId = await getOrganizationId(c);
+    if (!orgId) {
+      return c.json(errorResponse('Organização não encontrada'), 401);
+    }
+
+    const id = c.req.param('id');
+
+    const { data, error } = await supabase
+      .from('ai_agent_empreendimentos')
+      .select('*, construtora:ai_agent_construtoras(id, name, linktree_url)')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .single();
+
+    if (error || !data) {
+      return c.json(errorResponse('Empreendimento não encontrado'), 404);
+    }
+
+    return c.json(successResponse({ empreendimento: data }));
+
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[AI-AGENTS] Erro ao buscar empreendimento:', error);
+    return c.json(errorResponse('Erro interno', { details: errMessage }), 500);
+  }
+});
+
+// ============================================================================
+// UNIDADES ENDPOINTS
+// ============================================================================
+
+/**
+ * Chama o VPS Scraper para extrair unidades de um painel Calper
+ */
+async function scrapeCalperUnidades(url: string): Promise<{
+  success: boolean;
+  data?: {
+    resumo: { total: number; disponiveis: number; reservadas: number; vendidas: number };
+    unidades: Array<{
+      codigo: string;
+      tipologia: string;
+      imobiliaria: string;
+      status: string;
+      data_venda?: string;
+      bloco?: string;
+    }>;
+    blocos: string[];
+  };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${VPS_SCRAPER_URL}/scrape/calper`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${VPS_SCRAPER_API_KEY}`,
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `VPS Scraper error: ${response.status}` };
+    }
+
+    const result = await response.json();
+    return { success: true, data: result.data };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    return { success: false, error: errMsg };
+  }
+}
+
+/**
+ * POST /ai-agents/dev/scrape-unidades
+ * ENDPOINT DE DESENVOLVIMENTO - Extrai e salva unidades de um empreendimento
+ */
+app.post('/dev/scrape-unidades', async (c: Context) => {
+  try {
+    const supabaseUrl = SUPABASE_URL;
+    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const orgId = c.req.header('x-organization-id');
+    if (!orgId) {
+      return c.json(errorResponse('x-organization-id header é obrigatório'), 400);
+    }
+
+    const body = await c.req.json();
+    const { empreendimento_id, painel_url } = body;
+
+    if (!empreendimento_id) {
+      return c.json(errorResponse('empreendimento_id é obrigatório'), 400);
+    }
+
+    // Buscar empreendimento
+    const { data: empreendimento, error: fetchError } = await supabase
+      .from('ai_agent_empreendimentos')
+      .select('*, construtora:ai_agent_construtoras(id, name)')
+      .eq('id', empreendimento_id)
+      .eq('organization_id', orgId)
+      .single();
+
+    if (fetchError || !empreendimento) {
+      return c.json(errorResponse('Empreendimento não encontrado'), 404);
+    }
+
+    // Usar URL passada ou do empreendimento
+    const urlToScrape = painel_url || empreendimento.links?.disponibilidade;
+    
+    if (!urlToScrape) {
+      return c.json(errorResponse('URL do painel não encontrada. Passe painel_url ou configure links.disponibilidade'), 400);
+    }
+
+    console.log('[AI-AGENTS] Scraping unidades de:', urlToScrape);
+
+    // Chamar VPS Scraper
+    const scrapeResult = await scrapeCalperUnidades(urlToScrape);
+
+    if (!scrapeResult.success || !scrapeResult.data) {
+      return c.json(errorResponse('Erro no scraping', { error: scrapeResult.error }), 500);
+    }
+
+    const { resumo, unidades, blocos } = scrapeResult.data;
+
+    console.log(`[AI-AGENTS] Resumo: ${resumo.total} total, ${resumo.disponiveis} disponíveis`);
+    console.log(`[AI-AGENTS] Unidades extraídas: ${unidades.length}`);
+
+    // Salvar unidades
+    const errors: { codigo: string; error: string }[] = [];
+    let updatedCount = 0;
+    let insertedCount = 0;
+
+    for (const unidade of unidades) {
+      try {
+        // Verificar se já existe
+        const { data: existing } = await supabase
+          .from('ai_agent_unidades')
+          .select('id')
+          .eq('empreendimento_id', empreendimento_id)
+          .eq('codigo', unidade.codigo)
+          .eq('bloco', unidade.bloco || null)
+          .single();
+
+        // Parsear data de venda
+        let dataVenda = null;
+        if (unidade.data_venda) {
+          const [dia, mes, ano] = unidade.data_venda.split('/');
+          dataVenda = `${ano}-${mes}-${dia}`;
+        }
+
+        const unidadeData = {
+          organization_id: orgId,
+          construtora_id: empreendimento.construtora?.id || empreendimento.construtora_id,
+          empreendimento_id: empreendimento_id,
+          codigo: unidade.codigo,
+          bloco: unidade.bloco || null,
+          tipologia: unidade.tipologia,
+          status: unidade.status,
+          imobiliaria: unidade.imobiliaria,
+          data_venda: dataVenda,
+          fonte: urlToScrape,
+          scraped_at: new Date().toISOString(),
+        };
+
+        if (existing) {
+          const { error: updateError } = await supabase
+            .from('ai_agent_unidades')
+            .update(unidadeData)
+            .eq('id', existing.id);
+
+          if (updateError) {
+            errors.push({ codigo: unidade.codigo, error: updateError.message });
+          } else {
+            updatedCount++;
+          }
+        } else {
+          const { error: insertError } = await supabase
+            .from('ai_agent_unidades')
+            .insert(unidadeData);
+
+          if (insertError) {
+            errors.push({ codigo: unidade.codigo, error: insertError.message });
+          } else {
+            insertedCount++;
+          }
+        }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown';
+        errors.push({ codigo: unidade.codigo, error: errMsg });
+      }
+    }
+
+    // Atualizar resumo do empreendimento
+    await supabase
+      .from('ai_agent_empreendimentos')
+      .update({
+        resumo_vendas: {
+          total: resumo.total,
+          disponiveis: resumo.disponiveis,
+          reservadas: resumo.reservadas,
+          vendidas: resumo.vendidas,
+          percentual_vendido: resumo.total > 0 ? 
+            Math.round((resumo.vendidas / resumo.total) * 10000) / 100 : 0,
+          atualizado_em: new Date().toISOString(),
+        },
+        last_scraped_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', empreendimento_id);
+
+    return c.json(successResponse({
+      message: `Scraping concluído! ${insertedCount} inseridas, ${updatedCount} atualizadas`,
+      empreendimento: empreendimento.nome,
+      resumo,
+      blocos,
+      stats: {
+        total_extraidas: unidades.length,
+        inserted: insertedCount,
+        updated: updatedCount,
+        errors: errors.length,
+      },
+      errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
+    }));
+
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[AI-AGENTS] Erro no scrape-unidades:', error);
+    return c.json(errorResponse('Erro interno', { details: errMessage }), 500);
+  }
+});
+
+/**
+ * GET /ai-agents/unidades
+ * Lista unidades de um empreendimento
+ */
+app.get('/unidades', async (c: Context) => {
+  try {
+    const supabaseUrl = SUPABASE_URL;
+    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const orgId = await getOrganizationId(c);
+    if (!orgId) {
+      return c.json(errorResponse('Organização não encontrada'), 401);
+    }
+
+    const empreendimentoId = c.req.query('empreendimento_id');
+    const status = c.req.query('status');
+    const tipologia = c.req.query('tipologia');
+    const limit = parseInt(c.req.query('limit') || '100');
+    const offset = parseInt(c.req.query('offset') || '0');
+
+    let query = supabase
+      .from('ai_agent_unidades')
+      .select('*', { count: 'exact' })
+      .eq('organization_id', orgId)
+      .order('codigo', { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    if (empreendimentoId) {
+      query = query.eq('empreendimento_id', empreendimentoId);
+    }
+    if (status) {
+      query = query.eq('status', status);
+    }
+    if (tipologia) {
+      query = query.eq('tipologia', tipologia);
+    }
+
+    const { data, count, error } = await query;
+
+    if (error) {
+      return c.json(errorResponse('Erro ao buscar unidades', { details: error.message }), 500);
+    }
+
+    return c.json(successResponse({
+      unidades: data || [],
+      total: count || 0,
+      limit,
+      offset,
+    }));
+
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[AI-AGENTS] Erro ao listar unidades:', error);
+    return c.json(errorResponse('Erro interno', { details: errMessage }), 500);
+  }
+});
+
+/**
+ * GET /ai-agents/disponibilidade
+ * Retorna resumo de disponibilidade de todos os empreendimentos
+ */
+app.get('/disponibilidade', async (c: Context) => {
+  try {
+    const supabaseUrl = SUPABASE_URL;
+    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const orgId = await getOrganizationId(c);
+    if (!orgId) {
+      return c.json(errorResponse('Organização não encontrada'), 401);
+    }
+
+    const { data, error } = await supabase
+      .from('v_ai_agent_disponibilidade')
+      .select('*')
+      .eq('organization_id', orgId);
+
+    if (error) {
+      return c.json(errorResponse('Erro ao buscar disponibilidade', { details: error.message }), 500);
+    }
+
+    return c.json(successResponse({ disponibilidade: data || [] }));
+
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[AI-AGENTS] Erro ao buscar disponibilidade:', error);
     return c.json(errorResponse('Erro interno', { details: errMessage }), 500);
   }
 });

@@ -19,6 +19,7 @@ let supabaseClient: ReturnType<typeof createClient> | null = null;
 export function getSupabaseClient() {
   if (!supabaseClient) {
     const supabaseUrl = `https://${projectId}.supabase.co`;
+    console.log('[Supabase Client] Creating with URL:', supabaseUrl, 'Key present:', !!publicAnonKey, 'Key length:', publicAnonKey?.length);
     supabaseClient = createClient(supabaseUrl, publicAnonKey, {
       auth: {
         persistSession: true,
