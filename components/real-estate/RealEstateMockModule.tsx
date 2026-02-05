@@ -76,451 +76,27 @@ import {
 import { ChatDrawerProvider, useChatDrawer } from '@/components/chat';
 
 // ============================================
-// DADOS MOCK BASEADOS EM MATERIAIS REAIS
+// ============================================
+// 🚫 MOCKS REMOVIDOS - APENAS DADOS REAIS DO SUPABASE
 // ============================================
 
-// Estrutura real de materiais por empreendimento (baseado em Calper, Calçada, Patrimar)
-// @ts-ignore
-export const MOCK_MATERIAIS_EMPREENDIMENTO = {
-  bookDigital: { nome: 'Book Digital', formato: 'PDF', tamanho: '14 MB', icone: FileText },
-  tabelaPrecos: { nome: 'Tabela de Preços', formato: 'PDF', tamanho: '449 KB', icone: Table },
-  tabelaPromocional: { nome: 'Tabela Promocional', formato: 'PDF', tamanho: '161 KB', icone: Percent },
-  fichaTecnica: { nome: 'Ficha Técnica', formato: 'PDF', tamanho: '1.7 MB', icone: FileText },
-  estudoRentabilidade: { nome: 'Estudo de Rentabilidade', formato: 'PDF', tamanho: '2.1 MB', icone: TrendingUp },
-  custoCondominial: { nome: 'Custo Condominial', formato: 'PDF', tamanho: '338 KB', icone: Calculator },
-  plantasHumanizadas: { nome: 'Plantas Humanizadas', formato: 'Pasta', icone: Image },
-  videosInstitucional: { nome: 'Vídeos', formato: 'MP4', tamanho: '35 MB', icone: Video },
-  reguasWhatsapp: { nome: 'Réguas WhatsApp', formato: 'JPEG', icone: Share2 },
-  masterplan: { nome: 'Masterplan/Implantação', formato: 'JPG', icone: Map },
-  localizacao: { nome: 'Mapa de Localização', formato: 'JPG', icone: MapPin },
-  fotosObra: { nome: 'Andamento da Obra', formato: 'Pasta', icone: Camera },
-  decoradoVirtual: { nome: 'Decorado Virtual 3D', formato: 'Link', icone: Play },
-};
+// 🚫 MOCK_CONSTRUTORAS REMOVIDO - Dados vêm do Supabase via useRealEstateData()
 
-// Dados mock para demonstração
-const MOCK_CONSTRUTORAS = [
-  {
-    id: '1',
-    name: 'Construtora Calper',
-    logo: 'https://ui-avatars.com/api/?name=CAL&background=1e40af&color=fff&size=80',
-    description: 'Especializada em empreendimentos de médio e alto padrão no Rio de Janeiro',
-    location: 'São Paulo, SP',
-    launchesCount: 8,
-    rating: 4.8,
-    reviewsCount: 45,
-    partnershipStatus: 'open',
-    segments: ['Alto Padrão', 'Luxo'],
-    commissionModel: '6% sobre VGV'
-  },
-  {
-    id: '2',
-    name: 'MRV Engenharia',
-    logo: 'https://ui-avatars.com/api/?name=MRV&background=10b981&color=fff&size=80',
-    description: 'Líder em habitação popular e MCMV em todo Brasil',
-    location: 'Nacional',
-    launchesCount: 156,
-    rating: 4.2,
-    reviewsCount: 312,
-    partnershipStatus: 'open',
-    segments: ['MCMV', 'Econômico'],
-    commissionModel: '4% sobre VGV'
-  },
-  {
-    id: '3',
-    name: 'Cyrela Brazil Realty',
-    logo: 'https://ui-avatars.com/api/?name=CBR&background=f59e0b&color=fff&size=80',
-    description: 'Tradição e qualidade em empreendimentos residenciais e comerciais',
-    location: 'São Paulo, RJ, PR',
-    launchesCount: 24,
-    rating: 4.6,
-    reviewsCount: 89,
-    partnershipStatus: 'open',
-    segments: ['Médio', 'Alto Padrão'],
-    commissionModel: '5.5% sobre VGV'
-  },
-  {
-    id: '4',
-    name: 'Patrimar Engenharia',
-    logo: 'https://ui-avatars.com/api/?name=PE&background=ec4899&color=fff&size=80',
-    description: 'Construtora mineira com foco em qualidade e inovação',
-    location: 'Belo Horizonte, MG',
-    launchesCount: 12,
-    rating: 4.7,
-    reviewsCount: 67,
-    partnershipStatus: 'closed',
-    segments: ['Médio', 'Alto Padrão'],
-    commissionModel: '5% sobre VGV'
-  }
-];
+// 🚫 MOCK_IMOBILIARIAS REMOVIDO - Dados vêm do Supabase via useRealEstateData()
 
-const MOCK_IMOBILIARIAS = [
-  {
-    id: '1',
-    name: 'Lopes Consultoria',
-    logo: 'https://ui-avatars.com/api/?name=LC&background=8b5cf6&color=fff&size=80',
-    description: 'Maior rede imobiliária do Brasil com mais de 90 anos de história',
-    location: 'Nacional',
-    brokersCount: 12500,
-    rating: 4.5,
-    reviewsCount: 234,
-    partnershipStatus: 'open',
-    partnershipModel: '50/50',
-    segments: ['Todos os segmentos'],
-    creci: '012345-J'
-  },
-  {
-    id: '2',
-    name: 'Coelho da Fonseca',
-    logo: 'https://ui-avatars.com/api/?name=CF&background=0ea5e9&color=fff&size=80',
-    description: 'Especializada em alto padrão e imóveis de luxo',
-    location: 'São Paulo, SP',
-    brokersCount: 450,
-    rating: 4.9,
-    reviewsCount: 156,
-    partnershipStatus: 'open',
-    partnershipModel: '60/40',
-    segments: ['Alto Padrão', 'Luxo'],
-    creci: '023456-J'
-  },
-  {
-    id: '3',
-    name: 'Imobiliária ABC',
-    logo: 'https://ui-avatars.com/api/?name=ABC&background=14b8a6&color=fff&size=80',
-    description: 'Forte atuação na região ABC paulista',
-    location: 'Santo André, SP',
-    brokersCount: 85,
-    rating: 4.3,
-    reviewsCount: 42,
-    partnershipStatus: 'open',
-    partnershipModel: '50/50',
-    segments: ['Econômico', 'Médio'],
-    creci: '034567-J'
-  }
-];
+// 🚫 MOCK_CORRETORES REMOVIDO - TODO: Implementar tabela re_brokers no Supabase
 
-// Corretores autônomos cadastrados
-const MOCK_CORRETORES = [
-  {
-    id: '1',
-    name: 'João Ricardo Silva',
-    photo: 'https://ui-avatars.com/api/?name=JR&background=0ea5e9&color=fff&size=80',
-    location: 'São Paulo, SP',
-    creci: 'CRECI-F 123456',
-    experience: '5-10 anos',
-    specialties: ['Alto Padrão', 'Lançamentos'],
-    regions: ['Zona Sul', 'Zona Oeste'],
-    rating: 4.8,
-    reviewsCount: 45,
-    salesLastYear: 18,
-    vinculo: 'autonomo',
-    disponivel: true,
-    bio: 'Especialista em imóveis de alto padrão na Zona Sul de SP'
-  },
-  {
-    id: '2',
-    name: 'Maria Fernanda Costa',
-    photo: 'https://ui-avatars.com/api/?name=MF&background=8b5cf6&color=fff&size=80',
-    location: 'Rio de Janeiro, RJ',
-    creci: 'CRECI-F 234567',
-    experience: '3-5 anos',
-    specialties: ['Médio Padrão', 'Lançamentos', 'Prontos'],
-    regions: ['Zona Sul', 'Barra'],
-    rating: 4.9,
-    reviewsCount: 67,
-    salesLastYear: 24,
-    vinculo: 'autonomo',
-    disponivel: true,
-    bio: 'Apaixonada por encontrar o imóvel perfeito para cada cliente'
-  },
-  {
-    id: '3',
-    name: 'Carlos Eduardo Santos',
-    photo: 'https://ui-avatars.com/api/?name=CE&background=14b8a6&color=fff&size=80',
-    location: 'Belo Horizonte, MG',
-    creci: 'CRECI-F 345678',
-    experience: '10+ anos',
-    specialties: ['Comercial', 'Alto Padrão', 'Loteamentos'],
-    regions: ['Centro', 'Savassi', 'Belvedere'],
-    rating: 4.7,
-    reviewsCount: 89,
-    salesLastYear: 32,
-    vinculo: 'autonomo',
-    disponivel: true,
-    bio: 'Expert em investimentos imobiliários comerciais'
-  },
-  {
-    id: '4',
-    name: 'Ana Paula Oliveira',
-    photo: 'https://ui-avatars.com/api/?name=AP&background=f59e0b&color=fff&size=80',
-    location: 'Curitiba, PR',
-    creci: 'CRECI-F 456789',
-    experience: '1-3 anos',
-    specialties: ['Econômico', 'MCMV', 'Médio Padrão'],
-    regions: ['Centro', 'Água Verde', 'Batel'],
-    rating: 4.6,
-    reviewsCount: 23,
-    salesLastYear: 12,
-    vinculo: 'imobiliaria',
-    nomeImobiliaria: 'Imobiliária XYZ',
-    disponivel: true,
-    bio: 'Focada em realizar o sonho da casa própria para famílias'
-  },
-  {
-    id: '5',
-    name: 'Roberto Mendes',
-    photo: 'https://ui-avatars.com/api/?name=RM&background=ef4444&color=fff&size=80',
-    location: 'Porto Alegre, RS',
-    creci: 'CRECI-F 567890',
-    experience: '5-10 anos',
-    specialties: ['Alto Padrão', 'Luxo'],
-    regions: ['Moinhos', 'Bela Vista', 'Três Figueiras'],
-    rating: 4.9,
-    reviewsCount: 56,
-    salesLastYear: 15,
-    vinculo: 'autonomo',
-    disponivel: false,
-    bio: 'Referência em imóveis de luxo no sul do Brasil'
-  }
-];
+// 🚫 MOCK_EMPREENDIMENTOS REMOVIDO - Dados vêm do Supabase via useRealEstateData()
 
-// Empreendimentos com estrutura realista (baseado em Calper/Patrimar/Calçada)
-const MOCK_EMPREENDIMENTOS = [
-  {
-    id: '1',
-    name: 'Arte Wood',
-    constructor: 'Construtora Calper',
-    constructorLogo: 'https://ui-avatars.com/api/?name=CAL&background=1e40af&color=fff',
-    location: 'Recreio dos Bandeirantes, RJ',
-    phase: 'launch',
-    totalUnits: 1554,
-    availableUnits: 14,
-    soldPercentage: 99.1,
-    priceRange: 'R$ 289.000 - R$ 520.000',
-    typologies: ['1 quarto', '2 quartos', 'Duplex', 'Garden', 'Cobertura', 'Loja'],
-    towers: 4,
-    deliveryDate: 'Dez/2027',
-    image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop',
-    hasVirtualTour: true,
-    virtualTourUrl: 'https://my.matterport.com/show/?m=UNnwPeP9Qcj',
-    campanhaAtiva: true,
-    campanha: 'Condição especial Fevereiro/26',
-    materiais: {
-      bookDigital: true,
-      tabelaPrecos: '2026 Fevereiro - Arte Wood (FASE 2).pdf',
-      fichaTecnica: true,
-      decoradoVirtual: true,
-      andamentoObra: true,
-    },
-    imobiliariasAtivas: ['Lopes', 'Patrimovel', 'Imoverso', 'Sawala', 'VG', 'Parceiros'],
-  },
-  {
-    id: '2',
-    name: 'Arte Wave',
-    constructor: 'Construtora Calper',
-    constructorLogo: 'https://ui-avatars.com/api/?name=CAL&background=1e40af&color=fff',
-    location: 'Recreio dos Bandeirantes, RJ',
-    phase: 'launch',
-    totalUnits: 1551,
-    availableUnits: 8,
-    soldPercentage: 99.5,
-    priceRange: 'R$ 275.000 - R$ 485.000',
-    typologies: ['1 quarto', 'Duplex', 'Garden', 'Cobertura', 'Townhouse', 'Loja'],
-    towers: 4,
-    deliveryDate: 'Mar/2027',
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop',
-    hasVirtualTour: true,
-    virtualTourUrl: 'https://my.matterport.com/show/?m=6TZyGgmC2wV',
-    campanhaAtiva: false,
-    materiais: {
-      bookDigital: true,
-      tabelaPrecos: 'Tabela - Arte Wave.pdf',
-      fichaTecnica: true,
-      decoradoVirtual: true,
-      andamentoObra: true,
-    },
-    imobiliariasAtivas: ['Lopes', 'Patrimovel', 'Imoverso', 'Sawala', 'VG', 'Parceiros'],
-  },
-  {
-    id: '3',
-    name: 'Epic Golf Residence',
-    constructor: 'Patrimar Engenharia',
-    constructorLogo: 'https://ui-avatars.com/api/?name=PAT&background=dc2626&color=fff',
-    location: 'Barra da Tijuca, RJ',
-    phase: 'construction',
-    totalUnits: 240,
-    availableUnits: 45,
-    soldPercentage: 81.3,
-    priceRange: 'R$ 1.200.000 - R$ 2.800.000',
-    typologies: ['2 suítes', '3 suítes', '4 suítes'],
-    towers: 2,
-    deliveryDate: 'Jun/2028',
-    image: 'https://images.unsplash.com/photo-1460317442991-0ec209397118?w=400&h=300&fit=crop',
-    hasVirtualTour: true,
-    virtualTourUrl: 'https://tour.ultratour.com.br/PATRIMAR/epic-golf-residence/index.htm',
-    campanhaAtiva: true,
-    campanha: 'Tabela Promocional Janeiro/26',
-    materiais: {
-      bookDigital: true,
-      tabelaPrecos: '2026 Janeiro - Epic.pdf',
-      tabelaPromocional: 'Tabela Epic promocional - Jan26.pdf',
-      fichaTecnica: true,
-      decoradoVirtual: true,
-      andamentoObra: false,
-    },
-    imobiliariasAtivas: ['Lopes', 'Patrimóvel', 'Sawala', 'VG'],
-  },
-  {
-    id: '4',
-    name: 'Lanai Recreio Pontal Oceânico',
-    constructor: 'Construtora Calçada',
-    constructorLogo: 'https://ui-avatars.com/api/?name=CAL&background=059669&color=fff',
-    location: 'Recreio dos Bandeirantes, RJ',
-    phase: 'launch',
-    totalUnits: 320,
-    availableUnits: 128,
-    soldPercentage: 60.0,
-    priceRange: 'R$ 380.000 - R$ 720.000',
-    typologies: ['2 quartos', '3 quartos', 'Garden', 'Cobertura'],
-    towers: 3,
-    deliveryDate: 'Set/2028',
-    image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop',
-    hasVirtualTour: true,
-    campanhaAtiva: false,
-    materiais: {
-      bookDigital: 'Book Lanai Final.pdf',
-      tabelaPrecos: true,
-      fichaTecnica: 'FICHA TECNICA ERRTA FINAL.pdf',
-      custoCondominial: 'CUSTO CONDOMINIAL LANAI.pdf',
-      decoradoVirtual: false,
-      andamentoObra: false,
-      videosWhatsapp: true,
-      reguasWhatsapp: true,
-    },
-    imobiliariasAtivas: ['Lopes', 'Patrimóvel', 'Imoverso'],
-  },
-];
+// 🚫 MOCK_ESPELHO_VENDAS REMOVIDO - Dados vêm das re_units agrupadas por bloco
 
-// Estrutura do espelho de vendas (mapa de disponibilidade) baseado no formato real
-const MOCK_ESPELHO_VENDAS = {
-  empreendimentoId: '1',
-  blocos: [
-    {
-      nome: 'BLOCO 1',
-      andares: [
-        {
-          andar: 13,
-          unidades: [
-            { id: '1301', tipologia: '1Q', status: 'vendido', imobiliaria: 'Lopes', dataVenda: '18/05/2025' },
-            { id: '1302', tipologia: '1Q', status: 'vendido', imobiliaria: 'Imoverso', dataVenda: '04/04/2025' },
-            { id: '1303', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '13/05/2025' },
-            { id: '1304', tipologia: '1Q', status: 'vendido', imobiliaria: 'Lopes', dataVenda: '27/05/2025' },
-            { id: '1305', tipologia: '1Q', status: 'vendido', imobiliaria: 'Imoverso', dataVenda: '28/05/2025' },
-            { id: '1306', tipologia: 'VAZIO', status: 'vazio', imobiliaria: null },
-            { id: '1307', tipologia: 'DS', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '30/04/2025' },
-            { id: '1308', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '14/05/2025' },
-          ]
-        },
-        {
-          andar: 12,
-          unidades: [
-            { id: '1201', tipologia: '1Q', status: 'vendido', imobiliaria: 'Lopes', dataVenda: '26/04/2025' },
-            { id: '1202', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '02/06/2025' },
-            { id: '1203', tipologia: '1Q', status: 'disponivel', imobiliaria: null },
-            { id: '1204', tipologia: '1Q', status: 'vendido', imobiliaria: 'Imoverso', dataVenda: '06/05/2025' },
-            { id: '1205', tipologia: '1Q', status: 'vendido', imobiliaria: 'Imoverso', dataVenda: '03/04/2025' },
-            { id: '1206', tipologia: 'VAZIO', status: 'vazio', imobiliaria: null },
-            { id: '1207', tipologia: 'DS', status: 'vendido', imobiliaria: 'Patrimovel', dataVenda: '03/04/2025' },
-            { id: '1208', tipologia: '1Q', status: 'reservado', imobiliaria: 'Lopes', dataReserva: '28/01/2026' },
-          ]
-        },
-        {
-          andar: 11,
-          unidades: [
-            { id: '1101', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '03/04/2025' },
-            { id: '1102', tipologia: '1Q', status: 'disponivel', imobiliaria: null },
-            { id: '1103', tipologia: '1Q', status: 'vendido', imobiliaria: 'Lopes', dataVenda: '03/04/2025' },
-            { id: '1104', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '03/05/2025' },
-            { id: '1105', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '06/05/2025' },
-            { id: '1106', tipologia: 'DS', status: 'disponivel', imobiliaria: null },
-            { id: '1107', tipologia: 'DS', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '30/04/2025' },
-            { id: '1108', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '03/04/2025' },
-          ]
-        },
-        {
-          andar: 10,
-          unidades: [
-            { id: '1001', tipologia: '1Q', status: 'vendido', imobiliaria: 'Lopes', dataVenda: '23/05/2025' },
-            { id: '1002', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '03/04/2025' },
-            { id: '1003', tipologia: '1Q', status: 'vendido', imobiliaria: 'VG', dataVenda: '03/04/2025' },
-            { id: '1004', tipologia: '1Q', status: 'vendido', imobiliaria: 'Imoverso', dataVenda: '03/04/2025' },
-            { id: '1005', tipologia: '1Q', status: 'disponivel', imobiliaria: null },
-            { id: '1006', tipologia: 'DS', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '05/07/2025' },
-            { id: '1007', tipologia: 'DS', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '22/04/2025' },
-            { id: '1008', tipologia: '1Q', status: 'reservado', imobiliaria: 'Sawala', dataReserva: '30/01/2026' },
-          ]
-        },
-      ],
-    },
-    {
-      nome: 'BLOCO 2',
-      andares: [
-        {
-          andar: 13,
-          unidades: [
-            { id: '1301', tipologia: 'COB', status: 'vendido', imobiliaria: 'Sawala', dataVenda: '24/04/2025' },
-            { id: '1302', tipologia: 'COB', status: 'vendido', imobiliaria: 'Lopes', dataVenda: '19/09/2025' },
-            { id: '1303', tipologia: 'COB', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '13/04/2025' },
-            { id: '1304', tipologia: 'COB', status: 'disponivel', imobiliaria: null },
-          ]
-        },
-        {
-          andar: 12,
-          unidades: [
-            { id: '1201', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '23/04/2025' },
-            { id: '1202', tipologia: '1Q', status: 'vendido', imobiliaria: 'VG', dataVenda: '27/04/2025' },
-            { id: '1203', tipologia: '1Q', status: 'vendido', imobiliaria: 'Calper', dataVenda: '03/04/2025' },
-            { id: '1204', tipologia: '1Q', status: 'disponivel', imobiliaria: null },
-            { id: '1205', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '05/04/2025' },
-            { id: '1206', tipologia: 'VAZIO', status: 'vazio', imobiliaria: null },
-            { id: '1207', tipologia: 'DS', status: 'vendido', imobiliaria: 'Lopes', dataVenda: '26/04/2025' },
-            { id: '1208', tipologia: '1Q', status: 'vendido', imobiliaria: 'Parceiros', dataVenda: '26/04/2025' },
-          ]
-        },
-      ],
-    },
-  ],
-  resumo: {
-    total: 1554,
-    disponivel: 14,
-    reservado: 2,
-    assinado: 6,
-    sinalCreditado: 101,
-    processoFinalizado: 1379,
-    foraDeVenda: 63,
-    distrato: 0,
-  },
-  legenda: [
-    { status: 'disponivel', cor: '#22c55e', label: 'Disponível / Estoque' },
-    { status: 'reservado', cor: '#eab308', label: 'Reservado / Assinatura agendada' },
-    { status: 'assinado', cor: '#f97316', label: 'Assinado, sinal a creditar' },
-    { status: 'sinalCreditado', cor: '#3b82f6', label: 'Sinal creditado, docs pendentes' },
-    { status: 'vendido', cor: '#6366f1', label: 'Sinal creditado, sem pendências' },
-    { status: 'finalizado', cor: '#8b5cf6', label: 'Escritura assinada' },
-    { status: 'foraDeVenda', cor: '#6b7280', label: 'Fora de venda' },
-    { status: 'distrato', cor: '#ef4444', label: 'Distrato' },
-    { status: 'vazio', cor: '#e5e7eb', label: 'Vazio (estrutural)' },
-  ],
-};
+// 🚫 MOCK_UNITS REMOVIDO - Dados vêm do Supabase via useRealEstateData()
 
-const MOCK_UNITS = [
-  { id: '101', unit: '101', tower: 'A', floor: 1, typology: '2 quartos', area: 65, price: 450000, status: 'available' },
-  { id: '102', unit: '102', tower: 'A', floor: 1, typology: '2 quartos', area: 65, price: 455000, status: 'reserved' },
-  { id: '201', unit: '201', tower: 'A', floor: 2, typology: '3 quartos', area: 85, price: 620000, status: 'available' },
-  { id: '202', unit: '202', tower: 'A', floor: 2, typology: '3 quartos', area: 85, price: 630000, status: 'sold' },
-  { id: '301', unit: '301', tower: 'A', floor: 3, typology: '3 suítes', area: 120, price: 890000, status: 'available' },
-  { id: '302', unit: '302', tower: 'A', floor: 3, typology: '3 suítes', area: 120, price: 920000, status: 'available' },
-  { id: '401', unit: '401', tower: 'B', floor: 4, typology: '2 quartos', area: 65, price: 480000, status: 'reserved' },
-  { id: '402', unit: '402', tower: 'B', floor: 4, typology: '2 quartos', area: 65, price: 485000, status: 'available' },
+// Legenda padrão para espelho de vendas (mantida como configuração, não mock)
+const ESPELHO_LEGENDA = [
+  { status: 'available', cor: '#22c55e', label: 'Disponível / Estoque' },
+  { status: 'reserved', cor: '#eab308', label: 'Reservado / Assinatura agendada' },
+  { status: 'sold', cor: '#6366f1', label: 'Vendido' },
 ];
 
 type ViewType = 'vitrine' | 'construtora-perfil' | 'imobiliaria-perfil' | 'estoque' | 'empreendimento-detail' | 'reserva' | 'parcerias' | 'contratos' | 'demandas' | 'criar-demanda' | 'demanda-detalhes' | 'cadastros' | 'cadastro-construtora' | 'cadastro-imobiliaria' | 'cadastro-empreendimento' | 'cadastro-corretor' | 'lista-empreendimentos';
@@ -738,7 +314,8 @@ function RealEstateMockModuleInner({
           
           {currentView === 'estoque' && (
             <EstoqueView 
-              empreendimentos={developments.length > 0 ? developments : MOCK_EMPREENDIMENTOS}
+              empreendimentos={developments}
+              isLoading={dataLoading}
               onSelectDevelopment={(dev) => {
                 setSelectedDevelopment(dev);
                 navigateTo('empreendimento-detail');
@@ -750,7 +327,6 @@ function RealEstateMockModuleInner({
             <EmpreendimentoDetailView 
               empreendimento={selectedDevelopment}
               units={developmentUnits}
-              espelho={MOCK_ESPELHO_VENDAS}
               loadingUnits={loadingUnits}
               onReservar={(unit) => {
                 setSelectedItem(unit);
@@ -885,6 +461,7 @@ function RealEstateMockModuleInner({
 
           {currentView === 'cadastro-empreendimento' && (
             <CadastroEmpreendimentoView 
+              construtoras={construtoras}
               onConcluir={() => navigateTo('lista-empreendimentos')}
               onCancelar={() => navigateTo('lista-empreendimentos')}
             />
@@ -1109,12 +686,13 @@ function VitrineView({ activeTab, setActiveTab, searchTerm, setSearchTerm, onVie
             onViewProfile={() => onViewProfile(item, 'imobiliaria')}
           />
         ))}
-        {activeTab === 'corretores' && MOCK_CORRETORES.map((item) => (
-          <CorretorCard 
-            key={item.id} 
-            corretor={item}
-          />
-        ))}
+        {activeTab === 'corretores' && (
+          <div className="col-span-full text-center py-12 text-gray-500">
+            <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Nenhum corretor cadastrado ainda.</p>
+            <p className="text-sm mt-2">Em breve: tabela re_brokers no Supabase.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1961,9 +1539,10 @@ const FILTER_CONFIG = {
   ],
 };
 
-function EstoqueView({ empreendimentos, onSelectDevelopment }: { 
+function EstoqueView({ empreendimentos, onSelectDevelopment, isLoading = false }: { 
   empreendimentos: any[]; 
-  onSelectDevelopment: (dev: any) => void 
+  onSelectDevelopment: (dev: any) => void;
+  isLoading?: boolean;
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -2460,19 +2039,34 @@ function EstoqueView({ empreendimentos, onSelectDevelopment }: {
       )}
 
       {/* Resultados */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
-          <span className="font-semibold text-gray-900 dark:text-white">{empreendimentos.length}</span> empreendimentos encontrados
-        </p>
-        <select className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600">
-          <option>Ordenar: Mais relevantes</option>
-          <option>Menor preço</option>
-          <option>Maior preço</option>
-          <option>Mais recentes</option>
-          <option>Mais unidades disponíveis</option>
-          <option>Entrega mais próxima</option>
-        </select>
-      </div>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent" />
+          <p className="text-gray-500 dark:text-gray-400">Carregando empreendimentos...</p>
+        </div>
+      ) : empreendimentos.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+          <Building2 className="h-16 w-16 text-gray-300 dark:text-gray-600" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Nenhum empreendimento encontrado</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">
+            Não há empreendimentos cadastrados ainda. Use o menu Cadastros para adicionar novos empreendimentos.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              <span className="font-semibold text-gray-900 dark:text-white">{empreendimentos.length}</span> empreendimentos encontrados
+            </p>
+            <select className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600">
+              <option>Ordenar: Mais relevantes</option>
+              <option>Menor preço</option>
+              <option>Maior preço</option>
+              <option>Mais recentes</option>
+              <option>Mais unidades disponíveis</option>
+              <option>Entrega mais próxima</option>
+            </select>
+          </div>
 
       {/* Grid de Empreendimentos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2587,6 +2181,8 @@ function EstoqueView({ empreendimentos, onSelectDevelopment }: {
           );
         })}
       </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2601,19 +2197,17 @@ type EmpreendimentoTabType = 'disponibilidade' | 'materiais' | 'sobre';
 function EmpreendimentoDetailView({ 
   empreendimento, 
   units, 
-  espelho,
   loadingUnits = false,
   onReservar 
 }: { 
   empreendimento: any; 
   units: any[];
-  espelho: typeof MOCK_ESPELHO_VENDAS;
   loadingUnits?: boolean;
   onReservar: (unit: any) => void;
 }) {
   const [activeTab, setActiveTab] = useState<EmpreendimentoTabType>('disponibilidade');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [selectedBloco, setSelectedBloco] = useState(espelho.blocos[0]?.nome || 'A');
+  const [selectedBloco, setSelectedBloco] = useState('A');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
   // ✨ FASE 3.6 - Modal de condições de pagamento
@@ -2660,8 +2254,8 @@ function EmpreendimentoDetailView({
     })).sort((a, b) => a.nome.localeCompare(b.nome));
   }, [normalizedUnits]);
 
-  // Usar blocos reais se existirem, senão mock
-  const activeBlocos = blocos.length > 0 ? blocos : espelho.blocos;
+  // Usar apenas blocos reais (mock removido)
+  const activeBlocos = blocos;
   const activeBloco = activeBlocos.find(b => b.nome === selectedBloco) || activeBlocos[0];
   
   // Atualizar bloco selecionado quando mudam os blocos
@@ -3696,89 +3290,19 @@ function ParceriasView() {
   const [activeTab, setActiveTab] = useState<'todas' | 'construtoras' | 'imobiliarias' | 'corretores'>('todas');
   const [showNewPartnership, setShowNewPartnership] = useState(false);
 
-  // Mock de parcerias expandido
-  const parcerias = [
-    { 
-      id: 1,
-      name: 'Construtora Aurora', 
-      type: 'construtora' as const, 
-      status: 'active', 
-      commission: '6%', 
-      sales: 12,
-      logo: 'https://ui-avatars.com/api/?name=CA&background=4f46e5&color=fff',
-      since: 'Mar/2025',
-      modelo: 'Exclusivo por empreendimento'
-    },
-    { 
-      id: 2,
-      name: 'Cyrela Brazil Realty', 
-      type: 'construtora' as const, 
-      status: 'active', 
-      commission: '5.5%', 
-      sales: 8,
-      logo: 'https://ui-avatars.com/api/?name=CY&background=1e40af&color=fff',
-      since: 'Jan/2025',
-      modelo: 'Aberto - múltiplas imobiliárias'
-    },
-    { 
-      id: 3,
-      name: 'Imobiliária Premium', 
-      type: 'imobiliaria' as const, 
-      status: 'active', 
-      commission: '50/50', 
-      sales: 5,
-      logo: 'https://ui-avatars.com/api/?name=IP&background=7c3aed&color=fff',
-      since: 'Nov/2025',
-      modelo: 'Divisão igualitária'
-    },
-    { 
-      id: 4,
-      name: 'Imobiliária ABC', 
-      type: 'imobiliaria' as const, 
-      status: 'pending', 
-      commission: '60/40', 
-      sales: 0,
-      logo: 'https://ui-avatars.com/api/?name=ABC&background=8b5cf6&color=fff',
-      since: 'Pendente',
-      modelo: 'Quem indica o cliente leva 60%'
-    },
-    { 
-      id: 5,
-      name: 'João Ricardo Silva', 
-      type: 'corretor' as const, 
-      status: 'active', 
-      commission: '50/50', 
-      sales: 3,
-      logo: 'https://ui-avatars.com/api/?name=JR&background=0ea5e9&color=fff',
-      since: 'Dez/2025',
-      modelo: 'Parceria pontual',
-      creci: 'CRECI-F 123456'
-    },
-    { 
-      id: 6,
-      name: 'Maria Fernanda Costa', 
-      type: 'corretor' as const, 
-      status: 'active', 
-      commission: '40/60', 
-      sales: 2,
-      logo: 'https://ui-avatars.com/api/?name=MF&background=14b8a6&color=fff',
-      since: 'Jan/2026',
-      modelo: 'Ela trouxe o cliente (60%)',
-      creci: 'CRECI-F 234567'
-    },
-    { 
-      id: 7,
-      name: 'Carlos Eduardo Santos', 
-      type: 'corretor' as const, 
-      status: 'pending', 
-      commission: '50/50', 
-      sales: 0,
-      logo: 'https://ui-avatars.com/api/?name=CE&background=f59e0b&color=fff',
-      since: 'Pendente',
-      modelo: 'Parceria em análise',
-      creci: 'CRECI-F 345678'
-    },
-  ];
+  // 🚫 MOCK REMOVIDO - TODO: Implementar tabela re_partnerships no Supabase
+  const parcerias: Array<{
+    id: number;
+    name: string;
+    type: 'construtora' | 'imobiliaria' | 'corretor';
+    status: string;
+    commission: string;
+    sales: number;
+    logo: string;
+    since: string;
+    modelo: string;
+    creci?: string;
+  }> = [];
 
   const filteredParcerias = activeTab === 'todas' 
     ? parcerias 
@@ -3916,7 +3440,16 @@ function ParceriasView() {
           <span className="text-sm text-gray-500">{getFilteredParcerias().length} parceria(s)</span>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {getFilteredParcerias().map((p) => (
+          {getFilteredParcerias().length === 0 ? (
+            <div className="p-8 text-center">
+              <Handshake className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">Nenhuma parceria cadastrada ainda</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                Clique em "Nova Parceria" para adicionar suas primeiras parcerias
+              </p>
+            </div>
+          ) : (
+          getFilteredParcerias().map((p) => (
             <div key={p.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50">
               <div className="flex items-center gap-4">
                 <img 
@@ -3972,7 +3505,8 @@ function ParceriasView() {
                 </button>
               </div>
             </div>
-          ))}
+          ))
+          )}
         </div>
       </div>
 
@@ -4137,134 +3671,7 @@ function ContratosView() {
 // DEMANDAS VIEW - MATCH REVERSO / BUSCA PUBLICADA
 // ============================================
 
-// Dados mock de demandas
-const MOCK_DEMANDAS = [
-  {
-    id: 'DEM-001',
-    titulo: 'Cliente busca 3 quartos na Barra da Tijuca',
-    corretor: {
-      nome: 'Carlos Mendes',
-      imobiliaria: 'Lopes Consultoria',
-      avatar: 'https://ui-avatars.com/api/?name=CM&background=6366f1&color=fff',
-      rating: 4.8,
-    },
-    perfilCliente: 'Família com 2 filhos, primeira moradia',
-    orcamento: { min: 800000, max: 1200000 },
-    criterios: {
-      regiao: 'Barra da Tijuca, RJ',
-      tipologia: '3 quartos (1 suíte)',
-      areaMin: 90,
-      areaMax: 130,
-      caracteristicas: ['Sol da manhã', 'Vaga para carro elétrico', '2 vagas', 'Varanda gourmet', 'Lazer completo'],
-      entrega: 'Até 2027',
-    },
-    prazo: '2026-02-10',
-    status: 'active',
-    propostas: 8,
-    visualizacoes: 156,
-    createdAt: '2026-01-28',
-  },
-  {
-    id: 'DEM-002',
-    titulo: 'Investidor busca studios para renda',
-    corretor: {
-      nome: 'Ana Paula Silva',
-      imobiliaria: 'Coelho da Fonseca',
-      avatar: 'https://ui-avatars.com/api/?name=APS&background=10b981&color=fff',
-      rating: 4.9,
-    },
-    perfilCliente: 'Investidor, busca rentabilidade',
-    orcamento: { min: 250000, max: 400000 },
-    criterios: {
-      regiao: 'Vila Mariana, SP ou Pinheiros, SP',
-      tipologia: 'Studio ou 1 quarto',
-      areaMin: 25,
-      areaMax: 45,
-      caracteristicas: ['Próximo metrô', 'Alto potencial de locação', 'Condomínio baixo'],
-      entrega: 'Pronto ou até 2026',
-    },
-    prazo: '2026-02-05',
-    status: 'active',
-    propostas: 12,
-    visualizacoes: 234,
-    createdAt: '2026-01-25',
-  },
-  {
-    id: 'DEM-003',
-    titulo: 'Aposentado busca térreo/garden em condomínio',
-    corretor: {
-      nome: 'Roberto Almeida',
-      imobiliaria: 'Imobiliária ABC',
-      avatar: 'https://ui-avatars.com/api/?name=RA&background=f59e0b&color=fff',
-      rating: 4.5,
-    },
-    perfilCliente: 'Casal aposentado, downsizing',
-    orcamento: { min: 500000, max: 700000 },
-    criterios: {
-      regiao: 'Santo André, SP ou São Bernardo, SP',
-      tipologia: '2 quartos',
-      areaMin: 60,
-      areaMax: 90,
-      caracteristicas: ['Térreo ou garden', 'Pet friendly', 'Acessibilidade', 'Área verde'],
-      entrega: 'Pronto',
-    },
-    prazo: '2026-02-15',
-    status: 'active',
-    propostas: 5,
-    visualizacoes: 89,
-    createdAt: '2026-01-30',
-  },
-  {
-    id: 'DEM-004',
-    titulo: 'Jovem casal MCMV - primeiro imóvel',
-    corretor: {
-      nome: 'Fernanda Costa',
-      imobiliaria: 'Lopes Consultoria',
-      avatar: 'https://ui-avatars.com/api/?name=FC&background=ec4899&color=fff',
-      rating: 4.7,
-    },
-    perfilCliente: 'Casal jovem, renda familiar R$ 6.500',
-    orcamento: { min: 180000, max: 264000 },
-    criterios: {
-      regiao: 'Grande São Paulo',
-      tipologia: '2 quartos',
-      areaMin: 40,
-      areaMax: 55,
-      caracteristicas: ['MCMV', 'Aceita FGTS', 'Próximo transporte público', 'Lazer'],
-      entrega: 'Até 2028',
-    },
-    prazo: '2026-02-20',
-    status: 'active',
-    propostas: 15,
-    visualizacoes: 312,
-    createdAt: '2026-01-31',
-  },
-  {
-    id: 'DEM-005',
-    titulo: 'Alto padrão Jardins - vista definitiva',
-    corretor: {
-      nome: 'Ricardo Gomes',
-      imobiliaria: 'Coelho da Fonseca',
-      avatar: 'https://ui-avatars.com/api/?name=RG&background=8b5cf6&color=fff',
-      rating: 5.0,
-    },
-    perfilCliente: 'Empresário, upgrade de moradia',
-    orcamento: { min: 3000000, max: 5000000 },
-    criterios: {
-      regiao: 'Jardins, SP',
-      tipologia: '4 suítes ou cobertura',
-      areaMin: 200,
-      areaMax: 400,
-      caracteristicas: ['Andar alto', 'Vista definitiva', '4+ vagas', 'Lazer premium', 'Segurança 24h'],
-      entrega: 'Pronto ou até 2026',
-    },
-    prazo: '2026-02-08',
-    status: 'closed',
-    propostas: 6,
-    visualizacoes: 178,
-    createdAt: '2026-01-20',
-  },
-];
+// 🚫 MOCK_DEMANDAS REMOVIDO - TODO: Implementar tabela re_demands no Supabase
 
 function DemandasView({ onCriarDemanda, onVerDemanda }: { 
   onCriarDemanda: () => void;
@@ -4273,7 +3680,9 @@ function DemandasView({ onCriarDemanda, onVerDemanda }: {
   const [filtroStatus, setFiltroStatus] = useState<'all' | 'active' | 'closed'>('all');
   const [userType, setUserType] = useState<'corretor' | 'construtora'>('corretor');
 
-  const demandasFiltradas = MOCK_DEMANDAS.filter(d => 
+  // TODO: Buscar demandas do Supabase
+  const demandas: any[] = [];
+  const demandasFiltradas = demandas.filter(d => 
     filtroStatus === 'all' || d.status === filtroStatus
   );
 
@@ -5003,48 +4412,20 @@ function DemandaDetalhesView({ demanda, onVoltar }: {
 }) {
   const [activeTab, setActiveTab] = useState<'detalhes' | 'propostas'>('detalhes');
 
-  // Mock de propostas recebidas
-  const propostas = [
-    {
-      id: 'PROP-001',
-      construtora: { nome: 'Construtora Aurora', logo: 'https://ui-avatars.com/api/?name=CA&background=6366f1&color=fff' },
-      empreendimento: 'Residencial Aurora Park',
-      unidade: 'Apto 1201 - Torre A',
-      tipologia: '3 quartos (1 suíte)',
-      area: 95,
-      preco: 950000,
-      condicoes: 'Entrada 20% + financiamento',
-      diferenciais: ['Sol da manhã', 'Vista livre', 'Vaga EV disponível'],
-      status: 'pending',
-      enviadoEm: '2026-01-29',
-    },
-    {
-      id: 'PROP-002',
-      construtora: { nome: 'Cyrela Brazil Realty', logo: 'https://ui-avatars.com/api/?name=CBR&background=f59e0b&color=fff' },
-      empreendimento: 'Edifício Solaris',
-      unidade: 'Apto 801 - Torre Única',
-      tipologia: '3 quartos',
-      area: 88,
-      preco: 890000,
-      condicoes: 'Entrada 15% + saldo em 36x',
-      diferenciais: ['Pronto para morar', 'Lazer completo', '2 vagas'],
-      status: 'pending',
-      enviadoEm: '2026-01-30',
-    },
-    {
-      id: 'PROP-003',
-      construtora: { nome: 'MRV Engenharia', logo: 'https://ui-avatars.com/api/?name=MRV&background=10b981&color=fff' },
-      empreendimento: 'Parque das Flores Premium',
-      unidade: 'Apto 502 - Torre B',
-      tipologia: '3 quartos',
-      area: 82,
-      preco: 820000,
-      condicoes: 'Aceita FGTS + financiamento',
-      diferenciais: ['Melhor preço', 'Entrega 2027', 'Churrasqueira'],
-      status: 'pending',
-      enviadoEm: '2026-01-31',
-    },
-  ];
+  // 🚫 MOCK REMOVIDO - TODO: Implementar tabela re_proposals no Supabase
+  const propostas: Array<{
+    id: string;
+    construtora: { nome: string; logo: string };
+    empreendimento: string;
+    unidade: string;
+    tipologia: string;
+    area: number;
+    preco: number;
+    condicoes: string;
+    diferenciais: string[];
+    status: string;
+    enviadoEm: string;
+  }> = [];
 
   return (
     <div className="space-y-6">
@@ -5191,7 +4572,16 @@ function DemandaDetalhesView({ demanda, onVoltar }: {
 
       {activeTab === 'propostas' && (
         <div className="space-y-4">
-          {propostas.map((proposta) => (
+          {propostas.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+              <FileText className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+              <p className="text-gray-500 dark:text-gray-400">Nenhuma proposta recebida ainda</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                As propostas das construtoras aparecerão aqui
+              </p>
+            </div>
+          ) : (
+          propostas.map((proposta) => (
             <div key={proposta.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -5248,7 +4638,8 @@ function DemandaDetalhesView({ demanda, onVoltar }: {
                 </div>
               </div>
             </div>
-          ))}
+          ))
+          )}
         </div>
       )}
     </div>
@@ -6990,9 +6381,10 @@ function CadastroImobiliariaView({ onConcluir, onCancelar }: {
 // CADASTRO EMPREENDIMENTO VIEW
 // ============================================
 
-function CadastroEmpreendimentoView({ onConcluir, onCancelar }: {
+function CadastroEmpreendimentoView({ onConcluir, onCancelar, construtoras = [] }: {
   onConcluir: () => void;
   onCancelar: () => void;
+  construtoras?: any[];
 }) {
   const [step, setStep] = useState<CadastroStep>(1);
   const [formData, setFormData] = useState({
@@ -7062,13 +6454,7 @@ function CadastroEmpreendimentoView({ onConcluir, onCancelar }: {
     { value: 'ready', label: 'Pronto para Morar', icon: '🏠' },
   ];
 
-  const construtorasMock = [
-    { id: '1', nome: 'Construtora Calper' },
-    { id: '2', nome: 'MRV Engenharia' },
-    { id: '3', nome: 'Cyrela Brazil Realty' },
-    { id: '4', nome: 'Patrimar Engenharia' },
-    { id: '5', nome: 'Construtora Calçada' },
-  ];
+  // 🔥 Usando construtoras reais do Supabase (passadas como prop)
 
   const estadosBrasil = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
@@ -7209,8 +6595,8 @@ function CadastroEmpreendimentoView({ onConcluir, onCancelar }: {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600"
                 >
                   <option value="">Selecione a construtora</option>
-                  {construtorasMock.map(c => (
-                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  {construtoras.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>

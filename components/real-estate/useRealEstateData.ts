@@ -171,8 +171,8 @@ export function useRealEstateData() {
         totalUnits: d.total_units || 0,
         availableUnits: d.available_units || 0,
         typologies: d.typologies || [],
-        location: typeof d.location === 'string' ? d.location : 
-          `${d.location?.city || 'Rio de Janeiro'}, ${d.location?.state || 'RJ'}`,
+        // ✅ Manter location como objeto para que formatLocationForCard possa extrair neighborhood
+        location: d.location || { city: 'Rio de Janeiro', state: 'RJ' },
       }));
       
       setCompanies(formattedCompanies);
