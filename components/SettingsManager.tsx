@@ -49,7 +49,15 @@ import {
   FileSearch,
   Sparkles,
   Plus,
-  Tv
+  Tv,
+  Brain,
+  Users,
+  Eye,
+  BarChart3,
+  Workflow,
+  Cpu,
+  Search,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -2572,7 +2580,7 @@ interface AgentDefinition {
   description: string;
   icon: React.ReactNode;
   status: 'active' | 'beta' | 'coming_soon' | 'new';
-  category: 'coleta' | 'comunicacao' | 'analise' | 'automacao';
+  category: 'coleta' | 'comunicacao' | 'analise' | 'automacao' | 'imoveis';
   color: string;
 }
 
@@ -2588,19 +2596,19 @@ const AVAILABLE_AGENTS: AgentDefinition[] = [
   },
   {
     id: 'whatsapp-responder',
-    name: 'Resposta WhatsApp',
-    description: 'Responde mensagens automaticamente com IA',
+    name: 'Resposta WhatsApp IA',
+    description: 'Responde mensagens no WhatsApp com IA, qualifica leads e agenda visitas automaticamente',
     icon: <MessageCircle className="h-6 w-6" />,
-    status: 'coming_soon',
+    status: 'new',
     category: 'comunicacao',
     color: 'green',
   },
   {
     id: 'lead-qualifier',
     name: 'Qualificador de Leads',
-    description: 'Analisa e classifica leads por potencial de compra',
+    description: 'Analisa e classifica leads por potencial de compra com scoring 0-100',
     icon: <Filter className="h-6 w-6" />,
-    status: 'coming_soon',
+    status: 'new',
     category: 'analise',
     color: 'blue',
   },
@@ -2631,6 +2639,52 @@ const AVAILABLE_AGENTS: AgentDefinition[] = [
     category: 'analise',
     color: 'rose',
   },
+  // --- AGENTES OPEN SOURCE INTEGRÁVEIS ---
+  {
+    id: 'message-interpreter',
+    name: 'Intérprete de Mensagens',
+    description: 'Analisa mensagens recebidas, interpreta intenção e sugere ações possíveis automaticamente',
+    icon: <Brain className="h-6 w-6" />,
+    status: 'new',
+    category: 'analise',
+    color: 'violet',
+  },
+  {
+    id: 'crm-manager',
+    name: 'Gestor CRM com IA',
+    description: 'Gerencia pipeline de vendas, follow-ups automáticos e rastreia performance de corretores',
+    icon: <Users className="h-6 w-6" />,
+    status: 'new',
+    category: 'automacao',
+    color: 'cyan',
+  },
+  {
+    id: 'workflow-automator',
+    name: 'Automação de Workflows',
+    description: 'Cria fluxos automáticos entre sistemas: lead chega → qualifica → responde → agenda visita',
+    icon: <Workflow className="h-6 w-6" />,
+    status: 'new',
+    category: 'automacao',
+    color: 'orange',
+  },
+  {
+    id: 'multi-agent-crew',
+    name: 'Multi-Agentes (CrewAI)',
+    description: 'Orquestra múltiplos agentes trabalhando juntos: um coleta, outro analisa, outro responde',
+    icon: <Cpu className="h-6 w-6" />,
+    status: 'coming_soon',
+    category: 'automacao',
+    color: 'slate',
+  },
+  {
+    id: 'sergio-castro-scraper',
+    name: 'Sergio Castro Imóveis',
+    description: 'Coleta imóveis do site SergioMCastro.com.br automaticamente',
+    icon: <Building2 className="h-6 w-6" />,
+    status: 'active',
+    category: 'imoveis',
+    color: 'emerald',
+  },
 ];
 
 // Componente do Card do Agente na lista
@@ -2642,6 +2696,11 @@ function AgentCard({ agent, onClick }: { agent: AgentDefinition; onClick: () => 
     amber: 'from-amber-500 to-orange-600',
     indigo: 'from-indigo-500 to-violet-600',
     rose: 'from-rose-500 to-pink-600',
+    emerald: 'from-emerald-500 to-teal-600',
+    violet: 'from-violet-500 to-purple-600',
+    cyan: 'from-cyan-500 to-blue-600',
+    orange: 'from-orange-500 to-red-600',
+    slate: 'from-slate-500 to-gray-600',
   };
 
   const statusMap: Record<string, { label: string; className: string }> = {
@@ -3107,6 +3166,109 @@ function ConstrutoraScraper({ onBack }: { onBack: () => void }) {
   );
 }
 
+// Componente do Agente Sergio Castro Imóveis
+function SergioCastroScraperAgent({ onBack }: { onBack: () => void }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="space-y-6">
+      {/* Header com botão voltar */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1">
+          <ChevronUp className="h-4 w-4 rotate-[-90deg]" />
+          Voltar
+        </Button>
+        <div className="h-6 w-px bg-border" />
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-white">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Sergio Castro Imóveis</h2>
+            <p className="text-xs text-muted-foreground">Coleta imóveis do site SergioMCastro.com.br</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Card de Informações */}
+      <Card className="border-emerald-500/30 bg-emerald-500/5">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 bg-emerald-500/20 rounded-full flex items-center justify-center">
+              <Building2 className="h-6 w-6 text-emerald-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground mb-2">Coletor de Imóveis - Sergio Castro</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Este agente extrai automaticamente dados de imóveis do site{' '}
+                <a href="https://sergiocastro.com.br" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:underline">
+                  sergiocastro.com.br
+                </a>, incluindo:
+              </p>
+              <ul className="text-sm text-muted-foreground space-y-1 mb-4">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
+                  Fotos e galeria completa
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
+                  Preço, Condomínio e IPTU
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
+                  Quartos, Suítes, Banheiros e Área
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
+                  Comodidades e Descrição completa
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card de Ação */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Play className="h-4 w-4 text-emerald-500" />
+            Acessar Coletor
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Clique no botão abaixo para acessar a interface de coleta de imóveis. 
+            Você poderá inserir URLs de imóveis do Sergio Castro e visualizar os dados extraídos.
+          </p>
+          <Button 
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => navigate('/scraping/sergio-castro')}
+          >
+            <Play className="h-4 w-4 mr-2" />
+            Abrir Coletor de Imóveis
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Status do Agente */}
+      <Card className="border-green-500/30">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm font-medium text-foreground">Status: Ativo</span>
+            </div>
+            <Badge className="bg-green-500/10 text-green-500 border-green-500/30">
+              Funcionando
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // Componente Principal
 function AIAgentsSettings() {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -3114,6 +3276,10 @@ function AIAgentsSettings() {
   // Se um agente está selecionado, mostrar a view específica
   if (selectedAgent === 'construtora-scraper') {
     return <ConstrutoraScraper onBack={() => setSelectedAgent(null)} />;
+  }
+
+  if (selectedAgent === 'sergio-castro-scraper') {
+    return <SergioCastroScraperAgent onBack={() => setSelectedAgent(null)} />;
   }
 
   // Tela principal - Lista de agentes
@@ -3200,7 +3366,93 @@ function AIAgentsSettings() {
             ))}
           </div>
         </div>
+
+        {/* Baixar Imóveis de Sites Imobiliários */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Baixar Imóveis de Sites Imobiliários
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {AVAILABLE_AGENTS.filter(a => a.category === 'imoveis').map(agent => (
+              <AgentCard 
+                key={agent.id} 
+                agent={agent} 
+                onClick={() => setSelectedAgent(agent.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Automação & Workflows */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <Workflow className="h-4 w-4" />
+            Automação & Workflows
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {AVAILABLE_AGENTS.filter(a => a.category === 'automacao').map(agent => (
+              <AgentCard 
+                key={agent.id} 
+                agent={agent} 
+                onClick={() => setSelectedAgent(agent.id)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* Referências Open Source */}
+      <Card className="border-purple-500/20 bg-purple-500/5">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <ExternalLink className="h-5 w-5 text-purple-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground mb-2">
+                Referências Open Source que inspiram nossos agentes
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="text-green-500">●</span>
+                  <a href="https://github.com/sial-sanwal/ai-whatsapp-sales-agent" target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 hover:underline">
+                    AI WhatsApp Sales Agent - Lead qualification via WhatsApp
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-500">●</span>
+                  <a href="https://github.com/langgenius/dify" target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 hover:underline">
+                    Dify - Plataforma de workflows de IA (128k+ stars)
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-500">●</span>
+                  <a href="https://github.com/joaomdmoura/crewAI" target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 hover:underline">
+                    CrewAI - Multi-agentes colaborativos
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-500">●</span>
+                  <a href="https://github.com/EvolutionAPI/evolution-api" target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 hover:underline">
+                    Evolution API - WhatsApp open-source (7k+ stars)
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-rose-500">●</span>
+                  <a href="https://github.com/wppconnect-team/wppconnect" target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 hover:underline">
+                    WPPConnect - WhatsApp API para Node.js (3k+ stars)
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-indigo-500">●</span>
+                  <a href="https://github.com/nanobrowser/nanobrowser" target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 hover:underline">
+                    Nanobrowser - Automação web com IA (12k+ stars)
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Rodapé informativo */}
       <div className="p-4 rounded-lg bg-muted/30 border border-border">

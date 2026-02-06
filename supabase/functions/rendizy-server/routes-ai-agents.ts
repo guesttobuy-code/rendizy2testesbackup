@@ -169,7 +169,7 @@ async function fetchViaVpsScraper(url: string): Promise<VpsScraperResponse> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': VPS_SCRAPER_API_KEY,
+        'Authorization': `Bearer ${VPS_SCRAPER_API_KEY}`,
       },
       body: JSON.stringify({ url }),
     });
