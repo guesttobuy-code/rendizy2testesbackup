@@ -839,6 +839,7 @@ export const reservationsApi = {
     notes?: string;
     specialRequests?: string;
     externalId?: string;
+    status?: 'pending' | 'confirmed';
   }): Promise<ApiResponse<Reservation>> => {
     return apiRequest<Reservation>('/reservations', {
       method: 'POST',

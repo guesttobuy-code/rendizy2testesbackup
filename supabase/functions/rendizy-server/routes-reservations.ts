@@ -806,6 +806,56 @@ export async function checkAvailability(c: Context) {
 // CALCULAR PREÇO DA RESERVA
 // ============================================================================
 
+/**
+ * Buscar preço dinâmico via rate_plans (nova arquitetura)
+ * Retorna null se não disponível, fallback para cálculo legado
+ */
+async function getStayPriceFromRatePlan(
+  client: ReturnType<typeof getSupabaseClient>,
+  propertyId: string,
+  checkIn: string,
+  checkOut: string
+): Promise<{
+  totalPrice: number;
+  averagePerNight: number;
+  nightsCount: number;
+  currency: string;
+  ratePlanId: string;
+  priceBreakdown: Array<{ date: string; price: number; has_override: boolean; source: string }>;
+} | null> {
+  try {
+    const { data, error } = await client.rpc('calculate_stay_price', {
+      p_property_id: propertyId,
+      p_check_in: checkIn,
+      p_check_out: checkOut,
+      p_rate_plan_id: null // usar STANDARD
+    });
+    
+    if (error || !data) {
+      console.log('⚠️ [getStayPriceFromRatePlan] Não disponível, usando fallback legado');
+      return null;
+    }
+    
+    // Verificar se retornou preço válido (> 0)
+    if (data.total_price <= 0) {
+      console.log('⚠️ [getStayPriceFromRatePlan] Preço zero, usando fallback legado');
+      return null;
+    }
+    
+    return {
+      totalPrice: Number(data.total_price),
+      averagePerNight: Number(data.average_per_night),
+      nightsCount: Number(data.nights_count),
+      currency: data.currency || 'BRL',
+      ratePlanId: data.rate_plan_id,
+      priceBreakdown: data.price_breakdown || []
+    };
+  } catch (err) {
+    console.warn('⚠️ [getStayPriceFromRatePlan] Erro, fallback legado:', err);
+    return null;
+  }
+}
+
 function calculateReservationPrice(
   property: Property,
   nights: number
@@ -1170,8 +1220,38 @@ export async function createReservation(c: Context) {
       );
     }
 
-    // Calcular preço
-    const pricing = calculateReservationPrice(property, nights);
+    // ✅ NOVA ARQUITETURA: Tentar calcular preço via rate_plans (SQL)
+    let pricing: {
+      pricePerNight: number;
+      baseTotal: number;
+      discount: number;
+      total: number;
+      appliedTier: 'base' | 'weekly' | 'biweekly' | 'monthly';
+      usedRatePlan?: boolean;
+      ratePlanId?: string;
+      priceBreakdown?: Array<{ date: string; price: number; has_override: boolean; source: string }>;
+    };
+    
+    const ratePlanPrice = await getStayPriceFromRatePlan(client, body.propertyId, body.checkIn, body.checkOut);
+    
+    if (ratePlanPrice && ratePlanPrice.totalPrice > 0) {
+      // ✅ Usar preço do rate_plan (nova arquitetura)
+      console.log('✅ [createReservation] Usando preço via rate_plan:', ratePlanPrice.totalPrice);
+      pricing = {
+        pricePerNight: ratePlanPrice.averagePerNight,
+        baseTotal: ratePlanPrice.totalPrice,
+        discount: 0, // TODO: Calcular desconto com base em regras do rate_plan
+        total: ratePlanPrice.totalPrice,
+        appliedTier: 'base',
+        usedRatePlan: true,
+        ratePlanId: ratePlanPrice.ratePlanId,
+        priceBreakdown: ratePlanPrice.priceBreakdown
+      };
+    } else {
+      // Fallback: calcular via função legada (mantém compatibilidade)
+      console.log('⚠️ [createReservation] Fallback para cálculo legado de preço');
+      pricing = calculateReservationPrice(property, nights);
+    }
 
     // Criar reserva
     const id = generateReservationId();
@@ -1206,7 +1286,8 @@ export async function createReservation(c: Context) {
         appliedTier: pricing.appliedTier,
       },
       
-      status: 'pending',
+      // ✅ Status: usa o informado pelo frontend, ou 'confirmed' como default (reserva confirmada)
+      status: body.status || 'confirmed',
       platform: body.platform,
       externalId: body.externalId,
       
@@ -1489,7 +1570,31 @@ export async function updateReservation(c: Context) {
       }
 
       const nights = calculateNights(newCheckIn, newCheckOut);
-      const pricing = calculateReservationPrice(property, nights);
+      
+      // ✅ NOVA ARQUITETURA: Tentar calcular preço via rate_plans (SQL)
+      let pricing: {
+        pricePerNight: number;
+        baseTotal: number;
+        discount: number;
+        total: number;
+        appliedTier: 'base' | 'weekly' | 'biweekly' | 'monthly';
+      };
+      
+      const ratePlanPrice = await getStayPriceFromRatePlan(client, existing.propertyId, newCheckIn, newCheckOut);
+      
+      if (ratePlanPrice && ratePlanPrice.totalPrice > 0) {
+        console.log('✅ [updateReservation] Usando preço via rate_plan:', ratePlanPrice.totalPrice);
+        pricing = {
+          pricePerNight: ratePlanPrice.averagePerNight,
+          baseTotal: ratePlanPrice.totalPrice,
+          discount: 0,
+          total: ratePlanPrice.totalPrice,
+          appliedTier: 'base'
+        };
+      } else {
+        console.log('⚠️ [updateReservation] Fallback para cálculo legado de preço');
+        pricing = calculateReservationPrice(property, nights);
+      }
       
       updatedPricing = {
         ...existing.pricing,
@@ -1502,6 +1607,10 @@ export async function updateReservation(c: Context) {
     }
 
     // Atualizar reserva
+    // ✅ CORREÇÃO v1.0.103.900: Popular cancelledAt automaticamente quando status='cancelled'
+    const nowIso = getCurrentDateTime();
+    const isCancelling = body.status === 'cancelled' && existing.status !== 'cancelled';
+    
     const updated: Reservation = {
       ...existing,
       ...(body.propertyId && { propertyId: body.propertyId }), // 🎯 v1.0.103.273 - Transferência
@@ -1538,8 +1647,13 @@ export async function updateReservation(c: Context) {
           status: body.paymentStatus,
         },
       }),
+      // ✅ Cancelamento: popular campos automaticamente
+      ...(isCancelling && {
+        cancelledAt: nowIso,
+        cancellationReason: 'Cancelada pelo usuário',
+      }),
       pricing: updatedPricing,
-      updatedAt: getCurrentDateTime(),
+      updatedAt: nowIso,
     };
 
     // ✅ MIGRAÇÃO: Salvar no SQL ao invés de KV Store
@@ -1559,6 +1673,19 @@ export async function updateReservation(c: Context) {
     delete sqlData.created_at;
     delete sqlData.created_by;
     
+    // ✅ DEBUG v1.0.103.901: Log detalhado do payload antes do update
+    console.log('🔍 [updateReservation] DEBUG sqlData:', JSON.stringify({
+      status: sqlData.status,
+      platform: sqlData.platform,
+      payment_status: sqlData.payment_status,
+      cancelled_at: sqlData.cancelled_at,
+      cancelled_by: sqlData.cancelled_by,
+      cancellation_reason: sqlData.cancellation_reason,
+      platform_commission_type: sqlData.platform_commission_type,
+      platform_partner_name: sqlData.platform_partner_name,
+      isCancelling,
+    }));
+    
     // ✅ Fazer UPDATE no SQL (com filtro multi-tenant)
     let updateQuery = client
       .from('reservations')
@@ -1577,8 +1704,19 @@ export async function updateReservation(c: Context) {
       .single();
     
     if (updateError) {
-      console.error('❌ [updateReservation] SQL error updating:', updateError);
-      return c.json(errorResponse('Erro ao atualizar reserva', { details: updateError.message }), 500);
+      console.error('❌ [updateReservation] SQL error updating:', JSON.stringify({
+        message: updateError.message,
+        code: updateError.code,
+        details: updateError.details,
+        hint: updateError.hint,
+        reservationId: id,
+        status: body.status,
+      }));
+      return c.json(errorResponse('Erro ao atualizar reserva', { 
+        details: updateError.message,
+        code: updateError.code,
+        hint: updateError.hint,
+      }), 500);
     }
     
     // ✅ Converter resultado SQL para Reservation (TypeScript)

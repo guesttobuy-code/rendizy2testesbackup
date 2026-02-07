@@ -3466,11 +3466,152 @@ function AIAgentsSettings() {
 }
 
 // ============================================================================
-// CHANNEL MANAGERS SETTINGS COMPONENT (MOCK - OTA)
+// CHANNEL MANAGERS SETTINGS COMPONENT - OTAs via Channex
 // ============================================================================
+
+// Definição das OTAs disponíveis via Channex (ordem de importância comercial)
+const CHANNEX_OTAS = [
+  // Tier 1 - Maior volume global
+  { id: 'channex-booking', name: 'Channex: Booking.com', description: 'Maior OTA global - Volume #1', color: '#003580', letter: 'B', tier: 1, connected: false },
+  { id: 'channex-airbnb', name: 'Channex: Airbnb', description: 'Aluguel por temporada - Volume #2', color: '#FF5A5F', letter: 'A', tier: 1, connected: false },
+  { id: 'channex-expedia', name: 'Channex: Expedia Group', description: 'Expedia, Hotels.com, Trivago', color: '#FFCC00', letter: 'E', tier: 1, connected: false, textDark: true },
+  { id: 'channex-vrbo', name: 'Channex: VRBO', description: 'Vacation Rentals by Owner (Expedia)', color: '#1F4B99', letter: 'V', tier: 1, connected: false },
+  
+  // Tier 2 - Volume alto regional
+  { id: 'channex-agoda', name: 'Channex: Agoda', description: 'Forte na Ásia e Europa', color: '#5D2E8C', letter: 'Ag', tier: 2, connected: false },
+  { id: 'channex-tripadvisor', name: 'Channex: Tripadvisor Rentals', description: 'Tripadvisor/FlipKey rentals', color: '#34E0A1', letter: 'Ta', tier: 2, connected: false },
+  { id: 'channex-trip', name: 'Channex: Trip.com / Ctrip', description: 'Maior OTA chinesa', color: '#287DFA', letter: 'T', tier: 2, connected: false },
+  { id: 'channex-google', name: 'Channex: Google Vacation Rentals', description: 'Google Hotel Ads / VR', color: '#4285F4', letter: 'G', tier: 2, connected: false },
+  
+  // Tier 3 - Nichos importantes
+  { id: 'channex-hostelworld', name: 'Channex: Hostelworld', description: 'Hostels e econômico', color: '#F15C37', letter: 'Hw', tier: 3, connected: false },
+  { id: 'channex-despegar', name: 'Channex: Despegar / Decolar', description: 'Líder América Latina', color: '#7B2D8E', letter: 'D', tier: 3, connected: false },
+  { id: 'channex-hotelbeds', name: 'Channex: Hotelbeds', description: 'B2B Wholesaler global', color: '#E31837', letter: 'Hb', tier: 3, connected: false },
+  { id: 'channex-hrs', name: 'Channex: HRS', description: 'Corporativo Europa', color: '#C4161C', letter: 'HR', tier: 3, connected: false },
+  
+  // Tier 4 - Outros canais
+  { id: 'channex-traveloka', name: 'Channex: Traveloka', description: 'Sudeste Asiático', color: '#0064D2', letter: 'Tk', tier: 4, connected: false },
+  { id: 'channex-tiket', name: 'Channex: Tiket.com', description: 'Indonésia', color: '#0770CD', letter: 'Ti', tier: 4, connected: false },
+  { id: 'channex-makemytrip', name: 'Channex: MakeMyTrip', description: 'Índia', color: '#E8282B', letter: 'MM', tier: 4, connected: false },
+  { id: 'channex-hopper', name: 'Channex: Hopper', description: 'App mobile first', color: '#FF6F3C', letter: 'Hp', tier: 4, connected: false },
+  { id: 'channex-hipcamp', name: 'Channex: Hipcamp', description: 'Camping e outdoor', color: '#2D5016', letter: 'Hc', tier: 4, connected: false },
+];
+
+// Componente de Card OTA individual
+function ChannexOTACard({ ota, onConfigure }: { ota: typeof CHANNEX_OTAS[0], onConfigure: () => void }) {
+  return (
+    <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:border-primary/30 transition-colors">
+      <div className="flex items-center gap-3">
+        <div 
+          className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm"
+          style={{ 
+            backgroundColor: ota.color, 
+            color: ota.textDark ? '#000' : '#fff' 
+          }}
+        >
+          {ota.letter}
+        </div>
+        <div>
+          <p className="font-medium text-sm">{ota.name}</p>
+          <p className="text-xs text-muted-foreground">{ota.description}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {ota.connected ? (
+          <Badge variant="default" className="bg-green-500 text-white text-xs">Conectado</Badge>
+        ) : (
+          <Badge variant="outline" className="text-xs">Não conectado</Badge>
+        )}
+        <Button 
+          variant={ota.connected ? "outline" : "default"} 
+          size="sm"
+          onClick={onConfigure}
+        >
+          {ota.connected ? 'Configurar' : 'Conectar'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Componente de Seção Colapsável
+function CollapsibleSection({ 
+  title, 
+  description, 
+  icon: Icon, 
+  iconColor,
+  children, 
+  count,
+  activeCount,
+  defaultOpen = false 
+}: { 
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  iconColor: string;
+  children: React.ReactNode;
+  count: number;
+  activeCount: number;
+  defaultOpen?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${iconColor}`}>
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+          <div className="text-left">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium">{title}</h4>
+              <Badge variant="secondary" className="text-xs">{count}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {activeCount > 0 && (
+            <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              {activeCount} {activeCount === 1 ? 'ativo' : 'ativos'}
+            </span>
+          )}
+          <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+      {isOpen && (
+        <div className="p-4 pt-0 border-t bg-muted/20">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ChannelManagersSettings() {
   const [activeChannel, setActiveChannel] = useState<string | null>(null);
+  const [connectedOTAs, setConnectedOTAs] = useState<Set<string>>(new Set());
+  
+  // Contagens por tier
+  const tier1OTAs = CHANNEX_OTAS.filter(o => o.tier === 1);
+  const tier2OTAs = CHANNEX_OTAS.filter(o => o.tier === 2);
+  const tier3OTAs = CHANNEX_OTAS.filter(o => o.tier === 3);
+  const tier4OTAs = CHANNEX_OTAS.filter(o => o.tier === 4);
+  
+  const getActiveCount = (otas: typeof CHANNEX_OTAS) => {
+    return otas.filter(o => connectedOTAs.has(o.id)).length;
+  };
+  
+  const handleConnectOTA = (otaId: string) => {
+    setActiveChannel(otaId);
+    // Em produção, isso abriria um modal de configuração
+    toast.info(`Configurando ${otaId}... (Integração Channex pendente)`);
+  };
 
   return (
     <div className="space-y-6">
@@ -3482,8 +3623,7 @@ function ChannelManagersSettings() {
             📺 Channel Managers - Configurações Globais
           </h3>
           <p className="text-muted-foreground text-sm mt-1">
-            Configure as regras PADRÃO para cada canal OTA. Anúncios individuais podem sobrescrever.
-            <span className="text-amber-500 ml-2">⚠️ Tela em validação (Mock)</span>
+            Configure as regras PADRÃO para cada canal OTA via Channex. Anúncios individuais podem sobrescrever.
           </p>
         </div>
         <Button className="bg-blue-600 hover:bg-blue-700">
@@ -3515,438 +3655,145 @@ function ChannelManagersSettings() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Lista de Canais */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-        {/* ========== AIRBNB ========== */}
-        <Card className="border-border hover:border-[#FF5A5F]/50 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#FF5A5F] rounded-lg flex items-center justify-center text-white font-bold">A</div>
-                <div>
-                  <CardTitle className="text-base">⚠️ Airbnb</CardTitle>
-                  <p className="text-xs text-green-500">✅ Conta conectada • OAuth ativo</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveChannel(activeChannel === 'airbnb' ? null : 'airbnb')}>
-                {activeChannel === 'airbnb' ? 'Fechar' : 'Configurar'}
-              </Button>
+      
+      {/* Channex Info Banner */}
+      <Card className="border-purple-200 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-800">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-600 rounded-lg">
+              <Zap className="h-5 w-5 text-white" />
             </div>
-          </CardHeader>
-          {activeChannel === 'airbnb' && (
-            <CardContent className="pt-0 space-y-4 border-t">
-              <div className="pt-4 space-y-4">
-                {/* Financeiro */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <DollarSign className="h-3 w-3" />
-                    ⚠️ Correção de Preço (Markup Global)
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" className="w-24 h-8 text-sm" defaultValue={5} />
-                    <span className="text-sm text-muted-foreground">%</span>
-                    <span className="text-xs text-muted-foreground ml-2">Aplicado a todos os anúncios neste canal</span>
-                  </div>
-                </div>
-
-                {/* Política Cancelamento */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <Ban className="h-3 w-3" />
-                    ⚠️ Política de Cancelamento Padrão
-                  </Label>
-                  <Select defaultValue="moderate">
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="flexible">🟢 Flexível - Cancela até 1 dia antes</SelectItem>
-                      <SelectItem value="moderate">🟡 Moderada - Cancela até 5 dias antes</SelectItem>
-                      <SelectItem value="strict">🔴 Rígida - Cancela até 14 dias antes</SelectItem>
-                      <SelectItem value="non_refundable">⚫ Não reembolsável</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Reserva Instantânea */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <Zap className="h-3 w-3" />
-                    ⚠️ Reserva Instantânea
-                  </Label>
-                  <Select defaultValue="all">
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Sim - Todos os hóspedes</SelectItem>
-                      <SelectItem value="verified">Sim - Apenas verificados</SelectItem>
-                      <SelectItem value="no">Não - Request to Book</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Check-in Flexível */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <Clock className="h-3 w-3" />
-                    ⚠️ Check-in Flexível
-                  </Label>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-xs">
-                      <Switch defaultChecked /> Horário início flexível
-                    </label>
-                    <label className="flex items-center gap-2 text-xs">
-                      <Switch /> Horário fim flexível (24h)
-                    </label>
-                  </div>
-                </div>
-
-                {/* Sincronização */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <RefreshCw className="h-3 w-3" />
-                    ⚠️ O que sincronizar automaticamente?
-                  </Label>
-                  <div className="flex flex-wrap gap-3">
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Fotos</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Descrições</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Amenidades</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Preços</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Caução</label>
-                  </div>
-                </div>
-
-                {/* Instruções Checkout */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ Tags de Checkout (Airbnb)</Label>
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant="secondary" className="cursor-pointer">✓ Devolver chaves</Badge>
-                    <Badge variant="secondary" className="cursor-pointer">✓ Desligar tudo</Badge>
-                    <Badge variant="outline" className="cursor-pointer opacity-50">Tirar lixo</Badge>
-                    <Badge variant="secondary" className="cursor-pointer">✓ Trancar portas</Badge>
-                    <Badge variant="outline" className="cursor-pointer opacity-50">Recolher toalhas</Badge>
-                  </div>
-                </div>
-
-                <div className="pt-2 text-xs text-muted-foreground border-t">
-                  <p>✅ Permite override individual: Sim • Última sync: há 5 min</p>
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
-        {/* ========== BOOKING.COM ========== */}
-        <Card className="border-border hover:border-[#003580]/50 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#003580] rounded-lg flex items-center justify-center text-white font-bold">B</div>
-                <div>
-                  <CardTitle className="text-base">⚠️ Booking.com</CardTitle>
-                  <p className="text-xs text-green-500">✅ Conectado via Stays.net</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveChannel(activeChannel === 'booking' ? null : 'booking')}>
-                {activeChannel === 'booking' ? 'Fechar' : 'Configurar'}
-              </Button>
+            <div>
+              <h5 className="font-medium text-sm text-foreground">🔗 Todas as OTAs via Channex</h5>
+              <p className="text-xs text-muted-foreground">
+                Uma única integração para gerenciar {CHANNEX_OTAS.length}+ canais de distribuição. 
+                Booking.com, Airbnb, Expedia, VRBO e mais conectados em um só lugar.
+              </p>
             </div>
-          </CardHeader>
-          {activeChannel === 'booking' && (
-            <CardContent className="pt-0 space-y-4 border-t">
-              <div className="pt-4 space-y-4">
-                {/* Financeiro */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <DollarSign className="h-3 w-3" />
-                    ⚠️ Correção de Preço
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" className="w-24 h-8 text-sm" defaultValue={-4} />
-                    <span className="text-sm text-muted-foreground">%</span>
-                    <span className="text-xs text-muted-foreground ml-2">(Negativo = desconto)</span>
-                  </div>
-                </div>
+            <Button variant="outline" size="sm" className="ml-auto">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Acessar Channex
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-                {/* Política Cancelamento com Mapeamento */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <Ban className="h-3 w-3" />
-                    ⚠️ Mapeamento de Políticas de Cancelamento
-                  </Label>
-                  <div className="space-y-2 p-3 bg-muted/30 rounded-lg text-xs">
-                    <div className="flex items-center justify-between">
-                      <span>Política Rendizy: <strong>Padrão (Flexível)</strong></span>
-                      <span>→</span>
-                      <Select defaultValue="flex">
-                        <SelectTrigger className="w-40 h-7 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="flex">Cancela 1 dia antes</SelectItem>
-                          <SelectItem value="early">Cancela 21 dias antes</SelectItem>
-                          <SelectItem value="free">Cancela qualquer momento</SelectItem>
-                          <SelectItem value="non">Não reembolsável</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Política Rendizy: <strong>Rígida</strong></span>
-                      <span>→</span>
-                      <Select defaultValue="early">
-                        <SelectTrigger className="w-40 h-7 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="flex">Cancela 1 dia antes</SelectItem>
-                          <SelectItem value="early">Cancela 21 dias antes</SelectItem>
-                          <SelectItem value="free">Cancela qualquer momento</SelectItem>
-                          <SelectItem value="non">Não reembolsável</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Garantia Pagamento */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <DollarSign className="h-3 w-3" />
-                    ⚠️ Exigir Garantia de Pagamento?
-                  </Label>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="radio" name="booking-garantia" defaultChecked /> Sim
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="radio" name="booking-garantia" /> Não
-                    </label>
-                  </div>
-                </div>
-
-                {/* No-Show */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <Ban className="h-3 w-3" />
-                    ⚠️ Regras de No-Show
-                  </Label>
-                  <Select defaultValue="first">
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">Padrão do Booking</SelectItem>
-                      <SelectItem value="first">Cobrar 1ª noite</SelectItem>
-                      <SelectItem value="total">Cobrar valor total</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Método Check-in */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <Home className="h-3 w-3" />
-                    ⚠️ Método de Check-in Padrão
-                  </Label>
-                  <Select defaultValue="lockbox">
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="reception">🏨 Recepção/Portaria</SelectItem>
-                      <SelectItem value="lockbox">🔐 Lockbox - Cofre com senha</SelectItem>
-                      <SelectItem value="smart">📱 Fechadura digital</SelectItem>
-                      <SelectItem value="handoff">🤝 Entrega pessoal</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Sincronização */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-2">
-                    <RefreshCw className="h-3 w-3" />
-                    ⚠️ O que sincronizar automaticamente?
-                  </Label>
-                  <div className="flex flex-wrap gap-3">
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Fotos</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Conteúdo</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Amenidades quartos</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Políticas/Taxas</label>
-                  </div>
-                </div>
-
-                <div className="pt-2 text-xs text-muted-foreground border-t">
-                  <p>✅ Permite override individual: Sim • Última sync: há 3 min</p>
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
-        {/* ========== EXPEDIA ========== */}
-        <Card className="border-border hover:border-[#FFCC00]/50 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+      {/* Seções de OTAs Colapsáveis */}
+      <div className="space-y-3">
+        
+        {/* Tier 1 - OTAs Principais (Maior Volume) */}
+        <CollapsibleSection
+          title="🏆 OTAs Principais (Tier 1)"
+          description="Maior volume de reservas - Booking, Airbnb, Expedia, VRBO"
+          icon={Globe}
+          iconColor="bg-blue-600"
+          count={tier1OTAs.length}
+          activeCount={getActiveCount(tier1OTAs)}
+          defaultOpen={true}
+        >
+          <div className="space-y-2 pt-4">
+            {tier1OTAs.map(ota => (
+              <ChannexOTACard 
+                key={ota.id} 
+                ota={ota} 
+                onConfigure={() => handleConnectOTA(ota.id)} 
+              />
+            ))}
+          </div>
+        </CollapsibleSection>
+        
+        {/* Tier 2 - OTAs Regionais */}
+        <CollapsibleSection
+          title="🌍 OTAs Regionais (Tier 2)"
+          description="Alto volume em regiões específicas - Agoda, Trip.com, Google VR"
+          icon={Building2}
+          iconColor="bg-purple-600"
+          count={tier2OTAs.length}
+          activeCount={getActiveCount(tier2OTAs)}
+          defaultOpen={false}
+        >
+          <div className="space-y-2 pt-4">
+            {tier2OTAs.map(ota => (
+              <ChannexOTACard 
+                key={ota.id} 
+                ota={ota} 
+                onConfigure={() => handleConnectOTA(ota.id)} 
+              />
+            ))}
+          </div>
+        </CollapsibleSection>
+        
+        {/* Tier 3 - Nichos */}
+        <CollapsibleSection
+          title="🎯 OTAs de Nicho (Tier 3)"
+          description="Segmentos específicos - Hostelworld, Despegar, Hotelbeds"
+          icon={Hotel}
+          iconColor="bg-orange-600"
+          count={tier3OTAs.length}
+          activeCount={getActiveCount(tier3OTAs)}
+          defaultOpen={false}
+        >
+          <div className="space-y-2 pt-4">
+            {tier3OTAs.map(ota => (
+              <ChannexOTACard 
+                key={ota.id} 
+                ota={ota} 
+                onConfigure={() => handleConnectOTA(ota.id)} 
+              />
+            ))}
+          </div>
+        </CollapsibleSection>
+        
+        {/* Tier 4 - Outros Canais */}
+        <CollapsibleSection
+          title="📡 Outros Canais (Tier 4)"
+          description="Canais adicionais disponíveis via Channex"
+          icon={Radio}
+          iconColor="bg-gray-600"
+          count={tier4OTAs.length}
+          activeCount={getActiveCount(tier4OTAs)}
+          defaultOpen={false}
+        >
+          <div className="space-y-2 pt-4">
+            {tier4OTAs.map(ota => (
+              <ChannexOTACard 
+                key={ota.id} 
+                ota={ota} 
+                onConfigure={() => handleConnectOTA(ota.id)} 
+              />
+            ))}
+          </div>
+        </CollapsibleSection>
+        
+        {/* Booking Engine Próprio (Sem Channex) */}
+        <CollapsibleSection
+          title="🌐 Reserva Direta"
+          description="Seu próprio site/booking engine - Sem comissão OTA"
+          icon={Home}
+          iconColor="bg-green-600"
+          count={1}
+          activeCount={1}
+          defaultOpen={false}
+        >
+          <div className="space-y-2 pt-4">
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card border-green-500/30">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#FFCC00] rounded-lg flex items-center justify-center text-black font-bold">E</div>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold bg-green-600 text-white">
+                  S
+                </div>
                 <div>
-                  <CardTitle className="text-base">⚠️ Expedia Group</CardTitle>
-                  <p className="text-xs text-green-500">✅ Conectado • API Rapid</p>
+                  <p className="font-medium text-sm">Site Próprio (Booking Engine)</p>
+                  <p className="text-xs text-muted-foreground">Reservas diretas sem comissão de OTA</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveChannel(activeChannel === 'expedia' ? null : 'expedia')}>
-                {activeChannel === 'expedia' ? 'Fechar' : 'Configurar'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="bg-green-500 text-white text-xs">Ativo</Badge>
+                <Button variant="outline" size="sm">Configurar</Button>
+              </div>
             </div>
-          </CardHeader>
-          {activeChannel === 'expedia' && (
-            <CardContent className="pt-0 space-y-4 border-t">
-              <div className="pt-4 space-y-4">
-                {/* Canais Ativos */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ Canais Expedia Ativos</Label>
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2 text-xs"><Switch defaultChecked /> Expedia.com</label>
-                    <label className="flex items-center gap-2 text-xs"><Switch defaultChecked /> Hotels.com</label>
-                    <label className="flex items-center gap-2 text-xs"><Switch /> VRBO</label>
-                    <label className="flex items-center gap-2 text-xs"><Switch /> Trivago</label>
-                  </div>
-                </div>
-
-                {/* Correção Preço */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ Correção de Preço</Label>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" className="w-24 h-8 text-sm" defaultValue={3} />
-                    <span className="text-sm text-muted-foreground">%</span>
-                  </div>
-                </div>
-
-                {/* Modelo Pagamento */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ Modelo de Pagamento</Label>
-                  <Select defaultValue="expedia">
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="expedia">💳 Expedia Collect - Expedia cobra</SelectItem>
-                      <SelectItem value="property">🏨 Property Collect - Você cobra</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Rate Plan */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ Rate Plan Padrão</Label>
-                  <Select defaultValue="standard">
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard - Pague no Hotel</SelectItem>
-                      <SelectItem value="nonref">Non-refundable - Pré-pago</SelectItem>
-                      <SelectItem value="package">Package - Com benefícios</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Sincronização */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ Sincronização</Label>
-                  <div className="flex flex-wrap gap-3">
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Conteúdo</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Fotos</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Preços</label>
-                    <label className="flex items-center gap-1.5 text-xs"><Switch defaultChecked /> Disponibilidade</label>
-                  </div>
-                </div>
-
-                <div className="pt-2 text-xs text-muted-foreground border-t">
-                  <p>✅ Permite override individual: Sim • Última sync: há 10 min</p>
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
-        {/* ========== DECOLAR ========== */}
-        <Card className="border-border opacity-60">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#7B2D8E] rounded-lg flex items-center justify-center text-white font-bold">D</div>
-                <div>
-                  <CardTitle className="text-base">⚠️ Decolar</CardTitle>
-                  <p className="text-xs text-muted-foreground">❌ Não conectado</p>
-                </div>
-              </div>
-              <Button variant="default" size="sm">Conectar</Button>
-            </div>
-          </CardHeader>
-        </Card>
-
-        {/* ========== GOOGLE VR ========== */}
-        <Card className="border-border opacity-60">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#4285F4] rounded-lg flex items-center justify-center text-white font-bold">G</div>
-                <div>
-                  <CardTitle className="text-base">⚠️ Google Vacation Rentals</CardTitle>
-                  <p className="text-xs text-muted-foreground">❌ Não conectado</p>
-                </div>
-              </div>
-              <Button variant="default" size="sm">Conectar</Button>
-            </div>
-          </CardHeader>
-        </Card>
-
-        {/* ========== SITE PRÓPRIO ========== */}
-        <Card className="border-border hover:border-green-500/50 transition-colors">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold">S</div>
-                <div>
-                  <CardTitle className="text-base">⚠️ Site Próprio (Booking Engine)</CardTitle>
-                  <p className="text-xs text-green-500">✅ Ativo</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveChannel(activeChannel === 'site' ? null : 'site')}>
-                {activeChannel === 'site' ? 'Fechar' : 'Configurar'}
-              </Button>
-            </div>
-          </CardHeader>
-          {activeChannel === 'site' && (
-            <CardContent className="pt-0 space-y-4 border-t">
-              <div className="pt-4 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ URL do Booking Engine</Label>
-                  <Input className="h-8 text-sm" defaultValue="https://suacasa.rendizy.com/reservar" readOnly />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ Desconto Site Próprio (vs OTAs)</Label>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" className="w-24 h-8 text-sm" defaultValue={-5} />
-                    <span className="text-sm text-muted-foreground">% (incentiva reservas diretas)</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">⚠️ Formas de Pagamento</Label>
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-2 text-xs"><Switch defaultChecked /> Cartão de Crédito (Stripe)</label>
-                    <label className="flex items-center gap-2 text-xs"><Switch defaultChecked /> PIX</label>
-                    <label className="flex items-center gap-2 text-xs"><Switch /> Boleto</label>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
+          </div>
+        </CollapsibleSection>
+        
       </div>
 
       {/* Mapeamento de Taxas */}
@@ -3954,9 +3801,9 @@ function ChannelManagersSettings() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
-            ⚠️ Mapeamento de Taxas para OTAs
+            Mapeamento de Taxas para OTAs
           </CardTitle>
-          <CardDescription>Relacione suas taxas cadastradas com as taxas de cada canal</CardDescription>
+          <CardDescription>Relacione suas taxas cadastradas com as taxas de cada canal Channex</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -3967,13 +3814,7 @@ function ChannelManagersSettings() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-xs">
-                  <span className="text-muted-foreground">Airbnb:</span> <Badge variant="secondary">CLEANING_FEE</Badge>
-                </div>
-                <div className="text-xs">
-                  <span className="text-muted-foreground">Booking:</span> <Badge variant="secondary">CLEANING</Badge>
-                </div>
-                <div className="text-xs">
-                  <span className="text-muted-foreground">Expedia:</span> <Badge variant="secondary">CleaningFee</Badge>
+                  <span className="text-muted-foreground">Channex:</span> <Badge variant="secondary">CLEANING_FEE</Badge>
                 </div>
               </div>
             </div>
@@ -3984,13 +3825,7 @@ function ChannelManagersSettings() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-xs">
-                  <span className="text-muted-foreground">Airbnb:</span> <Badge variant="secondary">PET_FEE</Badge>
-                </div>
-                <div className="text-xs">
-                  <span className="text-muted-foreground">Booking:</span> <Badge variant="outline">Não suportado</Badge>
-                </div>
-                <div className="text-xs">
-                  <span className="text-muted-foreground">Expedia:</span> <Badge variant="secondary">PetFee</Badge>
+                  <span className="text-muted-foreground">Channex:</span> <Badge variant="secondary">PET_FEE</Badge>
                 </div>
               </div>
             </div>
@@ -4002,13 +3837,13 @@ function ChannelManagersSettings() {
         </CardContent>
       </Card>
 
-      {/* Rodapé */}
-      <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+      {/* Rodapé Channex */}
+      <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
         <div className="flex items-center gap-2 text-sm">
-          <AlertCircle className="h-4 w-4 text-amber-400" />
-          <span className="text-amber-700 dark:text-amber-300">
-            <strong>⚠️ Mock de Validação:</strong> Estes campos serão conectados ao backend após validação da UX.
-            Cada configuração aqui é o PADRÃO GLOBAL da organização.
+          <Zap className="h-4 w-4 text-purple-400" />
+          <span className="text-purple-700 dark:text-purple-300">
+            <strong>Integração Channex:</strong> Todas as OTAs acima são gerenciadas via Channex.io Channel Manager.
+            Uma única API para sincronizar preços, disponibilidade e reservas.
           </span>
         </div>
       </div>

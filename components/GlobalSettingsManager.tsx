@@ -81,9 +81,10 @@ interface GlobalSettings {
   };
   advance_booking: {
     enabled: boolean;
-    min_days_advance: number;
+    min_hours_advance: number;
     max_days_advance: number;
     same_day_booking: boolean;
+    last_minute_cutoff?: string;
   };
   additional_fees: {
     enabled: boolean;
@@ -97,9 +98,16 @@ interface GlobalSettings {
     no_smoking: boolean;
     no_parties: boolean;
     no_pets: boolean;
+    pets_fee?: number;
+    pets_max?: number;
+    quiet_hours_enabled?: boolean;
     quiet_hours_from?: string;
     quiet_hours_to?: string;
     max_guests_strict: boolean;
+    children_allowed?: boolean;
+    children_min_age?: number;
+    infants_allowed?: boolean;
+    events_allowed?: boolean;
   };
   communication: {
     enabled: boolean;
@@ -107,7 +115,8 @@ interface GlobalSettings {
     send_welcome_message: boolean;
     send_checkin_instructions: boolean;
     send_checkout_reminder: boolean;
-    communication_language: 'pt' | 'en' | 'es' | 'auto';
+    send_review_request?: boolean;
+    communication_language: 'pt-BR' | 'pt' | 'en' | 'es' | 'auto';
   };
   created_at: string;
   updated_at: string;
@@ -597,87 +606,910 @@ export function GlobalSettingsManager({ organizationId }: { organizationId: stri
           </Card>
         </TabsContent>
 
-        {/* TAB: DEPÓSITO */}
+        {/* TAB: DEPÓSITO E CAUÇÃO */}
         <TabsContent value="deposit">
           <Card className="bg-[#2a2d3a] border-[#363945]">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Shield className="h-5 w-5 text-green-400" />
-                Depósito de Segurança
+                Garantias e Depósitos
               </CardTitle>
               <CardDescription>
-                Configure caução para proteção do imóvel
+                Configure sinal de reserva (entrada) e caução de segurança
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* SINAL / ENTRADA */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-neutral-200">Sinal de Reserva (Entrada)</h4>
+                <div className="flex items-center justify-between">
+                  <Label className="text-neutral-300">Exigir sinal para confirmar reserva</Label>
+                  <Switch
+                    checked={(settings as any).deposit?.require_deposit ?? true}
+                    onCheckedChange={(checked) =>
+                      updateSection('deposit' as any, {
+                        ...(settings as any).deposit,
+                        require_deposit: checked
+                      })
+                    }
+                  />
+                </div>
+
+                {(settings as any).deposit?.require_deposit && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Porcentagem do sinal (%)</Label>
+                      <Input
+                        type="number"
+                        value={(settings as any).deposit?.deposit_percentage ?? 30}
+                        onChange={(e) =>
+                          updateSection('deposit' as any, {
+                            ...(settings as any).deposit,
+                            deposit_percentage: parseInt(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Prazo para pagar sinal (dias)</Label>
+                      <Input
+                        type="number"
+                        value={(settings as any).deposit?.deposit_due_days ?? 0}
+                        onChange={(e) =>
+                          updateSection('deposit' as any, {
+                            ...(settings as any).deposit,
+                            deposit_due_days: parseInt(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                        placeholder="0 = imediato"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Separator className="bg-[#363945]" />
+
+              {/* CAUÇÃO / DEPÓSITO DE SEGURANÇA */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-neutral-200">Caução de Segurança</h4>
+                <div className="flex items-center justify-between">
+                  <Label className="text-neutral-300">Exigir caução para proteção do imóvel</Label>
+                  <Switch
+                    checked={settings.security_deposit?.enabled ?? true}
+                    onCheckedChange={(checked) =>
+                      updateSection('security_deposit', {
+                        ...settings.security_deposit,
+                        enabled: checked
+                      })
+                    }
+                  />
+                </div>
+
+                {settings.security_deposit?.enabled && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-neutral-300">Valor da Caução (R$)</Label>
+                        <Input
+                          type="number"
+                          value={settings.security_deposit?.amount ?? 500}
+                          onChange={(e) =>
+                            updateSection('security_deposit', {
+                              ...settings.security_deposit,
+                              amount: parseFloat(e.target.value)
+                            })
+                          }
+                          className="bg-[#1e2029] border-[#363945] text-white"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-neutral-300">Devolver após checkout (dias)</Label>
+                        <Input
+                          type="number"
+                          value={settings.security_deposit?.refund_days_after_checkout ?? 7}
+                          onChange={(e) =>
+                            updateSection('security_deposit', {
+                              ...settings.security_deposit,
+                              refund_days_after_checkout: parseInt(e.target.value)
+                            })
+                          }
+                          className="bg-[#1e2029] border-[#363945] text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label className="text-neutral-300">Obrigatório para todas as reservas</Label>
+                      <Switch
+                        checked={settings.security_deposit?.required_for_all ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('security_deposit', {
+                            ...settings.security_deposit,
+                            required_for_all: checked
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Forma de Pagamento</Label>
+                      <Select
+                        value={settings.security_deposit?.payment_method ?? 'pix'}
+                        onValueChange={(value: any) =>
+                          updateSection('security_deposit', {
+                            ...settings.security_deposit,
+                            payment_method: value
+                          })
+                        }
+                      >
+                        <SelectTrigger className="bg-[#1e2029] border-[#363945] text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#2a2d3a] border-[#363945]">
+                          <SelectItem value="pix">PIX</SelectItem>
+                          <SelectItem value="card">Cartão</SelectItem>
+                          <SelectItem value="cash">Dinheiro</SelectItem>
+                          <SelectItem value="any">Qualquer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: NOITES MÍNIMAS E MÁXIMAS */}
+        <TabsContent value="nights">
+          <Card className="bg-[#2a2d3a] border-[#363945]">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-purple-400" />
+                Restrições de Estadia
+              </CardTitle>
+              <CardDescription>
+                Defina quantidade mínima e máxima de noites por período
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* NOITES MÍNIMAS */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-neutral-200">Noites Mínimas</h4>
+                <div className="flex items-center justify-between">
+                  <Label className="text-neutral-300">Ativar noites mínimas</Label>
+                  <Switch
+                    checked={settings.minimum_nights?.enabled ?? true}
+                    onCheckedChange={(checked) =>
+                      updateSection('minimum_nights', {
+                        ...settings.minimum_nights,
+                        enabled: checked
+                      })
+                    }
+                  />
+                </div>
+
+                {settings.minimum_nights?.enabled && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Mínimo de noites padrão</Label>
+                      <Input
+                        type="number"
+                        value={settings.minimum_nights?.default_min_nights ?? 1}
+                        onChange={(e) =>
+                          updateSection('minimum_nights', {
+                            ...settings.minimum_nights,
+                            default_min_nights: parseInt(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-neutral-300">Fins de semana</Label>
+                        <Input
+                          type="number"
+                          value={settings.minimum_nights?.weekend_min_nights || ''}
+                          onChange={(e) =>
+                            updateSection('minimum_nights', {
+                              ...settings.minimum_nights,
+                              weekend_min_nights: parseInt(e.target.value) || undefined
+                            })
+                          }
+                          className="bg-[#1e2029] border-[#363945] text-white"
+                          placeholder="Opcional"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-neutral-300">Feriados</Label>
+                        <Input
+                          type="number"
+                          value={settings.minimum_nights?.holiday_min_nights || ''}
+                          onChange={(e) =>
+                            updateSection('minimum_nights', {
+                              ...settings.minimum_nights,
+                              holiday_min_nights: parseInt(e.target.value) || undefined
+                            })
+                          }
+                          className="bg-[#1e2029] border-[#363945] text-white"
+                          placeholder="Opcional"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-neutral-300">Alta temporada</Label>
+                        <Input
+                          type="number"
+                          value={settings.minimum_nights?.high_season_min_nights || ''}
+                          onChange={(e) =>
+                            updateSection('minimum_nights', {
+                              ...settings.minimum_nights,
+                              high_season_min_nights: parseInt(e.target.value) || undefined
+                            })
+                          }
+                          className="bg-[#1e2029] border-[#363945] text-white"
+                          placeholder="Opcional"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <Separator className="bg-[#363945]" />
+
+              {/* NOITES MÁXIMAS */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-neutral-200">Noites Máximas</h4>
+                <div className="flex items-center justify-between">
+                  <Label className="text-neutral-300">Limitar estadia máxima</Label>
+                  <Switch
+                    checked={(settings as any).maximum_nights?.enabled ?? false}
+                    onCheckedChange={(checked) =>
+                      updateSection('maximum_nights' as any, {
+                        ...(settings as any).maximum_nights,
+                        enabled: checked
+                      })
+                    }
+                  />
+                </div>
+
+                {(settings as any).maximum_nights?.enabled && (
+                  <div className="space-y-2">
+                    <Label className="text-neutral-300">Máximo de noites por reserva</Label>
+                    <Input
+                      type="number"
+                      value={(settings as any).maximum_nights?.default_max_nights ?? 30}
+                      onChange={(e) =>
+                        updateSection('maximum_nights' as any, {
+                          ...(settings as any).maximum_nights,
+                          default_max_nights: parseInt(e.target.value)
+                        })
+                      }
+                      className="bg-[#1e2029] border-[#363945] text-white"
+                    />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Outras tabs seriam implementadas de forma similar... */}
+        {/* Por brevidade, mostrando apenas as principais */}
+
+        {/* TAB: ANTECEDÊNCIA */}
+        <TabsContent value="advance">
+          <Card className="bg-[#2a2d3a] border-[#363945]">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-orange-400" />
+                Antecedência de Reserva
+              </CardTitle>
+              <CardDescription>
+                Defina com quanto tempo de antecedência as reservas podem ser feitas
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
-                <Label className="text-neutral-300">Exigir depósito de segurança</Label>
+                <Label className="text-neutral-300">Ativar regras de antecedência</Label>
                 <Switch
-                  checked={settings.security_deposit.enabled}
+                  checked={settings.advance_booking?.enabled ?? true}
                   onCheckedChange={(checked) =>
-                    updateSection('security_deposit', {
-                      ...settings.security_deposit,
+                    updateSection('advance_booking', {
+                      ...settings.advance_booking,
                       enabled: checked
                     })
                   }
                 />
               </div>
 
-              {settings.security_deposit.enabled && (
+              {settings.advance_booking?.enabled && (
                 <>
                   <Separator className="bg-[#363945]" />
 
-                  <div className="space-y-2">
-                    <Label className="text-neutral-300">Valor do Depósito (R$)</Label>
-                    <Input
-                      type="number"
-                      value={settings.security_deposit.amount}
-                      onChange={(e) =>
-                        updateSection('security_deposit', {
-                          ...settings.security_deposit,
-                          amount: parseFloat(e.target.value)
-                        })
-                      }
-                      className="bg-[#1e2029] border-[#363945] text-white"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Mínimo de horas de antecedência</Label>
+                      <Input
+                        type="number"
+                        value={settings.advance_booking?.min_hours_advance ?? 24}
+                        onChange={(e) =>
+                          updateSection('advance_booking', {
+                            ...settings.advance_booking,
+                            min_hours_advance: parseInt(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Máximo de dias de antecedência</Label>
+                      <Input
+                        type="number"
+                        value={settings.advance_booking?.max_days_advance ?? 365}
+                        onChange={(e) =>
+                          updateSection('advance_booking', {
+                            ...settings.advance_booking,
+                            max_days_advance: parseInt(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <Label className="text-neutral-300">Obrigatório para todas as reservas</Label>
+                    <Label className="text-neutral-300">Permitir reserva no mesmo dia</Label>
                     <Switch
-                      checked={settings.security_deposit.required_for_all}
+                      checked={settings.advance_booking?.same_day_booking ?? false}
                       onCheckedChange={(checked) =>
-                        updateSection('security_deposit', {
-                          ...settings.security_deposit,
-                          required_for_all: checked
+                        updateSection('advance_booking', {
+                          ...settings.advance_booking,
+                          same_day_booking: checked
                         })
                       }
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-neutral-300">Devolver depósito após (dias)</Label>
+                    <Label className="text-neutral-300">Horário limite para reserva no mesmo dia</Label>
                     <Input
-                      type="number"
-                      value={settings.security_deposit.refund_days_after_checkout}
+                      type="time"
+                      value={settings.advance_booking?.last_minute_cutoff ?? '14:00'}
                       onChange={(e) =>
-                        updateSection('security_deposit', {
-                          ...settings.security_deposit,
-                          refund_days_after_checkout: parseInt(e.target.value)
+                        updateSection('advance_booking', {
+                          ...settings.advance_booking,
+                          last_minute_cutoff: e.target.value
                         })
                       }
                       className="bg-[#1e2029] border-[#363945] text-white"
                     />
                   </div>
+                </>
+              )}
+
+              <Separator className="bg-[#363945]" />
+
+              {/* TEMPO DE PREPARAÇÃO (TURNAROUND) */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-neutral-200">Tempo de Preparação (Limpeza)</h4>
+                <div className="flex items-center justify-between">
+                  <Label className="text-neutral-300">Bloquear dias para preparação</Label>
+                  <Switch
+                    checked={(settings as any).preparation_time?.enabled ?? true}
+                    onCheckedChange={(checked) =>
+                      updateSection('preparation_time' as any, {
+                        ...(settings as any).preparation_time,
+                        enabled: checked
+                      })
+                    }
+                  />
+                </div>
+
+                {(settings as any).preparation_time?.enabled && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Dias bloqueados antes do check-in</Label>
+                      <Input
+                        type="number"
+                        value={(settings as any).preparation_time?.days_before ?? 0}
+                        onChange={(e) =>
+                          updateSection('preparation_time' as any, {
+                            ...(settings as any).preparation_time,
+                            days_before: parseInt(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Dias bloqueados após checkout (limpeza)</Label>
+                      <Input
+                        type="number"
+                        value={(settings as any).preparation_time?.days_after ?? 1}
+                        onChange={(e) =>
+                          updateSection('preparation_time' as any, {
+                            ...(settings as any).preparation_time,
+                            days_after: parseInt(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Separator className="bg-[#363945]" />
+
+              {/* RESERVA INSTANTÂNEA */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-neutral-200">Reserva Instantânea</h4>
+                <div className="flex items-center justify-between">
+                  <Label className="text-neutral-300">Aceitar reservas automaticamente</Label>
+                  <Switch
+                    checked={(settings as any).instant_booking?.enabled ?? true}
+                    onCheckedChange={(checked) =>
+                      updateSection('instant_booking' as any, {
+                        ...(settings as any).instant_booking,
+                        enabled: checked
+                      })
+                    }
+                  />
+                </div>
+
+                {(settings as any).instant_booking?.enabled && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Exigir verificação do hóspede</Label>
+                      <Switch
+                        checked={(settings as any).instant_booking?.require_guest_verification ?? false}
+                        onCheckedChange={(checked) =>
+                          updateSection('instant_booking' as any, {
+                            ...(settings as any).instant_booking,
+                            require_guest_verification: checked
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Apenas hóspedes com avaliações positivas</Label>
+                      <Switch
+                        checked={(settings as any).instant_booking?.require_positive_reviews ?? false}
+                        onCheckedChange={(checked) =>
+                          updateSection('instant_booking' as any, {
+                            ...(settings as any).instant_booking,
+                            require_positive_reviews: checked
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: TAXAS */}
+        <TabsContent value="fees">
+          <Card className="bg-[#2a2d3a] border-[#363945]">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-emerald-400" />
+                Taxas Adicionais
+              </CardTitle>
+              <CardDescription>
+                Configure taxas de limpeza, serviço e plataforma
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <Label className="text-neutral-300">Ativar taxas adicionais</Label>
+                <Switch
+                  checked={settings.additional_fees?.enabled ?? true}
+                  onCheckedChange={(checked) =>
+                    updateSection('additional_fees', {
+                      ...settings.additional_fees,
+                      enabled: checked
+                    })
+                  }
+                />
+              </div>
+
+              {settings.additional_fees?.enabled && (
+                <>
+                  <Separator className="bg-[#363945]" />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Taxa de limpeza (R$)</Label>
+                      <Input
+                        type="number"
+                        value={settings.additional_fees?.cleaning_fee ?? 0}
+                        onChange={(e) =>
+                          updateSection('additional_fees', {
+                            ...settings.additional_fees,
+                            cleaning_fee: parseFloat(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-neutral-300">Taxa de serviço (%)</Label>
+                      <Input
+                        type="number"
+                        value={settings.additional_fees?.service_fee_percentage ?? 0}
+                        onChange={(e) =>
+                          updateSection('additional_fees', {
+                            ...settings.additional_fees,
+                            service_fee_percentage: parseFloat(e.target.value)
+                          })
+                        }
+                        className="bg-[#1e2029] border-[#363945] text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label className="text-neutral-300">Taxa de limpeza é repassada ao hóspede</Label>
+                    <Switch
+                      checked={settings.additional_fees?.cleaning_fee_is_passthrough ?? false}
+                      onCheckedChange={(checked) =>
+                        updateSection('additional_fees', {
+                          ...settings.additional_fees,
+                          cleaning_fee_is_passthrough: checked
+                        })
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
+              <Separator className="bg-[#363945]" />
+
+              {/* TAXAS ESPECIAIS - EARLY CHECK-IN / LATE CHECKOUT */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-neutral-200">Taxas por Horário Especial</h4>
+                <div className="flex items-center justify-between">
+                  <Label className="text-neutral-300">Oferecer early check-in / late checkout</Label>
+                  <Switch
+                    checked={(settings as any).special_fees?.enabled ?? false}
+                    onCheckedChange={(checked) =>
+                      updateSection('special_fees' as any, {
+                        ...(settings as any).special_fees,
+                        enabled: checked
+                      })
+                    }
+                  />
+                </div>
+
+                {(settings as any).special_fees?.enabled && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-[#1e2029] rounded-lg space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-neutral-300 font-medium">Early Check-in</Label>
+                          <Switch
+                            checked={(settings as any).special_fees?.early_checkin_enabled ?? false}
+                            onCheckedChange={(checked) =>
+                              updateSection('special_fees' as any, {
+                                ...(settings as any).special_fees,
+                                early_checkin_enabled: checked
+                              })
+                            }
+                          />
+                        </div>
+                        {(settings as any).special_fees?.early_checkin_enabled && (
+                          <div className="space-y-2">
+                            <Label className="text-neutral-400 text-xs">Taxa (R$)</Label>
+                            <Input
+                              type="number"
+                              value={(settings as any).special_fees?.early_checkin_value ?? 50}
+                              onChange={(e) =>
+                                updateSection('special_fees' as any, {
+                                  ...(settings as any).special_fees,
+                                  early_checkin_value: parseFloat(e.target.value)
+                                })
+                              }
+                              className="bg-[#2a2d3a] border-[#363945] text-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 bg-[#1e2029] rounded-lg space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-neutral-300 font-medium">Late Checkout</Label>
+                          <Switch
+                            checked={(settings as any).special_fees?.late_checkout_enabled ?? false}
+                            onCheckedChange={(checked) =>
+                              updateSection('special_fees' as any, {
+                                ...(settings as any).special_fees,
+                                late_checkout_enabled: checked
+                              })
+                            }
+                          />
+                        </div>
+                        {(settings as any).special_fees?.late_checkout_enabled && (
+                          <div className="space-y-2">
+                            <Label className="text-neutral-400 text-xs">Taxa (R$)</Label>
+                            <Input
+                              type="number"
+                              value={(settings as any).special_fees?.late_checkout_value ?? 50}
+                              onChange={(e) =>
+                                updateSection('special_fees' as any, {
+                                  ...(settings as any).special_fees,
+                                  late_checkout_value: parseFloat(e.target.value)
+                                })
+                              }
+                              className="bg-[#2a2d3a] border-[#363945] text-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: REGRAS */}
+        <TabsContent value="rules">
+          <Card className="bg-[#2a2d3a] border-[#363945]">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Home className="h-5 w-5 text-amber-400" />
+                Regras da Casa
+              </CardTitle>
+              <CardDescription>
+                Configure políticas sobre pets, fumo, festas e horários
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <Label className="text-neutral-300">Ativar regras da casa</Label>
+                <Switch
+                  checked={settings.house_rules?.enabled ?? true}
+                  onCheckedChange={(checked) =>
+                    updateSection('house_rules', {
+                      ...settings.house_rules,
+                      enabled: checked
+                    })
+                  }
+                />
+              </div>
+
+              {settings.house_rules?.enabled && (
+                <>
+                  <Separator className="bg-[#363945]" />
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Proibido fumar</Label>
+                      <Switch
+                        checked={settings.house_rules?.no_smoking ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('house_rules', {
+                            ...settings.house_rules,
+                            no_smoking: checked
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Proibido festas</Label>
+                      <Switch
+                        checked={settings.house_rules?.no_parties ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('house_rules', {
+                            ...settings.house_rules,
+                            no_parties: checked
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Não aceita pets</Label>
+                      <Switch
+                        checked={settings.house_rules?.no_pets ?? false}
+                        onCheckedChange={(checked) =>
+                          updateSection('house_rules', {
+                            ...settings.house_rules,
+                            no_pets: checked
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Aceita crianças</Label>
+                      <Switch
+                        checked={settings.house_rules?.children_allowed ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('house_rules', {
+                            ...settings.house_rules,
+                            children_allowed: checked
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Respeitar max. hóspedes</Label>
+                      <Switch
+                        checked={settings.house_rules?.max_guests_strict ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('house_rules', {
+                            ...settings.house_rules,
+                            max_guests_strict: checked
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label className="text-neutral-300">Horário de silêncio ativo</Label>
+                    <Switch
+                      checked={settings.house_rules?.quiet_hours_enabled ?? false}
+                      onCheckedChange={(checked) =>
+                        updateSection('house_rules', {
+                          ...settings.house_rules,
+                          quiet_hours_enabled: checked
+                        })
+                      }
+                    />
+                  </div>
+
+                  {settings.house_rules?.quiet_hours_enabled && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-neutral-300">Silêncio a partir de</Label>
+                        <Input
+                          type="time"
+                          value={settings.house_rules?.quiet_hours_from ?? '22:00'}
+                          onChange={(e) =>
+                            updateSection('house_rules', {
+                              ...settings.house_rules,
+                              quiet_hours_from: e.target.value
+                            })
+                          }
+                          className="bg-[#1e2029] border-[#363945] text-white"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-neutral-300">Silêncio até</Label>
+                        <Input
+                          type="time"
+                          value={settings.house_rules?.quiet_hours_to ?? '08:00'}
+                          onChange={(e) =>
+                            updateSection('house_rules', {
+                              ...settings.house_rules,
+                              quiet_hours_to: e.target.value
+                            })
+                          }
+                          className="bg-[#1e2029] border-[#363945] text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: COMUNICAÇÃO */}
+        <TabsContent value="communication">
+          <Card className="bg-[#2a2d3a] border-[#363945]">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-blue-400" />
+                Comunicação
+              </CardTitle>
+              <CardDescription>
+                Configure mensagens automáticas e notificações
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <Label className="text-neutral-300">Ativar comunicação automática</Label>
+                <Switch
+                  checked={settings.communication?.enabled ?? true}
+                  onCheckedChange={(checked) =>
+                    updateSection('communication', {
+                      ...settings.communication,
+                      enabled: checked
+                    })
+                  }
+                />
+              </div>
+
+              {settings.communication?.enabled && (
+                <>
+                  <Separator className="bg-[#363945]" />
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Confirmar reservas automaticamente</Label>
+                      <Switch
+                        checked={settings.communication?.auto_confirm_reservations ?? false}
+                        onCheckedChange={(checked) =>
+                          updateSection('communication', {
+                            ...settings.communication,
+                            auto_confirm_reservations: checked
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Enviar mensagem de boas-vindas</Label>
+                      <Switch
+                        checked={settings.communication?.send_welcome_message ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('communication', {
+                            ...settings.communication,
+                            send_welcome_message: checked
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Enviar instruções de check-in</Label>
+                      <Switch
+                        checked={settings.communication?.send_checkin_instructions ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('communication', {
+                            ...settings.communication,
+                            send_checkin_instructions: checked
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Enviar lembrete de checkout</Label>
+                      <Switch
+                        checked={settings.communication?.send_checkout_reminder ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('communication', {
+                            ...settings.communication,
+                            send_checkout_reminder: checked
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-[#1e2029] rounded-lg">
+                      <Label className="text-neutral-300">Pedir avaliação após checkout</Label>
+                      <Switch
+                        checked={settings.communication?.send_review_request ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSection('communication', {
+                            ...settings.communication,
+                            send_review_request: checked
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
 
                   <div className="space-y-2">
-                    <Label className="text-neutral-300">Forma de Pagamento</Label>
+                    <Label className="text-neutral-300">Idioma de comunicação</Label>
                     <Select
-                      value={settings.security_deposit.payment_method}
+                      value={settings.communication?.communication_language ?? 'pt-BR'}
                       onValueChange={(value: any) =>
-                        updateSection('security_deposit', {
-                          ...settings.security_deposit,
-                          payment_method: value
+                        updateSection('communication', {
+                          ...settings.communication,
+                          communication_language: value
                         })
                       }
                     >
@@ -685,10 +1517,10 @@ export function GlobalSettingsManager({ organizationId }: { organizationId: stri
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-[#2a2d3a] border-[#363945]">
-                        <SelectItem value="pix">PIX</SelectItem>
-                        <SelectItem value="card">Cartão</SelectItem>
-                        <SelectItem value="cash">Dinheiro</SelectItem>
-                        <SelectItem value="any">Qualquer</SelectItem>
+                        <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
+                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="es">Español</SelectItem>
+                        <SelectItem value="auto">Automático (idioma do hóspede)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -697,107 +1529,6 @@ export function GlobalSettingsManager({ organizationId }: { organizationId: stri
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* TAB: NOITES MÍNIMAS */}
-        <TabsContent value="nights">
-          <Card className="bg-[#2a2d3a] border-[#363945]">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-purple-400" />
-                Noites Mínimas
-              </CardTitle>
-              <CardDescription>
-                Defina quantidade mínima de noites por período
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Label className="text-neutral-300">Ativar noites mínimas</Label>
-                <Switch
-                  checked={settings.minimum_nights.enabled}
-                  onCheckedChange={(checked) =>
-                    updateSection('minimum_nights', {
-                      ...settings.minimum_nights,
-                      enabled: checked
-                    })
-                  }
-                />
-              </div>
-
-              {settings.minimum_nights.enabled && (
-                <>
-                  <Separator className="bg-[#363945]" />
-
-                  <div className="space-y-2">
-                    <Label className="text-neutral-300">Mínimo de noites padrão</Label>
-                    <Input
-                      type="number"
-                      value={settings.minimum_nights.default_min_nights}
-                      onChange={(e) =>
-                        updateSection('minimum_nights', {
-                          ...settings.minimum_nights,
-                          default_min_nights: parseInt(e.target.value)
-                        })
-                      }
-                      className="bg-[#1e2029] border-[#363945] text-white"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-neutral-300">Fins de semana</Label>
-                      <Input
-                        type="number"
-                        value={settings.minimum_nights.weekend_min_nights || ''}
-                        onChange={(e) =>
-                          updateSection('minimum_nights', {
-                            ...settings.minimum_nights,
-                            weekend_min_nights: parseInt(e.target.value) || undefined
-                          })
-                        }
-                        className="bg-[#1e2029] border-[#363945] text-white"
-                        placeholder="Opcional"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-neutral-300">Feriados</Label>
-                      <Input
-                        type="number"
-                        value={settings.minimum_nights.holiday_min_nights || ''}
-                        onChange={(e) =>
-                          updateSection('minimum_nights', {
-                            ...settings.minimum_nights,
-                            holiday_min_nights: parseInt(e.target.value) || undefined
-                          })
-                        }
-                        className="bg-[#1e2029] border-[#363945] text-white"
-                        placeholder="Opcional"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-neutral-300">Alta temporada</Label>
-                      <Input
-                        type="number"
-                        value={settings.minimum_nights.high_season_min_nights || ''}
-                        onChange={(e) =>
-                          updateSection('minimum_nights', {
-                            ...settings.minimum_nights,
-                            high_season_min_nights: parseInt(e.target.value) || undefined
-                          })
-                        }
-                        className="bg-[#1e2029] border-[#363945] text-white"
-                        placeholder="Opcional"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Outras tabs seriam implementadas de forma similar... */}
-        {/* Por brevidade, mostrando apenas as principais */}
 
       </Tabs>
     </div>

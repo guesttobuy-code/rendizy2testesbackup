@@ -76,15 +76,19 @@ export function reservationToSql(reservation: Reservation, organizationId: strin
     // Status
     status: reservation.status,
     
-    // Plataforma
-    platform: reservation.platform,
+    // Plataforma - ✅ CORREÇÃO v1.0.103.900: Normalizar para valores permitidos pelo CHECK constraint
+    platform: (['airbnb', 'booking', 'decolar', 'direct', 'other'] as const).includes(reservation.platform as any)
+      ? reservation.platform
+      : 'other',
     platform_partner_name: reservation.staysnetPartnerName || null,
     platform_commission_type: reservation.platformCommissionType || null,
     external_id: reservation.externalId || null,
     external_url: reservation.externalUrl || null,
     
-    // Pagamento (flat)
-    payment_status: reservation.payment?.status || 'pending',
+    // Pagamento (flat) - ✅ CORREÇÃO v1.0.103.900: Normalizar payment_status
+    payment_status: (['pending', 'paid', 'partial', 'refunded', 'cancelled'] as const).includes(reservation.payment?.status as any)
+      ? reservation.payment?.status
+      : 'pending',
     payment_method: reservation.payment?.method || null,
     payment_transaction_id: reservation.payment?.transactionId || null,
     payment_paid_at: reservation.payment?.paidAt || null,

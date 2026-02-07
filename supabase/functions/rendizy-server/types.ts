@@ -885,6 +885,9 @@ export interface CreateReservationDTO {
   notes?: string;
   specialRequests?: string;
   externalId?: string;
+  // ✅ Tipo de reserva: 'confirmed' (reserva) ou 'pending' (pré-reserva)
+  // Default: 'confirmed' no backend se não informado
+  status?: 'pending' | 'confirmed';
 }
 
 // Atualizar Reserva

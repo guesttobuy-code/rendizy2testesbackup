@@ -184,6 +184,8 @@ export function CreateReservationWizard({
   const [children, setChildren] = useState(0);
   const [notes, setNotes] = useState('');
   const [creating, setCreating] = useState(false);
+  // ✅ Tipo de reserva: 'confirmed' (reserva) ou 'pending' (pré-reserva)
+  const [reservationType, setReservationType] = useState<'confirmed' | 'pending'>('confirmed');
   
   // Função centralizada para resetar form
   const resetForm = () => {
@@ -195,6 +197,7 @@ export function CreateReservationWizard({
     setShowNewGuestForm(false);
     setNewStartDate(undefined);
     setNewEndDate(undefined);
+    setReservationType('confirmed'); // ✅ Reset para reserva confirmada (default)
   };
   
   // Date editing states
@@ -523,6 +526,7 @@ export function CreateReservationWizard({
         children,
         platform,
         notes,
+        status: reservationType, // ✅ 'confirmed' (reserva) ou 'pending' (pré-reserva)
       };
       
       console.log('📦 [CreateReservationWizard] Dados da reserva:');
@@ -946,6 +950,27 @@ export function CreateReservationWizard({
                     R$ {totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
+              </div>
+
+              {/* Pagamento */}
+              <div className="space-y-3">
+                <Label>Tipo de Reserva</Label>
+                <RadioGroup value={reservationType} onValueChange={(v) => setReservationType(v as 'confirmed' | 'pending')}>
+                  <div className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg">
+                    <RadioGroupItem value="confirmed" id="type-confirmed" />
+                    <Label htmlFor="type-confirmed" className="flex-1 cursor-pointer">
+                      <div className="font-medium">Reserva Confirmada</div>
+                      <div className="text-sm text-gray-600">Reserva definitiva, bloqueia o calendário</div>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg">
+                    <RadioGroupItem value="pending" id="type-pending" />
+                    <Label htmlFor="type-pending" className="flex-1 cursor-pointer">
+                      <div className="font-medium">Pré-Reserva</div>
+                      <div className="text-sm text-gray-600">Aguardando confirmação de pagamento ou aprovação</div>
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
 
               {/* Pagamento */}

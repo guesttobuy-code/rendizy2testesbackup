@@ -69,6 +69,24 @@ export const STAYSNET_WEBHOOK_VERIFY_SIGNATURE = firstDefined(
   "false"
 );
 
+// Channex - Channel Manager API
+export const CHANNEX_API_TOKEN = firstDefined(
+  ["CHANNEX_API_TOKEN", "RENDIZY_CHANNEX_API_TOKEN"],
+  ""
+);
+
+export const CHANNEX_ENVIRONMENT = firstDefined(
+  ["CHANNEX_ENVIRONMENT", "RENDIZY_CHANNEX_ENVIRONMENT"],
+  "staging"
+);
+
+export const CHANNEX_BASE_URL_PROD = "https://app.channex.io/api/v1";
+export const CHANNEX_BASE_URL_STAGING = "https://staging.channex.io/api/v1";
+
+export const CHANNEX_BASE_URL = CHANNEX_ENVIRONMENT === "production" 
+  ? CHANNEX_BASE_URL_PROD 
+  : CHANNEX_BASE_URL_STAGING;
+
 // GitHub Webhook (sites por repositório)
 export const GITHUB_WEBHOOK_SECRET = firstDefined(
   ["GITHUB_WEBHOOK_SECRET", "RENDIZY_GITHUB_WEBHOOK_SECRET"],
@@ -113,3 +131,6 @@ console.log(
   STAYSNET_WEBHOOK_VERIFY_SIGNATURE ? String(STAYSNET_WEBHOOK_VERIFY_SIGNATURE).trim() : "(default)"
 );
 console.log("[utils-env] GITHUB_WEBHOOK_SECRET:", GITHUB_WEBHOOK_SECRET ? "SET" : "NOT SET");
+console.log("[utils-env] CHANNEX_API_TOKEN:", CHANNEX_API_TOKEN ? "SET" : "NOT SET");
+console.log("[utils-env] CHANNEX_ENVIRONMENT:", CHANNEX_ENVIRONMENT);
+console.log("[utils-env] CHANNEX_BASE_URL:", CHANNEX_BASE_URL);

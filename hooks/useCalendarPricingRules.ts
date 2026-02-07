@@ -3,10 +3,21 @@
 // ⚠️ ATENÇÃO: ARQUIVO CRÍTICO DO CALENDÁRIO - LEIA ANTES DE MODIFICAR
 // ============================================================================
 // 
+// 🚨 DEPRECATION NOTICE (2026-02-07):
+// Este hook será substituído por useCalendarAvailability.ts que usa:
+//   - rate_plan_availability (restrições por dia)
+//   - rate_plan_pricing_overrides (ajustes de preço)
+// 
+// MIGRAÇÃO:
+// 1. Set USE_V3_RATE_PLANS = true abaixo para ativar novo sistema
+// 2. Testar calendário, validar comportamento
+// 3. Após validação, remover este arquivo
+//
 // HISTÓRICO DE VERSÕES:
 // - V1 (original): Chamadas síncronas diretas ao Supabase
 // - V2 (2026-01-06): Debouncing + optimistic updates + batch queue
 // - V2.1 (2026-01-06): Suporte a Edge Function calendar-rules-batch
+// - V3 (2026-02-07): Migração para rate_plan_* tables → useCalendarAvailability.ts
 //
 // ARQUITETURA V2.1:
 // ┌─────────────────────────────────────────────────────────────────┐
@@ -38,6 +49,17 @@
 // ============================================================================
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+
+// ============================================================================
+// V3 FEATURE FLAG - ATIVAR NOVO SISTEMA
+// ============================================================================
+// Set para true para usar rate_plan_* tables em vez de calendar_pricing_rules
+// ⚠️ TESTE BEM ANTES DE ATIVAR EM PRODUÇÃO
+const USE_V3_RATE_PLANS = false;
+
+// Re-export do V3 hook para quem quiser usar diretamente
+export { useCalendarAvailability } from './useCalendarAvailability';
+export type { CalendarPricingRule as CalendarPricingRuleV3 } from './useCalendarAvailability';
 
 // ============================================================================
 // CONFIGURAÇÃO DE PERFORMANCE

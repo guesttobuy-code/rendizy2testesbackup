@@ -78,12 +78,15 @@ import * as cronStaysnetRoutes from "./routes-cron-staysnet.ts"; // ✅ CRON: St
 import * as cronReconciliationRoutes from "./routes-cron-reconciliation.ts"; // ✅ CRON: Reconciliação diária de reservas
 import * as authSocialRoutes from "./routes-auth-social.ts"; // ✅ OAuth: Login Google/Apple
 import * as calendarRulesBatchRoutes from "./routes-calendar-rules-batch.ts"; // ✅ Batch rules (migrado ADR)
+import * as calendarAvailabilityBatchRoutes from "./routes-calendar-availability-batch.ts"; // ✅ Batch availability (V3 Rate Plans)
 import { guestAreaApp } from "./routes-guest-area.ts"; // 🏠 CÁPSULA: Área do Hóspede
 import * as automationsRoutes from "./routes-automations.ts"; // ✅ Automações: CRUD
 import * as automationsAiRoutes from "./routes-automations-ai.ts"; // ✅ Automações: AI (linguagem natural)
 import * as automationsTriggerRoutes from "./routes-automations-trigger.ts"; // ✅ Automações: Trigger/Execução
 import aiAgentsApp from "./routes-ai-agents.ts"; // ✅ AI Agents: Scraping automatizado com IA
 import { realEstateRoutes } from "./routes-real-estate.ts"; // 🏗️ REAL ESTATE: Marketplace B2B Imobiliário
+import { registerChannexRoutes } from "./routes-channex.ts"; // 🔗 CHANNEX: Channel Manager OTA Integration
+import { registerChannexSyncRoutes } from "./routes-channex-sync.ts"; // 🔗 CHANNEX: Fase 2 - Sync/Mapping Multi-Account
 
 // ============================================================================
 // 📊 CRM MODULAR (Arquitetura separada por módulo)
@@ -605,6 +608,17 @@ app.route("/realestate", realEstateRoutes);
 app.route("/rendizy-server/realestate", realEstateRoutes);
 
 // ============================================================================
+// 🔗 CHANNEX - Channel Manager OTA Integration
+// ============================================================================
+// Integração com Channex.io para conectar a múltiplas OTAs (Airbnb, Booking, etc.)
+// Rotas: /channex/status, /channex/test-connection, /channex/properties, etc.
+registerChannexRoutes(app);
+registerChannexSyncRoutes(app); // Fase 2: Accounts CRUD, Sync, Mappings, Channels, Listings
+// Alias com prefixo rendizy-server
+app.get("/rendizy-server/channex/status", (c) => app.fetch(new Request(c.req.url.replace('/rendizy-server', ''), c.req.raw)));
+app.post("/rendizy-server/channex/test-connection", (c) => app.fetch(new Request(c.req.url.replace('/rendizy-server', ''), c.req.raw)));
+
+// ============================================================================
 // CHAT / CHANNELS (WhatsApp Evolution + outros canais)
 // ============================================================================
 // Frontend atual usa: /chat/channels/*
@@ -1047,6 +1061,17 @@ app.get("/rendizy-server/calendar-rules/batch", calendarRulesBatchRoutes.calenda
 app.get("/calendar-rules/batch", calendarRulesBatchRoutes.calendarRulesBatchGet);
 app.post("/rendizy-server/calendar-rules/batch", calendarRulesBatchRoutes.calendarRulesBatchPost);
 app.post("/calendar-rules/batch", calendarRulesBatchRoutes.calendarRulesBatchPost);
+
+// ============================================================================
+// CALENDAR AVAILABILITY BATCH (V3 Rate Plans)
+// ============================================================================
+// ⚠️ Nova rota para escrita em rate_plan_availability + rate_plan_pricing_overrides
+// Chamada por useCalendarAvailability.ts (substitui useCalendarPricingRules)
+// @see docs/ADR_RATE_PLANS_CALENDAR_INTEGRATION.md
+app.get("/rendizy-server/calendar-availability/batch", calendarAvailabilityBatchRoutes.calendarAvailabilityBatchGet);
+app.get("/calendar-availability/batch", calendarAvailabilityBatchRoutes.calendarAvailabilityBatchGet);
+app.post("/rendizy-server/calendar-availability/batch", calendarAvailabilityBatchRoutes.calendarAvailabilityBatchPost);
+app.post("/calendar-availability/batch", calendarAvailabilityBatchRoutes.calendarAvailabilityBatchPost);
 
 // ============================================================================
 // AUTOMATIONS - Módulo de Automações com IA
