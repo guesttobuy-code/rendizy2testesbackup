@@ -1,9 +1,9 @@
 # 🚀 ROADMAP: Integração Rendizy ↔ Channex
 
 **Data:** 2026-02-06  
-**Versão:** 3.3  
-**Status:** ✅ Fase 2.5 Concluída — Rate Plans Unificado  
-**Última atualização:** 2026-02-07 03:00
+**Versão:** 3.4  
+**Status:** ✅ Fase 2.5 Concluída — Rate Plans Unificado + Fix Trigger Cancelamento  
+**Última atualização:** 2026-02-06 18:30
 
 ---
 
@@ -1347,6 +1347,17 @@ Semana 1 (CONCLUÍDA)             Semana 2                    Semana 3
     - Nova rota em `routes-calendar-availability-batch.ts`
     - Escreve em `rate_plan_availability` (restrições) + `rate_plan_pricing_overrides` (ajustes %)
     - Rotas registradas: GET/POST `/calendar-availability/batch`
+28. **✅ Concluído:** Fix trigger `log_reservation_changes()` (causava erro 500 no cancelamento)
+    - Migração `2026020708_fix_log_reservation_changes_trigger.sql`
+    - Corrigido mapeamento de colunas: `event_type` → `change_type`, `previous_data` → `old_values`, etc.
+    - **Cancelamento de reservas funcionando** ✅
+29. **✅ Concluído:** Limpeza de migrations lixo
+    - Removidas 6 migrations problemáticas/obsoletas
+    - Migrations restantes: organizadas e funcionais
+30. **✅ Concluído:** Schema dump completo do banco
+    - Arquivo: `supabase/schema_dump_2026_02_06.sql` (753 KB)
+    - Documentação: `docs/database/SCHEMA_REFERENCE_2026_02_06.md`
+    - Total: **203 tabelas** organizadas por domínio
 
 ---
 
